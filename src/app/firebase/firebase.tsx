@@ -5,13 +5,13 @@ import { TelegramService } from '@/lib/telegram';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAvnMk4sKg3litMf82RKARDr7wdSez5gLA",
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "fshop-5177e.firebaseapp.com",
-    databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || "https://fshop-5177e-default-rtdb.firebaseio.com",
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "fshop-5177e",
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "fshop-5177e.appspot.com",
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "550095738800",
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:550095738800:web:24966b9c9a26a124a3e875"
+    apiKey: "AIzaSyAvnMk4sKg3litMf82RKARDr7wdSez5gLA",
+    authDomain: "fshop-5177e.firebaseapp.com",
+    databaseURL: "https://fshop-5177e-default-rtdb.firebaseio.com",
+    projectId: "fshop-5177e",
+    storageBucket: "fshop-5177e.appspot.com",
+    messagingSenderId: "550095738800",
+    appId: "1:550095738800:web:24966b9c9a26a124a3e875"
 };
 
 // Initialize Firebase
