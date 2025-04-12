@@ -1,0 +1,51 @@
+.handsontable thead tr th .relative {
+    background-color: #2563eb;
+    color: #eff6ff;
+}
+
+.handsontable tbody tr th .relative {
+    background-color: #2563eb;
+    color: #eff6ff;
+}
+
+.handsontable thead tr th .relative .colHeader {
+    font-size: 12px;
+}
+
+.handsontable tr.ht__row_even td {
+    font-size: 12px;
+}
+
+.handsontable tr.ht__row_odd td {
+    font-size: 12px;
+}
+
+.ht-theme-main {
+    --ht-font-size: 12px;
+    --ht-cell-vertical-padding: 2px;
+    --ht-cell-horizontal-padding: 4px;
+    --ht-icon-size: 11px;
+    --ht-cell-selection-border-color: green;
+    --ht-cell-selection-background-color: green;
+}
+
+.handsontable td {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.handsontable .htDimmed {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.handsontable th {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

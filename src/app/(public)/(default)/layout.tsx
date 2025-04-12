@@ -1,0 +1,703 @@
+"use client"
+
+import type React from "react"
+
+import { useState, useEffect, useRef } from "react"
+import { AnimatePresence, motion } from "framer-motion"
+import { Trash, ShoppingBag, ShoppingCart, X, Search, DollarSign, Tag, Clock, Plus, Minus } from "lucide-react"
+import getUserInfo from "@/components/userInfo"
+import { ref, onValue, remove, update, get, set, serverTimestamp } from "firebase/database"
+import { message } from "antd"
+import { database } from "@/app/firebase/firebase"
+import Header from "./components/ui/header"
+import Footer from "./components/ui/footer"
+import { toast } from "sonner"
+
+interface CartItem {
+  id: string
+  Anchor1?: string
+  Anchor2?: string
+  BaiViet?: string
+  GiaBanGP?: string
+  GiaBanText?: string
+  GiaBanTextHeader?: string
+  GiaBanTextHome?: string
+  GiaMuaGP?: string
+  GiaMuaText?: string
+  GiaMuaTextHeader?: number
+  GiaMuaTextHome?: number
+  HoaHongGP?: string
+  HoaHongText?: string
+  Index?: string
+  Link1?: string
+  Link2?: string
+  Site?: string
+  Type?: string
+  Status?: string
+}
+
+export default function ClientLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const [musicAudio, setMusicAudio] = useState<HTMLAudioElement | null>(null)
+  const [cartItems, setCartItems] = useState<any[]>([])
+  const [isOpen, setIsOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState("all")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedItems, setSelectedItems] = useState<string[]>([])
+  const [itemQuantities, setItemQuantities] = useState<{ [key: string]: number }>({})
+  const [cartSummary, setCartSummary] = useState({
+    totalItems: 0,
+    totalPrice: 0,
+    byType: {
+      GP: { count: 0, price: 0 },
+      Text: { count: 0, price: 0 },
+      TextHeader: { count: 0, price: 0 },
+      TextHome: { count: 0, price: 0 },
+    },
+  })
+  const cartRef = useRef<HTMLDivElement>(null)
+  const user = getUserInfo()
+  const [isProcessing, setIsProcessing] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+
+    const cartRef = ref(database, `data/${user.id}`)
+
+    const unsubscribe = onValue(cartRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val()
+        let cartArray = []
+
+        // Check if Products array exists directly under user ID
+        if (data.Products && Array.isArray(data.Products)) {
+          cartArray = data.Products.map((product: any, index: any) => ({
+            id: index.toString(),
+            ...product,
+          })).filter((product: any) => product.Status === "Đang xử lý")
+        }
+        // Check if products object exists
+        else if (data.products) {
+          cartArray = Object.entries(data.products)
+            .map(([productId, product]: [string, any]) => ({
+              id: productId,
+              ...product,
+            }))
+            .filter((product: any) => product.Status === "cart")
+        }
+        // Backward compatibility with old structure
+        else {
+          cartArray = Object.entries(data)
+            .filter(
+              ([key, value]: [string, any]) =>
+                key.startsWith("KH") &&
+                value.Products &&
+                Object.values(value.Products).some((p: any) => p.Status === "cart"),
+            )
+            .flatMap(([key, value]: [string, any]) =>
+              Object.entries(value.Products)
+                .map(([productId, product]: [string, any]) => ({
+                  id: productId,
+                  khId: key,
+                  ...product,
+                }))
+                .filter((product: any) => product.Status === "cart"),
+            )
+        }
+
+        setCartItems(cartArray)
+
+        // Initialize quantities for new items
+        const newQuantities = { ...itemQuantities }
+        cartArray.forEach((item: any) => {
+          if (!newQuantities[item.id]) {
+            newQuantities[item.id] = 1
+          }
+        })
+        setItemQuantities(newQuantities)
+
+        // Calculate cart summary
+        const summary: any = {
+          totalItems: cartArray.length,
+          totalPrice: 0,
+          byType: {
+            GP: { count: 0, price: 0 },
+            Text: { count: 0, price: 0 },
+            TextHeader: { count: 0, price: 0 },
+            TextHome: { count: 0, price: 0 },
+          },
+        }
+
+        cartArray.forEach((item: any) => {
+          const type = item.Type || "GP"
+          const price = Number(
+            type === "GP"
+              ? item.GiaBanGP || 0
+              : type === "Text"
+                ? item.GiaBanText || 0
+                : type === "TextHome"
+                  ? item.GiaBanTextHome || 0
+                  : item.GiaBanTextHeader || 0,
+          )
+
+          summary.totalPrice += price
+          summary.byType[type].count += 1
+          summary.byType[type].price += price
+        })
+
+        setCartSummary(summary)
+      } else {
+        setCartItems([])
+        setCartSummary({
+          totalItems: 0,
+          totalPrice: 0,
+          byType: {
+            GP: { count: 0, price: 0 },
+            Text: { count: 0, price: 0 },
+            TextHeader: { count: 0, price: 0 },
+            TextHome: { count: 0, price: 0 },
+          },
+        })
+      }
+    })
+
+    return () => unsubscribe()
+  }, [user])
+
+  const toggleCart = () => setIsOpen(!isOpen)
+
+  const handleDelete = (productId: string) => {
+    if (!user) return
+    // Use the new path structure
+    const itemRef = ref(database, `data/${user.id}/Products/${productId}`)
+    remove(itemRef)
+      .then(() => {
+        setCartItems(cartItems.filter((item: any) => item.id !== productId))
+        message.success("Xóa sản phẩm thành công!")
+      })
+      .catch((error) => {
+        console.error("Lỗi khi xóa từ Firebase:", error)
+        message.error("Lỗi khi xóa sản phẩm. Vui lòng thử lại.")
+      })
+  }
+
+  const handleDeleteSelected = () => {
+    if (!user || selectedItems.length === 0) return
+
+    Promise.all(
+      selectedItems.map((id) => {
+        const itemRef = ref(database, `data/${user.id}/Products/${id}`)
+        return remove(itemRef)
+      }),
+    )
+      .then(() => {
+        message.success(`Đã xóa ${selectedItems.length} sản phẩm thành công!`)
+        setSelectedItems([])
+      })
+      .catch((error) => {
+        console.error("Lỗi khi xóa sản phẩm:", error)
+        message.error("Có lỗi xảy ra khi xóa sản phẩm")
+      })
+  }
+
+  const handleSelectItem = (id: string) => {
+    setSelectedItems((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
+  }
+
+  const handleSelectAll = () => {
+    if (selectedItems.length === filteredCartItems.length) {
+      setSelectedItems([])
+    } else {
+      setSelectedItems(filteredCartItems.map((item) => item.id))
+    }
+  }
+
+  const filteredCartItems = cartItems.filter((item) => {
+    // Filter by tab
+    if (activeTab !== "all" && item.Type !== activeTab) {
+      return false
+    }
+
+    // Filter by search
+    if (searchQuery && !item.Site?.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false
+    }
+
+    return true
+  })
+
+  const getItemPrice = (item: any) => {
+    return Number(
+      item.Type === "GP"
+        ? item.GiaBanGP || 0
+        : item.Type === "Text"
+          ? item.GiaBanText || 0
+          : item.Type === "TextHome"
+            ? item.GiaBanTextHome || 0
+            : item.GiaBanTextHeader || 0,
+    )
+  }
+
+  const subtotal =
+    selectedItems.length > 0
+      ? selectedItems.reduce((acc, id) => {
+        const item: any = cartItems.find((item) => item.id === id)
+        return item ? acc + getItemPrice(item) * (itemQuantities[id] || 1) : acc
+      }, 0)
+      : cartItems.reduce((acc, item) => {
+        return acc + getItemPrice(item) * (itemQuantities[item.id] || 1)
+      }, 0)
+
+  // Scroll to top of cart when tab changes
+  useEffect(() => {
+    if (cartRef.current) {
+      cartRef.current.scrollTop = 0
+    }
+  }, [activeTab])
+
+  // Handle quantity change
+  const handleQuantityChange = (id: string, newQuantity: number) => {
+    if (newQuantity < 1) return
+
+    setItemQuantities((prev) => ({
+      ...prev,
+      [id]: newQuantity,
+    }))
+  }
+
+  // Find the highest ID in an array of objects
+  const findHighestId = (array: any[]) => {
+    if (!array || array.length === 0) return -1
+
+    return array.reduce((maxId, item) => {
+      // Check both id and ProductID fields
+      const itemId =
+        typeof item.id === "number" ? item.id : typeof item.id === "string" ? Number.parseInt(item.id, 10) : -1
+
+      const productId =
+        typeof item.ProductID === "number"
+          ? item.ProductID
+          : typeof item.ProductID === "string"
+            ? Number.parseInt(item.ProductID, 10)
+            : -1
+
+      // Return the highest ID found
+      return Math.max(maxId, itemId, productId)
+    }, -1)
+  }
+
+  // Process checkout with item duplication
+  const processCheckout = async () => {
+    if (!user || cartItems.length === 0) return
+
+    try {
+      setIsProcessing(true)
+
+      // Get user's current balance from Firebase
+      const userBalanceRef = ref(database, `money/${user.username}`)
+      const balanceSnapshot = await get(userBalanceRef)
+
+      let currentBalance = 0
+      if (balanceSnapshot.exists()) {
+        const balanceData = balanceSnapshot.val()
+        currentBalance = typeof balanceData.amount === "number" ? balanceData.amount : 0
+      }
+
+      // Check if balance is sufficient
+      if (currentBalance < subtotal) {
+        message.error(
+          `Số dư không đủ! Số dư hiện tại: ${currentBalance.toLocaleString("vi-VN")} USDT, cần: ${subtotal.toLocaleString("vi-VN")} USDT`,
+        )
+        return
+      }
+
+      // First get existing orders
+      const ordersRef = ref(database, "orders")
+      const ordersSnapshot = await get(ordersRef)
+
+      // Initialize orders array
+      let existingOrders = []
+
+      // If orders exist, get them
+      if (ordersSnapshot.exists()) {
+        const ordersData = ordersSnapshot.val()
+        // Check if it's already an array
+        if (Array.isArray(ordersData)) {
+          existingOrders = ordersData
+        } else {
+          // Convert object to array if needed
+          existingOrders = Object.values(ordersData)
+        }
+      }
+
+      // Prepare new orders to add
+      const newOrders = cartItems.map((item: any, index) => ({
+        ...item,
+        id: existingOrders.length + index,
+        Status: "Đang xử lý"
+      }))
+
+      // Combine existing and new orders
+      const updatedOrders = [...existingOrders, ...newOrders]
+
+      // Set the entire orders array
+      await set(ordersRef, updatedOrders)
+
+      // Deduct the amount from user's balance
+      const newBalance = currentBalance - subtotal
+      await set(userBalanceRef, {
+        amount: newBalance
+      })
+
+      // Delete all items from cart
+      const deletePromises = cartItems.map((item: any) => {
+        const itemRef = ref(database, `data/${user.id}/Products/${item.id}`)
+        return remove(itemRef)
+      })
+
+      await Promise.all(deletePromises)
+
+      message.success("Đơn hàng đã được tạo thành công!")
+      setCartItems([])
+      setIsOpen(false)
+      window.open("/mua-ban", "_blank")
+
+    } catch (error) {
+      console.error("Lỗi khi xử lý đơn hàng:", error)
+      message.error("Có lỗi xảy ra khi xử lý đơn hàng. Vui lòng thử lại.")
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      <Header />
+      <main onClick={() => setIsOpen(false)} className="flex-grow">
+        {children}
+      </main>
+      <Footer border={true} />
+
+      {cartItems.length > 0 && (
+        <button
+          onClick={toggleCart}
+          className="fixed bottom-14 mb-1 right-5 p-3 rounded-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 z-40"
+          aria-label="Mở giỏ hàng"
+        >
+          <div className="relative">
+            <ShoppingCart className="h-5 w-5" />
+            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+              {cartSummary.totalItems}
+            </span>
+          </div>
+        </button>
+      )}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, x: "100%" }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: "100%" }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="fixed inset-y-0 right-0 w-full sm:w-96 bg-gradient-to-br from-indigo-50 via-blue-50 to-white shadow-2xl z-50 flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-indigo-100 bg-white bg-opacity-90 backdrop-blur-sm">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <ShoppingCart className="h-5 w-5 text-indigo-600 mr-2" />
+                  <h2 className="text-xl font-semibold text-indigo-800">Giỏ hàng</h2>
+                  <span className="ml-2 bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                    {cartSummary.totalItems} sản phẩm
+                  </span>
+                </div>
+                <button
+                  onClick={toggleCart}
+                  className="text-indigo-600 hover:text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 rounded-full p-1 transition-colors duration-200"
+                  aria-label="Đóng giỏ hàng"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="mt-3">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Tìm kiếm trong giỏ hàng..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex mt-4 border-b border-indigo-100">
+                <button
+                  onClick={() => setActiveTab("all")}
+                  className={`flex-1 py-2 text-sm font-medium ${activeTab === "all"
+                    ? "text-indigo-600 border-b-2 border-indigo-600"
+                    : "text-gray-500 hover:text-indigo-600"
+                    }`}
+                >
+                  Tất cả ({cartSummary.totalItems})
+                </button>
+                <button
+                  onClick={() => setActiveTab("GP")}
+                  className={`flex-1 py-2 text-sm font-medium ${activeTab === "GP"
+                    ? "text-indigo-600 border-b-2 border-indigo-600"
+                    : "text-gray-500 hover:text-indigo-600"
+                    }`}
+                >
+                  GP ({cartSummary.byType.GP.count})
+                </button>
+                <button
+                  onClick={() => setActiveTab("Text")}
+                  className={`flex-1 py-2 text-sm font-medium ${activeTab === "Text"
+                    ? "text-indigo-600 border-b-2 border-indigo-600"
+                    : "text-gray-500 hover:text-indigo-600"
+                    }`}
+                >
+                  Text ({cartSummary.byType.Text.count})
+                </button>
+                <button
+                  onClick={() => setActiveTab("TextHome")}
+                  className={`flex-1 py-2 text-sm font-medium ${activeTab === "TextHome"
+                    ? "text-indigo-600 border-b-2 border-indigo-600"
+                    : "text-gray-500 hover:text-indigo-600"
+                    }`}
+                >
+                  Home ({cartSummary.byType.TextHome.count})
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-grow p-4 overflow-y-auto" ref={cartRef} style={{ scrollbarWidth: "thin" }}>
+              {filteredCartItems.length > 0 ? (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.length === filteredCartItems.length && filteredCartItems.length > 0}
+                        onChange={handleSelectAll}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <span className="ml-2 text-sm text-gray-600">
+                        {selectedItems.length > 0 ? `Đã chọn ${selectedItems.length} sản phẩm` : "Chọn tất cả"}
+                      </span>
+                    </div>
+
+                    {selectedItems.length > 0 && (
+                      <button
+                        onClick={handleDeleteSelected}
+                        className="text-red-500 hover:text-red-700 text-sm flex items-center"
+                      >
+                        <Trash className="h-4 w-4 mr-1" />
+                        Xóa đã chọn
+                      </button>
+                    )}
+                  </div>
+
+                  <ul className="space-y-3">
+                    {filteredCartItems.map((item: any) => {
+                      const isSelected = selectedItems.includes(item.id)
+                      const price = getItemPrice(item)
+                      const quantity = itemQuantities[item.id] || 1
+                      const totalPrice = price * quantity
+
+                      return (
+                        <li
+                          key={item.id}
+                          className={`rounded-xl flex items-start p-3 transition-all duration-200 ${isSelected
+                            ? "bg-indigo-50 border border-indigo-200"
+                            : "bg-white border border-gray-100 hover:border-indigo-200 hover:shadow-sm"
+                            }`}
+                        >
+                          <div className="flex items-center h-full mr-3">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleSelectItem(item.id)}
+                              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            />
+                          </div>
+
+                          <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center mr-3">
+                            <ShoppingBag className="w-6 h-6 text-white" />
+                          </div>
+
+                          <div className="flex-grow">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h3 className="text-sm font-medium text-gray-900 break-all line-clamp-1">
+                                  {item.Site || item.TenCombo}
+                                </h3>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                  <span className="inline-flex items-center text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+                                    <Tag className="w-3 h-3 mr-1" />
+                                    {item.Type}
+                                  </span>
+                                  <span className="inline-flex items-center text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
+                                    <DollarSign className="w-3 h-3 mr-1" />
+                                    {price.toLocaleString("vi-VI")}
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleDelete(item.id)}
+                                className="text-gray-400 hover:text-red-500 focus:outline-none transition-colors duration-200 ml-2"
+                                aria-label={`Xóa ${item.Type} khỏi giỏ hàng`}
+                              >
+                                <Trash className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            <div className="mt-2 grid grid-cols-2 gap-2">
+                              <select
+                                className="text-xs py-1 px-2 border border-gray-200 rounded bg-gray-50 hover:bg-gray-100 cursor-pointer text-gray-700"
+                                value={item.Type}
+                                onChange={(e) => {
+                                  const newType = e.target.value
+                                  // Update the item in Firebase
+                                  const itemRef = ref(database, `data/${user?.id}/Products/${item.id}`)
+                                  update(itemRef, {
+                                    Type: newType,
+                                  })
+                                }}
+                              >
+                                <option value="GP">Guest Post</option>
+                                <option value="Text">Text Footer</option>
+                                <option value="TextHeader">Text Header</option>
+                                <option value="TextHome">Text Home</option>
+                              </select>
+
+                              <div className="flex items-center border border-gray-200 rounded bg-white">
+                                <button
+                                  className="px-2 py-1 text-gray-500 hover:text-indigo-600 focus:outline-none"
+                                  onClick={() => handleQuantityChange(item.id, Math.max(1, quantity - 1))}
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={quantity}
+                                  onChange={(e) =>
+                                    handleQuantityChange(item.id, Math.max(1, Number.parseInt(e.target.value) || 1))
+                                  }
+                                  className="w-10 text-center text-xs border-0 focus:outline-none focus:ring-0"
+                                />
+                                <button
+                                  className="px-2 py-1 text-gray-500 hover:text-indigo-600 focus:outline-none"
+                                  onClick={() => handleQuantityChange(item.id, quantity + 1)}
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {quantity > 1 && (
+                              <div className="mt-2 text-right text-xs text-indigo-600 font-medium">
+                                Tổng: {totalPrice.toLocaleString("vi-VI")} $
+                              </div>
+                            )}
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6">
+                  <div className="w-20 h-20 rounded-full bg-indigo-100 flex items-center justify-center mb-4">
+                    <ShoppingCart className="w-10 h-10 text-indigo-400" />
+                  </div>
+                  {searchQuery ? (
+                    <>
+                      <p className="text-indigo-600 text-lg font-medium mb-2">Không tìm thấy kết quả</p>
+                      <p className="text-gray-500 text-sm">Không tìm thấy sản phẩm nào phù hợp với "{searchQuery}"</p>
+                      <button
+                        onClick={() => setSearchQuery("")}
+                        className="mt-4 text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                      >
+                        Xóa tìm kiếm
+                      </button>
+                    </>
+                  ) : activeTab !== "all" ? (
+                    <>
+                      <p className="text-indigo-600 text-lg font-medium mb-2">Không có sản phẩm {activeTab}</p>
+                      <p className="text-gray-500 text-sm">Bạn chưa thêm sản phẩm nào loại {activeTab} vào giỏ hàng</p>
+                      <button
+                        onClick={() => setActiveTab("all")}
+                        className="mt-4 text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                      >
+                        Xem tất cả sản phẩm
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-indigo-600 text-lg font-medium mb-2">Giỏ hàng của bạn đang trống</p>
+                      <p className="text-gray-500 text-sm">Hãy thêm sản phẩm vào giỏ hàng để tiếp tục</p>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="px-4 py-4 border-t border-indigo-100 bg-white bg-opacity-90 backdrop-blur-sm">
+              {selectedItems.length > 0 && (
+                <div className="mb-3 p-3 bg-indigo-50 rounded-lg">
+                  <div className="flex justify-between items-center text-sm text-indigo-800">
+                    <span>Đã chọn {selectedItems.length} sản phẩm</span>
+                    <span>{subtotal.toLocaleString("vi-VI")} $</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center mb-3">
+                <div>
+                  <span className="text-gray-600 text-sm">Tổng tiền:</span>
+                  <span className="ml-2 text-lg font-semibold text-indigo-800">
+                    {subtotal.toLocaleString("vi-VI")} $
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500 flex items-center">
+                  <Clock className="w-3 h-3 mr-1" />
+                  <span>Cập nhật theo số lượng</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <button
+                  className="py-2 px-4 border border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-200 text-sm font-medium flex items-center justify-center"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Tiếp tục mua sắm
+                </button>
+                <button
+                  className="py-2 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200 text-sm font-medium flex items-center justify-center shadow-sm hover:shadow"
+                  onClick={processCheckout}
+                >
+                  Thanh toán ngay
+                </button>
+              </div>
+
+              <div className="text-xs text-center text-gray-500">
+                Thanh toán sẽ sử dụng số dư trong tài khoản của bạn
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
