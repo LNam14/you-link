@@ -289,6 +289,20 @@ export default function ClientLayout({
     }, -1)
   }
 
+  // Function to find next available ID
+  const findNextAvailableId = (username: string, orders: any[]): string => {
+    let counter = 1;
+    let proposedId = `${username}-${counter}`;
+
+    // Keep incrementing counter until we find an unused ID
+    while (orders.some(order => order.id === proposedId)) {
+      counter++;
+      proposedId = `${username}-${counter}`;
+    }
+
+    return proposedId;
+  };
+
   // Process checkout with item duplication
   const processCheckout = async () => {
     if (!user || cartItems.length === 0) return
@@ -342,7 +356,7 @@ export default function ClientLayout({
         // Create an array of orders based on quantity
         return Array(quantity).fill(null).map((_, qIndex) => ({
           ...item,
-          id: `${user.username}-${qIndex}`, // Unique ID combining timestamp, user ID, item index and quantity index
+          id: findNextAvailableId(user.username, existingOrders), // Use the new function
           Status: "Đang xử lý",
           quantity: 1, // Each order item has quantity 1
           originalQuantity: quantity, // Store the original quantity for reference

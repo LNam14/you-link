@@ -401,13 +401,10 @@ ChatDialog.displayName = "ChatDialog";
 
 // Add this function near the top of the file with other utility functions
 const generateNextOrderId = (username: string, orders: any[]): string => {
-    // Find all orders for this username
-    const userOrders = orders.filter(order => order.KHMua === username);
-
-    // Extract the highest number used for this username
+    // Find the highest number used across ALL orders
     let maxNumber = 0;
-    userOrders.forEach(order => {
-        if (order.id && order.id.startsWith(username)) {
+    orders.forEach(order => {
+        if (order.id) {
             const parts = order.id.split('-');
             if (parts.length === 2) {
                 const number = parseInt(parts[1]);
@@ -418,8 +415,12 @@ const generateNextOrderId = (username: string, orders: any[]): string => {
         }
     });
 
-    // Return the next ID
-    return `${username}-${maxNumber + 1}`;
+    // If maxNumber is 0 (no existing orders), start from 1
+    // Otherwise use maxNumber + 1
+    const nextNumber = maxNumber === 0 ? 1 : maxNumber + 1;
+
+    // Return the next ID using the global maximum number
+    return `${username}-${nextNumber}`;
 };
 
 // Function to handle pre-order notifications
@@ -735,8 +736,8 @@ const PageBody = ({ supplierName }: PageBodyProps): JSX.Element => {
                 return
             }
 
-            // Check if this is a not indexed item (Index is empty or "No")
-            if (row[20] === "" || row[20] === "No" || row[20] === "Chưa xong") {
+            // Check if this is a not indexed item (Index is empty, "No", "Chưa xong", or "Mất - Index")
+            if (row[20] === "" || row[20] === "No" || row[20] === "Chưa xong" || row[20] === "Mất - Index") {
                 notIndexedRows.push(row)
                 return
             }
@@ -956,7 +957,7 @@ const PageBody = ({ supplierName }: PageBodyProps): JSX.Element => {
             return null // null means no restrictions (except for "Tuần" rows)
         } else if (role === "Khách hàng") {
             // Khách hàng can edit Bài Viết, Link 1, Anchor 1, Link 2, Anchor 2, Loại, Link KQ
-            return [1, 13, 14, 15, 16, 17, 18, 20]
+            return [1, 13, 15, 16, 17, 18, 20]
         } else {
             // NCC can edit Link KQ and Index - also apply this for supplier view
             return [14, 20]
@@ -1465,22 +1466,22 @@ const PageBody = ({ supplierName }: PageBodyProps): JSX.Element => {
 
                             // Check specific permissions for this column
                             let canEditColumn = true
-                            if (role === "Khách hàng") {
-                                if (originalColIndex === 20) {
-                                    canEditColumn = oldValue === "No" && newValue === "Indexed"
-                                } else {
-                                    canEditColumn = [1, 13, 15, 16, 17, 18].includes(originalColIndex)
-                                }
-                            } else if (role === "NCC") {
-                                // NCC can edit Index and LinkKQ without restrictions
-                                canEditColumn = originalColIndex === 20 || originalColIndex === 14
-                            } else if (supplierName) {
-                                if (originalColIndex === 20) {
-                                    canEditColumn = oldValue === "No" && newValue === "Indexed"
-                                } else {
-                                    canEditColumn = originalColIndex === 14
-                                }
-                            }
+                            // if (role === "Khách hàng") {
+                            //     if (originalColIndex === 20) {
+                            //         canEditColumn = oldValue === "No" && newValue === "Indexed"
+                            //     } else {
+                            //         canEditColumn = [1, 13, 15, 16, 17, 18].includes(originalColIndex)
+                            //     }
+                            // } else if (role === "NCC") {
+                            //     // NCC can edit Index and LinkKQ without restrictions
+                            //     canEditColumn = originalColIndex === 20 || originalColIndex === 14
+                            // } else if (supplierName) {
+                            //     if (originalColIndex === 20) {
+                            //         canEditColumn = oldValue === "No" && newValue === "Indexed"
+                            //     } else {
+                            //         canEditColumn = originalColIndex === 14
+                            //     }
+                            // }
 
                             if (!canEditColumn) {
                                 // Revert this specific change
