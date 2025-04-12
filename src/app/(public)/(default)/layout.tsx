@@ -333,12 +333,22 @@ export default function ClientLayout({
         }
       }
 
-      // Prepare new orders to add
-      const newOrders = cartItems.map((item: any, index) => ({
-        ...item,
-        id: existingOrders.length + index,
-        Status: "Đang xử lý"
-      }))
+      // Generate a unique timestamp for this batch of orders
+      const batchTimestamp = Date.now()
+
+      // Prepare new orders to add, taking into account quantities
+      const newOrders = cartItems.flatMap((item: any, index) => {
+        const quantity = itemQuantities[item.id] || 1
+        // Create an array of orders based on quantity
+        return Array(quantity).fill(null).map((_, qIndex) => ({
+          ...item,
+          id: `${user.username}-${qIndex}`, // Unique ID combining timestamp, user ID, item index and quantity index
+          Status: "Đang xử lý",
+          quantity: 1, // Each order item has quantity 1
+          originalQuantity: quantity, // Store the original quantity for reference
+          orderTimestamp: batchTimestamp // Store the batch timestamp
+        }))
+      })
 
       // Combine existing and new orders
       const updatedOrders = [...existingOrders, ...newOrders]

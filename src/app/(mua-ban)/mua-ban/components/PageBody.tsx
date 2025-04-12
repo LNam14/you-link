@@ -226,7 +226,20 @@ const ChatDialog = memo(
         setNewChatMessage,
         sendChatMessage,
         role,
-    }: any) => {
+        supplierName,
+        user,
+    }: {
+        chatDialogOpen: boolean;
+        setChatDialogOpen: (open: boolean) => void;
+        currentChatOrderId: string | null;
+        currentChatMessages: ChatMessage[];
+        newChatMessage: string;
+        setNewChatMessage: (message: string) => void;
+        sendChatMessage: () => void;
+        role: string;
+        supplierName: string | null;
+        user: any;
+    }) => {
         const [isReported, setIsReported] = useState(false);
         const messagesEndRef: any = useRef(null);
 
@@ -242,8 +255,39 @@ const ChatDialog = memo(
 
         const reportChat = useCallback(() => {
             setIsReported((prev) => !prev);
-            // Gọi API hoặc lưu trạng thái vào cơ sở dữ liệu tại đây nếu cần
-        }, []);
+
+            // Send notification to Telegram group
+            const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U";
+            const groupChatId = "-4667020413";
+
+            // Create message based on role
+            const messageText = role === "NCC"
+                ? `NCC ${supplierName || user?.name || "Unknown"} cần giúp đỡ tại đơn #${currentChatOrderId}`
+                : `Khách hàng ${user?.username || user?.name || "Unknown"} cần giúp đỡ tại đơn #${currentChatOrderId}`;
+
+            // Send message to Telegram
+            fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    chat_id: groupChatId,
+                    text: messageText,
+                }),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.ok) {
+                        console.log('Report notification sent successfully');
+                    } else {
+                        console.error('Failed to send report notification:', data.description);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error sending report notification:', error);
+                });
+        }, [role, supplierName, user, currentChatOrderId]);
 
         const handleClose = () => {
             setChatDialogOpen(false);
@@ -354,6 +398,51 @@ const ChatDialog = memo(
 );
 
 ChatDialog.displayName = "ChatDialog";
+
+// Add this function near the top of the file with other utility functions
+const generateNextOrderId = (username: string, orders: any[]): string => {
+    // Find all orders for this username
+    const userOrders = orders.filter(order => order.KHMua === username);
+
+    // Extract the highest number used for this username
+    let maxNumber = 0;
+    userOrders.forEach(order => {
+        if (order.id && order.id.startsWith(username)) {
+            const parts = order.id.split('-');
+            if (parts.length === 2) {
+                const number = parseInt(parts[1]);
+                if (!isNaN(number) && number > maxNumber) {
+                    maxNumber = number;
+                }
+            }
+        }
+    });
+
+    // Return the next ID
+    return `${username}-${maxNumber + 1}`;
+};
+
+// Function to handle pre-order notifications
+const handlePreOrderNotification = async (orderId: string, khMua: string, tenNB: string) => {
+    try {
+        // Notify the customer
+        await sheetApiRequest.getIDKH(
+            khMua,
+            `Đơn ${orderId} của bạn đã được đặt trước. Vui lòng kiểm tra tại https://ylink.shop/mua-ban`
+        );
+
+        // Notify the supplier
+        await sheetApiRequest.getIDNCC(
+            tenNB,
+            `Đơn ${orderId} đã được đặt trước. Vui lòng xử lý tại https://ylink.shop/mua-ban/${tenNB}`
+        );
+
+        console.log(`Successfully sent pre-order notifications for order ${orderId}`);
+    } catch (error) {
+        console.error(`Error sending pre-order notifications:`, error);
+    }
+};
+
 const PageBody = ({ supplierName }: PageBodyProps): JSX.Element => {
     // 10. Fix the isEditing state initialization
     const [isEditing, setIsEditing] = useState(false)
@@ -472,7 +561,7 @@ const PageBody = ({ supplierName }: PageBodyProps): JSX.Element => {
 
             // Create row data without displaying the arrayIndex
             const rowData = [
-                `${item.KHMua}-${item.id?.toString()}` || `${item.KHMua}-${item.ProductID?.toString()}` || "", // Mã Đơn
+                `${item.id?.toString()}` || `${item.ProductID?.toString()}` || "", // Mã Đơn
                 item.Type || "Text", // Loại (default to Text)
                 item.Date || "", // Ngày Bán
                 tMua, // Time Mua - calculated based on Kết quả
@@ -1225,32 +1314,29 @@ const PageBody = ({ supplierName }: PageBodyProps): JSX.Element => {
     // Modify the handleAfterChange function to batch updates by row
     const handleAfterChange = useCallback(
         (changes: any, source: string) => {
-            // Process changes from edit, autofill (fill handle), and paste operations
-            if ((source !== "edit" && source !== "autofill" && source !== "CopyPaste.paste") || !changes) return
+            if ((source !== "edit" && source !== "autofill" && source !== "CopyPaste.paste") || !changes) return;
 
             // Set editing flag to prevent Firebase listener from overriding our changes
-            setIsEditing(true)
-
-            // Mark that we're saving to Firebase
-            isSavingRef.current = true
+            setIsEditing(true);
+            isSavingRef.current = true;
 
             // Get the current data
-            const instance = hotTableRef.current
+            const instance = hotTableRef.current;
             if (!instance) {
-                setIsEditing(false)
-                isSavingRef.current = false
-                return
+                setIsEditing(false);
+                isSavingRef.current = false;
+                return;
             }
 
             // Group changes by row index to batch updates
-            const changesByArrayIndex = new Map<number, { changes: any[]; physicalRow: number }>()
+            const changesByArrayIndex = new Map<number, { changes: any[]; physicalRow: number }>();
 
             // First, group all changes by their array index
             for (const [row, prop, oldValue, newValue] of changes) {
                 try {
                     // Skip if the row is a header row
-                    const weekColIndex = visibleColumns.indexOf(2)
-                    const rowData = instance.getSourceDataAtRow(row)
+                    const weekColIndex = visibleColumns.indexOf(2);
+                    const rowData = instance.getSourceDataAtRow(row);
 
                     if (
                         weekColIndex >= 0 &&
@@ -1262,21 +1348,51 @@ const PageBody = ({ supplierName }: PageBodyProps): JSX.Element => {
                             rowData[weekColIndex].includes("Chưa Index") ||
                             rowData[weekColIndex].includes("Gỡ bài"))
                     ) {
-                        continue
+                        continue;
                     }
 
                     // Get the physical row index
-                    const physicalRow = instance.toPhysicalRow(row)
+                    const physicalRow = instance.toPhysicalRow(row);
 
                     // Get the full row data from the data array
-                    const fullRowData: any = data[physicalRow]
+                    const fullRowData: any = data[physicalRow];
+
+                    // Check if this is a new row (no array index)
+                    if (!fullRowData._arrayIndex) {
+                        // Generate new order ID for this user
+                        const ordersRef = ref(database, "orders");
+                        onValue(ordersRef, (snapshot) => {
+                            if (snapshot.exists()) {
+                                const orders = snapshot.val();
+                                const username = user?.username || user?.name || "Unknown";
+                                const newOrderId = generateNextOrderId(username, orders);
+
+                                // Update the ID in the table
+                                const idColIndex = visibleColumns.indexOf(0);
+                                if (idColIndex >= 0) {
+                                    instance.setDataAtCell(row, idColIndex, newOrderId, "auto");
+
+                                    // Get the supplier name and customer name for notification
+                                    const tenNBIndex = visibleColumns.indexOf(21);
+                                    const khMuaIndex = visibleColumns.indexOf(23);
+                                    const tenNB = rowData[tenNBIndex];
+                                    const khMua = rowData[khMuaIndex];
+
+                                    // Send pre-order notifications
+                                    if (tenNB && khMua) {
+                                        handlePreOrderNotification(newOrderId, khMua, tenNB);
+                                    }
+                                }
+                            }
+                        }, { onlyOnce: true });
+                    }
 
                     // Get the array index from the hidden property
-                    const arrayIndex: any = fullRowData._arrayIndex
+                    const arrayIndex: any = fullRowData._arrayIndex;
 
                     if (arrayIndex === "" || isNaN(Number(arrayIndex))) {
-                        console.log("No array index found, cannot update", arrayIndex)
-                        continue
+                        console.log("No array index found, cannot update", arrayIndex);
+                        continue;
                     }
 
                     // Add this change to the group for this array index
@@ -1284,12 +1400,12 @@ const PageBody = ({ supplierName }: PageBodyProps): JSX.Element => {
                         changesByArrayIndex.set(Number(arrayIndex), {
                             changes: [],
                             physicalRow,
-                        })
+                        });
                     }
 
-                    changesByArrayIndex.get(Number(arrayIndex))?.changes.push([row, prop, oldValue, newValue])
+                    changesByArrayIndex.get(Number(arrayIndex))?.changes.push([row, prop, oldValue, newValue]);
                 } catch (error) {
-                    console.error("Error grouping changes:", error)
+                    console.error("Error grouping changes:", error);
                 }
             }
 
@@ -1987,7 +2103,7 @@ const PageBody = ({ supplierName }: PageBodyProps): JSX.Element => {
             // Use khMuaIB instead of finding in data
             if (khMuaIB) {
                 try {
-                    sheetApiRequest.getIDKH(khMuaIB, `NCC của đơn KH-${currentChatOrderId} đã gửi tin nhắn: ${newChatMessage.trim()}`)
+                    sheetApiRequest.getIDKH(khMuaIB, `NCC của đơn ${currentChatOrderId} đã gửi tin nhắn: ${newChatMessage.trim()}`)
                     console.log(`Successfully notified customer ${khMuaIB} about new message`)
                 } catch (error) {
                     console.error(`Error notifying customer ${khMuaIB}:`, error)
@@ -1998,23 +2114,60 @@ const PageBody = ({ supplierName }: PageBodyProps): JSX.Element => {
             // Use tenNBIB instead of finding in data
             if (tenNBIB) {
                 try {
-                    sheetApiRequest.getIDNCC(tenNBIB, `Khách hàng của đơn KH-${currentChatOrderId} đã gửi tin nhắn: ${newChatMessage.trim()}`)
+                    sheetApiRequest.getIDNCC(tenNBIB, `Khách hàng của đơn ${currentChatOrderId} đã gửi tin nhắn: ${newChatMessage.trim()}`)
                     console.log(`Successfully notified supplier ${tenNBIB} about new message`)
+                } catch (error) {
+                    console.error(`Error notifying supplier ${tenNBIB}:`, error)
+                }
+            }
+        } else if (role === "Admin") {
+            // Admin messages should be sent to both customer and supplier
+            message.name = "Admin" // Set name to Admin for display
+            if (khMuaIB) {
+                try {
+                    sheetApiRequest.getIDKH(khMuaIB, `Admin đã gửi tin nhắn về đơn ${currentChatOrderId}: ${newChatMessage.trim()}`)
+                    console.log(`Successfully notified customer ${khMuaIB} about admin message`)
+                } catch (error) {
+                    console.error(`Error notifying customer ${khMuaIB}:`, error)
+                }
+            }
+            if (tenNBIB) {
+                try {
+                    sheetApiRequest.getIDNCC(tenNBIB, `Admin đã gửi tin nhắn về đơn ${currentChatOrderId}: ${newChatMessage.trim()}`)
+                    console.log(`Successfully notified supplier ${tenNBIB} about admin message`)
                 } catch (error) {
                     console.error(`Error notifying supplier ${tenNBIB}:`, error)
                 }
             }
         }
 
-        try {
-            await set(newMessageRef, message)
-            setNewChatMessage("")
-            return true
-        } catch (error) {
-            console.error("Error sending message:", error)
-            return false
-        }
+        // Save the message to Firebase
+        await set(newMessageRef, message)
+        setNewChatMessage("")
     }, [currentChatOrderId, newChatMessage, user, role, supplierName, khMuaIB, tenNBIB])
+
+    // Function to generate the next order ID for a user
+    const generateNextOrderId = (username: string, orders: any[]): string => {
+        // Find all orders for this username
+        const userOrders = orders.filter(order => order.KHMua === username);
+
+        // Extract the highest number used for this username
+        let maxNumber = 0;
+        userOrders.forEach(order => {
+            if (order.id && order.id.startsWith(username)) {
+                const parts = order.id.split('-');
+                if (parts.length === 2) {
+                    const number = parseInt(parts[1]);
+                    if (!isNaN(number) && number > maxNumber) {
+                        maxNumber = number;
+                    }
+                }
+            }
+        });
+
+        // Return the next ID
+        return `${username}-${maxNumber + 1}`;
+    };
 
     return (
         <>
@@ -2324,6 +2477,8 @@ const PageBody = ({ supplierName }: PageBodyProps): JSX.Element => {
                 setNewChatMessage={setNewChatMessage}
                 sendChatMessage={sendChatMessage}
                 role={role}
+                supplierName={supplierName}
+                user={user}
             />
         </>
     )
