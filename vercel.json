@@ -7,8 +7,6 @@
         }
     ],
     "env": {
-        "GOOGLE_SERVICE_ACCOUNT_EMAIL": "@google_service_account_email",
-        "GOOGLE_PRIVATE_KEY": "@google_private_key",
-        "SPREADSHEET_ID": "@spreadsheet_id"
+        "SPREADSHEET_ID": "116441298955338562020"
     }
 }
