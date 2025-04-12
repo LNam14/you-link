@@ -3,7 +3,7 @@ import { Pool } from "pg"
 // Create a connection pool specifically for Neon
 const pool = new Pool({
     // Use the pooled connection string for better performance
-    connectionString: process.env.DATABASE_URL || process.env.POSTGRES_URL,
+    connectionString: 'postgres://neondb_owner:npg_tGLaeU2uWz4X@ep-white-grass-a1smnwlt-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require',
     ssl: {
         rejectUnauthorized: false,
     },
