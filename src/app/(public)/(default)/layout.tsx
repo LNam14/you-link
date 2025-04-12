@@ -290,17 +290,36 @@ export default function ClientLayout({
   }
 
   // Function to find next available ID
-  const findNextAvailableId = (username: string, orders: any[]): string => {
-    let counter = 1;
-    let proposedId = `${username}-${counter}`;
+  const findNextAvailableId = (username: string, orders: any[], quantity: number, baseCounter: number): string => {
+    let counter = baseCounter;
+    let proposedId = quantity > 1 ?
+      `${username}-${counter}-1` :
+      `${username}-${counter}`;
 
-    // Keep incrementing counter until we find an unused ID
-    while (orders.some(order => order.id === proposedId)) {
-      counter++;
-      proposedId = `${username}-${counter}`;
+    // For multiple quantities, we need to ensure all sequence numbers are available
+    if (quantity > 1) {
+      let allSequenceAvailable = false;
+      while (!allSequenceAvailable) {
+        // Check if all sequence numbers for this counter are available
+        allSequenceAvailable = true;
+        for (let seq = 1; seq <= quantity; seq++) {
+          const seqId = `${username}-${counter}-${seq}`;
+          if (orders.some(order => order.id === seqId)) {
+            allSequenceAvailable = false;
+            counter++;
+            break;
+          }
+        }
+      }
+      return `${username}-${counter}-1`; // Return the first in sequence
+    } else {
+      // Single quantity - original logic
+      while (orders.some(order => order.id === proposedId)) {
+        counter++;
+        proposedId = `${username}-${counter}`;
+      }
+      return proposedId;
     }
-
-    return proposedId;
   };
 
   // Process checkout with item duplication
@@ -350,19 +369,40 @@ export default function ClientLayout({
       // Generate a unique timestamp for this batch of orders
       const batchTimestamp = Date.now()
 
+      // Find the base counter for this batch
+      let baseCounter = 1;
+      existingOrders.forEach(order => {
+        if (order.id) {
+          const parts = order.id.split('-');
+          if (parts.length >= 2) {
+            const num = parseInt(parts[1]);
+            if (!isNaN(num) && num >= baseCounter) {
+              baseCounter = num + 1;
+            }
+          }
+        }
+      });
+
       // Prepare new orders to add, taking into account quantities
-      const newOrders = cartItems.flatMap((item: any, index) => {
-        const quantity = itemQuantities[item.id] || 1
-        // Create an array of orders based on quantity
-        return Array(quantity).fill(null).map((_, qIndex) => ({
-          ...item,
-          id: findNextAvailableId(user.username, existingOrders), // Use the new function
-          Status: "Đang xử lý",
-          quantity: 1, // Each order item has quantity 1
-          originalQuantity: quantity, // Store the original quantity for reference
-          orderTimestamp: batchTimestamp // Store the batch timestamp
-        }))
-      })
+      const newOrders = cartItems.flatMap((item: any) => {
+        const quantity = itemQuantities[item.id] || 1;
+        const baseId = findNextAvailableId(user.username, existingOrders, quantity, baseCounter);
+
+        return Array(quantity).fill(null).map((_, qIndex) => {
+          const orderId = quantity > 1 ?
+            `${user.username}-${baseId.split('-')[1]}-${qIndex + 1}` :
+            baseId;
+
+          return {
+            ...item,
+            id: orderId,
+            Status: "Đang xử lý",
+            quantity: 1,
+            originalQuantity: quantity,
+            orderTimestamp: batchTimestamp
+          };
+        });
+      });
 
       // Combine existing and new orders
       const updatedOrders = [...existingOrders, ...newOrders]
