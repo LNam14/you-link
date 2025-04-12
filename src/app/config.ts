@@ -16,4 +16,5 @@ export const PAYMENT_CONFIG = {
   minAmount: 10,
   maxAmount: 10000,
   supportedMethods: ["Bank Transfer", "Cash", "Credit Card", "Momo", "Zalo Pay", "VNPay"],
+  defaultChatId: "-1001234567890"
 } 
