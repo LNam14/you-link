@@ -553,7 +553,7 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                 return "Nhân viên"
             case "Khách hàng":
                 return "Khách hàng"
-            case "Nhà cung cấp":
+            case "NCC":
                 return "Nhà cung cấp"
             default:
                 return "Chưa xác định"
@@ -673,7 +673,7 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                         <span className="font-semibold text-lg flex flex-col">
                             {userInfo?.username}
                             <span className="text-sm">{getRoleName(userInfo?.role)}</span>
-                            {userInfo?.role === "Khách hàng" && <div className="flex items-center"><span className="text-md font-semibold text-green-600">{amount || 0} </span> <DollarSign className="w-4 h-4 text-green-600" /></div>}
+                            {(userInfo?.role === "Khách hàng" || userInfo?.role === "NCC") && <div className="flex items-center"><span className="text-md font-semibold text-green-600">{amount || 0} </span> <DollarSign className="w-4 h-4 text-green-600" /></div>}
                         </span>
                     ),
                 },
