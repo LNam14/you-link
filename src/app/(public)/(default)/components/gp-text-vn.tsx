@@ -311,11 +311,9 @@ export default function GPTextVN({
                 // Add product with valid price type
                 newProducts.push({
                     ProductID: existingProducts.length + newProducts.length,
-                    Type: validType,
-                    TimeMua: 1,
-                    TimeBan: 1,
+                    Loai: validType,
                     Site: item.Site,
-                    Note: "",
+                    Note: item["Ghi chú"],
                     GiaBanGP: isValidPrice(item["Giá GP"]) ? item["Giá GP"] : 0,
                     GiaBanText: isValidPrice(item["Giá Footer"]) ? item["Giá Footer"] : 0,
                     GiaBanTextHeader: isValidPrice(item["Giá Header"]) ? item["Giá Header"] : 0,
@@ -331,9 +329,9 @@ export default function GPTextVN({
                     Link1: "",
                     Anchor2: "",
                     Link2: "",
-                    TenNB: item.MaNCC || "NoMaNCC",
-                    LinkNB: item.NCC || "NoNCC",
-                    KHMua: KHMua,
+                    TenNCC: item.MaNCC || "NoMaNCC",
+                    TeleNCC: item.NCC || "NoNCC",
+                    TenKH: KHMua,
                     Status: "Đang xử lý",
                 })
             }

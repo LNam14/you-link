@@ -16,7 +16,7 @@ const GET_TRANSACTION = `
   WHERE t.id = $1 
   LIMIT 1
 `
-const UPDATE_ACCOUNT_BALANCE = `UPDATE account SET money = money + $1 WHERE id = $2`
+const UPDATE_ACCOUNT_BALANCE = `UPDATE account SET amount = amount + $1 WHERE username = $2`
 
 /**
  * API cập nhật trạng thái giao dịch

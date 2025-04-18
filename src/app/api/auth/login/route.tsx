@@ -13,7 +13,7 @@ const createAccessToken = cache((payload: object) => {
 
 // Chuẩn bị câu truy vấn SQL một lần
 // PostgreSQL uses $1, $2, etc. for parameterized queries instead of ?
-const USER_QUERY = `SELECT id, name, username, password, phone, role, active FROM account WHERE username = $1 LIMIT 1`
+const USER_QUERY = `SELECT * FROM account WHERE username = $1 LIMIT 1`
 
 // Hàm xử lý request được tối ưu hóa
 export async function POST(request: Request) {
@@ -104,6 +104,7 @@ export async function POST(request: Request) {
             phone: userData.phone,
             role: userData.role,
             active: userData.active,
+            amount: userData.amount,
         }
 
         // Tạo response và thiết lập cookies

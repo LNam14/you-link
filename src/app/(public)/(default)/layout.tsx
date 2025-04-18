@@ -6,18 +6,14 @@ import { useState, useEffect, useRef } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Trash, ShoppingBag, ShoppingCart, X, Search, DollarSign, Tag, Clock, Plus, Minus } from "lucide-react"
 import getUserInfo from "@/components/userInfo"
-import { ref, onValue, remove, update, get, set, serverTimestamp } from "firebase/database"
+import { ref, onValue, remove, update, get, set } from "firebase/database"
 import { message } from "antd"
 import { database } from "@/app/firebase/firebase"
 import Header from "./components/ui/header"
 import Footer from "./components/ui/footer"
-import { toast } from "sonner"
 
 interface CartItem {
-  id: string
-  Anchor1?: string
-  Anchor2?: string
-  BaiViet?: string
+  MaDon: string
   GiaBanGP?: string
   GiaBanText?: string
   GiaBanTextHeader?: string
@@ -28,12 +24,8 @@ interface CartItem {
   GiaMuaTextHome?: number
   HoaHongGP?: string
   HoaHongText?: string
-  Index?: string
-  Link1?: string
-  Link2?: string
   Site?: string
-  Type?: string
-  Status?: string
+  Loai?: string
 }
 
 export default function ClientLayout({
@@ -51,7 +43,7 @@ export default function ClientLayout({
   const [cartSummary, setCartSummary] = useState({
     totalItems: 0,
     totalPrice: 0,
-    byType: {
+    byLoai: {
       GP: { count: 0, price: 0 },
       Text: { count: 0, price: 0 },
       TextHeader: { count: 0, price: 0 },
@@ -123,7 +115,7 @@ export default function ClientLayout({
         const summary: any = {
           totalItems: cartArray.length,
           totalPrice: 0,
-          byType: {
+          byLoai: {
             GP: { count: 0, price: 0 },
             Text: { count: 0, price: 0 },
             TextHeader: { count: 0, price: 0 },
@@ -132,7 +124,7 @@ export default function ClientLayout({
         }
 
         cartArray.forEach((item: any) => {
-          const type = item.Type || "GP"
+          const type = item.Loai || "GP"
           const price = Number(
             type === "GP"
               ? item.GiaBanGP || 0
@@ -144,8 +136,8 @@ export default function ClientLayout({
           )
 
           summary.totalPrice += price
-          summary.byType[type].count += 1
-          summary.byType[type].price += price
+          summary.byLoai[type].count += 1
+          summary.byLoai[type].price += price
         })
 
         setCartSummary(summary)
@@ -154,7 +146,7 @@ export default function ClientLayout({
         setCartSummary({
           totalItems: 0,
           totalPrice: 0,
-          byType: {
+          byLoai: {
             GP: { count: 0, price: 0 },
             Text: { count: 0, price: 0 },
             TextHeader: { count: 0, price: 0 },
@@ -217,7 +209,7 @@ export default function ClientLayout({
 
   const filteredCartItems = cartItems.filter((item) => {
     // Filter by tab
-    if (activeTab !== "all" && item.Type !== activeTab) {
+    if (activeTab !== "all" && item.Loai !== activeTab) {
       return false
     }
 
@@ -231,11 +223,11 @@ export default function ClientLayout({
 
   const getItemPrice = (item: any) => {
     return Number(
-      item.Type === "GP"
+      item.Loai === "GP"
         ? item.GiaBanGP || 0
-        : item.Type === "Text"
+        : item.Loai === "Text"
           ? item.GiaBanText || 0
-          : item.Type === "TextHome"
+          : item.Loai === "TextHome"
             ? item.GiaBanTextHome || 0
             : item.GiaBanTextHeader || 0,
     )
@@ -289,38 +281,32 @@ export default function ClientLayout({
     }, -1)
   }
 
-  // Function to find next available ID
-  const findNextAvailableId = (username: string, orders: any[], quantity: number, baseCounter: number): string => {
-    let counter = baseCounter;
-    let proposedId = quantity > 1 ?
-      `${username}-${counter}-1` :
-      `${username}-${counter}`;
+  // Replace the findNextAvailableId function with this updated version
+  const findNextAvailableId = (username: string, orders: any[]): { orderNumber: number; nextId: string } => {
+    // Find the highest order number (X) for this username
+    let highestOrderNumber = 0
 
-    // For multiple quantities, we need to ensure all sequence numbers are available
-    if (quantity > 1) {
-      let allSequenceAvailable = false;
-      while (!allSequenceAvailable) {
-        // Check if all sequence numbers for this counter are available
-        allSequenceAvailable = true;
-        for (let seq = 1; seq <= quantity; seq++) {
-          const seqId = `${username}-${counter}-${seq}`;
-          if (orders.some(order => order.id === seqId)) {
-            allSequenceAvailable = false;
-            counter++;
-            break;
+    orders.forEach((order) => {
+      if (order.MaDon && order.MaDon.startsWith(username)) {
+        const parts = order.MaDon.split("-")
+        if (parts.length >= 2) {
+          const orderNumber = Number.parseInt(parts[1], 10)
+          if (!isNaN(orderNumber) && orderNumber > highestOrderNumber) {
+            highestOrderNumber = orderNumber
           }
         }
       }
-      return `${username}-${counter}-1`; // Return the first in sequence
-    } else {
-      // Single quantity - original logic
-      while (orders.some(order => order.id === proposedId)) {
-        counter++;
-        proposedId = `${username}-${counter}`;
-      }
-      return proposedId;
+    })
+
+    // For a new order, increment the highest order number
+    const nextOrderNumber = highestOrderNumber + 1
+
+    // Return the next order number and the first ID in the sequence
+    return {
+      orderNumber: nextOrderNumber,
+      nextId: `${username}-${nextOrderNumber}-1`,
     }
-  };
+  }
 
   // Process checkout with item duplication
   const processCheckout = async () => {
@@ -339,15 +325,22 @@ export default function ClientLayout({
         currentBalance = typeof balanceData.amount === "number" ? balanceData.amount : 0
       }
 
-      // Check if balance is sufficient
-      if (currentBalance < subtotal) {
-        message.error(
-          `Số dư không đủ! Số dư hiện tại: ${currentBalance.toLocaleString("vi-VN")} USDT, cần: ${subtotal.toLocaleString("vi-VN")} USDT`,
+      // Calculate total price based on Loai type for new orders
+      const totalPrice = cartItems.reduce((acc, item) => {
+        const quantity = itemQuantities[item.id] || 1
+        const price = Number(
+          item.Loai === "GP"
+            ? item.GiaBanGP || 0
+            : item.Loai === "Text"
+              ? item.GiaBanText || 0
+              : item.Loai === "TextHome"
+                ? item.GiaBanTextHome || 0
+                : item.GiaBanTextHeader || 0,
         )
-        return
-      }
+        return acc + price * quantity
+      }, 0)
 
-      // First get existing orders
+      // Get existing orders
       const ordersRef = ref(database, "orders")
       const ordersSnapshot = await get(ordersRef)
 
@@ -366,55 +359,78 @@ export default function ClientLayout({
         }
       }
 
+      // Calculate total amount of existing orders for this user with status "Đang xử lý"
+      const existingOrdersTotal = existingOrders
+        .filter((order: any) => order.KHMua === user.username && order.Status === "Đang xử lý")
+        .reduce((acc: number, order: any) => {
+          const price = Number(
+            order.Loai === "GP"
+              ? order.GiaBanGP || 0
+              : order.Loai === "Text"
+                ? order.GiaBanText || 0
+                : order.Loai === "TextHome"
+                  ? order.GiaBanTextHome || 0
+                  : order.GiaBanTextHeader || 0,
+          )
+          return acc + price
+        }, 0)
+
+      // Calculate remaining available balance
+      const remainingBalance = currentBalance - existingOrdersTotal
+
+      // Check if remaining balance is sufficient for new orders
+      if (remainingBalance < totalPrice) {
+        message.error(
+          `Số dư không đủ! Số dư hiện tại: ${currentBalance.toLocaleString("vi-VN")} USDT, đã sử dụng: ${existingOrdersTotal.toLocaleString("vi-VN")} USDT, còn lại: ${remainingBalance.toLocaleString("vi-VN")} USDT, cần: ${totalPrice.toLocaleString("vi-VN")} USDT`,
+        )
+        return
+      }
+
       // Generate a unique timestamp for this batch of orders
       const batchTimestamp = Date.now()
 
       // Find the base counter for this batch
-      let baseCounter = 1;
-      existingOrders.forEach(order => {
-        if (order.id) {
-          const parts = order.id.split('-');
-          if (parts.length >= 2) {
-            const num = parseInt(parts[1]);
-            if (!isNaN(num) && num >= baseCounter) {
-              baseCounter = num + 1;
-            }
-          }
-        }
-      });
+      // Generate order IDs based on the new format: Username-X-Y
+      const { orderNumber } = findNextAvailableId(user.username, existingOrders)
 
       // Prepare new orders to add, taking into account quantities
-      const newOrders = cartItems.flatMap((item: any) => {
-        const quantity = itemQuantities[item.id] || 1;
-        const baseId = findNextAvailableId(user.username, existingOrders, quantity, baseCounter);
+      const newOrders = cartItems.flatMap((item: any, itemIndex: number) => {
+        const quantity = itemQuantities[item.id] || 1
 
-        return Array(quantity).fill(null).map((_, qIndex) => {
-          const orderId = quantity > 1 ?
-            `${user.username}-${baseId.split('-')[1]}-${qIndex + 1}` :
-            baseId;
+        return Array(quantity)
+          .fill(null)
+          .map((_, qIndex) => {
+            // Calculate the sequential number for this item
+            const sequentialNumber = qIndex + 1
+            // Create the order ID in the format: Username-X-Y
+            const orderId = `${user.username}-${orderNumber}-${sequentialNumber}`
 
-          return {
-            ...item,
-            id: orderId,
-            Status: "Đang xử lý",
-            quantity: 1,
-            originalQuantity: quantity,
-            orderTimestamp: batchTimestamp
-          };
-        });
-      });
+            return {
+              ...item,
+              MaDon: orderId,
+              KHMua: user.username,
+              Status: "Đang xử lý",
+              TTNCC: "",
+              TinhTrangNCC: "Chưa nhận đơn",
+              TinhTrangKH: "Chưa nhập",
+              NgayBan: "",
+              Index: "No",
+              BaiViet: "",
+              LinkKQ: "",
+              Anchor1: "",
+              Link1: "",
+              Anchor2: "",
+              Link2: "",
+              TimeText: 1,
+            }
+          })
+      })
 
       // Combine existing and new orders
       const updatedOrders = [...existingOrders, ...newOrders]
 
       // Set the entire orders array
       await set(ordersRef, updatedOrders)
-
-      // Deduct the amount from user's balance
-      const newBalance = currentBalance - subtotal
-      await set(userBalanceRef, {
-        amount: newBalance
-      })
 
       // Delete all items from cart
       const deletePromises = cartItems.map((item: any) => {
@@ -428,7 +444,6 @@ export default function ClientLayout({
       setCartItems([])
       setIsOpen(false)
       window.open("/mua-ban", "_blank")
-
     } catch (error) {
       console.error("Lỗi khi xử lý đơn hàng:", error)
       message.error("Có lỗi xảy ra khi xử lý đơn hàng. Vui lòng thử lại.")
@@ -521,7 +536,7 @@ export default function ClientLayout({
                     : "text-gray-500 hover:text-indigo-600"
                     }`}
                 >
-                  GP ({cartSummary.byType.GP.count})
+                  GP ({cartSummary.byLoai.GP.count})
                 </button>
                 <button
                   onClick={() => setActiveTab("Text")}
@@ -530,7 +545,7 @@ export default function ClientLayout({
                     : "text-gray-500 hover:text-indigo-600"
                     }`}
                 >
-                  Text ({cartSummary.byType.Text.count})
+                  Text ({cartSummary.byLoai.Text.count})
                 </button>
                 <button
                   onClick={() => setActiveTab("TextHome")}
@@ -539,7 +554,7 @@ export default function ClientLayout({
                     : "text-gray-500 hover:text-indigo-600"
                     }`}
                 >
-                  Home ({cartSummary.byType.TextHome.count})
+                  Home ({cartSummary.byLoai.TextHome.count})
                 </button>
               </div>
             </div>
@@ -608,7 +623,7 @@ export default function ClientLayout({
                                 <div className="flex flex-wrap gap-2 mt-1">
                                   <span className="inline-flex items-center text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
                                     <Tag className="w-3 h-3 mr-1" />
-                                    {item.Type}
+                                    {item.Loai}
                                   </span>
                                   <span className="inline-flex items-center text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
                                     <DollarSign className="w-3 h-3 mr-1" />
@@ -619,7 +634,7 @@ export default function ClientLayout({
                               <button
                                 onClick={() => handleDelete(item.id)}
                                 className="text-gray-400 hover:text-red-500 focus:outline-none transition-colors duration-200 ml-2"
-                                aria-label={`Xóa ${item.Type} khỏi giỏ hàng`}
+                                aria-label={`Xóa ${item.Loai} khỏi giỏ hàng`}
                               >
                                 <Trash className="w-4 h-4" />
                               </button>
@@ -628,13 +643,13 @@ export default function ClientLayout({
                             <div className="mt-2 grid grid-cols-2 gap-2">
                               <select
                                 className="text-xs py-1 px-2 border border-gray-200 rounded bg-gray-50 hover:bg-gray-100 cursor-pointer text-gray-700"
-                                value={item.Type}
+                                value={item.Loai}
                                 onChange={(e) => {
-                                  const newType = e.target.value
+                                  const newLoai = e.target.value
                                   // Update the item in Firebase
                                   const itemRef = ref(database, `data/${user?.id}/Products/${item.id}`)
                                   update(itemRef, {
-                                    Type: newType,
+                                    Loai: newLoai,
                                   })
                                 }}
                               >

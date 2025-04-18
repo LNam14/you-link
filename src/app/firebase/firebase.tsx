@@ -60,7 +60,7 @@ export const deleteOrder = async (orderId: string) => {
 
 // Money operations
 export const moneyRef = ref(database, 'money');
-export const updateUserBalance = async (userId: string, amount: number) => {
+export const updateUserBalance = async (userId: string, amount: number, nccName?: string) => {
     const userMoneyRef = ref(database, `money/${userId}`);
     const snapshot = await new Promise<DataSnapshot>((resolve) => {
         onValue(userMoneyRef, (snapshot) => {
@@ -74,6 +74,41 @@ export const updateUserBalance = async (userId: string, amount: number) => {
     }
 
     await set(userMoneyRef, { amount: currentAmount + amount });
+
+    // If this is a deduction (negative amount) and NCC name is provided, add money to NCC
+    if (amount < 0 && nccName) {
+        const nccMoneyRef = ref(database, `money/${nccName}`);
+        const nccSnapshot = await new Promise<DataSnapshot>((resolve) => {
+            onValue(nccMoneyRef, (snapshot) => {
+                resolve(snapshot);
+            }, { onlyOnce: true });
+        });
+
+        let nccCurrentAmount = 0;
+        if (nccSnapshot.exists()) {
+            nccCurrentAmount = nccSnapshot.val().amount || 0;
+        }
+
+        // Add the absolute value of the deduction to NCC's balance
+        await set(nccMoneyRef, { amount: nccCurrentAmount + Math.abs(amount) });
+    }
+    // If this is a refund (positive amount) and NCC name is provided, deduct from NCC
+    else if (amount > 0 && nccName) {
+        const nccMoneyRef = ref(database, `money/${nccName}`);
+        const nccSnapshot = await new Promise<DataSnapshot>((resolve) => {
+            onValue(nccMoneyRef, (snapshot) => {
+                resolve(snapshot);
+            }, { onlyOnce: true });
+        });
+
+        let nccCurrentAmount = 0;
+        if (nccSnapshot.exists()) {
+            nccCurrentAmount = nccSnapshot.val().amount || 0;
+        }
+
+        // Deduct the refund amount from NCC's balance
+        await set(nccMoneyRef, { amount: nccCurrentAmount - amount });
+    }
 };
 
 // Cart operations
