@@ -1,79 +1,63 @@
-import { google } from "googleapis";
-import keys from "../../../../../key.json";
-import { NextResponse } from "next/server";
+import { google } from "googleapis"
+import keys from "../../../../../key.json"
+import { NextResponse } from "next/server"
 
-// Spreadsheet IDs
-const SPREADSHEET_ID_GPTEXTVN = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU";
-const SPREADSHEET_ID_NCC = "1SDvAA8pPWUl2Fi2ubFIFttS5D7rA1P-DHrHuJj9X4Z8";
+const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
 
 interface SheetConfig {
-    range: string;
-    formatter: (row: any[], allData: Record<string, any[]>) => Record<string, any>;
+    range: string
+    formatter: (row: any[], allData: Record<string, any[]>) => Record<string, any>
 }
 
 const sheetConfigs: Record<string, SheetConfig> = {
     gpTextVN: {
         range: "1!A3:AH,2!A3:AH",
         formatter: (row, allData) => {
-            const safeRound = (value: any) => {
-                if (value === null || value === undefined) return null;
-                if (typeof value === "string" && isNaN(Number(value))) {
-                    return value;
+            const parseNumber = (value: any) => {
+                if (value === null || value === undefined) return null
+                if (typeof value === "string") {
+                    return Number.parseFloat(value.replace(",", "."))
                 }
-                return Math.round(Number(value));
-            };
-            const safeSubtract = (a: number, b: number) => (a !== null && b !== null ? Math.round(a - b) : null);
+                return value
+            }
 
-            const giaBanGP = safeRound(row[13]);
-            const giaBanText = safeRound(row[14]);
-            const giaBanTextHome = safeRound(row[15]);
-            const giaBanTextHeader = safeRound(row[16]);
-            const giaBanGPLio =
-                typeof row[13] === "string" && isNaN(Number(row[13])) ? row[13] : safeRound(Number(row[13]) * 1.05);
-            const giaBanTextLio =
-                typeof row[14] === "string" && isNaN(Number(row[14])) ? row[14] : safeRound(Number(row[14]) * 1.05);
-            const giaBanTextHomeLio =
-                typeof row[15] === "string" && isNaN(Number(row[15])) ? row[15] : safeRound(Number(row[15]) * 1.05);
-            const giaBanTextHeaderLio =
-                typeof row[16] === "string" && isNaN(Number(row[16])) ? row[16] : safeRound(Number(row[16]) * 1.05);
-            const giaMuaGP = safeRound(row[22]);
-            const giaMuaText = safeRound(row[23]);
-            const giaMuaTextHome = safeRound(row[24]);
-            const giaMuaTextHeader = safeRound(row[25]);
-            const hoaHongGP = row[26] || 0;
-            const hoaHongText = row[27] || 0;
+            const formatNumber = (value: number | null) =>
+                value !== null && !isNaN(value) ? value.toFixed(2).replace(".", ",") : null
 
-            const giaCuoiGP =
-                typeof row[22] === "string" && isNaN(Number(row[22]))
-                    ? row[22]
-                    : Math.round((Number(row[22]) * (100 - hoaHongGP)) / 100);
+            const safeSubtract = (a: number | null, b: number | null) =>
+                a !== null && b !== null ? formatNumber(a - b) : null
 
-            const giaCuoiText =
-                typeof row[23] === "string" && isNaN(Number(row[23]))
-                    ? row[23]
-                    : Math.round((Number(row[23]) * (100 - hoaHongText)) / 100);
+            const giaBanGP = formatNumber(parseNumber(row[13]))
+            const giaBanText = formatNumber(parseNumber(row[14]))
+            const giaBanTextHome = formatNumber(parseNumber(row[15]))
+            const giaBanTextHeader = formatNumber(parseNumber(row[16]))
+            const giaBanGPLio = formatNumber(parseNumber(row[13]) * 1.05)
+            const giaBanTextLio = formatNumber(parseNumber(row[14]) * 1.05)
+            const giaBanTextHomeLio = formatNumber(parseNumber(row[15]) * 1.05)
+            const giaBanTextHeaderLio = formatNumber(parseNumber(row[16]) * 1.05)
+            const giaMuaGP = formatNumber(parseNumber(row[22]))
+            const giaMuaText = formatNumber(parseNumber(row[23]))
+            const giaMuaTextHome = formatNumber(parseNumber(row[24]))
+            const giaMuaTextHeader = formatNumber(parseNumber(row[25]))
+            const hoaHongGP = parseNumber(row[26]) || 0
+            const hoaHongText = parseNumber(row[27]) || 0
 
-            const giaCuoiTextHome =
-                typeof row[24] === "string" && isNaN(Number(row[24]))
-                    ? row[24]
-                    : Math.round((Number(row[24]) * (100 - hoaHongText)) / 100);
+            const giaCuoiGP = formatNumber((parseNumber(row[22]) * (100 - hoaHongGP)) / 100)
+            const giaCuoiText = formatNumber((parseNumber(row[23]) * (100 - hoaHongText)) / 100)
+            const giaCuoiTextHome = formatNumber((parseNumber(row[24]) * (100 - hoaHongText)) / 100)
+            const giaCuoiTextHeader = formatNumber((parseNumber(row[25]) * (100 - hoaHongText)) / 100)
 
-            const giaCuoiTextHeader =
-                typeof row[25] === "string" && isNaN(Number(row[25]))
-                    ? row[25]
-                    : Math.round((Number(row[25]) * (100 - hoaHongText)) / 100);
-
-            const maNCC = row[31];
-            let fileNCC = "";
-            let groupNCC = "";
-            let idGroup = "";
+            const maNCC = row[31]
+            let fileNCC = ""
+            let groupNCC = ""
+            let idGroup = ""
 
             if (maNCC && allData.ncc) {
-                const matchingNCC = allData.ncc.find((nccRow) => nccRow.MaNCC === maNCC);
+                const matchingNCC = allData.ncc.find((nccRow) => nccRow.MaNCC === maNCC)
                 if (matchingNCC) {
-                    fileNCC = matchingNCC.FileNCC;
-                    groupNCC = matchingNCC.GroupNCC;
-                    idGroup = matchingNCC.IdGroup;
+                    fileNCC = matchingNCC.FileNCC
+                    groupNCC = matchingNCC.GroupNCC
+                    idGroup = matchingNCC.IdGroup
                 }
             }
 
@@ -112,43 +96,19 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 giaCuoiText,
                 giaCuoiTextHome,
                 giaCuoiTextHeader,
-                loiNhuanGP:
-                    (typeof row[13] === "string" && isNaN(Number(row[13]))) || typeof giaCuoiGP === "string"
-                        ? null
-                        : safeSubtract(Number(row[13]), giaCuoiGP),
-                loiNhuanText:
-                    (typeof row[14] === "string" && isNaN(Number(row[14]))) || typeof giaCuoiText === "string"
-                        ? null
-                        : safeSubtract(Number(row[14]), giaCuoiText),
-                loiNhuanTextHome:
-                    (typeof row[15] === "string" && isNaN(Number(row[15]))) || typeof giaCuoiTextHome === "string"
-                        ? null
-                        : safeSubtract(Number(row[15]), giaCuoiTextHome),
-                loiNhuanTextHeader:
-                    (typeof row[16] === "string" && isNaN(Number(row[16]))) || typeof giaCuoiTextHeader === "string"
-                        ? null
-                        : safeSubtract(Number(row[16]), giaCuoiTextHeader),
-                loiNhuanGPLio:
-                    typeof giaBanGPLio === "string" || typeof giaCuoiGP === "string"
-                        ? null
-                        : safeSubtract(Number(giaBanGPLio), giaCuoiGP),
-                loiNhuanTextLio:
-                    typeof giaBanTextLio === "string" || typeof giaCuoiText === "string"
-                        ? null
-                        : safeSubtract(Number(giaBanTextLio), giaCuoiText),
-                loiNhuanTextHomeLio:
-                    typeof giaBanTextHomeLio === "string" || typeof giaCuoiTextHome === "string"
-                        ? null
-                        : safeSubtract(Number(giaBanTextHomeLio), giaCuoiTextHome),
-                loiNhuanTextHeaderLio:
-                    typeof giaBanTextHeaderLio === "string" || typeof giaCuoiTextHeader === "string"
-                        ? null
-                        : safeSubtract(Number(giaBanTextHeaderLio), giaCuoiTextHeader),
-            };
+                loiNhuanGP: safeSubtract(parseNumber(row[13]), parseNumber(giaCuoiGP)),
+                loiNhuanText: safeSubtract(parseNumber(row[14]), parseNumber(giaCuoiText)),
+                loiNhuanTextHome: safeSubtract(parseNumber(row[15]), parseNumber(giaCuoiTextHome)),
+                loiNhuanTextHeader: safeSubtract(parseNumber(row[16]), parseNumber(giaCuoiTextHeader)),
+                loiNhuanGPLio: safeSubtract(parseNumber(giaBanGPLio), parseNumber(giaCuoiGP)),
+                loiNhuanTextLio: safeSubtract(parseNumber(giaBanTextLio), parseNumber(giaCuoiText)),
+                loiNhuanTextHomeLio: safeSubtract(parseNumber(giaBanTextHomeLio), parseNumber(giaCuoiTextHome)),
+                loiNhuanTextHeaderLio: safeSubtract(parseNumber(giaBanTextHeaderLio), parseNumber(giaCuoiTextHeader)),
+            }
         },
     },
     ncc: {
-        range: "IDTele!AA3:AC",
+        range: "NCC!A3:K",
         formatter: (row) => ({
             MaNCC: row[0],
             FileNCC: row[8] || "",
@@ -156,61 +116,55 @@ const sheetConfigs: Record<string, SheetConfig> = {
             IdGroup: row[10] || "",
         }),
     },
-};
+}
 
 async function getAllSheetData(gsapi: any) {
-    // Separate ranges for each spreadsheet
-    const gpTextVNranges = sheetConfigs.gpTextVN.range.split(",").map((range) => range.trim());
-    const nccRanges = sheetConfigs.ncc.range.split(",").map((range) => range.trim());
+    const ranges = Object.values(sheetConfigs).flatMap((config) => config.range.split(",").map((range) => range.trim()))
 
-    // Fetch data from gpTextVN spreadsheet
-    const gpTextVNResponse = await gsapi.spreadsheets.values.batchGet({
-        spreadsheetId: SPREADSHEET_ID_GPTEXTVN,
-        ranges: gpTextVNranges,
-    });
+    const { data } = await gsapi.spreadsheets.values.batchGet({
+        spreadsheetId: SPREADSHEET_ID,
+        ranges: ranges,
+    })
 
-    // Fetch data from NCC spreadsheet
-    const nccResponse = await gsapi.spreadsheets.values.batchGet({
-        spreadsheetId: SPREADSHEET_ID_NCC,
-        ranges: nccRanges,
-    });
+    const rawData: Record<string, any[]> = {}
+    let currentIndex = 0
 
-    const rawData: Record<string, any[]> = {};
+    for (const [key, config] of Object.entries(sheetConfigs)) {
+        const numRanges = config.range.split(",").length
+        rawData[key] = data.valueRanges
+            .slice(currentIndex, currentIndex + numRanges)
+            .flatMap((range: any) => range.values || [])
+        currentIndex += numRanges
+    }
 
-    // Process gpTextVN data
-    rawData.gpTextVN = gpTextVNResponse.data.valueRanges.flatMap((range: any) => range.values || []);
-
-    // Process NCC data
-    rawData.ncc = nccResponse.data.valueRanges.flatMap((range: any) => range.values || []);
-
-    return rawData;
+    return rawData
 }
 
 export async function POST(req: Request) {
     try {
         const client = new google.auth.JWT(keys.client_email, undefined, keys.private_key, [
             "https://www.googleapis.com/auth/spreadsheets",
-        ]);
+        ])
 
-        await client.authorize();
+        await client.authorize()
 
-        const gsapi = google.sheets({ version: "v4", auth: client });
+        const gsapi = google.sheets({ version: "v4", auth: client })
 
-        const rawData = await getAllSheetData(gsapi);
+        const rawData = await getAllSheetData(gsapi)
 
-        const nccData = rawData.ncc ? rawData.ncc.map((row) => sheetConfigs.ncc.formatter(row, rawData)) : [];
+        const nccData = rawData.ncc ? rawData.ncc.map((row) => sheetConfigs.ncc.formatter(row, rawData)) : []
 
-        const formattedData: Record<string, any[]> = { ncc: nccData };
+        const formattedData: Record<string, any[]> = { ncc: nccData }
 
         for (const [key, config] of Object.entries(sheetConfigs)) {
             if (key !== "ncc") {
-                formattedData[key] = rawData[key].map((row) => config.formatter(row, { ...rawData, ncc: nccData }));
+                formattedData[key] = rawData[key].map((row) => config.formatter(row, { ...rawData, ncc: nccData }))
             }
         }
 
-        return NextResponse.json(formattedData, { status: 200 });
+        return NextResponse.json(formattedData, { status: 200 })
     } catch (e: any) {
-        console.error("Error accessing Google Sheets API:", e);
-        return NextResponse.json({ error: true, message: e.message }, { status: 500 });
+        console.error("Error accessing Google Sheets API:", e)
+        return NextResponse.json({ error: true, message: e.message }, { status: 500 })
     }
 }

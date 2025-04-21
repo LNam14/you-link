@@ -63,10 +63,8 @@ const sheetApiRequest = {
    * @param forceRefresh Bỏ qua cache và lấy dữ liệu mới
    * @returns Promise với dữ liệu sheet
    */
-  getData: (forceRefresh = false) => {
-    return httpService.post<SheetResponse>(ENDPOINTS.GET_DATA, {
-      cache: !forceRefresh,
-    });
+  getData: () => {
+    return httpService.post<SheetResponse>(ENDPOINTS.GET_DATA, {});
   },
 
   /**
@@ -92,10 +90,8 @@ const sheetApiRequest = {
    * @param forceRefresh Bỏ qua cache và lấy dữ liệu mới
    * @returns Promise với dữ liệu công cụ
    */
-  getDataTool: (forceRefresh = false) => {
-    return httpService.post<ToolResponse>(ENDPOINTS.GET_DATA_TOOL, {
-      cache: !forceRefresh,
-    });
+  getDataTool: () => {
+    return httpService.post<ToolResponse>(ENDPOINTS.GET_DATA_TOOL, {});
   },
 
   /**
@@ -103,10 +99,8 @@ const sheetApiRequest = {
    * @param forceRefresh Bỏ qua cache và lấy dữ liệu mới
    * @returns Promise với dữ liệu xuất
    */
-  getDataExtort: (forceRefresh = false) => {
-    return httpService.post<ExtortResponse>(ENDPOINTS.GET_DATA_EXTORT, {
-      cache: !forceRefresh,
-    });
+  getDataExtort: () => {
+    return httpService.post<ExtortResponse>(ENDPOINTS.GET_DATA_EXTORT, { });
   },
 };
 
