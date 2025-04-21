@@ -2299,10 +2299,17 @@ export default function PageBody({ supplierName }: PageBodyProps) {
 
                     // Update the order in the array
                     ordersArray[orderIndex] = updatedOrder
-
+                    // Send notification based on sender role
+                    if (userInfo?.role === "Khách hàng") {
+                        sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `KH đơn ${currentChatOrderId} - ` + newChatMessage.trim())
+                    } else if (userInfo?.role === "NCC") {
+                        sheetApiRequest.getIDKH(updatedOrder.TenKH, `NCC đơn ${currentChatOrderId} - ` + newChatMessage.trim())
+                    }
                     // Save the updated orders array back to Firebase
                     await set(ordersRef, ordersArray)
                     setNewChatMessage("")
+
+
                 } else {
                     console.error("Order not found:", currentChatOrderId)
                 }
@@ -2423,6 +2430,265 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                 nestedHeaders={[RowHeader1, RowHeader2]}
                 data={data}
                 afterChange={handleAfterChange}
+                afterPaste={(pastedData, coords) => {
+                    // Skip if no data or coordinates
+                    if (!pastedData || !coords) return;
+
+                    // Get the start row and column
+                    const startRow = coords[0].startRow;
+                    const startCol = coords[0].startCol;
+
+                    // Create a copy of the current data
+                    const newData = [...data];
+
+                    // Process each row of pasted data
+                    pastedData.forEach((row, rowIndex) => {
+                        // Get the physical row index
+                        const physicalRow = startRow + rowIndex;
+
+                        // Skip if this is a summary row
+                        const isSummaryRow =
+                            newData[physicalRow]?.[0]?.includes("Tuần") ||
+                            newData[physicalRow]?.[0]?.includes("Chưa Index") ||
+                            newData[physicalRow]?.[0]?.includes("Chưa nhập") ||
+                            newData[physicalRow]?.[0]?.includes("Đơn hủy");
+
+                        if (isSummaryRow) return;
+
+                        // Get the order code (Mã đơn) from the current row
+                        const orderCode = newData[physicalRow]?.[0];
+                        if (!orderCode) return;
+
+                        // Find the matching order in the orders array
+                        const orderIndex = orders.findIndex((order) => order.MaDon === orderCode);
+                        if (orderIndex === -1) return;
+
+                        // Get the Firebase key for this order
+                        const orderKey = orderKeys[orderIndex];
+                        if (!orderKey) return;
+
+                        // Process each column in the row
+                        row.forEach((value, colIndex) => {
+                            const columnName = RowHeader2[startCol + colIndex];
+                            if (!columnName) return;
+
+                            // Get the current order data
+                            const updatedOrder = { ...orders[orderIndex] };
+
+                            // Map table columns to Firebase fields
+                            switch (columnName) {
+                                case "Mã":
+                                    updatedOrder.MaDon = value;
+                                    break;
+                                case "Loại":
+                                    updatedOrder.Loai = value;
+                                    // Reset status when type changes
+                                    if (value === "GP") {
+                                        updatedOrder.TinhTrangKH = "Chưa nhập";
+                                        updatedOrder.TinhTrangNCC = "Chưa nhận đơn";
+                                    } else {
+                                        updatedOrder.TinhTrangKH = "Chưa nhập";
+                                        updatedOrder.TinhTrangNCC = "Chưa nhận đơn";
+                                    }
+                                    break;
+                                case "Ngày Bán":
+                                    updatedOrder.NgayBan = value;
+                                    break;
+                                case "Time Text":
+                                    updatedOrder.TimeText = value;
+                                    break;
+                                case "Site":
+                                    updatedOrder.Site = value;
+                                    break;
+                                case "Ghi Chú":
+                                    updatedOrder.Note = value;
+                                    break;
+                                case "Giá Bán":
+                                    if (updatedOrder.Loai === "GP") {
+                                        updatedOrder.GiaBanGP = value;
+                                    } else if (updatedOrder.Loai === "Text") {
+                                        updatedOrder.GiaBanText = value;
+                                    } else if (updatedOrder.Loai === "Text Home") {
+                                        updatedOrder.GiaBanTextHome = value;
+                                    } else if (updatedOrder.Loai === "Text Header") {
+                                        updatedOrder.GiaBanTextHeader = value;
+                                    }
+                                    break;
+                                case "Giá Mua":
+                                    if (updatedOrder.Loai === "GP") {
+                                        updatedOrder.GiaMuaGP = value;
+                                    } else if (updatedOrder.Loai === "Text") {
+                                        updatedOrder.GiaMuaText = value;
+                                    } else if (updatedOrder.Loai === "Text Home") {
+                                        updatedOrder.GiaMuaTextHome = value;
+                                    } else if (updatedOrder.Loai === "Text Header") {
+                                        updatedOrder.GiaMuaTextHeader = value;
+                                    }
+                                    break;
+                                case "Hoa Hồng":
+                                    if (updatedOrder.Loai === "GP") {
+                                        updatedOrder.HoaHongGP = value;
+                                    } else if (updatedOrder.Loai === "Text") {
+                                        updatedOrder.HoaHongText = value;
+                                    }
+                                    break;
+                                case "TTNCC":
+                                    updatedOrder.TTNCC = value;
+                                    break;
+                                case "Bài Viết":
+                                    updatedOrder.BaiViet = value;
+                                    if (updatedOrder.Loai === "GP") {
+                                        if (updatedOrder.BaiViet) {
+                                            updatedOrder.TinhTrangKH = "Đã nhập";
+                                            // Add NgayOrder when BaiViet is entered
+                                            const now = new Date();
+                                            const day = String(now.getDate()).padStart(2, "0");
+                                            const month = String(now.getMonth() + 1).padStart(2, "0");
+                                            const year = now.getFullYear();
+                                            updatedOrder.NgayOrder = `${day}/${month}/${year}`;
+                                            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/mua-ban để xử lý đơn hàng ${updatedOrder.MaDon}`)
+                                        } else {
+                                            updatedOrder.TinhTrangKH = "Chưa nhập";
+                                        }
+                                    }
+                                    break;
+                                case "Link KQ":
+                                    updatedOrder.LinkKQ = value;
+                                    if (updatedOrder.Loai === "GP") {
+                                        if (updatedOrder.LinkKQ) {
+                                            updatedOrder.TinhTrangNCC = "Đã lên bài";
+                                            const now = new Date();
+                                            const day = String(now.getDate()).padStart(2, "0");
+                                            const month = String(now.getMonth() + 1).padStart(2, "0");
+                                            updatedOrder.NgayBan = `${day}/${month}`;
+                                            sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                                        } else {
+                                            updatedOrder.TinhTrangNCC = "Chưa nhận đơn";
+                                            updatedOrder.NgayBan = "";
+                                        }
+                                    }
+                                    break;
+                                case "Anchor 1":
+                                    updatedOrder.Anchor1 = value;
+                                    if (updatedOrder.Loai !== "GP") {
+                                        if (updatedOrder.Anchor1 && updatedOrder.Link1) {
+                                            updatedOrder.TinhTrangKH = "Đã nhập";
+                                        } else {
+                                            updatedOrder.TinhTrangKH = "Chưa nhập";
+                                        }
+                                    }
+                                    break;
+                                case "Link 1":
+                                    updatedOrder.Link1 = value;
+                                    if (updatedOrder.Loai !== "GP") {
+                                        if (updatedOrder.Anchor1 && updatedOrder.Link1) {
+                                            updatedOrder.TinhTrangKH = "Đã nhập";
+                                            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/mua-ban để xử lý đơn hàng ${updatedOrder.MaDon}`)
+                                        } else {
+                                            updatedOrder.TinhTrangKH = "Chưa nhập";
+                                        }
+                                    }
+                                    break;
+                                case "Anchor 2":
+                                    updatedOrder.Anchor2 = value;
+                                    if (updatedOrder.Loai !== "GP") {
+                                        if (updatedOrder.Anchor2 && updatedOrder.Link2) {
+                                            updatedOrder.TinhTrangKH = "Đã nhập";
+                                        } else {
+                                            updatedOrder.TinhTrangKH = "Chưa nhập";
+                                        }
+                                    }
+                                    break;
+                                case "Link 2":
+                                    updatedOrder.Link2 = value;
+                                    if (updatedOrder.Loai !== "GP") {
+                                        if (updatedOrder.Anchor2 && updatedOrder.Link2) {
+                                            updatedOrder.TinhTrangKH = "Đã nhập";
+                                        } else {
+                                            updatedOrder.TinhTrangKH = "Chưa nhập";
+                                        }
+                                    }
+                                    break;
+                                case "Ngày KT":
+                                    updatedOrder.NgayKT = value;
+                                    break;
+                                case "Index":
+                                    updatedOrder.Index = value;
+                                    const now = new Date();
+                                    const day = String(now.getDate()).padStart(2, "0");
+                                    const month = String(now.getMonth() + 1).padStart(2, "0");
+                                    updatedOrder.NgayKT = `${day}/${month}`;
+
+                                    // Handle money balance changes based on Index status
+                                    if (value === "Indexed") {
+                                        // Only process payment if it hasn't been processed before
+                                        if (!updatedOrder.paymentStatus || updatedOrder.paymentStatus !== "paid") {
+                                            // Deduct money when Indexed
+                                            const price = Number(
+                                                updatedOrder.Loai === "GP"
+                                                    ? updatedOrder.GiaBanGP || 0
+                                                    : updatedOrder.Loai === "Text"
+                                                        ? updatedOrder.GiaBanText || 0
+                                                        : updatedOrder.Loai === "TextHome"
+                                                            ? updatedOrder.GiaBanTextHome || 0
+                                                            : updatedOrder.GiaBanTextHeader || 0,
+                                            );
+                                            updateUserBalance(updatedOrder.KHMua, -price, updatedOrder.TenNCC);
+                                            updatedOrder.paymentStatus = "paid";
+                                            sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
+                                            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
+                                        }
+                                    } else if (updatedOrder.Index === "Indexed" && value !== "Indexed") {
+                                        // Only process refund if payment was previously processed
+                                        if (updatedOrder.paymentStatus === "paid") {
+                                            // Add money back when changing from Indexed to something else
+                                            const price = Number(
+                                                updatedOrder.Loai === "GP"
+                                                    ? updatedOrder.GiaBanGP || 0
+                                                    : updatedOrder.Loai === "Text"
+                                                        ? updatedOrder.GiaBanText || 0
+                                                        : updatedOrder.Loai === "TextHome"
+                                                            ? updatedOrder.GiaBanTextHome || 0
+                                                            : updatedOrder.GiaBanTextHeader || 0,
+                                            );
+                                            updateUserBalance(updatedOrder.KHMua, price, updatedOrder.TenNCC)
+                                            updatedOrder.paymentStatus1 = "refunded"
+                                        }
+                                    }
+                                    break
+                                case "Tên NCC":
+                                    updatedOrder.TenNCC = value;
+                                    break;
+                                case "Link NCC":
+                                    updatedOrder.TeleNCC = value;
+                                    break;
+                                case "KH":
+                                    updatedOrder.TinhTrangKH = value;
+                                    break;
+                                case "NCC":
+                                    updatedOrder.TinhTrangNCC = value;
+                                    // Update NgayBan for non-GP orders when TinhTrangNCC changes to 'Đã lên bài'
+                                    if (updatedOrder.Loai !== "GP" && value === "Đã lên bài") {
+                                        const now = new Date()
+                                        const day = String(now.getDate()).padStart(2, "0")
+                                        const month = String(now.getMonth() + 1).padStart(2, "0")
+                                        updatedOrder.NgayBan = `${day}/${month}`
+                                    }
+                                    break;
+                            }
+
+                            // Update the order in Firebase
+                            const orderRef = ref(database, `orders/${orderKey}`);
+                            set(orderRef, updatedOrder)
+                                .then(() => {
+                                    console.log(`Successfully updated order ${orderCode}`);
+                                })
+                                .catch((error) => {
+                                    console.error(`Error updating order ${orderCode}:`, error);
+                                });
+                        });
+                    });
+                }}
                 contextMenu={contextMenuItems}
                 columns={RowHeader2.map((header, index) => {
                     const columnSetting = columnSettings[header]
@@ -2545,7 +2811,8 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                             (userInfo?.role === "NCC" && header !== "Index" && header !== "Link KQ") ||
                             (userInfo?.role === "Khách hàng" &&
                                 !["Bài Viết", "Anchor 1", "Link 1", "Anchor 2", "Link 2", "Index", "Loại"].includes(header)) ||
-                            (userInfo?.role === "Khách hàng" && header === "KH");
+                            (userInfo?.role === "Khách hàng" && header === "KH") ||
+                            (header === "Index" && data[row][col] === "No");
 
                         if (isReadOnly) {
                             return {
