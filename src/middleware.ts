@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // Paths that require Admin or Staff role
-const privatePaths = ["/manage", "/dashboard", "/tool-check", "/extort"];
+const privatePaths = ["/manage", "/dashboard", "/extort"];
 // Paths only for unauthenticated users
 const unAuthPaths = ["/login"];
 // Paths accessible by everyone (authenticated or not)

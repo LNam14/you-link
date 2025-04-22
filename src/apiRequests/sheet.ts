@@ -52,6 +52,7 @@ const ENDPOINTS = {
   GET_ID_KH: "/sheet/id-kh",
   GET_DATA_TOOL: "/sheet/tool-check",
   GET_DATA_EXTORT: "/sheet/extort",
+  UPDATE_DATA: "/sheet/update"
 };
 
 /**
@@ -102,6 +103,44 @@ const sheetApiRequest = {
   getDataExtort: () => {
     return httpService.post<ExtortResponse>(ENDPOINTS.GET_DATA_EXTORT, { });
   },
+
+  /**
+   * Cập nhật dữ liệu sheet
+   * @param data Dữ liệu cần cập nhật
+   * @param sheetType Loại sheet (1 hoặc 2)
+   * @returns Promise với kết quả cập nhật
+   */
+  updateData: async (data: any[], sheetType: number) => {
+    try {
+      const response = await fetch('/api/sheet/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ data, sheetType }),
+      })
+      return response.json()
+    } catch (error) {
+      console.error('Error updating data:', error)
+      throw error
+    }
+  },
+
+  async appendRows(rows: any[], sheetType: number) {
+    try {
+      const response = await fetch('/api/sheet/append', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rows, sheetType }),
+      })
+      return response.json()
+    } catch (error) {
+      console.error('Error appending rows:', error)
+      throw error
+    }
+  }
 };
 
 export default sheetApiRequest;

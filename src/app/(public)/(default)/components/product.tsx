@@ -79,21 +79,17 @@ const Product = ({ title }: { title: string }) => {
               return []
             })
 
-            console.log('Fetched products:', productsArray) // Để debug
+            console.log('Fetched products:', productsArray)
             setProducts(productsArray)
           } else {
-            console.log('No products found') // Để debug
+            console.log('No products found')
             setProducts([])
           }
           setLoading(false)
-        }, {
-          // Thêm error callback
-          onlyOnce: true,
-          error: (error) => {
-            console.error("Firebase data fetch error:", error)
-            toast.error("Lỗi khi tải dữ liệu")
-            setLoading(false)
-          }
+        }, (error: Error) => {
+          console.error("Firebase data fetch error:", error)
+          toast.error("Lỗi khi tải dữ liệu")
+          setLoading(false)
         })
       } catch (error) {
         console.error("Error in fetchProducts:", error)

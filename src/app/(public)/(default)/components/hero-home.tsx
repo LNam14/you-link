@@ -26,6 +26,7 @@ export default function HeroHome() {
   const [userInfo, setUserInfo] = useState<any>(null)
   const [isConverterModalVisible, setIsConverterModalVisible] = useState(false)
   const [topSites, setTopSites] = useState<{ site: string; count: number }[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
@@ -48,6 +49,7 @@ export default function HeroHome() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setIsLoading(true)
         const ordersRef = ref(database, 'orders')
         onValue(ordersRef, (snapshot) => {
           if (snapshot.exists()) {
@@ -58,13 +60,11 @@ export default function HeroHome() {
             const siteCounts: Record<string, number> = {}
 
             ordersArray.forEach((order: any) => {
-              if (order && order.items) {
-                order.items.forEach((item: any) => {
-                  if (item && item.name) {
-                    const site = item.name
-                    siteCounts[site] = (siteCounts[site] || 0) + 1
-                  }
-                })
+              if (order) {
+                if (order && order.Site) {
+                  const site = order.Site
+                  siteCounts[site] = (siteCounts[site] || 0) + 1
+                }
               }
             })
 
@@ -72,13 +72,15 @@ export default function HeroHome() {
             const sortedSites = Object.entries(siteCounts)
               .sort(([, a], [, b]) => b - a)
               .slice(0, 10)
-              .map(([site]) => site)
+              .map(([site, count]) => ({ site, count }))
 
             setTopSites(sortedSites)
           }
+          setIsLoading(false)
         })
       } catch (error) {
         console.error('Error fetching orders:', error)
+        setIsLoading(false)
       }
     }
 
@@ -153,14 +155,24 @@ export default function HeroHome() {
               <p className="text-xl text-gray-600 mb-8">
                 Nâng cao thứ hạng website của bạn với dịch vụ backlink chất lượng cao, đa dạng và hiệu quả
               </p>
-              <Link
-                href="/mua-ban"
-                className="group inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700 text-white font-medium rounded-full px-8 py-3.5 shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                <ShoppingBag className="w-5 h-5" />
-                Mua bán
-                <ArrowRight className="w-4 h-4 ml-1 transition-transform duration-300 group-hover:translate-x-1" />
-              </Link>
+              <div className="flex gap-4">
+                <Link
+                  href="/mua-ban"
+                  className="group inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700 text-white font-medium rounded-full px-8 py-3.5 shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  <ShoppingBag className="w-5 h-5" />
+                  Mua bán
+                  <ArrowRight className="w-4 h-4 ml-1 transition-transform duration-300 group-hover:translate-x-1" />
+                </Link>
+                <Link
+                  href="/tool-check"
+                  className="group inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium rounded-full px-8 py-3.5 shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  <Globe className="w-5 h-5" />
+                  Check site
+                  <ArrowRight className="w-4 h-4 ml-1 transition-transform duration-300 group-hover:translate-x-1" />
+                </Link>
+              </div>
             </div>
 
             <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100 md:w-96">
@@ -216,7 +228,6 @@ export default function HeroHome() {
             </div>
 
             <div className="relative">
-
               <div
                 ref={scrollContainerRef}
                 className="overflow-x-auto pb-4"
@@ -232,8 +243,13 @@ export default function HeroHome() {
                   }
                 `}</style>
                 <div className="flex space-x-6 min-w-max px-2">
-                  {topSites.length > 0 ? (
-                    topSites.map((site, index) => (
+                  {isLoading ? (
+                    <div className="flex items-center justify-center w-full py-8 min-w-[800px]">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                      <span className="ml-3 text-gray-500">Đang tải dữ liệu...</span>
+                    </div>
+                  ) : topSites.length > 0 ? (
+                    topSites.map(({ site, count }, index) => (
                       <div
                         key={index}
                         className="bg-white rounded-xl shadow-md border border-gray-100 flex flex-col min-w-[250px] max-w-[250px] overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-105 group"
@@ -244,15 +260,17 @@ export default function HeroHome() {
                             <div className="w-10 h-6 rounded-full bg-gray-100 flex items-center justify-center mr-3 group-hover:bg-gradient-to-r group-hover:from-orange-500 group-hover:to-pink-600 transition-colors duration-300">
                               <span className="font-bold text-gray-600 group-hover:text-white">{index + 1}</span>
                             </div>
-                            <h4 className="font-medium text-gray-800 truncate">{site.site}</h4>
+                            <div>
+                              <h4 className="font-medium text-gray-800 truncate">{site}</h4>
+                              <p className="text-sm text-gray-500">Số lượng: {count}</p>
+                            </div>
                           </div>
                         </div>
                       </div>
                     ))
                   ) : (
                     <div className="flex items-center justify-center w-full py-8 min-w-[800px]">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-                      <span className="ml-3 text-gray-500">Đang tải dữ liệu...</span>
+                      <span className="text-gray-500">Không có dữ liệu</span>
                     </div>
                   )}
                 </div>
@@ -261,7 +279,7 @@ export default function HeroHome() {
           </div>
 
           {/* Admin and Staff tools */}
-          {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
+          {(userInfo?.role === "Admin" || userInfo?.role === "Khách hàng") && (
             <div className="mb-16">
               <h3 className="text-center text-sm font-medium text-gray-500 uppercase tracking-wider mb-6">
                 Công cụ quản lý

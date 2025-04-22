@@ -133,7 +133,6 @@ export default function PageBody() {
         "Traffic Tool",
         "Ghi chú",
         "Giá bán",
-        "Time text",
     ]
     const fetchData = async () => {
         try {
@@ -1121,22 +1120,23 @@ export default function PageBody() {
                                     >
                                         {loading ? "Đang tìm kiếm..." : "Tìm kiếm"}
                                     </button>
-                                    <div className="flex space-x-2">
-                                        <button
-                                            onClick={openNccSelectionModal}
-                                            disabled={loading || searchResults.length === 0}
-                                            className="text-[13px] px-4 py-2 bg-green-500 text-white rounded-[8px] hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 transition duration-200 ease-in-out"
-                                        >
-                                            <MessageOutlined className="mr-1" /> Chọn NCC
-                                        </button>
-                                        <button
-                                            onClick={handleMessageAllNCCs}
-                                            disabled={loading || searchResults.length === 0}
-                                            className="text-[13px] px-4 py-2 bg-red-500 text-white rounded-[8px] hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 transition duration-200 ease-in-out"
-                                        >
-                                            <MessageOutlined className="mr-1" /> Nhắn tất cả NCC
-                                        </button>
-                                    </div>
+                                    {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
+                                        <div className="flex space-x-2">
+                                            <button
+                                                onClick={openNccSelectionModal}
+                                                disabled={loading || searchResults.length === 0}
+                                                className="text-[13px] px-4 py-2 bg-green-500 text-white rounded-[8px] hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 transition duration-200 ease-in-out"
+                                            >
+                                                <MessageOutlined className="mr-1" /> Chọn NCC
+                                            </button>
+                                            <button
+                                                onClick={handleMessageAllNCCs}
+                                                disabled={loading || searchResults.length === 0}
+                                                className="text-[13px] px-4 py-2 bg-red-500 text-white rounded-[8px] hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 transition duration-200 ease-in-out"
+                                            >
+                                                <MessageOutlined className="mr-1" /> Nhắn tất cả NCC
+                                            </button>
+                                        </div>)}
                                 </div>
                             </div>
 
@@ -1322,7 +1322,7 @@ export default function PageBody() {
                                         <table ref={tableRef} className="min-w-full">
                                             <thead className="sticky top-0 z-10 bg-blue-500">
                                                 <tr className="bg-blue-500">
-                                                    {(userInfo.role === "Khách hàng" ? columnsKH : columnNames).map((header, index) => (
+                                                    {((userInfo?.role !== "Admin" && userInfo?.role !== "Nhân viên") ? columnsKH : columnNames).map((header, index) => (
                                                         <th
                                                             key={index}
                                                             className={`px-2 py-2 text-left text-xs font-medium text-white tracking-wider border cursor-pointer ${selectedColumns.includes(index) ? "bg-blue-700" : ""}`}
@@ -1336,7 +1336,7 @@ export default function PageBody() {
                                             <tbody>
                                                 {searchResults.map((result, rowIndex) => (
                                                     <tr key={rowIndex} className={rowIndex % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                                                        {(userInfo.role === "Khách hàng" ? columnsKH : columnNames).map((_, columnIndex) => (
+                                                        {((userInfo?.role !== "Admin" && userInfo?.role !== "Nhân viên") ? columnsKH : columnNames).map((_, columnIndex) => (
                                                             <td
                                                                 key={columnIndex}
                                                                 style={{ userSelect: "none" }}
@@ -1358,33 +1358,27 @@ export default function PageBody() {
                                                                 onContextMenu={(e) => handleCellContextMenu(e, result)}
                                                             >
                                                                 {columnIndex === 0 ? (
-                                                                    userInfo.role === "Khách hàng" ? (
-                                                                        ""
-                                                                    ) : (
-                                                                        result.cs
-                                                                    )
-                                                                ) : columnIndex === 1 ? (
                                                                     result.tinhTrang
-                                                                ) : columnIndex === 2 ? (
+                                                                ) : columnIndex === 1 ? (
                                                                     result.bong
-                                                                ) : columnIndex === 3 ? (
+                                                                ) : columnIndex === 2 ? (
                                                                     result.bet
-                                                                ) : columnIndex === 4 ? (
+                                                                ) : columnIndex === 3 ? (
                                                                     result.site
-                                                                ) : columnIndex === 5 ? (
+                                                                ) : columnIndex === 4 ? (
                                                                     result.chuDe
-                                                                ) : columnIndex === 6 ? (
+                                                                ) : columnIndex === 5 ? (
                                                                     result.DR
-                                                                ) : columnIndex === 7 ? (
+                                                                ) : columnIndex === 6 ? (
                                                                     result.trafficTool
-                                                                ) : columnIndex === 8 ? (
+                                                                ) : columnIndex === 7 ? (
                                                                     result.ghiChu
-                                                                ) : columnIndex === 9 ? (
+                                                                ) : columnIndex === 8 ? (
                                                                     renderPrice(result)
+                                                                ) : columnIndex === 9 ? (
+                                                                    result.timeText
                                                                 ) : columnIndex === 10 ? (
-                                                                    userInfo.role === "Khách hàng" ? (
-                                                                        result.timeText
-                                                                    ) : categoryType === "GP" ? (
+                                                                    categoryType === "GP" ? (
                                                                         result.giaMuaGP
                                                                     ) : categoryType === "Text" ? (
                                                                         result.giaMuaText
@@ -1394,17 +1388,13 @@ export default function PageBody() {
                                                                         result.giaMuaTextHeader
                                                                     )
                                                                 ) : columnIndex === 11 ? (
-                                                                    userInfo.role === "Khách hàng" ? (
-                                                                        ""
-                                                                    ) : categoryType === "GP" ? (
+                                                                    categoryType === "GP" ? (
                                                                         result.hoaHongGP
                                                                     ) : (
                                                                         result.hoaHongText
                                                                     )
                                                                 ) : columnIndex === 12 ? (
-                                                                    userInfo.role === "Khách hàng" ? (
-                                                                        ""
-                                                                    ) : categoryType === "GP" ? (
+                                                                    categoryType === "GP" ? (
                                                                         result.giaCuoiGP
                                                                     ) : categoryType === "Text" ? (
                                                                         result.giaCuoiText
@@ -1414,9 +1404,7 @@ export default function PageBody() {
                                                                         result.giaCuoiTextHeader
                                                                     )
                                                                 ) : columnIndex === 13 ? (
-                                                                    userInfo.role === "Khách hàng" ? (
-                                                                        ""
-                                                                    ) : searchType === "Lio" ? (
+                                                                    searchType === "Lio" ? (
                                                                         categoryType === "GP" ? (
                                                                             result.loiNhuanGPLio
                                                                         ) : categoryType === "Text" ? (
@@ -1436,23 +1424,11 @@ export default function PageBody() {
                                                                         result.loiNhuanTextHeader
                                                                     )
                                                                 ) : columnIndex === 14 ? (
-                                                                    userInfo.role === "Khách hàng" ? (
-                                                                        ""
-                                                                    ) : (
-                                                                        result.timeText
-                                                                    )
+                                                                    result.timeText
                                                                 ) : columnIndex === 15 ? (
-                                                                    userInfo.role === "Khách hàng" ? (
-                                                                        ""
-                                                                    ) : (
-                                                                        result.NCC
-                                                                    )
+                                                                    result.NCC
                                                                 ) : columnIndex === 16 ? (
-                                                                    userInfo.role === "Khách hàng" ? (
-                                                                        ""
-                                                                    ) : (
-                                                                        result.MaNCC
-                                                                    )
+                                                                    result.MaNCC
                                                                 ) : columnIndex === 17 ? (
                                                                     <a
                                                                         href="#"
@@ -1481,9 +1457,7 @@ export default function PageBody() {
                                                                         href="#"
                                                                         onClick={(e) => {
                                                                             e.preventDefault()
-                                                                            const groups = Array.isArray(result.GroupNCC)
-                                                                                ? result.GroupNCC
-                                                                                : [result.GroupNCC]
+                                                                            const groups = Array.isArray(result.GroupNCC) ? result.GroupNCC : [result.GroupNCC]
                                                                             const uniqueGroups = [...new Set(groups.filter(Boolean))] // Remove duplicates and empty values
                                                                             if (uniqueGroups.length === 0) {
                                                                                 message.info("No group available")
@@ -1526,7 +1500,7 @@ export default function PageBody() {
                                             <p>Traffic Tool: {result.trafficTool}</p>
                                             <p>Ghi chú: {result.ghiChu}</p>
                                             <p>Giá bán: {renderPrice(result)}</p>
-                                            {userInfo.role !== 4 && (
+                                            {userInfo?.role !== 4 && (
                                                 <>
                                                     <p>
                                                         Giá mua:{" "}

@@ -426,10 +426,10 @@ const ChatDialog = memo(
                 currentOrder.Loai === "GP"
                     ? currentOrder.NgayKT &&
                     (currentOrder.TinhTrangKH === "Đã nhập" || currentOrder.TinhTrangKH === "Đơn OK") &&
-                    (currentOrder.TinhTrangNCC === "Đã lên bài" || currentOrder.TinhTrangNCC === "Đơn OK")
+                    (currentOrder.TinhTrangNCC === "Đã lên bài" || currentOrder.TinhTrangNCC === "Đơn OK") || (currentOrder.TinhTrangKH === "Hủy - đã index" || currentOrder.TinhTrangKH === "Hủy - đã lên bài")
                     : currentOrder.NgayBan &&
                     (currentOrder.TinhTrangKH === "Đã nhập" || currentOrder.TinhTrangKH === "Đơn OK") &&
-                    (currentOrder.TinhTrangNCC === "Đã lên bài" || currentOrder.TinhTrangNCC === "Đơn OK")
+                    (currentOrder.TinhTrangNCC === "Đã lên bài" || currentOrder.TinhTrangNCC === "Đơn OK") || (currentOrder.TinhTrangNCC === "Từ chối hủy")
 
             if (!isWeeklyOrder) {
                 antdMessage.warning("Không thể khiếu nại đối với đơn hàng chưa hoàn thành")

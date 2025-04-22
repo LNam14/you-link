@@ -9,7 +9,7 @@ const SPREADSHEET_ID = '10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU';
 
 interface SheetConfig {
     range: string;
-    formatter: (row: any[]) => Record<string, string>;
+    formatter: (row: any[], index: number) => Record<string, string | number>;
 }
 
 const sheetConfigs: Record<string, SheetConfig> = {
@@ -39,6 +39,46 @@ const sheetConfigs: Record<string, SheetConfig> = {
             HoaHongText: row[26] || 0,
             NCC: row[29] || "",
             MaNCC: row[30] || "",
+        })
+    },
+    updateVN: {
+        range: '1!B3:AM',
+        formatter: (row, index) => ({
+            rowIndex: index + 3,
+            Site: row[0] || "",
+            'Chủ đề': row[3] || "",
+            'Nước': row[4] || "",
+            "Link out": row[6] || "",
+            DR: row[7] || "",
+            Keywords: row[8] || "",
+            "Traffic Tool": row[9] || "",
+            "Tình trạng": row[11] || "",
+            "GP ($)": row[21] || 0,
+            "Text Footer ($)": row[22] || 0,
+            "Text Home ($)": row[23] || 0,
+            "Text Header ($)": row[24] || 0,
+            "HH GP": row[25] || 0,
+            "HH Text": row[26] || 0,
+        })
+    },
+    updateNN: {
+        range: '2!B3:AM',
+        formatter: (row, index) => ({
+            rowIndex: index + 3,
+            Site: row[0] || "",
+            'Chủ đề': row[3] || "",
+            'Nước': row[4] || "",
+            "Link out": row[6] || "",
+            DR: row[7] || "",
+            Keywords: row[8] || "",
+            "Traffic Tool": row[9] || "",
+            "Tình trạng": row[11] || "",
+            "GP ($)": row[21] || 0,
+            "Text Footer ($)": row[22] || 0,
+            "Text Home ($)": row[23] || 0,
+            "Text Header ($)": row[24] || 0,
+            "HH GP": row[25] || 0,
+            "HH Text": row[26] || 0,
         })
     },
     gpTextNN: {
@@ -82,15 +122,20 @@ const getAuthClient = cache(async () => {
     return client;
 });
 
-const getSheetData = cache(async (gsapi: any, config: SheetConfig) => {
+const getSheetData = cache(async (gsapi: any, config: SheetConfig, configKey: string) => {
     const { data } = await gsapi.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
         range: config.range,
     });
+    console.log(`Raw data for ${config.range}:`, data.values?.length || 0, 'rows');
     // Lấy dữ liệu và ánh xạ qua formatter
-    const formattedData = (data.values || []).map(config.formatter);
-    // Lọc chỉ các site có Tình trạng === "Bình thường"
-    return formattedData.filter((row: any) => row["Tình trạng"] === "Bình thường");
+    const formattedData = (data.values || []).map((row: any[], index: number) => config.formatter(row, index));
+    // Chỉ lọc theo Tình trạng nếu không phải updateVN hoặc updateNN
+    const filteredData = configKey === 'updateVN' || configKey === 'updateNN'
+        ? formattedData
+        : formattedData.filter((row: any) => row["Tình trạng"] === "Bình thường");
+    console.log(`Filtered data for ${config.range}:`, filteredData.length, 'rows');
+    return filteredData;
 });
 
 export async function POST(req: Request) {
@@ -100,7 +145,7 @@ export async function POST(req: Request) {
 
         const results = await Promise.all(
             Object.entries(sheetConfigs).map(async ([key, config]) => {
-                const data = await getSheetData(gsapi, config);
+                const data = await getSheetData(gsapi, config, key);
                 return [key, data];
             })
         );
