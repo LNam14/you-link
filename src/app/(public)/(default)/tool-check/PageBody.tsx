@@ -1357,126 +1357,150 @@ export default function PageBody() {
                                                                 onMouseUp={handleMouseUp}
                                                                 onContextMenu={(e) => handleCellContextMenu(e, result)}
                                                             >
-                                                                {columnIndex === 0 ? (
-                                                                    result.tinhTrang
-                                                                ) : columnIndex === 1 ? (
-                                                                    result.bong
-                                                                ) : columnIndex === 2 ? (
-                                                                    result.bet
-                                                                ) : columnIndex === 3 ? (
-                                                                    result.site
-                                                                ) : columnIndex === 4 ? (
-                                                                    result.chuDe
-                                                                ) : columnIndex === 5 ? (
-                                                                    result.DR
-                                                                ) : columnIndex === 6 ? (
-                                                                    result.trafficTool
-                                                                ) : columnIndex === 7 ? (
-                                                                    result.ghiChu
-                                                                ) : columnIndex === 8 ? (
-                                                                    renderPrice(result)
-                                                                ) : columnIndex === 9 ? (
-                                                                    result.timeText
-                                                                ) : columnIndex === 10 ? (
-                                                                    categoryType === "GP" ? (
-                                                                        result.giaMuaGP
-                                                                    ) : categoryType === "Text" ? (
-                                                                        result.giaMuaText
-                                                                    ) : categoryType === "TextHome" ? (
-                                                                        result.giaMuaTextHome
-                                                                    ) : (
-                                                                        result.giaMuaTextHeader
-                                                                    )
-                                                                ) : columnIndex === 11 ? (
-                                                                    categoryType === "GP" ? (
-                                                                        result.hoaHongGP
-                                                                    ) : (
-                                                                        result.hoaHongText
-                                                                    )
-                                                                ) : columnIndex === 12 ? (
-                                                                    categoryType === "GP" ? (
-                                                                        result.giaCuoiGP
-                                                                    ) : categoryType === "Text" ? (
-                                                                        result.giaCuoiText
-                                                                    ) : categoryType === "TextHome" ? (
-                                                                        result.giaCuoiTextHome
-                                                                    ) : (
-                                                                        result.giaCuoiTextHeader
-                                                                    )
-                                                                ) : columnIndex === 13 ? (
-                                                                    searchType === "Lio" ? (
+                                                                {userInfo?.role === "Admin" || userInfo?.role === "Nhân viên" ? (
+                                                                    columnIndex === 0 ? (
+                                                                        result.cs
+                                                                    ) : columnIndex === 1 ? (
+                                                                        result.tinhTrang
+                                                                    ) : columnIndex === 2 ? (
+                                                                        result.bong
+                                                                    ) : columnIndex === 3 ? (
+                                                                        result.bet
+                                                                    ) : columnIndex === 4 ? (
+                                                                        result.site
+                                                                    ) : columnIndex === 5 ? (
+                                                                        result.chuDe
+                                                                    ) : columnIndex === 6 ? (
+                                                                        result.DR
+                                                                    ) : columnIndex === 7 ? (
+                                                                        result.trafficTool
+                                                                    ) : columnIndex === 8 ? (
+                                                                        result.ghiChu
+                                                                    ) : columnIndex === 9 ? (
+                                                                        renderPrice(result)
+                                                                    ) : columnIndex === 10 ? (
+                                                                        result.timeText
+                                                                    ) : columnIndex === 11 ? (
                                                                         categoryType === "GP" ? (
-                                                                            result.loiNhuanGPLio
+                                                                            result.giaMuaGP
                                                                         ) : categoryType === "Text" ? (
-                                                                            result.loiNhuanTextLio
+                                                                            result.giaMuaText
                                                                         ) : categoryType === "TextHome" ? (
-                                                                            result.loiNhuanTextHomeLio
+                                                                            result.giaMuaTextHome
                                                                         ) : (
-                                                                            result.loiNhuanTextHeaderLio
+                                                                            result.giaMuaTextHeader
                                                                         )
-                                                                    ) : categoryType === "GP" ? (
-                                                                        result.loiNhuanGP
-                                                                    ) : categoryType === "Text" ? (
-                                                                        result.loiNhuanText
-                                                                    ) : categoryType === "TextHome" ? (
-                                                                        result.loiNhuanTextHome
+                                                                    ) : columnIndex === 12 ? (
+                                                                        categoryType === "GP" ? (
+                                                                            result.hoaHongGP
+                                                                        ) : (
+                                                                            result.hoaHongText
+                                                                        )
+                                                                    ) : columnIndex === 13 ? (
+                                                                        categoryType === "GP" ? (
+                                                                            result.giaCuoiGP
+                                                                        ) : categoryType === "Text" ? (
+                                                                            result.giaCuoiText
+                                                                        ) : categoryType === "TextHome" ? (
+                                                                            result.giaCuoiTextHome
+                                                                        ) : (
+                                                                            result.giaCuoiTextHeader
+                                                                        )
+                                                                    ) : columnIndex === 14 ? (
+                                                                        searchType === "Lio" ? (
+                                                                            categoryType === "GP" ? (
+                                                                                result.loiNhuanGPLio
+                                                                            ) : categoryType === "Text" ? (
+                                                                                result.loiNhuanTextLio
+                                                                            ) : categoryType === "TextHome" ? (
+                                                                                result.loiNhuanTextHomeLio
+                                                                            ) : (
+                                                                                result.loiNhuanTextHeaderLio
+                                                                            )
+                                                                        ) : categoryType === "GP" ? (
+                                                                            result.loiNhuanGP
+                                                                        ) : categoryType === "Text" ? (
+                                                                            result.loiNhuanText
+                                                                        ) : categoryType === "TextHome" ? (
+                                                                            result.loiNhuanTextHome
+                                                                        ) : (
+                                                                            result.loiNhuanTextHeader
+                                                                        )
+                                                                    ) : columnIndex === 15 ? (
+                                                                        result.timeText
+                                                                    ) : columnIndex === 16 ? (
+                                                                        result.NCC
+                                                                    ) : columnIndex === 17 ? (
+                                                                        result.MaNCC
+                                                                    ) : columnIndex === 18 ? (
+                                                                        <a
+                                                                            href="#"
+                                                                            onClick={(e) => {
+                                                                                e.preventDefault()
+                                                                                const files = Array.isArray(result.FileNCC) ? result.FileNCC : [result.FileNCC]
+                                                                                const uniqueFiles = [...new Set(files.filter(Boolean))]
+                                                                                if (uniqueFiles.length === 0) {
+                                                                                    message.info("No file available")
+                                                                                    return
+                                                                                }
+                                                                                uniqueFiles.forEach((file) => {
+                                                                                    if (file) window.open(file, "_blank")
+                                                                                })
+                                                                            }}
+                                                                            className={`text-blue-500 hover:underline ${!result.FileNCC || (Array.isArray(result.FileNCC) && result.FileNCC.length === 0) ? "text-gray-400" : ""}`}
+                                                                        >
+                                                                            {Array.isArray(result.FileNCC) && result.FileNCC.filter(Boolean).length > 0
+                                                                                ? `File NCC (${result.FileNCC.filter(Boolean).length})`
+                                                                                : !Array.isArray(result.FileNCC) && result.FileNCC
+                                                                                    ? "File NCC"
+                                                                                    : "No File"}
+                                                                        </a>
+                                                                    ) : columnIndex === 19 ? (
+                                                                        <a
+                                                                            href="#"
+                                                                            onClick={(e) => {
+                                                                                e.preventDefault()
+                                                                                const groups = Array.isArray(result.GroupNCC) ? result.GroupNCC : [result.GroupNCC]
+                                                                                const uniqueGroups = [...new Set(groups.filter(Boolean))]
+                                                                                if (uniqueGroups.length === 0) {
+                                                                                    message.info("No group available")
+                                                                                    return
+                                                                                }
+                                                                                uniqueGroups.forEach((group) => {
+                                                                                    if (group) window.open(group, "_blank")
+                                                                                })
+                                                                            }}
+                                                                            className={`text-blue-500 hover:underline ${!result.GroupNCC || (Array.isArray(result.GroupNCC) && result.GroupNCC.length === 0) ? "text-gray-400" : ""}`}
+                                                                        >
+                                                                            {Array.isArray(result.GroupNCC) && result.GroupNCC.filter(Boolean).length > 0
+                                                                                ? `Group NCC (${result.GroupNCC.filter(Boolean).length})`
+                                                                                : !Array.isArray(result.GroupNCC) && result.GroupNCC
+                                                                                    ? "Group NCC"
+                                                                                    : "No Group"}
+                                                                        </a>
                                                                     ) : (
-                                                                        result.loiNhuanTextHeader
+                                                                        result.GhiChuNCC
                                                                     )
-                                                                ) : columnIndex === 14 ? (
-                                                                    result.timeText
-                                                                ) : columnIndex === 15 ? (
-                                                                    result.NCC
-                                                                ) : columnIndex === 16 ? (
-                                                                    result.MaNCC
-                                                                ) : columnIndex === 17 ? (
-                                                                    <a
-                                                                        href="#"
-                                                                        onClick={(e) => {
-                                                                            e.preventDefault()
-                                                                            const files = Array.isArray(result.FileNCC) ? result.FileNCC : [result.FileNCC]
-                                                                            const uniqueFiles = [...new Set(files.filter(Boolean))] // Remove duplicates and empty values
-                                                                            if (uniqueFiles.length === 0) {
-                                                                                message.info("No file available")
-                                                                                return
-                                                                            }
-                                                                            uniqueFiles.forEach((file) => {
-                                                                                if (file) window.open(file, "_blank")
-                                                                            })
-                                                                        }}
-                                                                        className={`text-blue-500 hover:underline ${!result.FileNCC || (Array.isArray(result.FileNCC) && result.FileNCC.length === 0) ? "text-gray-400" : ""}`}
-                                                                    >
-                                                                        {Array.isArray(result.FileNCC) && result.FileNCC.filter(Boolean).length > 0
-                                                                            ? `File NCC (${result.FileNCC.filter(Boolean).length})`
-                                                                            : !Array.isArray(result.FileNCC) && result.FileNCC
-                                                                                ? "File NCC"
-                                                                                : "No File"}
-                                                                    </a>
-                                                                ) : columnIndex === 18 ? (
-                                                                    <a
-                                                                        href="#"
-                                                                        onClick={(e) => {
-                                                                            e.preventDefault()
-                                                                            const groups = Array.isArray(result.GroupNCC) ? result.GroupNCC : [result.GroupNCC]
-                                                                            const uniqueGroups = [...new Set(groups.filter(Boolean))] // Remove duplicates and empty values
-                                                                            if (uniqueGroups.length === 0) {
-                                                                                message.info("No group available")
-                                                                                return
-                                                                            }
-                                                                            uniqueGroups.forEach((group) => {
-                                                                                if (group) window.open(group, "_blank")
-                                                                            })
-                                                                        }}
-                                                                        className={`text-blue-500 hover:underline ${!result.GroupNCC || (Array.isArray(result.GroupNCC) && result.GroupNCC.length === 0) ? "text-gray-400" : ""}`}
-                                                                    >
-                                                                        {Array.isArray(result.GroupNCC) && result.GroupNCC.filter(Boolean).length > 0
-                                                                            ? `Group NCC (${result.GroupNCC.filter(Boolean).length})`
-                                                                            : !Array.isArray(result.GroupNCC) && result.GroupNCC
-                                                                                ? "Group NCC"
-                                                                                : "No Group"}
-                                                                    </a>
                                                                 ) : (
-                                                                    result.GhiChuNCC
+                                                                    columnIndex === 0 ? (
+                                                                        result.tinhTrang
+                                                                    ) : columnIndex === 1 ? (
+                                                                        result.bong
+                                                                    ) : columnIndex === 2 ? (
+                                                                        result.bet
+                                                                    ) : columnIndex === 3 ? (
+                                                                        result.site
+                                                                    ) : columnIndex === 4 ? (
+                                                                        result.chuDe
+                                                                    ) : columnIndex === 5 ? (
+                                                                        result.DR
+                                                                    ) : columnIndex === 6 ? (
+                                                                        result.trafficTool
+                                                                    ) : columnIndex === 7 ? (
+                                                                        result.ghiChu
+                                                                    ) : columnIndex === 8 ? (
+                                                                        renderPrice(result)
+                                                                    ) : null
                                                                 )}
                                                             </td>
                                                         ))}
@@ -1643,7 +1667,7 @@ export default function PageBody() {
                                     <table ref={duplicateTableRef} className="min-w-full">
                                         <thead className="sticky top-0 z-10 bg-blue-500">
                                             <tr>
-                                                {columnNames.map((header, index) => (
+                                                {((userInfo?.role !== "Admin" && userInfo?.role !== "Nhân viên") ? columnsKH : columnNames).map((header, index) => (
                                                     <th
                                                         key={index}
                                                         className={`px-2 py-2 text-left text-xs font-medium text-white tracking-wider border cursor-pointer ${selectedDuplicateColumns.includes(index) ? "bg-blue-700" : ""}`}
@@ -1657,7 +1681,7 @@ export default function PageBody() {
                                         <tbody>
                                             {duplicateSites.map((result, rowIndex) => (
                                                 <tr key={rowIndex} className={rowIndex % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                                                    {columnNames.map((_, columnIndex) => (
+                                                    {((userInfo?.role !== "Admin" && userInfo?.role !== "Nhân viên") ? columnsKH : columnNames).map((_, columnIndex) => (
                                                         <td
                                                             key={columnIndex}
                                                             style={{ userSelect: "none" }}
@@ -1676,118 +1700,150 @@ export default function PageBody() {
                                                             onMouseUp={handleMouseUp}
                                                             onContextMenu={(e) => handleCellContextMenu(e, result)}
                                                         >
-                                                            {columnIndex === 0 ? (
-                                                                result.cs
-                                                            ) : columnIndex === 1 ? (
-                                                                result.tinhTrang
-                                                            ) : columnIndex === 2 ? (
-                                                                result.bong
-                                                            ) : columnIndex === 3 ? (
-                                                                result.bet
-                                                            ) : columnIndex === 4 ? (
-                                                                result.site
-                                                            ) : columnIndex === 5 ? (
-                                                                result.chuDe
-                                                            ) : columnIndex === 6 ? (
-                                                                result.DR
-                                                            ) : columnIndex === 7 ? (
-                                                                result.trafficTool
-                                                            ) : columnIndex === 8 ? (
-                                                                result.ghiChu
-                                                            ) : columnIndex === 9 ? (
-                                                                renderPrice(result)
-                                                            ) : columnIndex === 10 ? (
-                                                                renderPrice(result)
-                                                            ) : columnIndex === 11 ? (
-                                                                categoryType === "GP" ? (
-                                                                    result.hoaHongGP
-                                                                ) : (
-                                                                    result.hoaHongText
-                                                                )
-                                                            ) : columnIndex === 12 ? (
-                                                                categoryType === "GP" ? (
-                                                                    result.giaCuoiGP
-                                                                ) : categoryType === "Text" ? (
-                                                                    result.giaCuoiText
-                                                                ) : categoryType === "TextHome" ? (
-                                                                    result.giaCuoiTextHome
-                                                                ) : (
-                                                                    result.giaCuoiTextHeader
-                                                                )
-                                                            ) : columnIndex === 13 ? (
-                                                                searchType === "Lio" ? (
+                                                            {userInfo?.role === "Admin" || userInfo?.role === "Nhân viên" ? (
+                                                                columnIndex === 0 ? (
+                                                                    result.cs
+                                                                ) : columnIndex === 1 ? (
+                                                                    result.tinhTrang
+                                                                ) : columnIndex === 2 ? (
+                                                                    result.bong
+                                                                ) : columnIndex === 3 ? (
+                                                                    result.bet
+                                                                ) : columnIndex === 4 ? (
+                                                                    result.site
+                                                                ) : columnIndex === 5 ? (
+                                                                    result.chuDe
+                                                                ) : columnIndex === 6 ? (
+                                                                    result.DR
+                                                                ) : columnIndex === 7 ? (
+                                                                    result.trafficTool
+                                                                ) : columnIndex === 8 ? (
+                                                                    result.ghiChu
+                                                                ) : columnIndex === 9 ? (
+                                                                    renderPrice(result)
+                                                                ) : columnIndex === 10 ? (
+                                                                    result.timeText
+                                                                ) : columnIndex === 11 ? (
                                                                     categoryType === "GP" ? (
-                                                                        result.loiNhuanGPLio
+                                                                        result.giaMuaGP
                                                                     ) : categoryType === "Text" ? (
-                                                                        result.loiNhuanTextLio
+                                                                        result.giaMuaText
                                                                     ) : categoryType === "TextHome" ? (
-                                                                        result.loiNhuanTextHomeLio
+                                                                        result.giaMuaTextHome
                                                                     ) : (
-                                                                        result.loiNhuanTextHeaderLio
+                                                                        result.giaMuaTextHeader
                                                                     )
-                                                                ) : categoryType === "GP" ? (
-                                                                    result.loiNhuanGP
-                                                                ) : categoryType === "Text" ? (
-                                                                    result.loiNhuanText
-                                                                ) : categoryType === "TextHome" ? (
-                                                                    result.loiNhuanTextHome
+                                                                ) : columnIndex === 12 ? (
+                                                                    categoryType === "GP" ? (
+                                                                        result.hoaHongGP
+                                                                    ) : (
+                                                                        result.hoaHongText
+                                                                    )
+                                                                ) : columnIndex === 13 ? (
+                                                                    categoryType === "GP" ? (
+                                                                        result.giaCuoiGP
+                                                                    ) : categoryType === "Text" ? (
+                                                                        result.giaCuoiText
+                                                                    ) : categoryType === "TextHome" ? (
+                                                                        result.giaCuoiTextHome
+                                                                    ) : (
+                                                                        result.giaCuoiTextHeader
+                                                                    )
+                                                                ) : columnIndex === 14 ? (
+                                                                    searchType === "Lio" ? (
+                                                                        categoryType === "GP" ? (
+                                                                            result.loiNhuanGPLio
+                                                                        ) : categoryType === "Text" ? (
+                                                                            result.loiNhuanTextLio
+                                                                        ) : categoryType === "TextHome" ? (
+                                                                            result.loiNhuanTextHomeLio
+                                                                        ) : (
+                                                                            result.loiNhuanTextHeaderLio
+                                                                        )
+                                                                    ) : categoryType === "GP" ? (
+                                                                        result.loiNhuanGP
+                                                                    ) : categoryType === "Text" ? (
+                                                                        result.loiNhuanText
+                                                                    ) : categoryType === "TextHome" ? (
+                                                                        result.loiNhuanTextHome
+                                                                    ) : (
+                                                                        result.loiNhuanTextHeader
+                                                                    )
+                                                                ) : columnIndex === 15 ? (
+                                                                    result.timeText
+                                                                ) : columnIndex === 16 ? (
+                                                                    result.NCC
+                                                                ) : columnIndex === 17 ? (
+                                                                    result.MaNCC
+                                                                ) : columnIndex === 18 ? (
+                                                                    <a
+                                                                        href="#"
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault()
+                                                                            const files = Array.isArray(result.FileNCC) ? result.FileNCC : [result.FileNCC]
+                                                                            const uniqueFiles = [...new Set(files.filter(Boolean))]
+                                                                            if (uniqueFiles.length === 0) {
+                                                                                message.info("No file available")
+                                                                                return
+                                                                            }
+                                                                            uniqueFiles.forEach((file) => {
+                                                                                if (file) window.open(file, "_blank")
+                                                                            })
+                                                                        }}
+                                                                        className={`text-blue-500 hover:underline ${!result.FileNCC || (Array.isArray(result.FileNCC) && result.FileNCC.length === 0) ? "text-gray-400" : ""}`}
+                                                                    >
+                                                                        {Array.isArray(result.FileNCC) && result.FileNCC.filter(Boolean).length > 0
+                                                                            ? `File NCC (${result.FileNCC.filter(Boolean).length})`
+                                                                            : !Array.isArray(result.FileNCC) && result.FileNCC
+                                                                                ? "File NCC"
+                                                                                : "No File"}
+                                                                    </a>
+                                                                ) : columnIndex === 19 ? (
+                                                                    <a
+                                                                        href="#"
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault()
+                                                                            const groups = Array.isArray(result.GroupNCC) ? result.GroupNCC : [result.GroupNCC]
+                                                                            const uniqueGroups = [...new Set(groups.filter(Boolean))]
+                                                                            if (uniqueGroups.length === 0) {
+                                                                                message.info("No group available")
+                                                                                return
+                                                                            }
+                                                                            uniqueGroups.forEach((group) => {
+                                                                                if (group) window.open(group, "_blank")
+                                                                            })
+                                                                        }}
+                                                                        className={`text-blue-500 hover:underline ${!result.GroupNCC || (Array.isArray(result.GroupNCC) && result.GroupNCC.length === 0) ? "text-gray-400" : ""}`}
+                                                                    >
+                                                                        {Array.isArray(result.GroupNCC) && result.GroupNCC.filter(Boolean).length > 0
+                                                                            ? `Group NCC (${result.GroupNCC.filter(Boolean).length})`
+                                                                            : !Array.isArray(result.GroupNCC) && result.GroupNCC
+                                                                                ? "Group NCC"
+                                                                                : "No Group"}
+                                                                    </a>
                                                                 ) : (
-                                                                    result.loiNhuanTextHeader
+                                                                    result.GhiChuNCC
                                                                 )
-                                                            ) : columnIndex === 14 ? (
-                                                                result.timeText
-                                                            ) : columnIndex === 15 ? (
-                                                                result.NCC
-                                                            ) : columnIndex === 16 ? (
-                                                                result.MaNCC
-                                                            ) : columnIndex === 17 ? (
-                                                                <a
-                                                                    href="#"
-                                                                    onClick={(e) => {
-                                                                        e.preventDefault()
-                                                                        const files = Array.isArray(result.FileNCC) ? result.FileNCC : [result.FileNCC]
-                                                                        const uniqueFiles = [...new Set(files.filter(Boolean))] // Remove duplicates and empty values
-                                                                        if (uniqueFiles.length === 0) {
-                                                                            message.info("No file available")
-                                                                            return
-                                                                        }
-                                                                        uniqueFiles.forEach((file) => {
-                                                                            if (file) window.open(file, "_blank")
-                                                                        })
-                                                                    }}
-                                                                    className={`text-blue-500 hover:underline ${!result.FileNCC || (Array.isArray(result.FileNCC) && result.FileNCC.length === 0) ? "text-gray-400" : ""}`}
-                                                                >
-                                                                    {Array.isArray(result.FileNCC) && result.FileNCC.filter(Boolean).length > 0
-                                                                        ? `File NCC (${result.FileNCC.filter(Boolean).length})`
-                                                                        : !Array.isArray(result.FileNCC) && result.FileNCC
-                                                                            ? "File NCC"
-                                                                            : "No File"}
-                                                                </a>
-                                                            ) : columnIndex === 18 ? (
-                                                                <a
-                                                                    href="#"
-                                                                    onClick={(e) => {
-                                                                        e.preventDefault()
-                                                                        const groups = Array.isArray(result.GroupNCC) ? result.GroupNCC : [result.GroupNCC]
-                                                                        const uniqueGroups = [...new Set(groups.filter(Boolean))] // Remove duplicates and empty values
-                                                                        if (uniqueGroups.length === 0) {
-                                                                            message.info("No group available")
-                                                                            return
-                                                                        }
-                                                                        uniqueGroups.forEach((group) => {
-                                                                            if (group) window.open(group, "_blank")
-                                                                        })
-                                                                    }}
-                                                                    className={`text-blue-500 hover:underline ${!result.GroupNCC || (Array.isArray(result.GroupNCC) && result.GroupNCC.length === 0) ? "text-gray-400" : ""}`}
-                                                                >
-                                                                    {Array.isArray(result.GroupNCC) && result.GroupNCC.filter(Boolean).length > 0
-                                                                        ? `Group NCC (${result.GroupNCC.filter(Boolean).length})`
-                                                                        : !Array.isArray(result.GroupNCC) && result.GroupNCC
-                                                                            ? "Group NCC"
-                                                                            : "No Group"}
-                                                                </a>
                                                             ) : (
-                                                                result.GhiChuNCC
+                                                                columnIndex === 0 ? (
+                                                                    result.tinhTrang
+                                                                ) : columnIndex === 1 ? (
+                                                                    result.bong
+                                                                ) : columnIndex === 2 ? (
+                                                                    result.bet
+                                                                ) : columnIndex === 3 ? (
+                                                                    result.site
+                                                                ) : columnIndex === 4 ? (
+                                                                    result.chuDe
+                                                                ) : columnIndex === 5 ? (
+                                                                    result.DR
+                                                                ) : columnIndex === 6 ? (
+                                                                    result.trafficTool
+                                                                ) : columnIndex === 7 ? (
+                                                                    result.ghiChu
+                                                                ) : columnIndex === 8 ? (
+                                                                    renderPrice(result)
+                                                                ) : null
                                                             )}
                                                         </td>
                                                     ))}
