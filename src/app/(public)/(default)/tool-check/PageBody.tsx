@@ -1379,8 +1379,6 @@ export default function PageBody() {
                                                                     ) : columnIndex === 9 ? (
                                                                         renderPrice(result)
                                                                     ) : columnIndex === 10 ? (
-                                                                        result.timeText
-                                                                    ) : columnIndex === 11 ? (
                                                                         categoryType === "GP" ? (
                                                                             result.giaMuaGP
                                                                         ) : categoryType === "Text" ? (
@@ -1390,13 +1388,13 @@ export default function PageBody() {
                                                                         ) : (
                                                                             result.giaMuaTextHeader
                                                                         )
-                                                                    ) : columnIndex === 12 ? (
+                                                                    ) : columnIndex === 11 ? (
                                                                         categoryType === "GP" ? (
                                                                             result.hoaHongGP
                                                                         ) : (
                                                                             result.hoaHongText
                                                                         )
-                                                                    ) : columnIndex === 13 ? (
+                                                                    ) : columnIndex === 12 ? (
                                                                         categoryType === "GP" ? (
                                                                             result.giaCuoiGP
                                                                         ) : categoryType === "Text" ? (
@@ -1406,7 +1404,7 @@ export default function PageBody() {
                                                                         ) : (
                                                                             result.giaCuoiTextHeader
                                                                         )
-                                                                    ) : columnIndex === 14 ? (
+                                                                    ) : columnIndex === 13 ? (
                                                                         searchType === "Lio" ? (
                                                                             categoryType === "GP" ? (
                                                                                 result.loiNhuanGPLio
@@ -1426,13 +1424,13 @@ export default function PageBody() {
                                                                         ) : (
                                                                             result.loiNhuanTextHeader
                                                                         )
-                                                                    ) : columnIndex === 15 ? (
+                                                                    ) : columnIndex === 14 ? (
                                                                         result.timeText
-                                                                    ) : columnIndex === 16 ? (
+                                                                    ) : columnIndex === 15 ? (
                                                                         result.NCC
-                                                                    ) : columnIndex === 17 ? (
+                                                                    ) : columnIndex === 16 ? (
                                                                         result.MaNCC
-                                                                    ) : columnIndex === 18 ? (
+                                                                    ) : columnIndex === 17 ? (
                                                                         <a
                                                                             href="#"
                                                                             onClick={(e) => {
@@ -1455,7 +1453,7 @@ export default function PageBody() {
                                                                                     ? "File NCC"
                                                                                     : "No File"}
                                                                         </a>
-                                                                    ) : columnIndex === 19 ? (
+                                                                    ) : columnIndex === 18 ? (
                                                                         <a
                                                                             href="#"
                                                                             onClick={(e) => {
@@ -1722,8 +1720,6 @@ export default function PageBody() {
                                                                 ) : columnIndex === 9 ? (
                                                                     renderPrice(result)
                                                                 ) : columnIndex === 10 ? (
-                                                                    result.timeText
-                                                                ) : columnIndex === 11 ? (
                                                                     categoryType === "GP" ? (
                                                                         result.giaMuaGP
                                                                     ) : categoryType === "Text" ? (
@@ -1733,13 +1729,13 @@ export default function PageBody() {
                                                                     ) : (
                                                                         result.giaMuaTextHeader
                                                                     )
-                                                                ) : columnIndex === 12 ? (
+                                                                ) : columnIndex === 11 ? (
                                                                     categoryType === "GP" ? (
                                                                         result.hoaHongGP
                                                                     ) : (
                                                                         result.hoaHongText
                                                                     )
-                                                                ) : columnIndex === 13 ? (
+                                                                ) : columnIndex === 12 ? (
                                                                     categoryType === "GP" ? (
                                                                         result.giaCuoiGP
                                                                     ) : categoryType === "Text" ? (
@@ -1749,7 +1745,7 @@ export default function PageBody() {
                                                                     ) : (
                                                                         result.giaCuoiTextHeader
                                                                     )
-                                                                ) : columnIndex === 14 ? (
+                                                                ) : columnIndex === 13 ? (
                                                                     searchType === "Lio" ? (
                                                                         categoryType === "GP" ? (
                                                                             result.loiNhuanGPLio
@@ -1769,13 +1765,13 @@ export default function PageBody() {
                                                                     ) : (
                                                                         result.loiNhuanTextHeader
                                                                     )
-                                                                ) : columnIndex === 15 ? (
+                                                                ) : columnIndex === 14 ? (
                                                                     result.timeText
-                                                                ) : columnIndex === 16 ? (
+                                                                ) : columnIndex === 15 ? (
                                                                     result.NCC
-                                                                ) : columnIndex === 17 ? (
+                                                                ) : columnIndex === 16 ? (
                                                                     result.MaNCC
-                                                                ) : columnIndex === 18 ? (
+                                                                ) : columnIndex === 17 ? (
                                                                     <a
                                                                         href="#"
                                                                         onClick={(e) => {
@@ -1798,7 +1794,7 @@ export default function PageBody() {
                                                                                 ? "File NCC"
                                                                                 : "No File"}
                                                                     </a>
-                                                                ) : columnIndex === 19 ? (
+                                                                ) : columnIndex === 18 ? (
                                                                     <a
                                                                         href="#"
                                                                         onClick={(e) => {
