@@ -287,6 +287,7 @@ export default function HeroHome() {
               </h3>
               <div className="flex justify-center gap-6 flex-wrap">
                 <Link
+                  target="_blank"
                   href="/sites"
                   className="inline-flex items-center gap-3 px-6 py-3 text-base bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-md hover:shadow-lg"
                 >
