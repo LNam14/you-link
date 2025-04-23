@@ -409,10 +409,23 @@ export default function GPTextVN({
                 if (key === "Chủ đề") {
                     return value.includes(item[key])
                 }
-                if (key === "Traffic Tool" || key === "DR" || key === "Giá GP" || key === "Giá Text") {
+                if (key === "Traffic Tool" || key === "DR") {
                     const selectedValue = Number.parseInt(value)
                     const itemValue = Number.parseInt(item[key])
                     return itemValue > selectedValue
+                }
+                if (key === "Giá GP" || key === "Giá Footer") {
+                    const selectedValue = Number.parseInt(value)
+                    const itemValue = Number.parseInt(item[key])
+                    const priceRanges = [20, 40, 80, 160]
+                    const currentIndex = priceRanges.indexOf(selectedValue)
+
+                    if (currentIndex === 0) {
+                        return itemValue < selectedValue
+                    } else {
+                        const lowerBound = priceRanges[currentIndex - 1]
+                        return itemValue >= lowerBound && itemValue < selectedValue
+                    }
                 }
 
                 return true
@@ -671,10 +684,10 @@ export default function GPTextVN({
                                     onChange={(e) => handleFilterChange("Giá GP", e.target.value)}
                                 >
                                     <option value="">Chọn lựa chọn</option>
-                                    <option value="500">&gt; 500</option>
-                                    <option value="1000">&gt; 1,000</option>
-                                    <option value="2000">&gt; 2,000</option>
-                                    <option value="5000">&gt; 5,000</option>
+                                    <option value="20">&lt; 20</option>
+                                    <option value="40">&lt; 40</option>
+                                    <option value="80">&lt; 80</option>
+                                    <option value="160">&lt; 160</option>
                                 </select>
                             </div>
                         </div>
@@ -687,11 +700,11 @@ export default function GPTextVN({
                                     onChange={(e) => handleFilterChange("DR", e.target.value)}
                                 >
                                     <option value="">Chọn lựa chọn</option>
-                                    <option value="5">&gt; 5</option>
-                                    <option value="10">&gt; 10</option>
-                                    <option value="20">&gt; 20</option>
-                                    <option value="40">&gt; 40</option>
-                                    <option value="60">&gt; 60</option>
+                                    <option value="5">&lt; 5</option>
+                                    <option value="10">&lt; 10</option>
+                                    <option value="20">&lt; 20</option>
+                                    <option value="40">&lt; 40</option>
+                                    <option value="60">&lt; 60</option>
                                 </select>
                             </div>
                             <div className="filter-group">
@@ -702,10 +715,10 @@ export default function GPTextVN({
                                     onChange={(e) => handleFilterChange("Giá Text", e.target.value)}
                                 >
                                     <option value="">Chọn lựa chọn</option>
-                                    <option value="500">&gt; 500</option>
-                                    <option value="1000">&gt; 1,000</option>
-                                    <option value="2000">&gt; 2,000</option>
-                                    <option value="5000">&gt; 5,000</option>
+                                    <option value="20">&gt; 20</option>
+                                    <option value="40">&gt; 40</option>
+                                    <option value="80">&gt; 80</option>
+                                    <option value="160">&gt; 160</option>
                                 </select>
                             </div>
                         </div>

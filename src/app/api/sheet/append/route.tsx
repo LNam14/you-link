@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import keys from "../../../../../key.json";
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 
 const SPREADSHEET_ID = '10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU';
 
@@ -23,11 +24,17 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Invalid data format' }, { status: 400 });
         }
 
+        // Get username from cookies
+        const cookieStore = cookies();
+        const userInfo = cookieStore.get('userInfo');
+        const username = userInfo ? JSON.parse(userInfo.value).username : '';
+
         // Convert rows to 2D array format for Google Sheets
         const values = rows.map(row => [
             '', // STT
             row['Site'] || '',
             '', // Blank column
+            '',
             row['Chủ đề'] || '',
             row['Nước'] || '',
             '', // Blank column
@@ -37,21 +44,31 @@ export async function POST(req: Request) {
             row['Traffic Tool'] || '',
             '', // Blank column
             row['Tình trạng'] || 'Bình thường',
-            '', // Many blank columns...
-            '', '', '', '', '', '', '', '', '',
+            '', // Blank column
+            '', // Blank column
+            '', // Blank column
+            '', // Blank column
+            '', // Blank column
+            '', // Blank column
+            '', // Blank column
+            '', // Blank column
+            '', // Blank column
             row['GP ($)'] || '',
             row['Text Footer ($)'] || '',
             row['Text Home ($)'] || '',
             row['Text Header ($)'] || '',
-            '', '', '', '',
             row['HH GP'] || '',
-            row['HH Text'] || ''
+            row['HH Text'] || '',
+            '', // Blank column
+            '', // Blank column
+            '', // Blank column
+            username // Use username from cookies as MaNCC
         ]);
 
         // Append rows to the sheet
         const response = await gsapi.spreadsheets.values.append({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${sheetType === 1 ? '1' : '2'}!A:ZZ`,
+            range: `${sheetType === 1 ? '1' : '2'}!A:A`,
             valueInputOption: 'USER_ENTERED',
             requestBody: {
                 values

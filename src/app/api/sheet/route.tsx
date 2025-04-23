@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { NextResponse } from 'next/server';
 import { cache } from 'react';
+import { cookies } from 'next/headers';
 
 // Import keys securely (consider using environment variables instead)
 import keys from "../../../../key.json";
@@ -122,30 +123,49 @@ const getAuthClient = cache(async () => {
     return client;
 });
 
-const getSheetData = cache(async (gsapi: any, config: SheetConfig, configKey: string) => {
+const getSheetData = cache(async (gsapi: any, config: SheetConfig, configKey: string, userInfo: { role?: string, username?: string }) => {
     const { data } = await gsapi.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
         range: config.range,
     });
-    console.log(`Raw data for ${config.range}:`, data.values?.length || 0, 'rows');
     // Lấy dữ liệu và ánh xạ qua formatter
     const formattedData = (data.values || []).map((row: any[], index: number) => config.formatter(row, index));
-    // Chỉ lọc theo Tình trạng nếu không phải updateVN hoặc updateNN
-    const filteredData = configKey === 'updateVN' || configKey === 'updateNN'
-        ? formattedData
-        : formattedData.filter((row: any) => row["Tình trạng"] === "Bình thường");
-    console.log(`Filtered data for ${config.range}:`, filteredData.length, 'rows');
+
+    // Filter based on role and config type
+    let filteredData = formattedData;
+
+    if (userInfo.role === 'NCC') {
+        if (configKey === 'updateVN' || configKey === 'updateNN') {
+            // For NCC users, only show rows where row[30] matches their username
+            filteredData = formattedData.filter((row: any, index: number) => {
+                const rawRow = data.values?.[index];
+                return rawRow?.[30] === userInfo.username;
+            });
+        } else {
+            // For other configs, don't show any data to NCC users
+            filteredData = [];
+        }
+    } else {
+        // For non-NCC users, apply the original "Bình thường" filter
+        if (configKey !== 'updateVN' && configKey !== 'updateNN') {
+            filteredData = formattedData.filter((row: any) => row["Tình trạng"] === "Bình thường");
+        }
+    }
     return filteredData;
 });
 
 export async function POST(req: Request) {
     try {
+        const cookieStore = cookies();
+        const userInfoCookie = cookieStore.get('userInfo');
+        const userInfo = userInfoCookie ? JSON.parse(userInfoCookie.value) : {};
+
         const client = await getAuthClient();
         const gsapi = google.sheets({ version: 'v4', auth: client });
 
         const results = await Promise.all(
             Object.entries(sheetConfigs).map(async ([key, config]) => {
-                const data = await getSheetData(gsapi, config, key);
+                const data = await getSheetData(gsapi, config, key, userInfo);
                 return [key, data];
             })
         );

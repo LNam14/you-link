@@ -19,6 +19,7 @@ import {
   Award,
   ChevronLeft,
   ChevronRight,
+  Database,
 } from "lucide-react"
 import { database, onValue, ref } from "@/app/firebase/firebase"
 
@@ -279,43 +280,54 @@ export default function HeroHome() {
           </div>
 
           {/* Admin and Staff tools */}
-          {(userInfo?.role === "Admin" || userInfo?.role === "Khách hàng") && (
+          {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên" || userInfo?.role === "NCC") && (
             <div className="mb-16">
               <h3 className="text-center text-sm font-medium text-gray-500 uppercase tracking-wider mb-6">
                 Công cụ quản lý
               </h3>
-              <div className="flex justify-center gap-4 flex-wrap">
+              <div className="flex justify-center gap-6 flex-wrap">
                 <Link
-                  href="/tool-check"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-sm hover:shadow"
+                  href="/sites"
+                  className="inline-flex items-center gap-3 px-6 py-3 text-base bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-md hover:shadow-lg"
                 >
-                  <CheckCircle className="w-4 h-4 text-emerald-500" />
-                  Tool check site
-                  <ExternalLink className="w-3 h-3 ml-1 text-gray-400" />
+                  <Database className="w-5 h-5 text-blue-500" />
+                  Quản Lý Sites
                 </Link>
-                <button
-                  onClick={() => setIsConverterModalVisible(true)}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-sm hover:shadow"
-                >
-                  <DollarSign className="w-4 h-4 text-amber-500" />
-                  Đổi mệnh giá
-                </button>
-                <CurrencyConverterModal
-                  isVisible={isConverterModalVisible}
-                  onClose={() => setIsConverterModalVisible(false)}
-                />
-                <Link
-                  href="https://drive.google.com/drive/folders/1dhNsD1N85VBO73yCKOsg2yniJyZDHR67?usp=drive_link"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-sm hover:shadow"
-                >
-                  <LayoutDashboard className="w-4 h-4 text-blue-500" />
-                  Check Anchor Link
-                  <ExternalLink className="w-3 h-3 ml-1 text-gray-400" />
-                </Link>
+                {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
+                  <>
+                    <Link
+                      href="/tool-check"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-3 px-6 py-3 text-base bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-md hover:shadow-lg"
+                    >
+                      <CheckCircle className="w-5 h-5 text-emerald-500" />
+                      Tool Check Site
+                      <ExternalLink className="w-4 h-4 ml-1 text-gray-400" />
+                    </Link>
+                    <button
+                      onClick={() => setIsConverterModalVisible(true)}
+                      className="inline-flex items-center gap-3 px-6 py-3 text-base bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-md hover:shadow-lg"
+                    >
+                      <DollarSign className="w-5 h-5 text-amber-500" />
+                      Đổi Mệnh Giá
+                    </button>
+                    <CurrencyConverterModal
+                      isVisible={isConverterModalVisible}
+                      onClose={() => setIsConverterModalVisible(false)}
+                    />
+                    <Link
+                      href="https://drive.google.com/drive/folders/1dhNsD1N85VBO73yCKOsg2yniJyZDHR67?usp=drive_link"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-3 px-6 py-3 text-base bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-md hover:shadow-lg"
+                    >
+                      <LayoutDashboard className="w-5 h-5 text-blue-500" />
+                      Check Anchor Link
+                      <ExternalLink className="w-4 h-4 ml-1 text-gray-400" />
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           )}

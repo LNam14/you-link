@@ -18,8 +18,8 @@ const FIELD_COLUMN_MAP = {
     'Text Footer ($)': 23, // V column (Text Footer($))
     'Text Home ($)': 24, // W column (Text Home($))
     'Text Header ($)': 25, // X column (Text Header($))
-    'HH GP': 30, // Y column (HH GP)
-    'HH Text': 31, // Z column (HH Text)
+    'HH GP': 26, // Y column (HH GP)
+    'HH Text': 27, // Z column (HH Text)
 };
 
 export async function POST(req: Request) {
