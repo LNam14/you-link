@@ -1,4 +1,5 @@
 import httpService from "@/lib/http";
+import axios from "axios";
 
 // Định nghĩa kiểu dữ liệu cho sheet
 export interface Sheet {
@@ -110,36 +111,16 @@ const sheetApiRequest = {
    * @param sheetType Loại sheet (1 hoặc 2)
    * @returns Promise với kết quả cập nhật
    */
-  updateData: async (data: any[], sheetType: number) => {
-    try {
-      const response = await fetch('/api/sheet/update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ data, sheetType }),
-      })
-      return response.json()
-    } catch (error) {
-      console.error('Error updating data:', error)
-      throw error
-    }
+  updateData: (data: any[], sheetType: number) => {
+    return httpService.post('/sheet/update', { data, sheetType });
   },
 
-  async appendRows(rows: any[], sheetType: number) {
-    try {
-      const response = await fetch('/api/sheet/append', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ rows, sheetType }),
-      })
-      return response.json()
-    } catch (error) {
-      console.error('Error appending rows:', error)
-      throw error
-    }
+  appendRows: (rows: any[], sheetType: number) => {
+    return httpService.post('/sheet/append', { rows, sheetType });
+  },
+
+  deleteRow: (rowIndex: number, sheetType: number) => {
+    return httpService.post('/sheet/delete-row', { rowIndex, sheetType });
   }
 };
 

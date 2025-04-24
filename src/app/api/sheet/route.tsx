@@ -28,18 +28,18 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "Traffic Tool": row[9] || "",
             "Ghi chú": row[10] || "",
             "Tình trạng": row[11] || "",
-            "Giá GP": row[34] || "",
-            "Giá Footer": row[35] || "",
-            "Giá Home": row[36] || "",
-            "Giá Header": row[37] || "",
-            GiaMuaGP: row[21] || 0,
-            GiaMuaText: row[22] || 0,
-            GiaMuaTextHome: row[23] || 0,
-            GiaMuaTextHeader: row[24] || 0,
-            HoaHongGP: row[25] || 0,
-            HoaHongText: row[26] || 0,
-            NCC: row[29] || "",
-            MaNCC: row[30] || "",
+            "Giá GP": row[30] || "",
+            "Giá Footer": row[31] || "",
+            "Giá Home": row[32] || "",
+            "Giá Header": row[33] || "",
+            GiaMuaGP: row[17] || 0,
+            GiaMuaText: row[18] || 0,
+            GiaMuaTextHome: row[19] || 0,
+            GiaMuaTextHeader: row[20] || 0,
+            HoaHongGP: row[21] || 0,
+            HoaHongText: row[22] || 0,
+            NCC: row[25] || "",
+            MaNCC: row[26] || "",
         })
     },
     updateVN: {
@@ -54,12 +54,13 @@ const sheetConfigs: Record<string, SheetConfig> = {
             Keywords: row[8] || "",
             "Traffic Tool": row[9] || "",
             "Tình trạng": row[11] || "",
-            "GP ($)": row[21] || 0,
-            "Text Footer ($)": row[22] || 0,
-            "Text Home ($)": row[23] || 0,
-            "Text Header ($)": row[24] || 0,
-            "HH GP": row[25] || 0,
-            "HH Text": row[26] || 0,
+            "GP ($)": row[17] || 0,
+            "Text Footer ($)": row[18] || 0,
+            "Text Home ($)": row[19] || 0,
+            "Text Header ($)": row[20] || 0,
+            "HH GP": row[21] || 0,
+            "HH Text": row[22] || 0,
+            "Ma NCC": row[26] || "",
         })
     },
     updateNN: {
@@ -74,12 +75,13 @@ const sheetConfigs: Record<string, SheetConfig> = {
             Keywords: row[8] || "",
             "Traffic Tool": row[9] || "",
             "Tình trạng": row[11] || "",
-            "GP ($)": row[21] || 0,
-            "Text Footer ($)": row[22] || 0,
-            "Text Home ($)": row[23] || 0,
-            "Text Header ($)": row[24] || 0,
-            "HH GP": row[25] || 0,
-            "HH Text": row[26] || 0,
+            "GP ($)": row[17] || 0,
+            "Text Footer ($)": row[18] || 0,
+            "Text Home ($)": row[19] || 0,
+            "Text Header ($)": row[20] || 0,
+            "HH GP": row[21] || 0,
+            "HH Text": row[22] || 0,
+            "Ma NCC": row[26] || "",
         })
     },
     gpTextNN: {
@@ -96,18 +98,18 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "Traffic Tool": row[9] || "",
             "Ghi chú": row[10] || "",
             "Tình trạng": row[11] || "",
-            "Giá GP": row[12] || "",
-            "Giá Footer": row[13] || "",
-            "Giá Home": row[14] || "",
-            "Giá Header": row[15] || "",
-            GiaMuaGP: row[21] || 0,
-            GiaMuaText: row[22] || 0,
-            GiaMuaTextHome: row[23] || 0,
-            GiaMuaTextHeader: row[24] || 0,
-            HoaHongGP: row[25] || 0,
-            HoaHongText: row[26] || 0,
-            NCC: row[29] || "",
-            MaNCC: row[30] || "",
+            "Giá GP": row[30] || "",
+            "Giá Footer": row[31] || "",
+            "Giá Home": row[32] || "",
+            "Giá Header": row[33] || "",
+            GiaMuaGP: row[17] || 0,
+            GiaMuaText: row[18] || 0,
+            GiaMuaTextHome: row[19] || 0,
+            GiaMuaTextHeader: row[20] || 0,
+            HoaHongGP: row[21] || 0,
+            HoaHongText: row[22] || 0,
+            NCC: row[25] || "",
+            MaNCC: row[26] || "",
         })
     },
 };
@@ -136,10 +138,10 @@ const getSheetData = cache(async (gsapi: any, config: SheetConfig, configKey: st
 
     if (userInfo.role === 'NCC') {
         if (configKey === 'updateVN' || configKey === 'updateNN') {
-            // For NCC users, only show rows where row[30] matches their username
+            // For NCC users, only show rows where row[26] matches their username
             filteredData = formattedData.filter((row: any, index: number) => {
                 const rawRow = data.values?.[index];
-                return rawRow?.[30] === userInfo.username;
+                return rawRow?.[26] === userInfo.username;
             });
         } else {
             // For other configs, don't show any data to NCC users

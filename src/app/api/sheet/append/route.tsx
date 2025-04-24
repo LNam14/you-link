@@ -49,10 +49,6 @@ export async function POST(req: Request) {
             '', // Blank column
             '', // Blank column
             '', // Blank column
-            '', // Blank column
-            '', // Blank column
-            '', // Blank column
-            '', // Blank column
             row['GP ($)'] || '',
             row['Text Footer ($)'] || '',
             row['Text Home ($)'] || '',

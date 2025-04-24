@@ -14,12 +14,12 @@ const FIELD_COLUMN_MAP = {
     'Keywords': 9, // I column
     'Traffic Tool': 10, // J column
     'Tình trạng': 12, // L column
-    'GP ($)': 22, // U column (GP ($))
-    'Text Footer ($)': 23, // V column (Text Footer($))
-    'Text Home ($)': 24, // W column (Text Home($))
-    'Text Header ($)': 25, // X column (Text Header($))
-    'HH GP': 26, // Y column (HH GP)
-    'HH Text': 27, // Z column (HH Text)
+    'GP ($)': 18, // U column (GP ($))
+    'Text Footer ($)': 19, // V column (Text Footer($))
+    'Text Home ($)': 20, // W column (Text Home($))
+    'Text Header ($)': 21, // X column (Text Header($))
+    'HH GP': 22, // Y column (HH GP)
+    'HH Text': 23, // Z column (HH Text)
 };
 
 export async function POST(req: Request) {

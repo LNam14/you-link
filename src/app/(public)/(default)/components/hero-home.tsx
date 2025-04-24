@@ -159,6 +159,7 @@ export default function HeroHome() {
               <div className="flex gap-4">
                 <Link
                   href="/mua-ban"
+                  target="_blank"
                   className="group inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700 text-white font-medium rounded-full px-8 py-3.5 shadow-lg hover:shadow-xl transition-all duration-300"
                 >
                   <ShoppingBag className="w-5 h-5" />
@@ -167,6 +168,7 @@ export default function HeroHome() {
                 </Link>
                 <Link
                   href="/tool-check"
+                  target="_blank"
                   className="group inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium rounded-full px-8 py-3.5 shadow-lg hover:shadow-xl transition-all duration-300"
                 >
                   <Globe className="w-5 h-5" />

@@ -7,7 +7,7 @@ import "handsontable/styles/handsontable.css"
 import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
 import sheetApiRequest from "@/apiRequests/sheet"
-import { Modal, message, Spin } from "antd"
+import { Modal, message, Spin, Dropdown } from "antd"
 import "./custom-table.css"
 import {
     Search,
@@ -24,6 +24,7 @@ import {
     AlertCircle,
     CheckCircle2,
     Info,
+    Trash2,
 } from "lucide-react"
 import getUserInfo from "@/components/userInfo"
 
@@ -47,6 +48,7 @@ const RowHeader1 = [
     "Text Header ($)",
     "HH GP",
     "HH Text",
+    "NCC",
 ]
 
 const RowHeader2 = [
@@ -115,6 +117,12 @@ export default function PageBody() {
     const [showSearchHelp, setShowSearchHelp] = useState(false)
     const [activeTab, setActiveTab] = useState<"data" | "pending">("data")
     const userInfo = getUserInfo()
+    const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; row: number }>({
+        visible: false,
+        x: 0,
+        y: 0,
+        row: -1,
+    });
     // Stats for dashboard
     const stats = useMemo(() => {
         const currentData = dataType === 1 ? dataVN : dataNN
@@ -131,10 +139,6 @@ export default function PageBody() {
             const data: any = await sheetApiRequest.getData()
             setDataVN(data.updateVN)
             setDataNN(data.updateNN)
-            messageApi.success({
-                content: "Dữ liệu đã được cập nhật thành công",
-                icon: <CheckCircle2 className="text-green-500 mr-2" size={16} />,
-            })
         } catch (error) {
             console.error("Error fetching data:", error)
             messageApi.error({
@@ -195,15 +199,17 @@ export default function PageBody() {
                 const updates = Object.values(updatesByRow)
 
                 if (updates.length > 0) {
-                    sheetApiRequest.updateData(updates, dataType)
-                    messageApi.success({
-                        content: "Dữ liệu đã được cập nhật thành công",
-                        icon: <CheckCircle2 className="text-green-500 mr-2" size={16} />,
-                    })
+                    sheetApiRequest.updateData(updates, dataType).then(() => {
+                        fetchData(); // Reload data after update
+                        messageApi.success({
+                            content: "Dữ liệu đã được cập nhật thành công",
+                            icon: <CheckCircle2 className="text-green-500 mr-2" size={16} />,
+                        });
+                    });
                 }
             }
         },
-        [dataType, dataVN, dataNN, filteredData, searchText, messageApi],
+        [dataType, dataVN, dataNN, filteredData, searchText, messageApi, fetchData],
     )
 
     const handleAfterPaste = useCallback(
@@ -346,15 +352,12 @@ export default function PageBody() {
                     content: `Bạn có chắc chắn muốn thêm ${rowsToSave.length} site không?`,
                     okText: 'Đồng ý',
                     cancelText: 'Hủy',
+                    okButtonProps: {
+                        className: "bg-green-600 hover:bg-green-700",
+                    },
                     onOk: async () => {
                         await sheetApiRequest.appendRows(rowsToSave, dataType)
-
-                        if (dataType === 1) {
-                            setDataVN((prevData) => [...prevData, ...rowsToSave])
-                        } else {
-                            setDataNN((prevData) => [...prevData, ...rowsToSave])
-                        }
-
+                        await fetchData(); // Reload data after adding new rows
                         setPendingRows([])
                         setActiveTab("data")
                         messageApi.success({
@@ -376,12 +379,62 @@ export default function PageBody() {
                 icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
             })
         }
-    }, [pendingRows, dataType, messageApi])
+    }, [pendingRows, dataType, messageApi, fetchData]);
 
     const clearSearch = useCallback(() => {
         setSearchText("")
         setFilteredData([])
     }, [])
+
+    const handleContextMenu = useCallback((event: React.MouseEvent, row: number) => {
+        event.preventDefault();
+        setContextMenu({
+            visible: true,
+            x: event.clientX,
+            y: event.clientY,
+            row,
+        });
+    }, []);
+
+    const handleDeleteRow = useCallback(async (row: number) => {
+        try {
+            const dataToUse = dataType === 1 ? dataVN : dataNN;
+            const currentRow = searchText.trim() ? filteredData[row] : dataToUse[row];
+            const actualRowIndex = currentRow.rowIndex;
+
+            Modal.confirm({
+                title: 'Xác nhận xóa dòng',
+                content: 'Bạn có chắc chắn muốn xóa dòng này không?',
+                okText: 'Đồng ý',
+                cancelText: 'Hủy',
+                okButtonProps: {
+                    className: "bg-green-600 hover:bg-green-700",
+                },
+                onOk: async () => {
+                    try {
+                        await sheetApiRequest.deleteRow(actualRowIndex, dataType);
+                        await fetchData(); // Reload data after deletion
+                        messageApi.success({
+                            content: "Đã xóa dòng thành công",
+                            icon: <CheckCircle2 className="text-green-500 mr-2" size={16} />,
+                        });
+                    } catch (error) {
+                        console.error("Error deleting row:", error);
+                        messageApi.error({
+                            content: "Có lỗi xảy ra khi xóa dòng",
+                            icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
+                        });
+                    }
+                }
+            });
+        } catch (error) {
+            console.error("Error preparing delete row:", error);
+            messageApi.error({
+                content: "Có lỗi xảy ra khi chuẩn bị xóa dòng",
+                icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
+            });
+        }
+    }, [dataType, dataVN, dataNN, filteredData, searchText, messageApi, fetchData]);
 
     if (initialLoading) {
         return (
@@ -565,8 +618,17 @@ export default function PageBody() {
                                         const header = RowHeader1[col]
                                         return columnSettings[header] || {}
                                     }}
+                                    contextMenu={{
+                                        items: {
+                                            delete_row: {
+                                                name: 'Xóa dòng',
+                                                callback: function (key: string, selection: any, clickEvent: any) {
+                                                    handleDeleteRow(selection[0].start.row);
+                                                }
+                                            }
+                                        }
+                                    }}
                                 />)}
-
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -641,7 +703,7 @@ export default function PageBody() {
                 okText="Thêm"
                 cancelText="Hủy"
                 okButtonProps={{
-                    className: "bg-blue-600 hover:bg-blue-700 border-blue-600 hover:border-blue-700",
+                    className: "bg-emerald-600 hover:bg-emerald-700 border-emerald-600 hover:border-emerald-700",
                 }}
                 className="add-rows-modal"
             >

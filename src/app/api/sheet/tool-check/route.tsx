@@ -31,23 +31,23 @@ const sheetConfigs: Record<string, SheetConfig> = {
             const giaBanText = formatNumber(parseNumber(row[14]))
             const giaBanTextHome = formatNumber(parseNumber(row[15]))
             const giaBanTextHeader = formatNumber(parseNumber(row[16]))
-            const giaBanGPLio = formatNumber(parseNumber(row[13]) * 1.05)
-            const giaBanTextLio = formatNumber(parseNumber(row[14]) * 1.05)
-            const giaBanTextHomeLio = formatNumber(parseNumber(row[15]) * 1.05)
-            const giaBanTextHeaderLio = formatNumber(parseNumber(row[16]) * 1.05)
-            const giaMuaGP = formatNumber(parseNumber(row[22]))
-            const giaMuaText = formatNumber(parseNumber(row[23]))
-            const giaMuaTextHome = formatNumber(parseNumber(row[24]))
-            const giaMuaTextHeader = formatNumber(parseNumber(row[25]))
-            const hoaHongGP = parseNumber(row[26]) || 0
-            const hoaHongText = parseNumber(row[27]) || 0
+            const giaBanGPLio = formatNumber(parseNumber(row[39]))
+            const giaBanTextLio = formatNumber(parseNumber(row[40]))
+            const giaBanTextHomeLio = formatNumber(parseNumber(row[41]))
+            const giaBanTextHeaderLio = formatNumber(parseNumber(row[42]))
+            const giaMuaGP = formatNumber(parseNumber(row[18]))
+            const giaMuaText = formatNumber(parseNumber(row[19]))
+            const giaMuaTextHome = formatNumber(parseNumber(row[20]))
+            const giaMuaTextHeader = formatNumber(parseNumber(row[21]))
+            const hoaHongGP = parseNumber(row[22]) || 0
+            const hoaHongText = parseNumber(row[23]) || 0
 
-            const giaCuoiGP = formatNumber((parseNumber(row[22]) * (100 - hoaHongGP)) / 100)
-            const giaCuoiText = formatNumber((parseNumber(row[23]) * (100 - hoaHongText)) / 100)
-            const giaCuoiTextHome = formatNumber((parseNumber(row[24]) * (100 - hoaHongText)) / 100)
-            const giaCuoiTextHeader = formatNumber((parseNumber(row[25]) * (100 - hoaHongText)) / 100)
+            const giaCuoiGP = formatNumber((parseNumber(row[18]) * (100 - hoaHongGP)) / 100)
+            const giaCuoiText = formatNumber((parseNumber(row[19]) * (100 - hoaHongText)) / 100)
+            const giaCuoiTextHome = formatNumber((parseNumber(row[20]) * (100 - hoaHongText)) / 100)
+            const giaCuoiTextHeader = formatNumber((parseNumber(row[21]) * (100 - hoaHongText)) / 100)
 
-            const maNCC = row[31]
+            const maNCC = row[27]
             let fileNCC = ""
             let groupNCC = ""
             let idGroup = ""
@@ -86,12 +86,12 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 hoaHongText,
                 giaMuaTextHome,
                 giaMuaTextHeader,
-                NCC: row[30],
+                NCC: row[26],
                 MaNCC: maNCC,
                 FileNCC: fileNCC,
                 GroupNCC: groupNCC,
                 IdGroup: idGroup,
-                GhiChuNCC: row[32],
+                GhiChuNCC: row[28],
                 giaCuoiGP,
                 giaCuoiText,
                 giaCuoiTextHome,
