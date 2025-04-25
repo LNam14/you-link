@@ -27,7 +27,7 @@ export async function POST(req: Request) {
         // Get username from cookies
         const cookieStore = cookies();
         const userInfo = cookieStore.get('userInfo');
-        const username = userInfo ? JSON.parse(userInfo.value).username : '';
+        const username = userInfo ? JSON.parse(userInfo?.value).username : '';
 
         // Convert rows to 2D array format for Google Sheets
         const values = rows.map(row => [

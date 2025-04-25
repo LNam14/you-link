@@ -18,16 +18,16 @@ export async function GET() {
         let transactions: any
         let queryResult: any
 
-        if (userInfo.role === "Khách hàng") {
+        if (userInfo?.role === "Khách hàng") {
             queryResult = await executeQuery(
                 `SELECT t.*, a.username 
                  FROM transactions t
                  JOIN account a ON t.customer_id = a.id
                  WHERE t.customer_id = $1
                  ORDER BY t.deposit_date DESC`,
-                [userInfo.id],
+                [userInfo?.id],
             )
-        } else if (userInfo.role === "Admin" || userInfo.role === "Nhân viên") {
+        } else if (userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") {
             queryResult = await executeQuery(
                 `SELECT t.*, a.username 
                  FROM transactions t

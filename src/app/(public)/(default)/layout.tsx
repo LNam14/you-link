@@ -100,64 +100,78 @@ export default function ClientLayout({
             )
         }
 
-        setCartItems(cartArray)
+        // Only update state if cart items have actually changed
+        if (JSON.stringify(cartArray) !== JSON.stringify(cartItems)) {
+          setCartItems(cartArray)
 
-        // Initialize quantities for new items
-        const newQuantities = { ...itemQuantities }
-        cartArray.forEach((item: any) => {
-          if (!newQuantities[item.id]) {
-            newQuantities[item.id] = 1
+          // Calculate cart summary
+          const summary: any = {
+            totalItems: cartArray.length,
+            totalPrice: 0,
+            byLoai: {
+              GP: { count: 0, price: 0 },
+              Text: { count: 0, price: 0 },
+              TextHeader: { count: 0, price: 0 },
+              TextHome: { count: 0, price: 0 },
+            },
           }
-        })
-        setItemQuantities(newQuantities)
 
-        // Calculate cart summary
-        const summary: any = {
-          totalItems: cartArray.length,
-          totalPrice: 0,
-          byLoai: {
-            GP: { count: 0, price: 0 },
-            Text: { count: 0, price: 0 },
-            TextHeader: { count: 0, price: 0 },
-            TextHome: { count: 0, price: 0 },
-          },
+          cartArray.forEach((item: any) => {
+            const type = item.Loai || "GP"
+            const price = Number(
+              type === "GP"
+                ? item.GiaBanGP || 0
+                : type === "Text"
+                  ? item.GiaBanText || 0
+                  : type === "TextHome"
+                    ? item.GiaBanTextHome || 0
+                    : item.GiaBanTextHeader || 0,
+            )
+
+            summary.totalPrice += price
+            summary.byLoai[type].count += 1
+            summary.byLoai[type].price += price
+          })
+
+          setCartSummary(summary)
         }
-
-        cartArray.forEach((item: any) => {
-          const type = item.Loai || "GP"
-          const price = Number(
-            type === "GP"
-              ? item.GiaBanGP || 0
-              : type === "Text"
-                ? item.GiaBanText || 0
-                : type === "TextHome"
-                  ? item.GiaBanTextHome || 0
-                  : item.GiaBanTextHeader || 0,
-          )
-
-          summary.totalPrice += price
-          summary.byLoai[type].count += 1
-          summary.byLoai[type].price += price
-        })
-
-        setCartSummary(summary)
       } else {
-        setCartItems([])
-        setCartSummary({
-          totalItems: 0,
-          totalPrice: 0,
-          byLoai: {
-            GP: { count: 0, price: 0 },
-            Text: { count: 0, price: 0 },
-            TextHeader: { count: 0, price: 0 },
-            TextHome: { count: 0, price: 0 },
-          },
-        })
+        // Only update state if cart is not already empty
+        if (cartItems.length > 0) {
+          setCartItems([])
+          setCartSummary({
+            totalItems: 0,
+            totalPrice: 0,
+            byLoai: {
+              GP: { count: 0, price: 0 },
+              Text: { count: 0, price: 0 },
+              TextHeader: { count: 0, price: 0 },
+              TextHome: { count: 0, price: 0 },
+            },
+          })
+        }
       }
     })
 
     return () => unsubscribe()
-  }, [user])
+  }, [user]) // Only depend on user changes
+
+  // Separate useEffect for initializing quantities
+  useEffect(() => {
+    const newQuantities = { ...itemQuantities }
+    let hasNewItems = false
+
+    cartItems.forEach((item: any) => {
+      if (!newQuantities[item.id]) {
+        newQuantities[item.id] = 1
+        hasNewItems = true
+      }
+    })
+
+    if (hasNewItems) {
+      setItemQuantities(newQuantities)
+    }
+  }, [cartItems]) // Only depend on cartItems changes
 
   const toggleCart = () => setIsOpen(!isOpen)
 

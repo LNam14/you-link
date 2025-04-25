@@ -43,7 +43,7 @@ export function middleware(request: NextRequest) {
   // Check role for private paths - only Admin and Staff can access
   if (isPrivatePath) {
     // If no user info or invalid role, redirect to home
-    if (!userInfo || !["Admin", "Nhân viên"].includes(userInfo.role)) {
+    if (!userInfo || !["Admin", "Nhân viên"].includes(userInfo?.role)) {
       return NextResponse.redirect(new URL("/", request.url));
     }
   }

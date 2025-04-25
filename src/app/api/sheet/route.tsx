@@ -7,10 +7,12 @@ import { cookies } from 'next/headers';
 import keys from "../../../../key.json";
 
 const SPREADSHEET_ID = '10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU';
+const CONTENT_SPREADSHEET_ID = '1SDvAA8pPWUl2Fi2ubFIFttS5D7rA1P-DHrHuJj9X4Z8';
 
 interface SheetConfig {
     range: string;
     formatter: (row: any[], index: number) => Record<string, string | number>;
+    spreadsheetId?: string;
 }
 
 const sheetConfigs: Record<string, SheetConfig> = {
@@ -40,7 +42,8 @@ const sheetConfigs: Record<string, SheetConfig> = {
             HoaHongText: row[22] || 0,
             NCC: row[25] || "",
             MaNCC: row[26] || "",
-        })
+        }),
+        spreadsheetId: SPREADSHEET_ID
     },
     updateVN: {
         range: '1!B3:AM',
@@ -61,7 +64,8 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "HH GP": row[21] || 0,
             "HH Text": row[22] || 0,
             "Ma NCC": row[26] || "",
-        })
+        }),
+        spreadsheetId: SPREADSHEET_ID
     },
     updateNN: {
         range: '2!B3:AM',
@@ -82,7 +86,8 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "HH GP": row[21] || 0,
             "HH Text": row[22] || 0,
             "Ma NCC": row[26] || "",
-        })
+        }),
+        spreadsheetId: SPREADSHEET_ID
     },
     gpTextNN: {
         range: '2!B3:AH',
@@ -110,8 +115,21 @@ const sheetConfigs: Record<string, SheetConfig> = {
             HoaHongText: row[22] || 0,
             NCC: row[25] || "",
             MaNCC: row[26] || "",
-        })
+        }),
+        spreadsheetId: SPREADSHEET_ID
     },
+    content: {
+        range: 'Content!Z3:AH',
+        formatter: (row) => ({
+            MaNCC: row[0] || "",
+            TenSP: row[3] || "",
+            GiaMua: row[5] || 0,
+            GiaBan: row[6] || 0,
+            IDNhom: row[7] || "",
+            Note: row[8] || "",
+        }),
+        spreadsheetId: CONTENT_SPREADSHEET_ID
+    }
 };
 
 const getAuthClient = cache(async () => {
@@ -127,7 +145,7 @@ const getAuthClient = cache(async () => {
 
 const getSheetData = cache(async (gsapi: any, config: SheetConfig, configKey: string, userInfo: { role?: string, username?: string }) => {
     const { data } = await gsapi.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
+        spreadsheetId: config.spreadsheetId || SPREADSHEET_ID,
         range: config.range,
     });
     // Lấy dữ liệu và ánh xạ qua formatter
@@ -136,12 +154,17 @@ const getSheetData = cache(async (gsapi: any, config: SheetConfig, configKey: st
     // Filter based on role and config type
     let filteredData = formattedData;
 
-    if (userInfo.role === 'NCC') {
+    // Special handling for content data - skip filtering
+    if (configKey === 'content') {
+        return formattedData;
+    }
+
+    if (userInfo?.role === 'NCC') {
         if (configKey === 'updateVN' || configKey === 'updateNN') {
             // For NCC users, only show rows where row[26] matches their username
             filteredData = formattedData.filter((row: any, index: number) => {
                 const rawRow = data.values?.[index];
-                return rawRow?.[26] === userInfo.username;
+                return rawRow?.[26] === userInfo?.username;
             });
         } else {
             // For other configs, don't show any data to NCC users

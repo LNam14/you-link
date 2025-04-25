@@ -26,7 +26,7 @@ export async function POST(req: Request) {
         // Kiểm tra quyền truy cập
         const userInfo = await getUserInfoFromCookie()
 
-        if (!userInfo || !AUTHORIZED_ROLES.includes(userInfo.role)) {
+        if (!userInfo || !AUTHORIZED_ROLES.includes(userInfo?.role)) {
             return NextResponse.json(
                 { success: false, message: "Bạn không có quyền thực hiện hành động này" },
                 { status: 403 },

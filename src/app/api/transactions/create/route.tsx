@@ -28,7 +28,7 @@ export async function POST(request: Request) {
         // Lấy thông tin người dùng từ cookie
         const userInfo = await getUserInfoFromCookie()
 
-        if (!userInfo || !userInfo.id) {
+        if (!userInfo || !userInfo?.id) {
             return NextResponse.json(
                 {
                     success: false,
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
         // Lấy và kiểm tra dữ liệu đầu vào
         const body = await request.json().catch(() => ({}))
-        const { amount, paymentMethod, customer_id = userInfo.id } = body
+        const { amount, paymentMethod, customer_id = userInfo?.id } = body
 
         // Tạo description theo format: username + timestamp
         const timestamp = Date.now()
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 
         // Sử dụng PaymentService để xử lý thanh toán
         const paymentService = PaymentService.getInstance()
-        const result = await paymentService.processPayment(userInfo.id, amount, paymentMethod)
+        const result = await paymentService.processPayment(userInfo?.id, amount, paymentMethod)
 
         // Kiểm tra số tiền
         if (!amount) {
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
                 paymentMethod,
                 description,
                 customer_id,
-                userInfo.username || "unknown",
+                userInfo?.username || "unknown",
             ])
 
             if (!insertResult || insertResult.length === 0) {

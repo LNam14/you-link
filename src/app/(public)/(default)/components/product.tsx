@@ -8,6 +8,7 @@ import { Database, Globe, Link, Layers, School, BookOpen, RefreshCw } from "luci
 import { database } from "@/app/firebase/firebase"
 import { ref, onValue, set } from "firebase/database"
 import { toast } from "sonner"
+import Content from "./content"
 
 interface ProductType {
   id: string
@@ -24,6 +25,7 @@ const Product = ({ title }: { title: string }) => {
   const [dataGPTextVN, setDataGPTextVN] = useState<any[]>([])
   const [dataGPTextNN, setDataGPTextNN] = useState<any[]>([])
   const [products, setProducts] = useState<ProductType[]>([])
+  const [dataContent, setDataContent] = useState<any[]>([])
   // const [dataEntity, setDataEntity] = useState<any[]>([]);
   // const [dataEduGOV, setDataEduGOV] = useState<any[]>([]);
   // const [dataBacklink, setDataBacklink] = useState<any[]>([]);
@@ -38,6 +40,8 @@ const Product = ({ title }: { title: string }) => {
       const data: any = await sheetApiRequest.getData()
       setDataGPTextVN(data.gpTextVN)
       setDataGPTextNN(data.gpTextNN)
+      setDataContent(data.content)
+      console.log(data.content)
       // setDataEntity(data.entity);
       // setDataEduGOV(data.Edu);
       // setDataBacklink(data.backlink);
@@ -108,7 +112,7 @@ const Product = ({ title }: { title: string }) => {
     }
 
     try {
-      const cartRef = ref(database, `carts/${userInfo.id}/${product.id}`)
+      const cartRef = ref(database, `carts/${userInfo?.id}/${product.id}`)
       await set(cartRef, {
         ...product,
         quantity: 1
@@ -127,6 +131,7 @@ const Product = ({ title }: { title: string }) => {
   const tabItems = [
     { id: "GP-Text VN", label: "GP Text VN", icon: <Database className="w-4 h-4" /> },
     { id: "GP-Text NN", label: "GP Text NN", icon: <Globe className="w-4 h-4" /> },
+    { id: "Content", label: "Content", icon: <BookOpen className="w-4 h-4" /> },
   ]
 
   if (loading) {
@@ -214,6 +219,7 @@ const Product = ({ title }: { title: string }) => {
               <div className="shadow-lg overflow-hidden w-full">
                 {tabs === "GP-Text VN" && <GPTextVN fetchData={fetchData} data={dataGPTextVN} loading={loading} />}
                 {tabs === "GP-Text NN" && <GPTextVN fetchData={fetchData} data={dataGPTextNN} loading={loading} />}
+                {tabs === "Content" && <Content fetchData={fetchData} data={dataContent} loading={loading} />}
                 {/* {tabs === "Backlink" && <Backlink data={dataBacklink} loading={loading} />}
                 {tabs === "Entity" && <Entity data={dataEntity} loading={loading} />}
                 {tabs === "EDU GOV" && <EDUGOV data={dataEduGOV} loading={loading} />}
