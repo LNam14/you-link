@@ -6,6 +6,7 @@ import sheetApiRequest from "@/apiRequests/sheet"
 import { Card, Spin, message, Switch, Dropdown, Modal, Checkbox, Button } from "antd"
 import { CopyOutlined, ReloadOutlined, LoadingOutlined, MessageOutlined } from "@ant-design/icons"
 import getUserInfo from "@/components/userInfo"
+import { createPortal } from 'react-dom';
 
 interface SiteData {
     cs: string
@@ -100,6 +101,7 @@ export default function PageBody() {
     const [selectedNCCs, setSelectedNCCs] = useState<Set<string>>(new Set())
     const [showNccSelectionModal, setShowNccSelectionModal] = useState(false)
     const [nccList, setNccList] = useState<Array<{ id: string; name: string }>>([])
+    const [mounted, setMounted] = useState(false);
 
     const columnNames = [
         "Chủ site",
@@ -151,6 +153,10 @@ export default function PageBody() {
     useEffect(() => {
         fetchData()
     }, []) //Fixed: Added dependency to fetchData
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const isValidDomain = (domain: string) => {
         const domainRegex = /^(?!:\/\/)([a-zA-Z0-9-_]+(\.[a-zA-Z0-9-_]+)+.*)$/
@@ -1855,7 +1861,7 @@ export default function PageBody() {
             </div>
 
             {/* Context Menu */}
-            {contextMenu.visible && (
+            {mounted && contextMenu.visible && createPortal(
                 <Dropdown menu={{ items: contextMenuItems }} open={true} trigger={["contextMenu"]}>
                     <div
                         style={{
@@ -1867,7 +1873,9 @@ export default function PageBody() {
                             height: 1,
                         }}
                     />
-                </Dropdown>
+                </Dropdown>,
+                document.body,
+                'context-menu-portal'
             )}
 
             {/* Add the NCC selection modal to the JSX return (at the end of the component, before the final closing tag) */}
