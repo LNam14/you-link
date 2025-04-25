@@ -122,11 +122,10 @@ const sheetConfigs: Record<string, SheetConfig> = {
         range: 'Content!Z3:AH',
         formatter: (row) => ({
             MaNCC: row[0] || "",
-            TenSP: row[3] || "",
-            GiaMua: row[5] || 0,
-            GiaBan: row[6] || 0,
-            IDNhom: row[7] || "",
-            Note: row[8] || "",
+            TenSP: row[1] || "",
+            GiaMua: row[3] || 0,
+            GiaBan: row[4] || 0,
+            Note: row[5] || "",
         }),
         spreadsheetId: CONTENT_SPREADSHEET_ID
     }

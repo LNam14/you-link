@@ -80,8 +80,8 @@ export default function Content({
     const handleOrder = async (item: ContentItem) => {
         const quantity = quantities[item.MaNCC] || 1
         if (quantity <= 0) {
-            toast.error("Please enter quantity greater than 0", {
-                description: "Quantity must be greater than 0 to order",
+            toast.error("Vui lòng nhập số lượng lớn hơn 0", {
+                description: "Số lượng phải lớn hơn 0 để đặt hàng",
             })
             return
         }
@@ -89,7 +89,7 @@ export default function Content({
         try {
             // Validate required fields
             if (!item.TenSP || !item.GiaBan || !item.MaNCC) {
-                throw new Error("Missing required product information")
+                throw new Error("Thiếu thông tin sản phẩm bắt buộc")
             }
 
             // Get user's current balance from Firebase
@@ -125,8 +125,8 @@ export default function Content({
 
             // Check if remaining balance is sufficient for new orders
             if (currentBalance < totalPrice) {
-                toast.error("Insufficient balance", {
-                    description: `Current balance: ${currentBalance.toLocaleString("vi-VN")} USDT, Required: ${totalPrice.toLocaleString("vi-VN")} USDT`,
+                toast.error("Số dư không đủ", {
+                    description: `Số dư hiện tại: ${currentBalance.toLocaleString("vi-VN")} USDT, Cần: ${totalPrice.toLocaleString("vi-VN")} USDT`,
                 })
                 return
             }
@@ -179,12 +179,12 @@ export default function Content({
                 amount: newBalance.toFixed(2)
             })
 
-            toast.success("Order successful", {
-                description: `Ordered ${quantity} ${item.TenSP}. Remaining balance: ${newBalance.toLocaleString("vi-VN")} USDT`,
+            toast.success("Đặt hàng thành công", {
+                description: `Đã đặt ${quantity} ${item.TenSP}. Số dư còn lại: ${newBalance.toLocaleString("vi-VN")} USDT`,
             })
         } catch (error) {
-            toast.error("Order failed", {
-                description: error instanceof Error ? error.message : "Please try again later",
+            toast.error("Đặt hàng thất bại", {
+                description: error instanceof Error ? error.message : "Vui lòng thử lại sau",
             })
             console.error("Error placing order:", error)
         }
@@ -193,18 +193,6 @@ export default function Content({
     return (
         <div className="container mx-auto p-4 md:p-8">
             <Toaster position="top-right" expand={true} richColors />
-
-            <div className="mb-6 p-4 bg-white rounded-lg shadow">
-                <h2 className="text-lg font-semibold mb-2">Order Counts by Customer</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {Object.entries(orderCounts).map(([tenKH, count]) => (
-                        <div key={tenKH} className="p-3 bg-orange-50 rounded-lg">
-                            <p className="font-medium text-gray-800">{tenKH}</p>
-                            <p className="text-[#ff6807] font-bold">{count} orders</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
 
             {loading ? (
                 <div className="flex flex-col items-center justify-center min-h-[400px]">
@@ -261,7 +249,7 @@ export default function Content({
                                         {/* Input số */}
                                         <input
                                             type="number"
-                                            value={quantities[item.MaNCC] || 0}
+                                            value={quantities[item.MaNCC] || 1}
                                             onChange={(e) => handleQuantityChange(item.MaNCC, e.target.value)}
                                             className="w-10 h-10 text-center bg-orange-50 text-gray-800 focus:outline-none appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
                                         />

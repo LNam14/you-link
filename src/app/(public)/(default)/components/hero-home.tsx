@@ -156,7 +156,7 @@ export default function HeroHome() {
               <p className="text-xl text-gray-600 mb-8">
                 Nâng cao thứ hạng website của bạn với dịch vụ backlink chất lượng cao, đa dạng và hiệu quả
               </p>
-              <div className="flex gap-4">
+              <div className="flex gap-4 text-sm">
                 <Link
                   href="/mua-ban"
                   target="_blank"
@@ -173,6 +173,15 @@ export default function HeroHome() {
                 >
                   <Globe className="w-5 h-5" />
                   Check site
+                  <ArrowRight className="w-4 h-4 ml-1 transition-transform duration-300 group-hover:translate-x-1" />
+                </Link>
+                <Link
+                  href="/content"
+                  target="_blank"
+                  className="group inline-flex items-center gap-2 bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white font-medium rounded-full px-8 py-3.5 shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  <LayoutDashboard className="w-5 h-5" />
+                  Content
                   <ArrowRight className="w-4 h-4 ml-1 transition-transform duration-300 group-hover:translate-x-1" />
                 </Link>
               </div>
