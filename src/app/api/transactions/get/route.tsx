@@ -18,7 +18,7 @@ export async function GET() {
         let transactions: any
         let queryResult: any
 
-        if (userInfo?.role === "Khách hàng") {
+        if (userInfo?.role === "Khách hàng" || userInfo?.role === "Nhân viên") {
             queryResult = await executeQuery(
                 `SELECT t.*, a.username 
                  FROM transactions t
