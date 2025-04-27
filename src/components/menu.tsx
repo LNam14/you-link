@@ -673,7 +673,7 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                         <span className="font-semibold text-lg flex flex-col">
                             {userInfo?.username}
                             <span className="text-sm">{getRoleName(userInfo?.role)}</span>
-                            {(userInfo?.role === "Khách hàng" || userInfo?.role === "NCC") && <div className="flex items-center"><span className="text-md font-semibold text-green-600">{amount || 0} </span> <DollarSign className="w-4 h-4 text-green-600" /></div>}
+                            {(userInfo?.role === "Khách hàng" || userInfo?.role === "NCC" || userInfo?.role === "Nhân viên") && <div className="flex items-center"><span className="text-md font-semibold text-green-600">{amount || 0} </span> <DollarSign className="w-4 h-4 text-green-600" /></div>}
                         </span>
                     ),
                 },
@@ -689,7 +689,7 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                         </button>
                     ),
                 },
-                userInfo?.role === "Khách hàng" && {
+                (userInfo?.role === "Khách hàng" || userInfo?.role === "Nhân viên") && {
                     key: "deposit",
                     icon: <Wallet className="w-4 h-4" />,
                     label: (
