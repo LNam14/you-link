@@ -63,7 +63,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "Text Header ($)": row[20] || 0,
             "HH GP": row[21] || 0,
             "HH Text": row[22] || 0,
-            "Ma NCC": row[26] || "",
+            "MaNCC": row[26] || "",
         }),
         spreadsheetId: SPREADSHEET_ID
     },
@@ -85,7 +85,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "Text Header ($)": row[20] || 0,
             "HH GP": row[21] || 0,
             "HH Text": row[22] || 0,
-            "Ma NCC": row[26] || "",
+            "MaNCC": row[26] || "",
         }),
         spreadsheetId: SPREADSHEET_ID
     },

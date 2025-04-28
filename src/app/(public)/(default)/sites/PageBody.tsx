@@ -162,8 +162,9 @@ export default function PageBody() {
             const dataToFilter = dataType === 1 ? dataVN : dataNN
             const filtered = dataToFilter.filter((row) => {
                 const siteMatch = searchTerms.some((term) => row.Site?.toLowerCase().includes(term.toLowerCase()))
-                const hasData = Object.keys(row).some((key) => key !== "Site" && row[key] && row[key].toString().trim() !== "")
-                return siteMatch && hasData
+                const maNCCMatch = searchTerms.some((term) => row.MaNCC?.toLowerCase().includes(term.toLowerCase()))
+                const hasData = Object.keys(row).some((key) => key !== "Site" && key !== "MaNCC" && row[key] && row[key].toString().trim() !== "")
+                return (siteMatch || maNCCMatch) && hasData
             })
             setFilteredData(filtered)
             setIsTableLoading(false)
@@ -540,9 +541,9 @@ export default function PageBody() {
                             <div className="mt-8 p-3 bg-blue-50 rounded-lg text-sm text-blue-700 border border-blue-200">
                                 <p className="font-medium mb-1">Cách tìm kiếm:</p>
                                 <ul className="list-disc pl-5 space-y-1">
-                                    <li>Nhập tên site cần tìm</li>
-                                    <li>Có thể tìm nhiều site cùng lúc bằng cách ngăn cách bởi dấu cách hoặc xuống dòng</li>
-                                    <li>Kết quả sẽ hiển thị các site có chứa từ khóa tìm kiếm</li>
+                                    <li>Nhập tên site hoặc mã NCC cần tìm</li>
+                                    <li>Có thể tìm nhiều site/mã NCC cùng lúc bằng cách ngăn cách bởi dấu cách hoặc xuống dòng</li>
+                                    <li>Kết quả sẽ hiển thị các site hoặc mã NCC có chứa từ khóa tìm kiếm</li>
                                 </ul>
                             </div>
                         )}
