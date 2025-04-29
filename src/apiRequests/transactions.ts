@@ -3,6 +3,7 @@ import httpService from "@/lib/http";
 // Định nghĩa kiểu dữ liệu cho transaction
 export interface Transaction {
   id: string;
+  type: string;
   amount: string;
   deposit_date: string;
   method: string;

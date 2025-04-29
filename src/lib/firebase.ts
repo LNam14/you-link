@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app'
+import { initializeApp, getApps } from 'firebase/app'
 import { getDatabase, ref, set, onValue } from 'firebase/database'
 
 const firebaseConfig = {
@@ -11,7 +11,8 @@ const firebaseConfig = {
     appId: "1:550095738800:web:24966b9c9a26a124a3e875"
 }
 
-const app = initializeApp(firebaseConfig)
+// Initialize Firebase only if it hasn't been initialized already
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
 const database = getDatabase(app)
 
 export { database, ref, set, onValue } 

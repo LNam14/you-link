@@ -7,7 +7,7 @@ import "handsontable/styles/handsontable.css"
 import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
 import "../style.css"
-import { ref, onValue, set, get } from "firebase/database"
+import { ref, onValue, set, get, update } from "firebase/database"
 import getUserInfo from "@/components/userInfo"
 import { database } from "@/app/firebase/firebase"
 import { Modal, Button, message as antdMessage } from "antd"
@@ -756,10 +756,49 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                 ? updatedOrder.GiaBanTextHome || 0
                                 : updatedOrder.GiaBanTextHeader || 0,
                 )
-                await updateUserBalance(updatedOrder.KHMua, -price, updatedOrder.TenNCC)
+
+                // Deduct from customer's pendingAmount and add to money
+                const customerPendingRef = ref(database, `pendingAmount/${updatedOrder.KHMua}`);
+                const customerMoneyRef = ref(database, `money/${updatedOrder.KHMua}`);
+                const supplierMoneyRef = ref(database, `money/${updatedOrder.TenNCC}`);
+
+                // Get current balances
+                const [customerPendingSnapshot, customerMoneySnapshot, supplierMoneySnapshot] = await Promise.all([
+                    get(customerPendingRef),
+                    get(customerMoneyRef),
+                    get(supplierMoneyRef)
+                ]);
+
+                let customerPendingAmount = 0;
+                let customerMoneyAmount = 0;
+                let supplierMoneyAmount = 0;
+
+                if (customerPendingSnapshot.exists()) {
+                    customerPendingAmount = customerPendingSnapshot.val().amount || 0;
+                }
+                if (customerMoneySnapshot.exists()) {
+                    customerMoneyAmount = customerMoneySnapshot.val().amount || 0;
+                }
+                if (supplierMoneySnapshot.exists()) {
+                    supplierMoneyAmount = supplierMoneySnapshot.val().amount || 0;
+                }
+
+                // Update balances
+                await Promise.all([
+                    update(customerPendingRef, { amount: customerPendingAmount - price }),
+                    update(customerMoneyRef, {
+                        amount: customerMoneyAmount + price,
+                        pendingAmount: customerMoneySnapshot.val()?.pendingAmount || 0,
+                        doneAmount: customerMoneySnapshot.val()?.doneAmount || 0
+                    }),
+                    update(supplierMoneyRef, {
+                        amount: supplierMoneyAmount + price
+                    })
+                ]);
+
                 updatedOrder.paymentStatus = "paid"
                 sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
-                sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
             }
         } else if (action === "ncc_accept_cancel") {
             updatedOrder.TinhTrangNCC = "Đồng ý hủy"
@@ -1375,6 +1414,63 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                             const day = String(now.getDate()).padStart(2, "0")
                             const month = String(now.getMonth() + 1).padStart(2, "0")
                             updatedOrder.NgayBan = `${day}/${month}`
+
+                            // Only process payment if it hasn't been processed before
+                            if (!updatedOrder.paymentStatus || updatedOrder.paymentStatus !== "paid") {
+                                // Handle money balance changes when NCC marks as Đã lên bài
+                                const price = Number(
+                                    updatedOrder.Loai === "GP"
+                                        ? updatedOrder.GiaBanGP || 0
+                                        : updatedOrder.Loai === "Text"
+                                            ? updatedOrder.GiaBanText || 0
+                                            : updatedOrder.Loai === "TextHome"
+                                                ? updatedOrder.GiaBanTextHome || 0
+                                                : updatedOrder.GiaBanTextHeader || 0,
+                                )
+
+                                // Deduct from customer's pendingAmount and add to money
+                                const customerPendingRef = ref(database, `pendingAmount/${updatedOrder.KHMua}`);
+                                const customerMoneyRef = ref(database, `money/${updatedOrder.KHMua}`);
+                                const supplierMoneyRef = ref(database, `money/${updatedOrder.TenNCC}`);
+
+                                // Get current balances
+                                const [customerPendingSnapshot, customerMoneySnapshot, supplierMoneySnapshot] = await Promise.all([
+                                    get(customerPendingRef),
+                                    get(customerMoneyRef),
+                                    get(supplierMoneyRef)
+                                ]);
+
+                                let customerPendingAmount = 0;
+                                let customerMoneyAmount = 0;
+                                let supplierMoneyAmount = 0;
+
+                                if (customerPendingSnapshot.exists()) {
+                                    customerPendingAmount = customerPendingSnapshot.val().amount || 0;
+                                }
+                                if (customerMoneySnapshot.exists()) {
+                                    customerMoneyAmount = customerMoneySnapshot.val().amount || 0;
+                                }
+                                if (supplierMoneySnapshot.exists()) {
+                                    supplierMoneyAmount = supplierMoneySnapshot.val().amount || 0;
+                                }
+
+                                // Update balances
+                                await Promise.all([
+                                    update(customerPendingRef, { amount: customerPendingAmount - price }),
+                                    update(customerMoneyRef, {
+                                        amount: customerMoneyAmount + price,
+                                        pendingAmount: customerMoneySnapshot.val()?.pendingAmount || 0,
+                                        doneAmount: customerMoneySnapshot.val()?.doneAmount || 0
+                                    }),
+                                    update(supplierMoneyRef, {
+                                        amount: supplierMoneyAmount + price
+                                    })
+                                ]);
+
+                                updatedOrder.paymentStatus = "paid"
+                                sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                                sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                            }
                         }
                         break
                 }
@@ -2468,7 +2564,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                         if (!orderKey) return;
 
                         // Process each column in the row
-                        row.forEach((value, colIndex) => {
+                        row.forEach(async (value, colIndex) => {
                             const columnName = RowHeader2[startCol + colIndex];
                             if (!columnName) return;
 
@@ -2666,13 +2762,70 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                     updatedOrder.TinhTrangKH = value;
                                     break;
                                 case "NCC":
-                                    updatedOrder.TinhTrangNCC = value;
+                                    updatedOrder.TinhTrangNCC = value
                                     // Update NgayBan for non-GP orders when TinhTrangNCC changes to 'Đã lên bài'
                                     if (updatedOrder.Loai !== "GP" && value === "Đã lên bài") {
                                         const now = new Date()
                                         const day = String(now.getDate()).padStart(2, "0")
                                         const month = String(now.getMonth() + 1).padStart(2, "0")
                                         updatedOrder.NgayBan = `${day}/${month}`
+
+                                        // Only process payment if it hasn't been processed before
+                                        if (!updatedOrder.paymentStatus || updatedOrder.paymentStatus !== "paid") {
+                                            // Handle money balance changes when NCC marks as Đã lên bài
+                                            const price = Number(
+                                                updatedOrder.Loai === "GP"
+                                                    ? updatedOrder.GiaBanGP || 0
+                                                    : updatedOrder.Loai === "Text"
+                                                        ? updatedOrder.GiaBanText || 0
+                                                        : updatedOrder.Loai === "TextHome"
+                                                            ? updatedOrder.GiaBanTextHome || 0
+                                                            : updatedOrder.GiaBanTextHeader || 0,
+                                            )
+
+                                            // Deduct from customer's pendingAmount and add to money
+                                            const customerPendingRef = ref(database, `pendingAmount/${updatedOrder.KHMua}`);
+                                            const customerMoneyRef = ref(database, `money/${updatedOrder.KHMua}`);
+                                            const supplierMoneyRef = ref(database, `money/${updatedOrder.TenNCC}`);
+
+                                            // Get current balances
+                                            const [customerPendingSnapshot, customerMoneySnapshot, supplierMoneySnapshot] = await Promise.all([
+                                                get(customerPendingRef),
+                                                get(customerMoneyRef),
+                                                get(supplierMoneyRef)
+                                            ]);
+
+                                            let customerPendingAmount = 0;
+                                            let customerMoneyAmount = 0;
+                                            let supplierMoneyAmount = 0;
+
+                                            if (customerPendingSnapshot.exists()) {
+                                                customerPendingAmount = customerPendingSnapshot.val().amount || 0;
+                                            }
+                                            if (customerMoneySnapshot.exists()) {
+                                                customerMoneyAmount = customerMoneySnapshot.val().amount || 0;
+                                            }
+                                            if (supplierMoneySnapshot.exists()) {
+                                                supplierMoneyAmount = supplierMoneySnapshot.val().amount || 0;
+                                            }
+
+                                            // Update balances
+                                            await Promise.all([
+                                                update(customerPendingRef, { amount: customerPendingAmount - price }),
+                                                update(customerMoneyRef, {
+                                                    amount: customerMoneyAmount + price,
+                                                    pendingAmount: customerMoneySnapshot.val()?.pendingAmount || 0,
+                                                    doneAmount: customerMoneySnapshot.val()?.doneAmount || 0
+                                                }),
+                                                update(supplierMoneyRef, {
+                                                    amount: supplierMoneyAmount + price
+                                                })
+                                            ]);
+
+                                            updatedOrder.paymentStatus = "paid"
+                                            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                                            sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                                        }
                                     }
                                     break;
                             }
@@ -2697,11 +2850,14 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                     let isReadOnly = false
 
                     if (userInfo?.role === "NCC") {
-                        // NCC can only edit Index and Link KQ
-                        isReadOnly = header !== "Index" && header !== "Link KQ"
+                        // NCC can only edit Link KQ
+                        isReadOnly = header !== "Link KQ"
                     } else if (userInfo?.role === "Khách hàng") {
-                        // Khách hàng can only edit these columns
+                        // Khách hàng can edit these columns
                         isReadOnly = !["Bài Viết", "Anchor 1", "Link 1", "Anchor 2", "Link 2", "Index", "Loại"].includes(header)
+                    } else {
+                        // Other roles can edit all columns
+                        isReadOnly = false
                     }
 
                     return {
@@ -2773,7 +2929,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                         }
 
                         // Xử lý các cột khác
-                        if (rowData[1] !== "GP" && (header === "Bài Viết" || header === "Link KQ" || header === "Index")) {
+                        if (rowData[1] !== "GP" && (header === "Bài Viết" || header === "Link KQ")) {
                             return {
                                 readOnly: true,
                                 renderer: (instance, td, row, col, prop, value, cellProperties) => {
@@ -2811,8 +2967,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                             (userInfo?.role === "NCC" && header !== "Index" && header !== "Link KQ") ||
                             (userInfo?.role === "Khách hàng" &&
                                 !["Bài Viết", "Anchor 1", "Link 1", "Anchor 2", "Link 2", "Index", "Loại"].includes(header)) ||
-                            (userInfo?.role === "Khách hàng" && header === "KH") ||
-                            (header === "Index" && data[row][col] === "No");
+                            (userInfo?.role === "Khách hàng" && header === "KH")
 
                         if (isReadOnly) {
                             return {

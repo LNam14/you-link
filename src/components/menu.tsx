@@ -16,7 +16,6 @@ import {
     Wallet,
     CreditCard,
     Phone,
-    User,
     Key,
     Plus,
     History,
@@ -24,12 +23,13 @@ import {
     Copy,
     CheckCircle2,
     AlertCircle,
+    User,
 } from "lucide-react"
 import CurrencyConverterModal from "./CurrencyConverterModal"
 import { z } from "zod"
 import transactionApiRequest from "@/apiRequests/transactions"
 import authApiRequest from "@/apiRequests/auth"
-import { ref, onValue } from "firebase/database"
+import { ref, onValue, update, get } from "firebase/database"
 import { database } from "@/app/firebase/firebase"
 import { useRouter } from "next/navigation"
 import sheetApiRequest from "@/apiRequests/sheet"
@@ -80,6 +80,16 @@ const depositSchema = z.object({
         .min(10, { message: "Số tiền nạp tối thiểu là 10 USDT" })
         .max(10000, { message: "Số tiền nạp tối đa là 10,000 USDT" }),
     paymentMethod: z.string().min(1, { message: "Vui lòng chọn phương thức thanh toán" }),
+})
+
+const withdrawSchema = z.object({
+    amount: z
+        .number()
+        .int({ message: "Số tiền phải là số nguyên" })
+        .min(10, { message: "Số tiền rút tối thiểu là 10 USDT" })
+        .max(10000, { message: "Số tiền rút tối đa là 10,000 USDT" }),
+    binanceAddress: z.string().min(1, { message: "Vui lòng nhập địa chỉ ví Binance" }),
+    network: z.string().min(1, { message: "Vui lòng chọn mạng lưới" }),
 })
 
 // Memoized BinanceWalletComponent to prevent re-renders
@@ -245,6 +255,9 @@ const DepositForm = memo(
                             Số tiền nạp <span className="text-red-500">*</span>
                         </label>
                         <div className="relative rounded-md shadow-sm">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <UserRound className="h-4 w-4 text-gray-400" />
+                            </div>
                             <input
                                 type="text"
                                 id="amount"
@@ -447,6 +460,43 @@ DepositHistoryTab.displayName = "DepositHistoryTab"
 const MenuAvatar: React.FC<MenuAvatarProps> = () => {
     const userInfo = getUserInfo()
     const [messageApi, contextHolder] = message.useMessage()
+    const [amount, setAmount] = useState(0)
+    const fetchData = useCallback(async () => {
+        setLoading(true)
+        try {
+            const response: any = await transactionApiRequest.get()
+            const transactionData = Array.isArray(response?.data) ? response.data : []
+            setData(transactionData || [])
+
+            // Also check Firebase for the latest balance
+            if (userInfo?.username) {
+                const userBalanceRef = ref(database, `money/${userInfo.username}`)
+                console.log("userBalanceRef", userBalanceRef)
+                const unsubscribe = onValue(userBalanceRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        const balanceData = snapshot.val()
+                        const currentBalance = typeof balanceData.amount === "number" ? balanceData.amount : 0
+                        console.log("currentBalance", currentBalance)
+                        setAmount(currentBalance)
+                    } else {
+                        setAmount(0)
+                    }
+                })
+
+                return () => unsubscribe()
+            }
+        } catch (error) {
+            console.error("Error fetching data:", error)
+            setData([])
+        } finally {
+            setLoading(false)
+        }
+    }, [userInfo?.id, userInfo?.name])
+
+    // Add polling to check for updates every 10 seconds
+    useEffect(() => {
+        fetchData() // Initial fetch
+    }, [])
 
     // Form state
     const [depositAmount, setDepositAmount] = useState<string>("")
@@ -466,48 +516,18 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
     const [isConverterModalVisible, setIsConverterModalVisible] = useState(false)
     const [isDepositModalVisible, setIsDepositModalVisible] = useState(false)
     const [isEditUserModalVisible, setIsEditUserModalVisible] = useState(false)
+    const [isWithdrawModalVisible, setIsWithdrawModalVisible] = useState(false)
+    const [withdrawAmount, setWithdrawAmount] = useState<string>("")
+    const [binanceAddress, setBinanceAddress] = useState<string>("")
+    const [network, setNetwork] = useState<string>("TRC20")
+    const [withdrawErrors, setWithdrawErrors] = useState<{ [key: string]: string }>({})
+    const [isWithdrawSubmitting, setIsWithdrawSubmitting] = useState(false)
     const [activeDepositTab, setActiveDepositTab] = useState<string>("history")
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState([])
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [isDepositSubmitting, setIsDepositSubmitting] = useState(false)
-    const [amount, setAmount] = useState(0)
 
-    const fetchData = useCallback(async () => {
-        setLoading(true)
-        try {
-            const response: any = await transactionApiRequest.get()
-            const transactionData = Array.isArray(response?.data) ? response.data : []
-            setData(transactionData || [])
-
-            // Also check Firebase for the latest balance
-            if (userInfo?.username) {
-                const moneyRef = ref(database, `money/${userInfo?.username}`)
-                onValue(
-                    moneyRef,
-                    (snapshot) => {
-                        if (snapshot.exists()) {
-                            const data = snapshot.val()
-                            if (typeof data.amount === "number") {
-                                setAmount(data.amount)
-                            }
-                        }
-                    },
-                    { onlyOnce: true },
-                )
-            }
-        } catch (error) {
-            console.error("Error fetching data:", error)
-            setData([])
-        } finally {
-            setLoading(false)
-        }
-    }, [userInfo?.id, userInfo?.name])
-
-    // Add polling to check for updates every 10 seconds
-    useEffect(() => {
-        fetchData() // Initial fetch
-    }, [fetchData])
     // Add the handleMessageNCC function after the fetchData function
     const handleMessageNCC = useCallback(
         async (amount: number, paymentMethod: string) => {
@@ -620,6 +640,7 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
             const validatedData: any = depositSchema.parse({
                 amount: parsedAmount,
                 paymentMethod: paymentMethod,
+                type: "recharge",
             })
 
 
@@ -663,6 +684,91 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
         }
     }, [depositAmount, paymentMethod, fetchData, handleMessageNCC])
 
+    const handleWithdrawSubmit = useCallback(async () => {
+        setIsWithdrawSubmitting(true)
+        setWithdrawErrors({})
+
+        try {
+            // Parse amount to number - remove commas first
+            const parsedAmount = Number.parseInt(withdrawAmount.replace(/,/g, ""), 10)
+
+            // Validate with Zod
+            const validatedData: any = withdrawSchema.parse({
+                amount: parsedAmount,
+                binanceAddress,
+                network,
+            })
+
+            // Check if user has enough balance
+            if (parsedAmount > amount) {
+                setWithdrawErrors({ amount: "Số dư không đủ để rút" })
+                return
+            }
+
+            // Get current pendingAmount from Firebase
+            const userBalanceRef = ref(database, `money/${userInfo?.username}`)
+            const snapshot = await get(userBalanceRef)
+            const currentData = snapshot.val() || {}
+            const currentPendingAmount = currentData.pendingAmount || 0
+
+            // Check if total pending amount (current + new) would exceed available balance
+            if (currentPendingAmount + parsedAmount > amount) {
+                setWithdrawErrors({ amount: `Số tiền rút vượt quá số dư khả dụng. Đang có ${currentPendingAmount} USDT đang chờ xử lý.` })
+                return
+            }
+
+            // Simulate network delay for better UX
+            await new Promise((resolve) => setTimeout(resolve, 1000))
+
+            // Create withdrawal request using transactions API
+            const res: any = await transactionApiRequest.create({
+                ...validatedData,
+                type: "withdraw",
+                status: "pending",
+                username: userInfo?.username,
+            })
+
+            if (res.success) {
+                // Update pendingAmount in Firebase
+                await update(userBalanceRef, {
+                    pendingAmount: currentPendingAmount + parsedAmount
+                })
+
+                // Send notification to admin
+                const messageText = `${userInfo?.username} đã yêu cầu rút ${parsedAmount} USDT về địa chỉ ${binanceAddress} (${network}). Vui lòng kiểm tra và xác nhận.`
+                await handleMessageNCC(parsedAmount, `Rút tiền về ${network}`)
+
+                Modal.success({
+                    title: "Yêu cầu rút tiền thành công",
+                    content: `Yêu cầu rút ${parsedAmount} USDT đã được gửi. Vui lòng chờ xác nhận.`,
+                    onOk: () => {
+                        setIsWithdrawModalVisible(false)
+                        setWithdrawAmount("")
+                        setBinanceAddress("")
+                        setNetwork("TRC20")
+                        fetchData() // Refresh data
+                    },
+                })
+            } else {
+                message.error("Có lỗi xảy ra, vui lòng thử lại sau!")
+            }
+        } catch (error) {
+            if (error instanceof z.ZodError) {
+                const errors: { [key: string]: string } = {}
+                error.errors.forEach((err) => {
+                    if (err.path) {
+                        errors[err.path[0]] = err.message
+                    }
+                })
+                setWithdrawErrors(errors)
+            } else {
+                message.error("Có lỗi xảy ra, vui lòng thử lại sau!")
+            }
+        } finally {
+            setIsWithdrawSubmitting(false)
+        }
+    }, [withdrawAmount, binanceAddress, network, amount, userInfo?.username, handleMessageNCC, fetchData])
+
     // Memoize dropdown items to prevent re-renders
     const items: any = useMemo(
         () =>
@@ -701,6 +807,18 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                             }}
                         >
                             Nạp tiền
+                        </button>
+                    ),
+                },
+                userInfo?.role === "NCC" && {
+                    key: "withdraw",
+                    icon: <Wallet className="w-4 h-4" />,
+                    label: (
+                        <button
+                            className="text-red-600 hover:text-red-800 bg-transparent border-none cursor-pointer px-2 py-1"
+                            onClick={() => setIsWithdrawModalVisible(true)}
+                        >
+                            Rút tiền
                         </button>
                     ),
                 },
@@ -853,7 +971,7 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                             </label>
                             <div className="relative rounded-md shadow-sm">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <User className="h-4 w-4 text-gray-400" />
+                                    <UserRound className="h-4 w-4 text-gray-400" />
                                 </div>
                                 <input
                                     type="text"
@@ -1008,6 +1126,140 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                             onCancel={() => handleTabChange("history")}
                         />
                     )}
+                </div>
+            </Modal>
+
+            {/* Withdraw Modal */}
+            <Modal
+                title={
+                    <div className="flex items-center text-lg font-semibold">
+                        <Wallet className="mr-2 h-5 w-5 text-red-500" />
+                        Rút tiền
+                    </div>
+                }
+                open={isWithdrawModalVisible}
+                onCancel={() => {
+                    setIsWithdrawModalVisible(false)
+                    setWithdrawAmount("")
+                    setBinanceAddress("")
+                    setNetwork("TRC20")
+                    setWithdrawErrors({})
+                }}
+                footer={[
+                    <button
+                        key="cancel"
+                        onClick={() => {
+                            setIsWithdrawModalVisible(false)
+                            setWithdrawAmount("")
+                            setBinanceAddress("")
+                            setNetwork("TRC20")
+                            setWithdrawErrors({})
+                        }}
+                        className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                        Hủy
+                    </button>,
+                    <button
+                        key="submit"
+                        onClick={handleWithdrawSubmit}
+                        disabled={isWithdrawSubmitting}
+                        className="ml-3 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                    >
+                        {isWithdrawSubmitting ? "Đang xử lý..." : "Xác nhận rút tiền"}
+                    </button>,
+                ]}
+                width={600}
+            >
+                <div className="mt-4 space-y-4">
+                    {/* Amount Input */}
+                    <div>
+                        <label htmlFor="withdrawAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                            Số tiền rút <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative rounded-md shadow-sm">
+                            <input
+                                type="text"
+                                id="withdrawAmount"
+                                value={withdrawAmount}
+                                onChange={(e) => {
+                                    const value = e.target.value
+                                    if (/^[0-9,]*$/.test(value) || value === "") {
+                                        const plainValue = value.replace(/,/g, "")
+                                        if (plainValue === "") {
+                                            setWithdrawAmount("")
+                                        } else {
+                                            setWithdrawAmount(plainValue.replace(/\B(?=(\d{3})+(?!\d))/g, ","))
+                                        }
+                                    }
+                                }}
+                                className={`block w-full pr-20 border ${withdrawErrors.amount ? "border-red-300 focus:ring-red-500 focus:border-red-500" : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"} rounded-md py-2 px-3 focus:outline-none focus:ring-1 sm:text-sm`}
+                                placeholder="Nhập số tiền"
+                            />
+                            <div className="absolute inset-y-0 right-0 flex items-center">
+                                <span className="h-full inline-flex items-center px-3 border-l border-gray-300 bg-gray-50 text-gray-500 sm:text-sm rounded-r-md">
+                                    USDT
+                                </span>
+                            </div>
+                        </div>
+                        {withdrawErrors.amount && (
+                            <p className="mt-1 text-sm text-red-600 flex items-center">
+                                <AlertCircle className="h-4 w-4 mr-1" />
+                                {withdrawErrors.amount}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Binance Address */}
+                    <div>
+                        <label htmlFor="binanceAddress" className="block text-sm font-medium text-gray-700 mb-1">
+                            Địa chỉ ví Binance <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative rounded-md shadow-sm">
+                            <input
+                                type="text"
+                                id="binanceAddress"
+                                value={binanceAddress}
+                                onChange={(e) => setBinanceAddress(e.target.value)}
+                                className={`block w-full border ${withdrawErrors.binanceAddress ? "border-red-300 focus:ring-red-500 focus:border-red-500" : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"} rounded-md py-2 px-3 focus:outline-none focus:ring-1 sm:text-sm`}
+                                placeholder="Nhập địa chỉ ví Binance"
+                            />
+                        </div>
+                        {withdrawErrors.binanceAddress && (
+                            <p className="mt-1 text-sm text-red-600 flex items-center">
+                                <AlertCircle className="h-4 w-4 mr-1" />
+                                {withdrawErrors.binanceAddress}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Network Selection */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Mạng lưới</label>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div
+                                className={`border rounded-lg p-4 flex items-center cursor-pointer hover:border-blue-500 ${network === "TRC20" ? "border-blue-500 bg-blue-50" : "border-gray-300"}`}
+                                onClick={() => setNetwork("TRC20")}
+                            >
+                                <span>TRC20</span>
+                            </div>
+                        </div>
+                        {withdrawErrors.network && (
+                            <p className="mt-1 text-sm text-red-600 flex items-center">
+                                <AlertCircle className="h-4 w-4 mr-1" />
+                                {withdrawErrors.network}
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="text-sm text-gray-500">
+                        <p>Lưu ý quan trọng:</p>
+                        <ul className="list-disc pl-5 mt-1">
+                            <li>Số tiền rút tối thiểu: 10 USDT</li>
+                            <li>Số tiền rút tối đa: 10,000 USDT</li>
+                            <li>Vui lòng kiểm tra kỹ địa chỉ ví trước khi rút</li>
+                            <li>Thời gian xử lý: 24-48 giờ</li>
+                        </ul>
+                    </div>
                 </div>
             </Modal>
         </>

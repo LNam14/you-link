@@ -5,13 +5,13 @@ import executeQuery from "@/app/db/db"
 
 // Câu truy vấn PostgreSQL
 const INSERT_TRANSACTION = `
-  INSERT INTO transactions (amount, deposit_date, method, description, customer_id, name, status) 
-  VALUES ($1, NOW(), $2, $3, $4, $5, 'Đang chờ')
+  INSERT INTO transactions (type, amount, deposit_date, method, description, customer_id, name, status) 
+  VALUES ($1, $2, NOW(), $3, $4, $5, $6, 'Đang chờ')
   RETURNING id
 `
 
 const GET_NEW_TRANSACTION = `
-  SELECT id, amount, deposit_date, method, description, status, customer_id 
+  SELECT id, type, amount, deposit_date, method, description, status, customer_id 
   FROM transactions 
   WHERE id = $1 
   LIMIT 1
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
         // Lấy và kiểm tra dữ liệu đầu vào
         const body = await request.json().catch(() => ({}))
-        const { amount, paymentMethod, customer_id = userInfo?.id } = body
+        const { type, amount, paymentMethod, customer_id = userInfo?.id } = body
 
         // Tạo description theo format: username + timestamp
         const timestamp = Date.now()
@@ -77,6 +77,7 @@ export async function POST(request: Request) {
 
             // Thêm giao dịch vào cơ sở dữ liệu và lấy ID được trả về
             const insertResult: any = await executeQuery(INSERT_TRANSACTION, [
+                type,
                 amount,
                 paymentMethod,
                 description,

@@ -5,13 +5,14 @@ import { TelegramService } from '@/lib/telegram';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyAvnMk4sKg3litMf82RKARDr7wdSez5gLA",
-    authDomain: "fshop-5177e.firebaseapp.com",
-    databaseURL: "https://fshop-5177e-default-rtdb.firebaseio.com",
-    projectId: "fshop-5177e",
-    storageBucket: "fshop-5177e.appspot.com",
-    messagingSenderId: "550095738800",
-    appId: "1:550095738800:web:24966b9c9a26a124a3e875"
+    apiKey: "AIzaSyA56zF_hHgtp_2AmWU0MuUjgbWfzA95SSs",
+    authDomain: "you-4a1e9.firebaseapp.com",
+    databaseURL: "https://you-4a1e9-default-rtdb.firebaseio.com",
+    projectId: "you-4a1e9",
+    storageBucket: "you-4a1e9.firebasestorage.app",
+    messagingSenderId: "894442863851",
+    appId: "1:894442863851:web:2647c56e8b33e3093552ae",
+    measurementId: "G-G1940DYPZK"
 };
 
 // Initialize Firebase
@@ -69,11 +70,31 @@ export const updateUserBalance = async (userId: string, amount: number, nccName?
     });
 
     let currentAmount = 0;
+    let currentPendingAmount = 0;
+    let currentDoneAmount = 0;
+
     if (snapshot.exists()) {
-        currentAmount = snapshot.val().amount || 0;
+        const data = snapshot.val();
+        currentAmount = data.amount || 0;
+        currentPendingAmount = data.pendingAmount || 0;
+        currentDoneAmount = data.doneAmount || 0;
     }
 
-    await set(userMoneyRef, { amount: currentAmount + amount });
+    // If amount is negative, it's a deduction from pendingAmount
+    if (amount < 0) {
+        await set(userMoneyRef, {
+            amount: currentAmount + amount,
+            pendingAmount: currentPendingAmount + amount,
+            doneAmount: currentDoneAmount - amount
+        });
+    } else {
+        // If amount is positive, it's an addition to pendingAmount
+        await set(userMoneyRef, {
+            amount: currentAmount,
+            pendingAmount: currentPendingAmount + amount,
+            doneAmount: currentDoneAmount
+        });
+    }
 
     // If this is a deduction (negative amount) and NCC name is provided, add money to NCC
     if (amount < 0 && nccName) {
@@ -85,12 +106,19 @@ export const updateUserBalance = async (userId: string, amount: number, nccName?
         });
 
         let nccCurrentAmount = 0;
+        let nccCurrentDoneAmount = 0;
+
         if (nccSnapshot.exists()) {
-            nccCurrentAmount = nccSnapshot.val().amount || 0;
+            const data = nccSnapshot.val();
+            nccCurrentAmount = data.amount || 0;
+            nccCurrentDoneAmount = data.doneAmount || 0;
         }
 
-        // Add the absolute value of the deduction to NCC's balance
-        await set(nccMoneyRef, { amount: nccCurrentAmount + Math.abs(amount) });
+        // Add the absolute value of the deduction to NCC's balance and doneAmount
+        await set(nccMoneyRef, {
+            amount: nccCurrentAmount + Math.abs(amount),
+            doneAmount: nccCurrentDoneAmount + Math.abs(amount)
+        });
     }
     // If this is a refund (positive amount) and NCC name is provided, deduct from NCC
     else if (amount > 0 && nccName) {
@@ -102,12 +130,19 @@ export const updateUserBalance = async (userId: string, amount: number, nccName?
         });
 
         let nccCurrentAmount = 0;
+        let nccCurrentDoneAmount = 0;
+
         if (nccSnapshot.exists()) {
-            nccCurrentAmount = nccSnapshot.val().amount || 0;
+            const data = nccSnapshot.val();
+            nccCurrentAmount = data.amount || 0;
+            nccCurrentDoneAmount = data.doneAmount || 0;
         }
 
-        // Deduct the refund amount from NCC's balance
-        await set(nccMoneyRef, { amount: nccCurrentAmount - amount });
+        // Deduct the refund amount from NCC's balance and doneAmount
+        await set(nccMoneyRef, {
+            amount: nccCurrentAmount - amount,
+            doneAmount: nccCurrentDoneAmount - amount
+        });
     }
 };
 

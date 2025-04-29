@@ -334,9 +334,11 @@ export default function ClientLayout({
       const balanceSnapshot = await get(userBalanceRef)
 
       let currentBalance = 0
+      let currentPendingAmount = 0
       if (balanceSnapshot.exists()) {
         const balanceData = balanceSnapshot.val()
         currentBalance = typeof balanceData.amount === "number" ? balanceData.amount : 0
+        currentPendingAmount = typeof balanceData.pendingAmount === "number" ? balanceData.pendingAmount : 0
       }
 
       // Calculate total price based on Loai type for new orders
@@ -445,6 +447,13 @@ export default function ClientLayout({
 
       // Set the entire orders array
       await set(ordersRef, updatedOrders)
+
+      // Update the money database with the new pending amount
+      const newPendingAmount = currentPendingAmount + totalPrice
+      await set(userBalanceRef, {
+        amount: currentBalance,
+        pendingAmount: newPendingAmount
+      })
 
       // Delete all items from cart
       const deletePromises = cartItems.map((item: any) => {

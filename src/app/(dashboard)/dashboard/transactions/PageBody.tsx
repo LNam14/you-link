@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { CheckCircle, XCircle, BarChart3, Calendar, AlertTriangle } from "lucide-react"
-import { Modal, message, Select } from "antd"
+import { Modal, message, Select, Tabs } from "antd"
 import transactionApiRequest, { type Transaction } from "@/apiRequests/transactions"
 import { onValue, ref, set } from "firebase/database"
 import { database } from "@/app/firebase/firebase"
@@ -28,6 +28,7 @@ export default function PageBody() {
     const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
     const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null)
     const [filteredData, setFilteredData] = useState<Transaction[]>([])
+    const [activeTab, setActiveTab] = useState<"recharge" | "withdraw">("recharge")
     const isMounted = useRef(true)
     const router = useRouter()
     const [refreshKey, setRefreshKey] = useState(0)
@@ -62,7 +63,9 @@ export default function PageBody() {
             return
         }
 
-        let filtered = [...data].filter((item) => moment(item.deposit_date).year() === selectedYear)
+        let filtered = [...data]
+            .filter((item) => moment(item.deposit_date).year() === selectedYear)
+            .filter((item) => item.type === activeTab)
 
         switch (filterType) {
             case "week":
@@ -83,7 +86,7 @@ export default function PageBody() {
         }
 
         setFilteredData(filtered)
-    }, [data, filterType, selectedWeek, selectedMonth, selectedYear, selectedCustomer])
+    }, [data, filterType, selectedWeek, selectedMonth, selectedYear, selectedCustomer, activeTab])
 
     useEffect(() => {
         isMounted.current = true
@@ -111,17 +114,41 @@ export default function PageBody() {
 
             if (dialogAction === "approve") {
                 const userId = selectedItem.name
-                const amountToAdd = Number.parseFloat(selectedItem.amount)
+                const amountToProcess = Number.parseFloat(selectedItem.amount)
                 const moneyRef = ref(database, `money/${userId}`)
 
-                let currentAmount = 0
+                let currentMoney = { amount: 0, withdrawableAmount: 0, pendingAmount: 0 }
                 await new Promise((resolve) => {
                     onValue(moneyRef, (snapshot) => {
-                        if (snapshot.exists()) currentAmount = snapshot.val().amount || 0
+                        if (snapshot.exists()) {
+                            currentMoney = {
+                                amount: snapshot.val().amount || 0,
+                                withdrawableAmount: snapshot.val().withdrawableAmount || 0,
+                                pendingAmount: snapshot.val().pendingAmount || 0
+                            }
+                        }
                         resolve(null)
                     }, { onlyOnce: true })
                 })
-                await set(moneyRef, { amount: currentAmount + amountToAdd })
+
+                if (selectedItem.type === "withdraw") {
+                    // For withdrawals: 
+                    // amount = amount - withdrawableAmount
+                    // withdrawableAmount = withdrawableAmount + withdrawableAmount
+                    // pendingAmount = pendingAmount - withdrawableAmount
+                    await set(moneyRef, {
+                        amount: currentMoney.amount - amountToProcess,
+                        withdrawableAmount: currentMoney.withdrawableAmount + amountToProcess,
+                        pendingAmount: currentMoney.pendingAmount - amountToProcess
+                    })
+                } else {
+                    // For deposits: add to amount
+                    await set(moneyRef, {
+                        amount: currentMoney.amount + amountToProcess,
+                        withdrawableAmount: currentMoney.withdrawableAmount,
+                        pendingAmount: currentMoney.pendingAmount
+                    })
+                }
             }
 
             await transactionApiRequest.update({
@@ -129,12 +156,21 @@ export default function PageBody() {
                 status: newStatus
             })
 
-            await sheetApiRequest.getIDKH(
-                selectedItem.name,
-                dialogAction === "approve"
-                    ? `Yêu cầu nạp ${selectedItem.amount}$ đã được phê duyệt`
-                    : `Yêu cầu nạp ${selectedItem.amount}$ đã bị từ chối`
-            )
+            if (selectedItem.type === "withdraw") {
+                await sheetApiRequest.getIDNCC(
+                    selectedItem.name,
+                    dialogAction === "approve"
+                        ? `Yêu cầu rút ${selectedItem.amount}$ đã được phê duyệt`
+                        : `Yêu cầu rút ${selectedItem.amount}$ đã bị từ chối`
+                )
+            } else {
+                await sheetApiRequest.getIDKH(
+                    selectedItem.name,
+                    dialogAction === "approve"
+                        ? `Yêu cầu nạp ${selectedItem.amount}$ đã được phê duyệt`
+                        : `Yêu cầu nạp ${selectedItem.amount}$ đã bị từ chối`
+                )
+            }
 
             await fetchData(true)
             toast.success(dialogAction === "approve" ? "Xác nhận thành công!" : "Từ chối thành công!")
@@ -251,6 +287,29 @@ export default function PageBody() {
                         </div>
                     </div>
                 ))}
+            </div>
+
+            {/* Tabs */}
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-4 border-t-4 border-indigo-500">
+                <Tabs
+                    activeKey={activeTab}
+                    onChange={(key) => {
+                        setActiveTab(key as "recharge" | "withdraw")
+                        setSelectedWeek(null)
+                        setSelectedMonth(null)
+                        setSelectedCustomer(null)
+                    }}
+                    items={[
+                        {
+                            key: "recharge",
+                            label: "Nạp tiền",
+                        },
+                        {
+                            key: "withdraw",
+                            label: "Rút tiền",
+                        },
+                    ]}
+                />
             </div>
 
             {/* Filter Section */}
