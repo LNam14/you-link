@@ -391,21 +391,19 @@ export default function PageBody() {
                 }
 
                 // Kiểm tra và cập nhật TinhTrangKH khi thay đổi các trường liên quan
-                if (['ChuDe', 'Anchor1', 'URL1', 'Anchor2', 'URL2'].includes(fieldName)) {
+                if (['Anchor1', 'URL1', 'Anchor2', 'URL2'].includes(fieldName)) {
                     const currentData = tableData[row];
                     const currentStatus = currentData[18]; // Get current TinhTrangKH
                     console.log(currentStatus);
 
                     // Chỉ cập nhật TinhTrangKH nếu chưa ở trạng thái hủy
-                    const hasChuDe = currentData[4] && currentData[4].trim() !== '';
                     const hasAnchor1 = currentData[5] && currentData[5].trim() !== '';
                     const hasURL1 = currentData[6] && currentData[6].trim() !== '';
                     const hasAnchor2 = currentData[7] && currentData[7].trim() !== '';
                     const hasURL2 = currentData[8] && currentData[8].trim() !== '';
 
-                    if (hasChuDe && ((hasAnchor1 && hasURL1) || (hasAnchor2 && hasURL2))) {
+                    if (((hasAnchor1 && hasURL1) || (hasAnchor2 && hasURL2))) {
                         if (currentStatus === "Chưa nhập") {
-                            console.log(currentStatus);
                             updates[`${orderId}/TinhTrangKH`] = "Đã nhập";
                             const MaNCC = tableData[row][17];
                             sheetApiRequest.getIDNCC(MaNCC, `Đơn ${orderId} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`);
