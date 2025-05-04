@@ -40,9 +40,10 @@ interface StatCardProps {
     color: string
     trend?: number
     loading?: boolean
+    subtitle?: string
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, suffix = "USDT", icon, color, trend, loading = false }) => {
+const StatCard: React.FC<StatCardProps> = ({ title, value, suffix = "USDT", icon, color, trend, loading = false, subtitle }) => {
     const colorClasses = {
         green: "from-emerald-500/20 to-emerald-500/5 text-emerald-700 border-emerald-200",
         blue: "from-blue-500/20 to-blue-500/5 text-blue-700 border-blue-200",
@@ -86,6 +87,9 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, suffix = "USDT", icon
                             <p className="text-2xl font-bold mt-2">
                                 {value.toLocaleString("vi-VN")} {suffix}
                             </p>
+                            {subtitle && (
+                                <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+                            )}
                         </div>
                         <div className={`p-3 rounded-lg ${iconColorClasses[color as keyof typeof iconColorClasses]}`}>{icon}</div>
                     </div>
@@ -274,7 +278,7 @@ export default function MoneyManagementPage() {
                 {/* Stats Cards */}
                 <div className="w-full overflow-x-auto">
                     <div className="flex space-x-2 min-w-full">
-                        <div className="flex-1 min-w-[300px]">
+                        {/* <div className="flex-1 min-w-[300px]">
                             <StatCard
                                 title="Lợi nhuận"
                                 value={totalProfit}
@@ -282,10 +286,10 @@ export default function MoneyManagementPage() {
                                 color="green"
                                 loading={loading}
                             />
-                        </div>
+                        </div> */}
                         <div className="flex-1 min-w-[300px]">
                             <StatCard
-                                title="Khách hàng nạp"
+                                title="Số dư KH"
                                 value={totalCustomerDeposit}
                                 icon={<ArrowUpRight className="h-5 w-5" />}
                                 color="blue"
@@ -294,7 +298,7 @@ export default function MoneyManagementPage() {
                         </div>
                         <div className="flex-1 min-w-[300px]">
                             <StatCard
-                                title="NCC rút"
+                                title="Số dư NCC"
                                 value={totalSupplierAmount}
                                 icon={<ArrowDownRight className="h-5 w-5" />}
                                 color="amber"

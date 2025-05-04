@@ -473,9 +473,7 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                 const unsubscribe = onValue(userBalanceRef, (snapshot) => {
                     if (snapshot.exists()) {
                         const balanceData = snapshot.val()
-                        const currentBalance = typeof balanceData.amount === "number" ? balanceData.amount : 0
-                        console.log("currentBalance", currentBalance)
-                        setAmount(currentBalance)
+                        setAmount(balanceData.amount)
                         setPendingAmount(balanceData.pendingAmount || 0)
                     } else {
                         setAmount(0)
