@@ -15,9 +15,9 @@ export const sidebarItems: SidebarItem[] = [
         icon: ArrowDownUp
     },
     {
-        id: "money-management",
+        id: "money",
         title: "Quản lý tiền",
-        href: "/dashboard/money-management",
+        href: "/dashboard/money",
         icon: Wallet
     },
     {
