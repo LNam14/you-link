@@ -373,16 +373,19 @@ export default function PageBody() {
                         const nccBalanceRef = ref(database, `money/${MaNCC}`);
                         get(nccBalanceRef).then((nccBalanceSnapshot) => {
                             let currentNccBalance = 0;
+                            let currentData = {};
                             if (nccBalanceSnapshot.exists()) {
                                 const balanceData = nccBalanceSnapshot.val();
                                 currentNccBalance = parseFloat(balanceData.amount.toString().replace(',', '.'));
+                                currentData = balanceData;
                             }
 
                             // Calculate new balance for NCC
                             const newNccBalance = currentNccBalance + giaMua;
 
-                            // Update NCC's balance
+                            // Update NCC's balance while preserving other fields
                             set(ref(database, `money/${MaNCC}`), {
+                                ...currentData,
                                 amount: newNccBalance.toFixed(2)
                             });
                         });
@@ -539,16 +542,19 @@ export default function PageBody() {
                                     const nccBalanceRef = ref(database, `money/${MaNCC}`);
                                     get(nccBalanceRef).then((nccBalanceSnapshot) => {
                                         let currentNccBalance = 0;
+                                        let currentData = {};
                                         if (nccBalanceSnapshot.exists()) {
                                             const balanceData = nccBalanceSnapshot.val();
                                             currentNccBalance = parseFloat(balanceData.amount.toString().replace(',', '.'));
+                                            currentData = balanceData;
                                         }
 
                                         // Calculate new balance for NCC
                                         const newNccBalance = currentNccBalance + giaMua;
 
-                                        // Update NCC's balance
+                                        // Update NCC's balance while preserving other fields
                                         set(ref(database, `money/${MaNCC}`), {
+                                            ...currentData,
                                             amount: newNccBalance.toFixed(2)
                                         });
                                     });
@@ -622,18 +628,22 @@ export default function PageBody() {
                     const userBalanceRef = ref(database, `money/${MaKHBeforeDash}`);
                     const balanceSnapshot = await get(userBalanceRef);
                     let currentBalance = 0;
+                    let currentUserData = {};
                     if (balanceSnapshot.exists()) {
                         const balanceData = balanceSnapshot.val();
                         currentBalance = parseFloat(balanceData.amount.toString().replace(',', '.'));
+                        currentUserData = balanceData;
                     }
 
                     // Get NCC's current balance
                     const nccBalanceRef = ref(database, `money/${MaNCC}`);
                     const nccBalanceSnapshot = await get(nccBalanceRef);
                     let currentNccBalance = 0;
+                    let currentNccData = {};
                     if (nccBalanceSnapshot.exists()) {
                         const balanceData = nccBalanceSnapshot.val();
                         currentNccBalance = parseFloat(balanceData.amount.toString().replace(',', '.'));
+                        currentNccData = balanceData;
                     }
 
                     // Calculate new balance for NCC (subtract giaMua)
@@ -648,9 +658,11 @@ export default function PageBody() {
                             TinhTrangKH: newStatus
                         }),
                         set(ref(database, `money/${MaKHBeforeDash}`), {
+                            ...currentUserData,
                             amount: newBalance.toFixed(2)
                         }),
                         set(ref(database, `money/${MaNCC}`), {
+                            ...currentNccData,
                             amount: newNccBalance.toFixed(2)
                         })
                     ]);
@@ -668,18 +680,22 @@ export default function PageBody() {
                 const userBalanceRef = ref(database, `money/${MaKHBeforeDash}`);
                 const balanceSnapshot = await get(userBalanceRef);
                 let currentBalance = 0;
+                let currentUserData = {};
                 if (balanceSnapshot.exists()) {
                     const balanceData = balanceSnapshot.val();
                     currentBalance = parseFloat(balanceData.amount.toString().replace(',', '.'));
+                    currentUserData = balanceData;
                 }
 
                 // Get NCC's current balance
                 const nccBalanceRef = ref(database, `money/${MaNCC}`);
                 const nccBalanceSnapshot = await get(nccBalanceRef);
                 let currentNccBalance = 0;
+                let currentNccData = {};
                 if (nccBalanceSnapshot.exists()) {
                     const balanceData = nccBalanceSnapshot.val();
                     currentNccBalance = parseFloat(balanceData.amount.toString().replace(',', '.'));
+                    currentNccData = balanceData;
                 }
 
                 // Calculate new balance for NCC (subtract giaMua)
@@ -694,9 +710,11 @@ export default function PageBody() {
                         TinhTrangNCC: "Đồng ý hoàn"
                     }),
                     set(ref(database, `money/${MaKHBeforeDash}`), {
+                        ...currentUserData,
                         amount: newBalance.toFixed(2)
                     }),
                     set(ref(database, `money/${MaNCC}`), {
+                        ...currentNccData,
                         amount: newNccBalance.toFixed(2)
                     })
                 ]);
