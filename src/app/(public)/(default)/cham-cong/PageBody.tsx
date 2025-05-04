@@ -105,10 +105,19 @@ export default function AttendanceTracker() {
         const startOfMonth = currentMonth.startOf("month").format("YYYY-MM-DD")
         const endOfMonth = currentMonth.endOf("month").format("YYYY-MM-DD")
 
-        const monthRecords = attendanceData.filter((record) => record.date >= startOfMonth && record.date <= endOfMonth)
+        // Nếu là tháng hiện tại, chỉ tính đến ngày hôm nay
+        const isCurrentMonth = currentMonth.format("YYYY-MM") === moment().format("YYYY-MM")
+        const endDate = isCurrentMonth ? today : endOfMonth
 
+        const monthRecords = attendanceData.filter((record) => record.date >= startOfMonth && record.date <= endDate)
         const presentDays = monthRecords.filter((record) => record.status === "OK").length
-        const absentDays = monthRecords.filter((record) => record.status === "Nghỉ").length
+
+        // Tính tổng số ngày cần xét (từ đầu tháng đến ngày cuối)
+        const startDate = moment(startOfMonth)
+        const endDateMoment = moment(endDate)
+        const totalDaysToCount = endDateMoment.diff(startDate, 'days') + 1
+
+        const absentDays = totalDaysToCount - presentDays
 
         return { presentDays, absentDays }
     }

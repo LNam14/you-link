@@ -122,9 +122,10 @@ export default function PageBody() {
 
     useEffect(() => {
         const ordersRef = ref(database, 'content')
-
+        console.log(ordersRef, "ordersRef");
         const unsubscribe = onValue(ordersRef, (snapshot) => {
             const data = snapshot.val()
+            console.log(data, "data");
             if (data) {
                 // Transform the data into table format
                 const formattedData = Object.entries(data)
