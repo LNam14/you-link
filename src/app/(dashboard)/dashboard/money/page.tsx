@@ -131,7 +131,7 @@ export default function MoneyManagementPage() {
                     const pendingAmount = moneyInfo.pendingAmount || 0
                     const availableBalance = (moneyInfo.amount || 0) - (moneyInfo.pendingAmount || 0)
 
-                    if (username.startsWith("KH")) {
+                    if (username.startsWith("KH") || username.startsWith("BH")) {
                         customerList.push({
                             key: username,
                             username,
@@ -142,7 +142,7 @@ export default function MoneyManagementPage() {
                         })
                         totalCustomerDone += doneAmount
                         totalCustomerDeposits += totalDeposit
-                    } else if (username.startsWith("N")) {
+                    } else if (username.startsWith("N") || username.startsWith("O")) {
                         supplierList.push({
                             key: username,
                             username,
