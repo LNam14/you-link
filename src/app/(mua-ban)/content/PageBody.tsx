@@ -93,7 +93,7 @@ export default function PageBody() {
                 }
 
                 // Calculate totals for pending orders
-                if ((tinhTrangKH === "Chưa nhập" || tinhTrangKH === "Đã nhập") && tinhTrangNCC === "Chưa nhận") {
+                if ((tinhTrangKH === "Chưa nhập" && tinhTrangNCC === "Đã nhận") || ((tinhTrangKH === "Chưa nhập" || tinhTrangKH === "Đã nhập") && tinhTrangNCC === "Chưa nhận")) {
                     summary.pendingGiaBan += giaBan
                     summary.pendingGiaMua += giaMua
                     summary.pendingLN += ln
@@ -371,19 +371,20 @@ export default function PageBody() {
 
                         // Add money to NCC's account
                         const nccBalanceRef = ref(database, `money/${MaNCC}`);
-                        const nccBalanceSnapshot = await get(nccBalanceRef);
-                        let currentNccBalance = 0;
-                        if (nccBalanceSnapshot.exists()) {
-                            const balanceData = nccBalanceSnapshot.val();
-                            currentNccBalance = parseFloat(balanceData.amount.toString().replace(',', '.'));
-                        }
+                        get(nccBalanceRef).then((nccBalanceSnapshot) => {
+                            let currentNccBalance = 0;
+                            if (nccBalanceSnapshot.exists()) {
+                                const balanceData = nccBalanceSnapshot.val();
+                                currentNccBalance = parseFloat(balanceData.amount.toString().replace(',', '.'));
+                            }
 
-                        // Calculate new balance for NCC
-                        const newNccBalance = currentNccBalance + giaMua;
+                            // Calculate new balance for NCC
+                            const newNccBalance = currentNccBalance + giaMua;
 
-                        // Update NCC's balance
-                        await set(ref(database, `money/${MaNCC}`), {
-                            amount: newNccBalance.toFixed(2)
+                            // Update NCC's balance
+                            set(ref(database, `money/${MaNCC}`), {
+                                amount: newNccBalance.toFixed(2)
+                            });
                         });
 
                         sheetApiRequest.getIDKH(MaKHBeforeDash, `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`);
@@ -429,13 +430,13 @@ export default function PageBody() {
         });
     };
 
-    const handleAfterPaste = (data: any[][], coords: any[]) => {
+    const handleAfterPaste = async (data: any[][], coords: any[]) => {
         if (!data || !coords) return;
 
         const ordersRef = ref(database, 'content');
         const updates: any = {};
 
-        coords.forEach((coord, index) => {
+        coords.forEach(async (coord, index) => {
             const startRow = coord.startRow;
             const startCol = coord.startCol;
             const endRow = coord.endRow;
@@ -523,20 +524,55 @@ export default function PageBody() {
                             }
 
                             updates[orderId][fieldName] = valueToUpdate;
+
+                            // Xử lý LinkKQ tương tự handleAfterChange
+                            if (fieldName === 'LinkKQ' && newValue && newValue.trim() !== '') {
+                                const currentTinhTrangNCC = tableData[row][19]; // Get current TinhTrangNCC
+                                if (currentTinhTrangNCC === "Chưa nhận") {
+                                    updates[orderId].TinhTrangNCC = "Đã lên bài";
+                                    const MaKH = tableData[row][0];
+                                    const MaKHBeforeDash = MaKH.split('-')[0];
+                                    const MaNCC = tableData[row][17];
+                                    const giaMua = parseNumberWithComma(tableData[row][13]); // Get GiaMua value
+
+                                    // Add money to NCC's account
+                                    const nccBalanceRef = ref(database, `money/${MaNCC}`);
+                                    get(nccBalanceRef).then((nccBalanceSnapshot) => {
+                                        let currentNccBalance = 0;
+                                        if (nccBalanceSnapshot.exists()) {
+                                            const balanceData = nccBalanceSnapshot.val();
+                                            currentNccBalance = parseFloat(balanceData.amount.toString().replace(',', '.'));
+                                        }
+
+                                        // Calculate new balance for NCC
+                                        const newNccBalance = currentNccBalance + giaMua;
+
+                                        // Update NCC's balance
+                                        set(ref(database, `money/${MaNCC}`), {
+                                            amount: newNccBalance.toFixed(2)
+                                        });
+                                    });
+
+                                    sheetApiRequest.getIDKH(MaKHBeforeDash, `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`);
+                                }
+                            }
                         }
                     }
                 }
 
                 // Kiểm tra và cập nhật Tình trạng sau khi dán
-                const hasChuDe = updates[orderId].ChuDe && updates[orderId].ChuDe.trim() !== '';
                 const hasAnchor1 = updates[orderId].Anchor1 && updates[orderId].Anchor1.trim() !== '';
                 const hasURL1 = updates[orderId].URL1 && updates[orderId].URL1.trim() !== '';
                 const hasAnchor2 = updates[orderId].Anchor2 && updates[orderId].Anchor2.trim() !== '';
                 const hasURL2 = updates[orderId].URL2 && updates[orderId].URL2.trim() !== '';
 
-                if (hasChuDe && ((hasAnchor1 && hasURL1) || (hasAnchor2 && hasURL2))) {
+                if ((hasAnchor1 && hasURL1) || (hasAnchor2 && hasURL2)) {
                     if (updates[orderId].TinhTrangKH === "Chưa nhập") {
                         updates[orderId].TinhTrangKH = "Đã nhập";
+                        const MaNCC = updates[orderId].MaNCC;
+                        if (MaNCC) {
+                            sheetApiRequest.getIDNCC(MaNCC, `Đơn ${orderId} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`);
+                        }
                     }
                 } else {
                     if (updates[orderId].TinhTrangKH === "Đã nhập") {
@@ -874,6 +910,30 @@ export default function PageBody() {
                 const colors = getStatusColor(value);
                 td.style.backgroundColor = colors.bg;
                 td.style.color = colors.text;
+            };
+        } else if (col === 9) { // LinkKQ column
+            cellProperties.renderer = function (
+                instance: Handsontable.Core,
+                td: HTMLTableCellElement,
+                row: number,
+                col: number,
+                prop: string | number,
+                value: any,
+                cellProperties: Handsontable.CellProperties
+            ) {
+                Handsontable.renderers.TextRenderer.apply(this, [
+                    instance,
+                    td,
+                    row,
+                    col,
+                    prop,
+                    value,
+                    cellProperties
+                ]);
+                td.style.maxWidth = '200px';
+                td.style.whiteSpace = 'nowrap';
+                td.style.overflow = 'hidden';
+                td.style.textOverflow = 'ellipsis';
             };
         } else if (col === 20) { // Chat column
             cellProperties.renderer = function (
