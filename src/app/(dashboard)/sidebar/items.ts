@@ -1,4 +1,4 @@
-import { LayoutDashboard, Receipt, Settings, Users } from "lucide-react"
+import { LayoutDashboard, Receipt, Settings, Users, Wallet, Clock, ArrowDownUp } from "lucide-react"
 
 interface SidebarItem {
     id: string
@@ -9,27 +9,21 @@ interface SidebarItem {
 
 export const sidebarItems: SidebarItem[] = [
     {
-        id: "dashboard",
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutDashboard
-    },
-    {
-        id: "transactions",
-        title: "Giao dịch",
+        id: "deposit-withdrawal",
+        title: "Nạp rút",
         href: "/dashboard/transactions",
-        icon: Receipt
+        icon: ArrowDownUp
     },
     {
-        id: "customers",
-        title: "Khách hàng",
-        href: "/dashboard/customers",
-        icon: Users
+        id: "money-management",
+        title: "Quản lý tiền",
+        href: "/dashboard/money-management",
+        icon: Wallet
     },
     {
-        id: "settings",
-        title: "Cài đặt",
-        href: "/dashboard/settings",
-        icon: Settings
+        id: "time-tracking",
+        title: "Chấm công",
+        href: "/dashboard/time-tracking",
+        icon: Clock
     }
 ] 

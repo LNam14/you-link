@@ -255,9 +255,6 @@ const DepositForm = memo(
                             Số tiền nạp <span className="text-red-500">*</span>
                         </label>
                         <div className="relative rounded-md shadow-sm">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <UserRound className="h-4 w-4 text-gray-400" />
-                            </div>
                             <input
                                 type="text"
                                 id="amount"
@@ -322,7 +319,7 @@ const DepositForm = memo(
                         <button
                             onClick={onSubmit}
                             disabled={isDepositSubmitting}
-                            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 flex items-center"
+                            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 flex items-center"
                         >
                             {isDepositSubmitting ? (
                                 <>
@@ -461,6 +458,7 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
     const userInfo = getUserInfo()
     const [messageApi, contextHolder] = message.useMessage()
     const [amount, setAmount] = useState(0)
+    const [pendingAmount, setPendingAmount] = useState(0)
     const fetchData = useCallback(async () => {
         setLoading(true)
         try {
@@ -478,6 +476,7 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                         const currentBalance = typeof balanceData.amount === "number" ? balanceData.amount : 0
                         console.log("currentBalance", currentBalance)
                         setAmount(currentBalance)
+                        setPendingAmount(balanceData.pendingAmount || 0)
                     } else {
                         setAmount(0)
                     }
@@ -530,11 +529,13 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
 
     // Add the handleMessageNCC function after the fetchData function
     const handleMessageNCC = useCallback(
-        async (amount: number, paymentMethod: string) => {
+        async (amount: number, paymentMethod: string, type: "deposit" | "withdraw" = "deposit") => {
             const chatId = "-4618711960" // Chỉ gửi đến ID này
 
             // Tạo nội dung tin nhắn với thông tin người dùng và số tiền
-            const messageText = `${userInfo?.username} đã nạp ${amount} USDT vào ví Binance. Vui lòng kiểm tra và xác nhận.`
+            const messageText = type === "deposit"
+                ? `${userInfo?.username} đã nạp ${amount} USDT vào ví Binance. Vui lòng kiểm tra và xác nhận.`
+                : `${userInfo?.username} đã yêu cầu rút ${amount} USDT về địa chỉ ${binanceAddress} (${network}). Vui lòng kiểm tra và xác nhận.`
 
             // Token bot Telegram
             const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
@@ -562,7 +563,7 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                 console.error("Error sending message:", error)
             }
         },
-        [userInfo?.name],
+        [userInfo?.username, binanceAddress, network],
     )
 
     const getRoleName = useCallback((role: string) => {
@@ -653,7 +654,7 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
 
                 // Gửi thông báo đến Telegram nếu là nạp qua ví điện tử
                 if (validatedData.paymentMethod === "Ví điện tử") {
-                    await handleMessageNCC(validatedData.amount, validatedData.paymentMethod)
+                    await handleMessageNCC(validatedData.amount, validatedData.paymentMethod, "deposit")
                     await sheetApiRequest.getIDKH(userInfo?.username, `Yêu cầu nạp ${validatedData.amount}$ đang được xử lý`)
                 }
 
@@ -665,6 +666,9 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                         setDepositAmount("")
                         setPaymentMethod("Ví điện tử")
                     },
+                    okButtonProps: {
+                        className: "bg-green-600 hover:bg-green-700 text-white"
+                    }
                 })
             } else {
                 message.warning("Vui lòng thử lại sau!")
@@ -735,8 +739,7 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                 })
 
                 // Send notification to admin
-                const messageText = `${userInfo?.username} đã yêu cầu rút ${parsedAmount} USDT về địa chỉ ${binanceAddress} (${network}). Vui lòng kiểm tra và xác nhận.`
-                await handleMessageNCC(parsedAmount, `Rút tiền về ${network}`)
+                await handleMessageNCC(parsedAmount, `Rút tiền về ${network}`, "withdraw")
 
                 Modal.success({
                     title: "Yêu cầu rút tiền thành công",
@@ -748,6 +751,9 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                         setNetwork("TRC20")
                         fetchData() // Refresh data
                     },
+                    okButtonProps: {
+                        className: "bg-green-600 hover:bg-green-700 text-white"
+                    }
                 })
             } else {
                 message.error("Có lỗi xảy ra, vui lòng thử lại sau!")
@@ -776,11 +782,29 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                 {
                     key: "0",
                     label: (
-                        <span className="font-semibold text-lg flex flex-col">
-                            {userInfo?.username}
-                            <span className="text-sm">{getRoleName(userInfo?.role)}</span>
-                            {(userInfo?.role === "Khách hàng" || userInfo?.role === "NCC" || userInfo?.role === "Nhân viên") && <div className="flex items-center"><span className="text-md font-semibold text-green-600">{amount || 0} </span> <DollarSign className="w-4 h-4 text-green-600" /></div>}
-                        </span>
+                        <div className="font-semibold text-lg flex flex-col">
+                            <div>{userInfo?.username}</div>
+                            <div className="text-sm">{getRoleName(userInfo?.role)}</div>
+                            {(userInfo?.role === "Khách hàng" || userInfo?.role === "NCC" || userInfo?.role === "Nhân viên") && (
+                                <div className="flex flex-col gap-1 mt-2">
+                                    <div className="flex items-center">
+                                        <span className="text-sm text-gray-600">Số dư:</span>
+                                        <span className="text-sm font-semibold text-emerald-600 ml-2">{amount || 0}</span>
+                                        <DollarSign className="w-3 h-3 text-emerald-600 ml-1" />
+                                    </div>
+                                    <div className="flex items-center">
+                                        <span className="text-sm text-gray-600">Tiền treo:</span>
+                                        <span className="text-sm font-semibold text-amber-600 ml-2">{pendingAmount || 0}</span>
+                                        <DollarSign className="w-3 h-3 text-amber-600 ml-1" />
+                                    </div>
+                                    <div className="flex items-center">
+                                        <span className="text-sm text-gray-600">Có thể sử dụng:</span>
+                                        <span className="text-sm font-semibold text-blue-600 ml-2">{(amount || 0) - (pendingAmount || 0)}</span>
+                                        <DollarSign className="w-3 h-3 text-blue-600 ml-1" />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     ),
                 },
                 {
@@ -955,7 +979,7 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                         key="submit"
                         onClick={() => { }}
                         disabled={isSubmitting}
-                        className="ml-3 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                        className="ml-3 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
                     >
                         {isSubmitting ? "Đang xử lý..." : "Lưu thay đổi"}
                     </button>,
@@ -1163,7 +1187,7 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                         key="submit"
                         onClick={handleWithdrawSubmit}
                         disabled={isWithdrawSubmitting}
-                        className="ml-3 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                        className="ml-3 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
                     >
                         {isWithdrawSubmitting ? "Đang xử lý..." : "Xác nhận rút tiền"}
                     </button>,
