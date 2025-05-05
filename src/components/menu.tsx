@@ -787,17 +787,17 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                                 <div className="flex flex-col gap-1 mt-2">
                                     <div className="flex items-center">
                                         <span className="text-sm text-gray-600">Số dư:</span>
-                                        <span className="text-sm font-semibold text-emerald-600 ml-2">{amount || 0}</span>
+                                        <span className="text-sm font-semibold text-emerald-600 ml-2">{Number(amount || 0).toFixed(2)}</span>
                                         <DollarSign className="w-3 h-3 text-emerald-600 ml-1" />
                                     </div>
                                     <div className="flex items-center">
                                         <span className="text-sm text-gray-600">Tiền treo:</span>
-                                        <span className="text-sm font-semibold text-amber-600 ml-2">{pendingAmount || 0}</span>
+                                        <span className="text-sm font-semibold text-amber-600 ml-2">{Number(pendingAmount || 0).toFixed(2)}</span>
                                         <DollarSign className="w-3 h-3 text-amber-600 ml-1" />
                                     </div>
                                     <div className="flex items-center">
                                         <span className="text-sm text-gray-600">Có thể sử dụng:</span>
-                                        <span className="text-sm font-semibold text-blue-600 ml-2">{(amount || 0) - (pendingAmount || 0)}</span>
+                                        <span className="text-sm font-semibold text-blue-600 ml-2">{Number((amount || 0) - (pendingAmount || 0)).toFixed(2)}</span>
                                         <DollarSign className="w-3 h-3 text-blue-600 ml-1" />
                                     </div>
                                 </div>

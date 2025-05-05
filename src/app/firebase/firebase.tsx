@@ -119,6 +119,13 @@ export const updateUserBalance = async (userId: string, amount: number, nccName?
             amount: nccCurrentAmount + Math.abs(amount),
             doneAmount: nccCurrentDoneAmount + Math.abs(amount)
         });
+
+        // Update customer's doneAmount by adding the amount
+        await set(userMoneyRef, {
+            amount: currentAmount + amount,
+            pendingAmount: currentPendingAmount + amount,
+            doneAmount: currentDoneAmount + Math.abs(amount)
+        });
     }
     // If this is a refund (positive amount) and NCC name is provided, deduct from NCC
     else if (amount > 0 && nccName) {

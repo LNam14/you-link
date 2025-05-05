@@ -85,7 +85,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, suffix = "USDT", icon
                                 )}
                             </div>
                             <p className="text-2xl font-bold mt-2">
-                                {value.toLocaleString("vi-VN")} {suffix}
+                                {value.toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {suffix}
                             </p>
                             {subtitle && (
                                 <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
@@ -126,10 +126,10 @@ export default function MoneyManagementPage() {
                     const moneyInfo = data as MoneyData
 
                     // Calculate customer data
-                    const totalDeposit = (moneyInfo.amount || 0) + (moneyInfo.doneAmount || 0)
-                    const doneAmount = moneyInfo.doneAmount || 0
-                    const pendingAmount = moneyInfo.pendingAmount || 0
-                    const availableBalance = (moneyInfo.amount || 0) - (moneyInfo.pendingAmount || 0)
+                    const totalDeposit = Number(moneyInfo.amount || 0) + Number(moneyInfo.doneAmount || 0)
+                    const doneAmount = Number(moneyInfo.doneAmount || 0)
+                    const pendingAmount = Number(moneyInfo.pendingAmount || 0)
+                    const availableBalance = Number(moneyInfo.amount || 0) - Number(moneyInfo.pendingAmount || 0)
 
                     if (username.startsWith("KH") || username.startsWith("BH")) {
                         customerList.push({
@@ -149,7 +149,7 @@ export default function MoneyManagementPage() {
                             amount: moneyInfo.amount || 0,
                             withdrawableAmount: moneyInfo.withdrawableAmount || 0,
                         })
-                        totalSupplierAmt += moneyInfo.amount || 0
+                        totalSupplierAmt += Number(moneyInfo.withdrawableAmount) || 0
                     }
                 })
 
@@ -187,7 +187,7 @@ export default function MoneyManagementPage() {
             key: "totalDeposit",
             width: 150,
             render: (value: number) => (
-                <span className="font-medium text-emerald-600">{value.toLocaleString("vi-VN")} USDT</span>
+                <span className="font-medium text-emerald-600">{value.toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>
             ),
             sorter: (a: CustomerData, b: CustomerData) => a.totalDeposit - b.totalDeposit,
         },
@@ -197,7 +197,7 @@ export default function MoneyManagementPage() {
             key: "doneAmount",
             width: 150,
             render: (value: number) => (
-                <span className="font-medium text-blue-600">{value.toLocaleString("vi-VN")} USDT</span>
+                <span className="font-medium text-blue-600">{value.toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>
             ),
             sorter: (a: CustomerData, b: CustomerData) => a.doneAmount - b.doneAmount,
         },
@@ -207,7 +207,7 @@ export default function MoneyManagementPage() {
             key: "pendingAmount",
             width: 150,
             render: (value: number) => (
-                <span className="font-medium text-amber-600">{value.toLocaleString("vi-VN")} USDT</span>
+                <span className="font-medium text-amber-600">{value.toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>
             ),
             sorter: (a: CustomerData, b: CustomerData) => a.pendingAmount - b.pendingAmount,
         },
@@ -217,7 +217,7 @@ export default function MoneyManagementPage() {
             key: "availableBalance",
             width: 150,
             render: (value: number) => (
-                <span className="font-medium text-purple-600">{value.toLocaleString("vi-VN")} USDT</span>
+                <span className="font-medium text-purple-600">{value.toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>
             ),
             sorter: (a: CustomerData, b: CustomerData) => a.availableBalance - b.availableBalance,
         },
@@ -238,7 +238,7 @@ export default function MoneyManagementPage() {
             key: "amount",
             width: 150,
             render: (value: number) => (
-                <span className="font-medium text-emerald-600">{value.toLocaleString("vi-VN")} USDT</span>
+                <span className="font-medium text-emerald-600">{value.toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>
             ),
             sorter: (a: SupplierData, b: SupplierData) => a.amount - b.amount,
         },
@@ -248,7 +248,7 @@ export default function MoneyManagementPage() {
             key: "withdrawableAmount",
             width: 150,
             render: (value: number) => (
-                <span className="font-medium text-blue-600">{value.toLocaleString("vi-VN")} USDT</span>
+                <span className="font-medium text-blue-600">{value.toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>
             ),
             sorter: (a: SupplierData, b: SupplierData) => a.withdrawableAmount - b.withdrawableAmount,
         },
@@ -289,7 +289,7 @@ export default function MoneyManagementPage() {
                         </div> */}
                         <div className="flex-1 min-w-[300px]">
                             <StatCard
-                                title="Số dư KH"
+                                title="Tổng KH nạp"
                                 value={totalCustomerDeposit}
                                 icon={<ArrowUpRight className="h-5 w-5" />}
                                 color="blue"
@@ -298,7 +298,7 @@ export default function MoneyManagementPage() {
                         </div>
                         <div className="flex-1 min-w-[300px]">
                             <StatCard
-                                title="Số dư NCC"
+                                title="Tổng NCC rút"
                                 value={totalSupplierAmount}
                                 icon={<ArrowDownRight className="h-5 w-5" />}
                                 color="amber"

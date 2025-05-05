@@ -77,7 +77,7 @@ export default function Content({
         }))
     }
 
-    const handleOrder = async (item: ContentItem) => {
+    const handleOrder = async (item: ContentItem): Promise<void> => {
         const quantity = quantities[item.MaNCC] || 1
         if (quantity <= 0) {
             toast.error("Vui lòng nhập số lượng lớn hơn 0", {
@@ -115,11 +115,14 @@ export default function Content({
             const snapshot = await get(ordersRef)
             const orders = snapshot.val() || {}
 
-            // Count orders for current user
-            let orderCount = 0
-            Object.values(orders).forEach((order: any) => {
-                if (order.TenKH === userInfo?.username) {
-                    orderCount++
+            // Find the highest order number for current user
+            let maxOrderNumber = 0
+            Object.keys(orders).forEach((orderId) => {
+                if (orderId.startsWith(`${userInfo?.username}-`)) {
+                    const orderNumber = parseInt(orderId.split('-')[1])
+                    if (!isNaN(orderNumber) && orderNumber > maxOrderNumber) {
+                        maxOrderNumber = orderNumber
+                    }
                 }
             })
 
@@ -133,13 +136,14 @@ export default function Content({
 
             // Create multiple orders based on quantity
             for (let i = 0; i < quantity; i++) {
-                // Increment order count for each new order
-                orderCount++
-                const newOrderId = `${userInfo?.username}-${orderCount}`
+                // Increment order number for each new order
+                maxOrderNumber++
+                const newOrderId = `${userInfo?.username}-${maxOrderNumber}`
 
                 const orderData = {
                     TenSP: item.TenSP || "",
-                    KHNote: "",
+                    KHNote1: "",
+                    KHNote2: "",
                     ChuDe: "",
                     Anchor1: "",
                     URL1: "",
@@ -165,17 +169,17 @@ export default function Content({
 
             // Deduct balance from user's account
             const newBalance = currentBalance - totalPrice
-
-            console.log('Current Balance:', currentBalance)
-            console.log('Total Price:', totalPrice)
-            console.log('New Balance:', newBalance)
-
             if (isNaN(newBalance)) {
                 throw new Error("Invalid balance calculation")
             }
 
             // Update balance in Firebase
-            await set(ref(database, `money/${userInfo?.username}`), {
+            const userMoneyRef = ref(database, `money/${userInfo?.username}`)
+            const moneySnapshot = await get(userMoneyRef)
+            const existingData = moneySnapshot.val() || {}
+
+            await set(userMoneyRef, {
+                ...existingData,
                 amount: newBalance.toFixed(2)
             })
 
