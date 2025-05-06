@@ -149,8 +149,12 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       spinData.hasSpun = true
       localStorage.setItem("spinData", JSON.stringify(spinData))
 
-      // Generate random prize
-      const newPrizeNumber = Math.floor(Math.random() * data.length)
+      // Generate random prize excluding 500,000 VND
+      let newPrizeNumber
+      do {
+        newPrizeNumber = Math.floor(Math.random() * data.length)
+      } while (data[newPrizeNumber].option === "500.000 VND")
+
       setPrizeNumber(newPrizeNumber)
       setMustSpin(true)
 
@@ -320,8 +324,8 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                   onClick={handleSpinClick}
                   disabled={mustSpin || spinCount === 0}
                   className={`relative inline-flex items-center justify-center px-8 py-4 text-lg font-medium rounded-full transition-all duration-300 transform ${mustSpin || spinCount === 0
-                      ? "bg-gray-300 cursor-not-allowed"
-                      : "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:scale-105 hover:shadow-lg"
+                    ? "bg-gray-300 cursor-not-allowed"
+                    : "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:scale-105 hover:shadow-lg"
                     }`}
                   onMouseEnter={() => setIsButtonHovered(true)}
                   onMouseLeave={() => setIsButtonHovered(false)}
