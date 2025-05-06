@@ -1,69 +1,348 @@
-import SpinWheel from "./wheel"
-import { Gift } from "lucide-react"
+"use client"
 
-export default function SpinLucky({ title }: any) {
+import { useState, useEffect } from "react"
+import { Gift, Trophy, Volume2, VolumeX, Sparkles } from "lucide-react"
+import { Wheel } from "react-custom-roulette"
+import Confetti from "react-confetti"
+import { useWindowSize } from "react-use"
+import getUserInfo from "@/components/userInfo"
+export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
+  const [mustSpin, setMustSpin] = useState(false)
+  const [prizeNumber, setPrizeNumber] = useState(0)
+  const [previousPrize, setPreviousPrize] = useState<string | null>(null)
+  const [spinCount, setSpinCount] = useState(1)
+  const [isMuted, setIsMuted] = useState(false)
+  const [showPrizeAnimation, setShowPrizeAnimation] = useState(false)
+  const [isButtonHovered, setIsButtonHovered] = useState(false)
+  const [showConfetti, setShowConfetti] = useState(false)
+  const windowSize = useWindowSize()
+  const userInfo = getUserInfo()
+  // Enhanced prize data with better colors and more readable text
+  const data = [
+    { option: "1.000 VND", style: { backgroundColor: "#FF6384", textColor: "white" } },
+    { option: "2.000 VND", style: { backgroundColor: "#36A2EB", textColor: "white" } },
+    { option: "5.000 VND", style: { backgroundColor: "#FFCE56", textColor: "black" } },
+    { option: "10.000 VND", style: { backgroundColor: "#4BC0C0", textColor: "white" } },
+    { option: "20.000 VND", style: { backgroundColor: "#9966FF", textColor: "white" } },
+    { option: "500.000 VND", style: { backgroundColor: "#FF9F40", textColor: "black" } },
+    { option: "Quay thêm 1 lượt", style: { backgroundColor: "#8CD867", textColor: "black" } },
+    { option: "Quay thêm 2 lượt", style: { backgroundColor: "#EA80FC", textColor: "white" } },
+    { option: "1 tràng vỗ tay", style: { backgroundColor: "#64B5F6", textColor: "black" } },
+    { option: "- 5.000 VND", style: { backgroundColor: "#E57373", textColor: "white" } },
+    { option: "- 10.000 VND", style: { backgroundColor: "#BA68C8", textColor: "white" } },
+  ]
+
+  // Check and reset daily spins
+  useEffect(() => {
+    const checkAndResetDailySpins = () => {
+      const today = new Date().toDateString()
+      const savedData = localStorage.getItem("spinData")
+      const spinData = savedData ? JSON.parse(savedData) : null
+
+      if (!spinData || spinData.date !== today) {
+        // Reset spins for new day
+        const newSpinData = {
+          date: today,
+          count: 1, // Start with 1 spin for a new day
+          hasSpun: false, // Track if user has already spun today
+        }
+        localStorage.setItem("spinData", JSON.stringify(newSpinData))
+        setSpinCount(newSpinData.count)
+      } else {
+        // Load existing spins for today
+        setSpinCount(spinData.hasSpun ? 0 : spinData.count) // If already spun today, set count to 0
+      }
+    }
+
+    checkAndResetDailySpins()
+  }, [])
+
+  // Save spin count to localStorage whenever it changes
+  useEffect(() => {
+    const savedData = localStorage.getItem("spinData")
+    const spinData = savedData ? JSON.parse(savedData) : { date: new Date().toDateString(), count: spinCount }
+
+    spinData.count = spinCount
+
+    // If spin count is 0, mark as spun for today
+    if (spinCount === 0) {
+      spinData.hasSpun = true
+    }
+
+    localStorage.setItem("spinData", JSON.stringify(spinData))
+  }, [spinCount])
+
+  // Load saved prize on component mount
+  useEffect(() => {
+    const savedPrize = localStorage.getItem("lastPrize")
+    if (savedPrize) {
+      setPreviousPrize(savedPrize)
+      setShowPrizeAnimation(true)
+    }
+  }, [])
+
+  // Play sound effects
+  const playSound = (soundType: string) => {
+    if (isMuted) return
+
+    const audio = new Audio()
+
+    switch (soundType) {
+      case "spin":
+        audio.src = "https://assets.mixkit.co/active_storage/sfx/2005/2005-preview.mp3" // Spinning wheel sound
+        break
+      case "win":
+        audio.src = "https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3" // Win celebration sound
+        break
+      case "click":
+        audio.src = "https://assets.mixkit.co/active_storage/sfx/270/270-preview.mp3" // Button click sound
+        break
+      default:
+        return
+    }
+
+    audio.play().catch((e) => console.log("Audio play error:", e))
+  }
+
+  const handleSpinClick = () => {
+    if (!mustSpin && spinCount > 0) {
+      playSound("click")
+
+      // Decrease spin count
+      setSpinCount((prev) => prev - 1)
+
+      // Mark that user has spun today
+      const today = new Date().toDateString()
+      const savedData = localStorage.getItem("spinData")
+      const spinData = savedData ? JSON.parse(savedData) : { date: today, count: 0 }
+
+      spinData.hasSpun = true
+      localStorage.setItem("spinData", JSON.stringify(spinData))
+
+      // Generate random prize
+      const newPrizeNumber = Math.floor(Math.random() * data.length)
+      setPrizeNumber(newPrizeNumber)
+      setMustSpin(true)
+
+      // Play spinning sound
+      playSound("spin")
+    }
+  }
+
+  const handleStopSpinning = () => {
+    setMustSpin(false)
+    const currentPrize = data[prizeNumber].option
+    setPreviousPrize(currentPrize)
+
+    // Save prize to localStorage
+    localStorage.setItem("lastPrize", currentPrize)
+
+    // Handle prize logic
+    if (currentPrize.includes("Quay thêm")) {
+      const extraSpins = currentPrize.includes("2 lượt") ? 2 : 1
+      setSpinCount((prev) => prev + extraSpins)
+
+      // Update localStorage to reflect additional spins but keep hasSpun true
+      const savedData = localStorage.getItem("spinData")
+      const spinData = savedData ? JSON.parse(savedData) : { date: new Date().toDateString(), count: 0 }
+      spinData.count += extraSpins
+      spinData.hasSpun = true
+      localStorage.setItem("spinData", JSON.stringify(spinData))
+    } else if (currentPrize.includes("-")) {
+      // Handle negative prizes
+      const negativeAmount = parseInt(currentPrize.replace(/[^0-9]/g, ''))
+      // You might want to handle the negative amount here if needed
+    }
+
+    // Show prize animation
+    setShowPrizeAnimation(true)
+    // Hide prize animation after 5 seconds
+    setTimeout(() => {
+      setShowPrizeAnimation(false)
+    }, 5000)
+
+    // Play win sound
+    playSound("win")
+
+    // Show confetti for big prizes
+    if (
+      currentPrize.includes("500.000") ||
+      currentPrize.includes("Quay thêm") ||
+      currentPrize === "1 tràng vỗ tay"
+    ) {
+      setShowConfetti(true)
+      setTimeout(() => setShowConfetti(false), 5000)
+    }
+  }
+
   return (
-    <section className="bg-gradient-to-b from-white to-gray-100 py-16">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="mb-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2 relative inline-block">
+    <section className="bg-gradient-to-b from-indigo-50 via-purple-50 to-pink-50 py-16 relative overflow-hidden">
+      {/* Decorative elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
+        <div className="absolute top-10 left-10 w-64 h-64 bg-gradient-to-r from-pink-200 to-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+        <div className="absolute top-0 right-10 w-72 h-72 bg-gradient-to-r from-yellow-200 to-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-gradient-to-r from-blue-200 to-cyan-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+      </div>
+
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
+        <div className="mb-12 text-center">
+          <div className="inline-flex items-center justify-center mb-4">
+            <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-medium">
+              Thử vận may của bạn
+            </span>
+          </div>
+          <h2 className="text-4xl font-extrabold text-gray-900 mb-4 relative inline-block">
             {title}
-            <span className="absolute -bottom-1 left-0 w-full h-1 bg-gradient-to-r from-orange-400 to-pink-500 transform -translate-y-1"></span>
+            <span className="absolute -bottom-1 left-0 w-full h-1.5 bg-gradient-to-r from-purple-600 to-pink-600 transform -translate-y-1 rounded-full"></span>
           </h2>
-          <p className="text-gray-600">Thử vận may của bạn và nhận những phần quà hấp dẫn</p>
+          <p className="text-gray-600 max-w-2xl mx-auto text-lg">
+            Quay ngay để có cơ hội nhận những phần quà giá trị lên đến 2.000.000 VND và 100 USDT
+          </p>
         </div>
-        <div className="flex flex-col md:flex-row items-center justify-between gap-8 md:gap-16">
-          <div className="max-w-md">
-            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 mb-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="bg-gradient-to-r from-orange-500 to-pink-600 p-2 rounded-full text-white">
-                  <Gift className="h-5 w-5" />
+
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-16">
+          <div className="w-full max-w-md">
+            <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 mb-6 backdrop-blur-sm bg-white/90 transform transition-all hover:scale-105 duration-300">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-3 rounded-full text-white">
+                  <Trophy className="h-6 w-6" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900">Các phần quà</h3>
+                <h3 className="text-2xl font-bold text-gray-900">Phần Thưởng Hấp Dẫn</h3>
               </div>
-              <ul className="space-y-2 text-gray-700">
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-orange-500"></span>
-                  <span>100.000 VND</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-pink-500"></span>
-                  <span>200.000 VND</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                  <span>500.000 VND</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                  <span>1.000.000 VND</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                  <span>10 USDT</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                  <span>20 USDT</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                  <span>50 USDT</span>
-                </li>
-              </ul>
-              <p className="mt-4 text-sm text-gray-600">Quay ngay để có cơ hội nhận những phần quà giá trị!</p>
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                {data.slice(0, 8).map((prize, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 p-2 rounded-lg transition-all duration-300 hover:bg-gray-50"
+                    style={{ borderLeft: `3px solid ${prize.style.backgroundColor}` }}
+                  >
+                    <span
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: prize.style.backgroundColor }}
+                    ></span>
+                    <span className="text-gray-700 font-medium">{prize.option}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="h-5 w-5 text-purple-600" />
+                  <h4 className="font-semibold text-gray-900">Lượt quay còn lại: {spinCount}</h4>
+                </div>
+                {!userInfo && <p className="text-red-600 text-sm">Vui lòng đăng nhập để quay thưởng</p>}
+                {userInfo && userInfo.role !== "Nhân viên" && (
+                  <p className="text-red-600 text-sm">Chỉ nhân viên mới được quay thưởng</p>
+                )}
+                {previousPrize && (
+                  <p className="text-gray-700">
+                    Phần thưởng gần đây: <span className="font-medium text-purple-600">{previousPrize}</span>
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* <div className="relative">
-            <div className="absolute -inset-4 bg-gradient-to-r from-orange-400 to-pink-500 rounded-full opacity-20 blur-xl"></div>
+          <div className="relative">
+            {/* Glowing effect behind wheel */}
+            <div className="absolute -inset-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full opacity-20 blur-xl animate-pulse"></div>
+
             <div className="relative z-10">
-              <SpinWheel />
+              <div className="flex flex-col items-center">
+                {/* Sound toggle button */}
+                <button
+                  onClick={() => setIsMuted(!isMuted)}
+                  className="absolute top-0 right-0 z-20 p-2 bg-white/80 rounded-full shadow-md hover:bg-white transition-all duration-300"
+                >
+                  {isMuted ? (
+                    <VolumeX className="h-5 w-5 text-gray-600" />
+                  ) : (
+                    <Volume2 className="h-5 w-5 text-purple-600" />
+                  )}
+                </button>
+
+                {/* Prize animation overlay */}
+                {showPrizeAnimation && (
+                  <div className="absolute inset-0 z-20 flex items-center justify-center">
+                    <div className="bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-2xl border-2 border-purple-500">
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">Phần thưởng của bạn</h3>
+                      <p className="text-purple-600 font-bold text-2xl">{previousPrize}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* The wheel */}
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full animate-spin-slow"></div>
+                  <Wheel
+                    mustStartSpinning={mustSpin}
+                    prizeNumber={prizeNumber}
+                    data={data}
+                    onStopSpinning={handleStopSpinning}
+                    backgroundColors={data.map((item) => item.style.backgroundColor)}
+                    textColors={data.map((item) => item.style.textColor)}
+                    outerBorderColor="#6C5CE7"
+                    outerBorderWidth={3}
+                    innerBorderColor="#FF6B6B"
+                    innerBorderWidth={2}
+                    innerRadius={10}
+                    radiusLineColor="#FFFFFF"
+                    radiusLineWidth={2}
+                    fontSize={16}
+                    perpendicularText={false}
+                    textDistance={60}
+                    spinDuration={0.8}
+                  />
+
+                  {/* Center decoration */}
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center z-10 shadow-lg">
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
+                      <Gift className="h-6 w-6 text-purple-600" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Spin button with hover effects */}
+                <button
+                  onClick={handleSpinClick}
+                  disabled={mustSpin || spinCount <= 0 || !userInfo || userInfo.role !== "Nhân viên"}
+                  onMouseEnter={() => setIsButtonHovered(true)}
+                  onMouseLeave={() => setIsButtonHovered(false)}
+                  className={`mt-10 px-10 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden ${isButtonHovered ? "scale-105" : ""}`}
+                >
+                  {/* Button shine effect */}
+                  <span
+                    className={`absolute top-0 left-0 w-full h-full bg-white opacity-20 transform ${isButtonHovered ? "translate-x-full" : "-translate-x-full"
+                      } skew-x-12 transition-transform duration-1000`}
+                  ></span>
+
+                  {mustSpin ? "Đang quay..." : spinCount <= 0 ? "Hết lượt quay" : "Quay Ngay"}
+                </button>
+
+                {spinCount <= 0 && (
+                  <p className="mt-4 text-sm text-gray-600 animate-pulse">
+                    {userInfo?.role === "Nhân viên"
+                      ? "Hãy quay lại vào ngày mai để nhận thêm lượt quay!"
+                      : "Chỉ nhân viên mới được quay thưởng"}
+                  </p>
+                )}
+              </div>
             </div>
-          </div> */}
+          </div>
         </div>
       </div>
+      {/* Confetti effect */}
+      {showConfetti && (
+        <Confetti
+          width={windowSize.width}
+          height={windowSize.height}
+          recycle={false}
+          numberOfPieces={500}
+          gravity={0.15}
+          colors={["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40", "#8CD867", "#EA80FC"]}
+        />
+      )}
     </section>
   )
 }
-
