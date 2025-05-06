@@ -43,8 +43,10 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   const [showPrizeAnimation, setShowPrizeAnimation] = useState(false)
   const [isButtonHovered, setIsButtonHovered] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   const windowSize = useWindowSize()
   const userInfo = getUserInfo()
+
   // Enhanced prize data with better colors and more readable text
   const data = [
     { option: "1.000 VND", style: { backgroundColor: "#FF6384", textColor: "white" } },
@@ -60,8 +62,15 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     { option: "- 10.000 VND", style: { backgroundColor: "#BA68C8", textColor: "white" } },
   ]
 
+  // Set mounted state
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   // Check and reset daily spins
   useEffect(() => {
+    if (!isMounted) return
+
     const checkAndResetDailySpins = () => {
       const today = new Date().toDateString()
       const savedData = localStorage.getItem("spinData")
@@ -83,10 +92,12 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     }
 
     checkAndResetDailySpins()
-  }, [])
+  }, [isMounted])
 
   // Save spin count to localStorage whenever it changes
   useEffect(() => {
+    if (!isMounted) return
+
     const savedData = localStorage.getItem("spinData")
     const spinData = savedData ? JSON.parse(savedData) : { date: new Date().toDateString(), count: spinCount }
 
@@ -98,10 +109,11 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     }
 
     localStorage.setItem("spinData", JSON.stringify(spinData))
-  }, [spinCount])
+  }, [spinCount, isMounted])
+
   // Play sound effects
   const playSound = (soundType: string) => {
-    if (isMuted) return
+    if (isMuted || !isMounted) return
 
     const audio = new Audio()
 
@@ -199,6 +211,10 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     }
   }
 
+  if (!isMounted) {
+    return null // or a loading state
+  }
+
   return (
     <section className="bg-gradient-to-b from-indigo-50 via-purple-50 to-pink-50 py-16 relative overflow-hidden">
       {/* Decorative elements */}
@@ -268,105 +284,64 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
             </div>
           </div>
 
-          <div className="relative">
-            {/* Glowing effect behind wheel */}
-            <div className="absolute -inset-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full opacity-20 blur-xl animate-pulse"></div>
+          <div className="w-full max-w-md">
+            <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 backdrop-blur-sm bg-white/90">
+              <div className="relative">
+                {showConfetti && (
+                  <Confetti
+                    width={windowSize.width}
+                    height={windowSize.height}
+                    recycle={false}
+                    numberOfPieces={200}
+                  />
+                )}
+                <Wheel
+                  mustStartSpinning={mustSpin}
+                  prizeNumber={prizeNumber}
+                  data={data}
+                  onStopSpinning={handleStopSpinning}
+                  backgroundColors={["#ffffff"]}
+                  textColors={["#000000"]}
+                  outerBorderColor="#ffffff"
+                  outerBorderWidth={2}
+                  innerBorderColor="#ffffff"
+                  innerBorderWidth={2}
+                  innerRadius={0}
+                  radiusLineColor="#ffffff"
+                  radiusLineWidth={1}
+                  fontSize={16}
+                  perpendicularText={false}
+                  textDistance={85}
+                />
+              </div>
 
-            <div className="relative z-10">
-              <div className="flex flex-col items-center">
-                {/* Sound toggle button */}
+              <div className="mt-8 text-center">
                 <button
-                  onClick={() => setIsMuted(!isMuted)}
-                  className="absolute top-0 right-0 z-20 p-2 bg-white/80 rounded-full shadow-md hover:bg-white transition-all duration-300"
+                  onClick={handleSpinClick}
+                  disabled={mustSpin || spinCount === 0}
+                  className={`relative inline-flex items-center justify-center px-8 py-4 text-lg font-medium rounded-full transition-all duration-300 transform ${mustSpin || spinCount === 0
+                      ? "bg-gray-300 cursor-not-allowed"
+                      : "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:scale-105 hover:shadow-lg"
+                    }`}
+                  onMouseEnter={() => setIsButtonHovered(true)}
+                  onMouseLeave={() => setIsButtonHovered(false)}
                 >
-                  {isMuted ? (
-                    <VolumeX className="h-5 w-5 text-gray-600" />
-                  ) : (
-                    <Volume2 className="h-5 w-5 text-purple-600" />
+                  <span className="relative z-10">
+                    {mustSpin ? "Đang quay..." : spinCount === 0 ? "Hết lượt quay" : "Quay ngay"}
+                  </span>
+                  {isButtonHovered && !mustSpin && spinCount > 0 && (
+                    <Sparkles className="absolute -right-2 -top-2 h-6 w-6 text-yellow-400 animate-pulse" />
                   )}
                 </button>
 
-                {/* Prize animation overlay */}
-                {showPrizeAnimation && (
-                  <div className="absolute inset-0 z-20 flex items-center justify-center animate-fade-in">
-                    <div className="bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-2xl border-2 border-purple-500 transform transition-all duration-300 animate-scale-in">
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">Phần thưởng của bạn</h3>
-                      <p className="text-purple-600 font-bold text-2xl">{previousPrize}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* The wheel */}
-                <div className="relative">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full animate-spin-slow"></div>
-                  <Wheel
-                    mustStartSpinning={mustSpin}
-                    prizeNumber={prizeNumber}
-                    data={data}
-                    onStopSpinning={handleStopSpinning}
-                    backgroundColors={data.map((item) => item.style.backgroundColor)}
-                    textColors={data.map((item) => item.style.textColor)}
-                    outerBorderColor="#6C5CE7"
-                    outerBorderWidth={3}
-                    innerBorderColor="#FF6B6B"
-                    innerBorderWidth={2}
-                    innerRadius={10}
-                    radiusLineColor="#FFFFFF"
-                    radiusLineWidth={2}
-                    fontSize={16}
-                    perpendicularText={false}
-                    textDistance={60}
-                    spinDuration={0.8}
-                  />
-
-                  {/* Center decoration */}
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center z-10 shadow-lg">
-                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
-                      <Gift className="h-6 w-6 text-purple-600" />
-                    </div>
-                  </div>
+                <div className="mt-4 text-sm text-gray-600">
+                  Số lượt quay còn lại: <span className="font-bold">{spinCount}</span>
                 </div>
-
-                {/* Spin button with hover effects */}
-                <button
-                  onClick={handleSpinClick}
-                  disabled={mustSpin || spinCount <= 0 || !userInfo || userInfo.role !== "Nhân viên"}
-                  onMouseEnter={() => setIsButtonHovered(true)}
-                  onMouseLeave={() => setIsButtonHovered(false)}
-                  className={`mt-10 px-10 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden ${isButtonHovered ? "scale-105" : ""}`}
-                >
-                  {/* Button shine effect */}
-                  <span
-                    className={`absolute top-0 left-0 w-full h-full bg-white opacity-20 transform ${isButtonHovered ? "translate-x-full" : "-translate-x-full"
-                      } skew-x-12 transition-transform duration-1000`}
-                  ></span>
-
-                  {mustSpin ? "Đang quay..." : spinCount <= 0 ? "Hết lượt quay" : "Quay Ngay"}
-                </button>
-
-                {spinCount <= 0 && (
-                  <p className="mt-4 text-sm text-gray-600 animate-pulse">
-                    {userInfo?.role === "Nhân viên"
-                      ? "Hãy quay lại vào ngày mai để nhận thêm lượt quay!"
-                      : "Chỉ nhân viên mới được quay thưởng"}
-                  </p>
-                )}
               </div>
             </div>
           </div>
         </div>
       </div>
-      {/* Confetti effect */}
-      {showConfetti && (
-        <Confetti
-          width={windowSize.width}
-          height={windowSize.height}
-          recycle={false}
-          numberOfPieces={500}
-          gravity={0.15}
-          colors={["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40", "#8CD867", "#EA80FC"]}
-        />
-      )}
     </section>
   )
 }
