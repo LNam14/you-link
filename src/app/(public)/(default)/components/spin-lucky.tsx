@@ -6,6 +6,34 @@ import { Wheel } from "react-custom-roulette"
 import Confetti from "react-confetti"
 import { useWindowSize } from "react-use"
 import getUserInfo from "@/components/userInfo"
+
+// Add Telegram notification function
+const sendTelegramNotification = async (username: string, prize: string): Promise<boolean> => {
+  try {
+    const messageText = `🎲 ${username} vừa quay trúng ${prize} trong vòng quay may mắn!`
+
+    const url = `https://api.telegram.org/bot7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U/sendMessage`
+    const params = new URLSearchParams({
+      chat_id: '-4711526911',
+      text: messageText,
+    })
+
+    const response = await fetch(`${url}?${params.toString()}`)
+    const responseData = await response.json()
+
+    if (responseData.ok) {
+      console.log("Telegram notification sent successfully")
+      return true
+    } else {
+      console.error(`Failed to send Telegram notification: ${responseData.description}`)
+      return false
+    }
+  } catch (error) {
+    console.error("Error sending Telegram notification:", error)
+    return false
+  }
+}
+
 export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   const [mustSpin, setMustSpin] = useState(false)
   const [prizeNumber, setPrizeNumber] = useState(0)
@@ -71,16 +99,6 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
     localStorage.setItem("spinData", JSON.stringify(spinData))
   }, [spinCount])
-
-  // Load saved prize on component mount
-  useEffect(() => {
-    const savedPrize = localStorage.getItem("lastPrize")
-    if (savedPrize) {
-      setPreviousPrize(savedPrize)
-      setShowPrizeAnimation(true)
-    }
-  }, [])
-
   // Play sound effects
   const playSound = (soundType: string) => {
     if (isMuted) return
@@ -137,6 +155,11 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     // Save prize to localStorage
     localStorage.setItem("lastPrize", currentPrize)
 
+    // Send Telegram notification
+    if (userInfo?.username) {
+      sendTelegramNotification(userInfo.username, currentPrize)
+    }
+
     // Handle prize logic
     if (currentPrize.includes("Quay thêm")) {
       const extraSpins = currentPrize.includes("2 lượt") ? 2 : 1
@@ -154,8 +177,9 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       // You might want to handle the negative amount here if needed
     }
 
-    // Show prize animation
+    // Show prize animation immediately
     setShowPrizeAnimation(true)
+
     // Hide prize animation after 5 seconds
     setTimeout(() => {
       setShowPrizeAnimation(false)
@@ -264,8 +288,8 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
                 {/* Prize animation overlay */}
                 {showPrizeAnimation && (
-                  <div className="absolute inset-0 z-20 flex items-center justify-center">
-                    <div className="bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-2xl border-2 border-purple-500">
+                  <div className="absolute inset-0 z-20 flex items-center justify-center animate-fade-in">
+                    <div className="bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-2xl border-2 border-purple-500 transform transition-all duration-300 animate-scale-in">
                       <h3 className="text-xl font-bold text-gray-900 mb-2">Phần thưởng của bạn</h3>
                       <p className="text-purple-600 font-bold text-2xl">{previousPrize}</p>
                     </div>
