@@ -91,12 +91,18 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       }
     }
 
-    checkAndResetDailySpins()
-  }, [isMounted])
+    // Only check and reset spins for non-admin users
+    if (userInfo?.role !== "Admin") {
+      checkAndResetDailySpins()
+    } else {
+      // Set unlimited spins for admin
+      setSpinCount(999)
+    }
+  }, [isMounted, userInfo?.role])
 
   // Save spin count to localStorage whenever it changes
   useEffect(() => {
-    if (!isMounted) return
+    if (!isMounted || userInfo?.role === "Admin") return
 
     const savedData = localStorage.getItem("spinData")
     const spinData = savedData ? JSON.parse(savedData) : { date: new Date().toDateString(), count: spinCount }
@@ -109,7 +115,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     }
 
     localStorage.setItem("spinData", JSON.stringify(spinData))
-  }, [spinCount, isMounted])
+  }, [spinCount, isMounted, userInfo?.role])
 
   // Play sound effects
   const playSound = (soundType: string) => {
@@ -273,12 +279,11 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
               <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
                   <Sparkles className="h-5 w-5 text-purple-600" />
-                  <h4 className="font-semibold text-gray-900">Lượt quay còn lại: {spinCount}</h4>
+                  <h4 className="font-semibold text-gray-900">
+                    {userInfo?.role === "Admin" ? "Không giới hạn lượt quay" : `Lượt quay còn lại: ${spinCount}`}
+                  </h4>
                 </div>
                 {!userInfo && <p className="text-red-600 text-sm">Vui lòng đăng nhập để quay thưởng</p>}
-                {userInfo && userInfo.role !== "Nhân viên" && (
-                  <p className="text-red-600 text-sm">Chỉ nhân viên mới được quay thưởng</p>
-                )}
                 {previousPrize && (
                   <p className="text-gray-700">
                     Phần thưởng gần đây: <span className="font-medium text-purple-600">{previousPrize}</span>
@@ -322,8 +327,8 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
               <div className="mt-8 text-center">
                 <button
                   onClick={handleSpinClick}
-                  disabled={mustSpin || spinCount === 0}
-                  className={`relative inline-flex items-center justify-center px-8 py-4 text-lg font-medium rounded-full transition-all duration-300 transform ${mustSpin || spinCount === 0
+                  disabled={mustSpin || (spinCount === 0 && userInfo?.role !== "Admin")}
+                  className={`relative inline-flex items-center justify-center px-8 py-4 text-lg font-medium rounded-full transition-all duration-300 transform ${mustSpin || (spinCount === 0 && userInfo?.role !== "Admin")
                     ? "bg-gray-300 cursor-not-allowed"
                     : "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:scale-105 hover:shadow-lg"
                     }`}
@@ -331,15 +336,19 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                   onMouseLeave={() => setIsButtonHovered(false)}
                 >
                   <span className="relative z-10">
-                    {mustSpin ? "Đang quay..." : spinCount === 0 ? "Hết lượt quay" : "Quay ngay"}
+                    {mustSpin ? "Đang quay..." : (spinCount === 0 && userInfo?.role !== "Admin") ? "Hết lượt quay" : "Quay ngay"}
                   </span>
-                  {isButtonHovered && !mustSpin && spinCount > 0 && (
+                  {isButtonHovered && !mustSpin && (spinCount > 0 || userInfo?.role === "Admin") && (
                     <Sparkles className="absolute -right-2 -top-2 h-6 w-6 text-yellow-400 animate-pulse" />
                   )}
                 </button>
 
                 <div className="mt-4 text-sm text-gray-600">
-                  Số lượt quay còn lại: <span className="font-bold">{spinCount}</span>
+                  {userInfo?.role === "Admin" ? (
+                    <span className="font-bold">Không giới hạn lượt quay</span>
+                  ) : (
+                    <>Số lượt quay còn lại: <span className="font-bold">{spinCount}</span></>
+                  )}
                 </div>
               </div>
             </div>
