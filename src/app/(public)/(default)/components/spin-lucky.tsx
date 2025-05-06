@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Gift, Trophy, Volume2, VolumeX, Sparkles } from "lucide-react"
+import { Trophy, Volume2, VolumeX, Sparkles, Coins, DollarSign, CreditCard } from "lucide-react"
 import { Wheel } from "react-custom-roulette"
 import Confetti from "react-confetti"
 import { useWindowSize } from "react-use"
@@ -14,7 +14,7 @@ const sendTelegramNotification = async (username: string, prize: string): Promis
 
     const url = `https://api.telegram.org/bot7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U/sendMessage`
     const params = new URLSearchParams({
-      chat_id: '-1002298300938',
+      chat_id: "-1002298300938",
       text: messageText,
     })
 
@@ -43,34 +43,59 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   const [showPrizeAnimation, setShowPrizeAnimation] = useState(false)
   const [isButtonHovered, setIsButtonHovered] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
-  const [isMounted, setIsMounted] = useState(false)
   const windowSize = useWindowSize()
   const userInfo = getUserInfo()
 
-  // Enhanced prize data with better colors and more readable text
+  // Enhanced prize data with money-themed colors
   const data = [
-    { option: "1.000 VND", style: { backgroundColor: "#FF6384", textColor: "white" } },
-    { option: "2.000 VND", style: { backgroundColor: "#36A2EB", textColor: "white" } },
-    { option: "5.000 VND", style: { backgroundColor: "#FFCE56", textColor: "black" } },
-    { option: "10.000 VND", style: { backgroundColor: "#4BC0C0", textColor: "white" } },
-    { option: "20.000 VND", style: { backgroundColor: "#9966FF", textColor: "white" } },
-    { option: "500.000 VND", style: { backgroundColor: "#FF9F40", textColor: "black" } },
-    { option: "Quay thêm 1 lượt", style: { backgroundColor: "#8CD867", textColor: "black" } },
-    { option: "Quay thêm 2 lượt", style: { backgroundColor: "#EA80FC", textColor: "white" } },
-    { option: "1 tràng vỗ tay", style: { backgroundColor: "#64B5F6", textColor: "black" } },
-    { option: "- 5.000 VND", style: { backgroundColor: "#E57373", textColor: "white" } },
-    { option: "- 10.000 VND", style: { backgroundColor: "#BA68C8", textColor: "white" } },
+    {
+      option: "1.000 VND",
+      style: { backgroundColor: "#4CAF50", textColor: "white" }
+    },
+    {
+      option: "2.000 VND",
+      style: { backgroundColor: "#2E7D32", textColor: "white" }
+    },
+    {
+      option: "5.000 VND",
+      style: { backgroundColor: "#8BC34A", textColor: "black" }
+    },
+    {
+      option: "10.000 VND",
+      style: { backgroundColor: "#1976D2", textColor: "white" }
+    },
+    {
+      option: "20.000 VND",
+      style: { backgroundColor: "#0D47A1", textColor: "white" }
+    },
+    {
+      option: "500.000 VND",
+      style: { backgroundColor: "#FFD700", textColor: "black" }
+    },
+    {
+      option: "Quay thêm 1 lượt",
+      style: { backgroundColor: "#9C27B0", textColor: "white" }
+    },
+    {
+      option: "Quay thêm 2 lượt",
+      style: { backgroundColor: "#673AB7", textColor: "white" }
+    },
+    {
+      option: "1 tràng vỗ tay",
+      style: { backgroundColor: "#03A9F4", textColor: "black" }
+    },
+    {
+      option: "- 5.000 VND",
+      style: { backgroundColor: "#F44336", textColor: "white" }
+    },
+    {
+      option: "- 10.000 VND",
+      style: { backgroundColor: "#D32F2F", textColor: "white" }
+    },
   ]
-
-  // Set mounted state
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
 
   // Check and reset daily spins
   useEffect(() => {
-    if (!isMounted) return
-
     const checkAndResetDailySpins = () => {
       const today = new Date().toDateString()
       const savedData = localStorage.getItem("spinData")
@@ -91,19 +116,11 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       }
     }
 
-    // Only check and reset spins for non-admin users
-    if (userInfo?.role !== "Admin") {
-      checkAndResetDailySpins()
-    } else {
-      // Set unlimited spins for admin
-      setSpinCount(999)
-    }
-  }, [isMounted, userInfo?.role])
+    checkAndResetDailySpins()
+  }, [])
 
   // Save spin count to localStorage whenever it changes
   useEffect(() => {
-    if (!isMounted || userInfo?.role === "Admin") return
-
     const savedData = localStorage.getItem("spinData")
     const spinData = savedData ? JSON.parse(savedData) : { date: new Date().toDateString(), count: spinCount }
 
@@ -115,11 +132,11 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     }
 
     localStorage.setItem("spinData", JSON.stringify(spinData))
-  }, [spinCount, isMounted, userInfo?.role])
+  }, [spinCount])
 
   // Play sound effects
   const playSound = (soundType: string) => {
-    if (isMuted || !isMounted) return
+    if (isMuted) return
 
     const audio = new Audio()
 
@@ -155,12 +172,8 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       spinData.hasSpun = true
       localStorage.setItem("spinData", JSON.stringify(spinData))
 
-      // Generate random prize excluding 500,000 VND
-      let newPrizeNumber
-      do {
-        newPrizeNumber = Math.floor(Math.random() * data.length)
-      } while (data[newPrizeNumber].option === "500.000 VND")
-
+      // Generate random prize
+      const newPrizeNumber = Math.floor(Math.random() * data.length)
       setPrizeNumber(newPrizeNumber)
       setMustSpin(true)
 
@@ -195,7 +208,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       localStorage.setItem("spinData", JSON.stringify(spinData))
     } else if (currentPrize.includes("-")) {
       // Handle negative prizes
-      const negativeAmount = parseInt(currentPrize.replace(/[^0-9]/g, ''))
+      const negativeAmount = Number.parseInt(currentPrize.replace(/[^0-9]/g, ""))
       // You might want to handle the negative amount here if needed
     }
 
@@ -211,39 +224,37 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     playSound("win")
 
     // Show confetti for big prizes
-    if (
-      currentPrize.includes("500.000") ||
-      currentPrize.includes("Quay thêm") ||
-      currentPrize === "1 tràng vỗ tay"
-    ) {
+    if (currentPrize.includes("500.000") || currentPrize.includes("Quay thêm") || currentPrize === "1 tràng vỗ tay") {
       setShowConfetti(true)
       setTimeout(() => setShowConfetti(false), 5000)
     }
   }
 
-  if (!isMounted) {
-    return null // or a loading state
-  }
-
   return (
-    <section className="bg-gradient-to-b from-indigo-50 via-purple-50 to-pink-50 py-16 relative overflow-hidden">
-      {/* Decorative elements */}
+    <section className="bg-gradient-to-b from-emerald-50 via-teal-50 to-cyan-50 py-16 relative overflow-hidden">
+      {/* Digital money background elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
-        <div className="absolute top-10 left-10 w-64 h-64 bg-gradient-to-r from-pink-200 to-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-        <div className="absolute top-0 right-10 w-72 h-72 bg-gradient-to-r from-yellow-200 to-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-10 left-10 w-64 h-64 bg-gradient-to-r from-green-200 to-teal-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+        <div className="absolute top-0 right-10 w-72 h-72 bg-gradient-to-r from-yellow-200 to-green-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
         <div className="absolute -bottom-8 left-20 w-72 h-72 bg-gradient-to-r from-blue-200 to-cyan-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+
+        {/* Digital money symbols */}
+        <div className="absolute top-1/4 left-1/4 text-6xl text-green-200 opacity-20">$</div>
+        <div className="absolute top-1/3 right-1/4 text-7xl text-emerald-200 opacity-20">₫</div>
+        <div className="absolute bottom-1/4 left-1/3 text-8xl text-teal-200 opacity-20">€</div>
+        <div className="absolute bottom-1/3 right-1/3 text-6xl text-cyan-200 opacity-20">£</div>
       </div>
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 relative z-10">
         <div className="mb-12 text-center">
           <div className="inline-flex items-center justify-center mb-4">
-            <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-medium">
+            <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-medium">
               Thử vận may của bạn
             </span>
           </div>
           <h2 className="text-4xl font-extrabold text-gray-900 mb-4 relative inline-block">
             {title}
-            <span className="absolute -bottom-1 left-0 w-full h-1.5 bg-gradient-to-r from-purple-600 to-pink-600 transform -translate-y-1 rounded-full"></span>
+            <span className="absolute -bottom-1 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 transform -translate-y-1 rounded-full"></span>
           </h2>
           <p className="text-gray-600 max-w-2xl mx-auto text-lg">
             Quay ngay để có cơ hội nhận những phần quà giá trị lên đến 2.000.000 VND và 100 USDT
@@ -252,10 +263,10 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
         <div className="flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-16">
           <div className="w-full max-w-md">
-            <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 mb-6 backdrop-blur-sm bg-white/90 transform transition-all hover:scale-105 duration-300">
+            <div className="bg-white/90 p-8 rounded-2xl shadow-xl border border-gray-100 mb-6 backdrop-blur-sm transform transition-all hover:scale-105 duration-300">
               <div className="flex items-center gap-3 mb-6">
-                <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-3 rounded-full text-white">
-                  <Trophy className="h-6 w-6" />
+                <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-3 rounded-full text-white">
+                  <Coins className="h-6 w-6" />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900">Phần Thưởng Hấp Dẫn</h3>
               </div>
@@ -276,85 +287,232 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                 ))}
               </div>
 
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-xl">
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-xl border border-emerald-100">
                 <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="h-5 w-5 text-purple-600" />
-                  <h4 className="font-semibold text-gray-900">
-                    {userInfo?.role === "Admin" ? "Không giới hạn lượt quay" : `Lượt quay còn lại: ${spinCount}`}
-                  </h4>
+                  <Sparkles className="h-5 w-5 text-emerald-600" />
+                  <h4 className="font-semibold text-gray-900">Lượt quay còn lại: {spinCount}</h4>
                 </div>
                 {!userInfo && <p className="text-red-600 text-sm">Vui lòng đăng nhập để quay thưởng</p>}
+                {userInfo && userInfo.role !== "Nhân viên" && (
+                  <p className="text-red-600 text-sm">Chỉ nhân viên mới được quay thưởng</p>
+                )}
                 {previousPrize && (
                   <p className="text-gray-700">
-                    Phần thưởng gần đây: <span className="font-medium text-purple-600">{previousPrize}</span>
+                    Phần thưởng gần đây: <span className="font-medium text-emerald-600">{previousPrize}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Recent winners section */}
+              <div className="mt-6 border-t border-gray-100 pt-4">
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-yellow-500" />
+                  Người Chiến Thắng Gần Đây
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Nguyễn Văn A</span>
+                    <span className="font-medium text-emerald-600">500.000 VND</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Trần Thị B</span>
+                    <span className="font-medium text-emerald-600">20.000 VND</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Lê Văn C</span>
+                    <span className="font-medium text-emerald-600">10.000 VND</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative">
+            {/* Glowing effect behind wheel */}
+            <div className="absolute -inset-4 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full opacity-20 blur-xl animate-pulse"></div>
+
+            {/* Digital money icons floating around the wheel */}
+            <div className="absolute -inset-16 z-0">
+              <div className="absolute top-0 left-1/4 animate-float-slow">
+                <DollarSign className="h-8 w-8 text-emerald-400 opacity-60" />
+              </div>
+              <div className="absolute top-1/4 right-0 animate-float-slow animation-delay-1000">
+                <CreditCard className="h-8 w-8 text-teal-400 opacity-60" />
+              </div>
+              <div className="absolute bottom-0 left-1/3 animate-float-slow animation-delay-2000">
+                <Coins className="h-8 w-8 text-cyan-400 opacity-60" />
+              </div>
+              <div className="absolute bottom-1/4 right-1/4 animate-float-slow animation-delay-3000">
+                <DollarSign className="h-8 w-8 text-green-400 opacity-60" />
+              </div>
+            </div>
+
+            <div className="relative z-10">
+              <div className="flex flex-col items-center">
+                {/* Sound toggle button */}
+                <button
+                  onClick={() => setIsMuted(!isMuted)}
+                  className="absolute top-0 right-0 z-20 p-2 bg-white/80 rounded-full shadow-md hover:bg-white transition-all duration-300"
+                >
+                  {isMuted ? (
+                    <VolumeX className="h-5 w-5 text-gray-600" />
+                  ) : (
+                    <Volume2 className="h-5 w-5 text-emerald-600" />
+                  )}
+                </button>
+
+                {/* Prize animation overlay */}
+                {showPrizeAnimation && (
+                  <div className="absolute inset-0 z-20 flex items-center justify-center animate-fade-in">
+                    <div className="bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-2xl border-2 border-emerald-500 transform transition-all duration-300 animate-scale-in">
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">Phần thưởng của bạn</h3>
+                      <p className="text-emerald-600 font-bold text-2xl">{previousPrize}</p>
+                      <div className="mt-2 flex justify-center">
+                        <Coins className="h-8 w-8 text-yellow-500 animate-bounce" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* The wheel */}
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-full animate-spin-slow"></div>
+                  <Wheel
+                    mustStartSpinning={mustSpin}
+                    prizeNumber={prizeNumber}
+                    data={data}
+                    onStopSpinning={handleStopSpinning}
+                    backgroundColors={data.map((item) => item.style.backgroundColor)}
+                    textColors={data.map((item) => item.style.textColor)}
+                    outerBorderColor="#059669"
+                    outerBorderWidth={3}
+                    innerBorderColor="#0D9488"
+                    innerBorderWidth={2}
+                    innerRadius={10}
+                    radiusLineColor="#FFFFFF"
+                    radiusLineWidth={2}
+                    fontSize={16}
+                    perpendicularText={false}
+                    textDistance={60}
+                    spinDuration={0.8}
+                  />
+
+                  {/* Center decoration */}
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-full flex items-center justify-center z-10 shadow-lg">
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
+                      <DollarSign className="h-6 w-6 text-emerald-600" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Spin button with hover effects */}
+                <button
+                  onClick={handleSpinClick}
+                  disabled={mustSpin || spinCount <= 0 || !userInfo || userInfo.role !== "Nhân viên"}
+                  onMouseEnter={() => setIsButtonHovered(true)}
+                  onMouseLeave={() => setIsButtonHovered(false)}
+                  className={`mt-10 px-10 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-full font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden ${isButtonHovered ? "scale-105" : ""}`}
+                >
+                  {/* Button shine effect */}
+                  <span
+                    className={`absolute top-0 left-0 w-full h-full bg-white opacity-20 transform ${isButtonHovered ? "translate-x-full" : "-translate-x-full"
+                      } skew-x-12 transition-transform duration-1000`}
+                  ></span>
+
+                  {mustSpin ? "Đang quay..." : spinCount <= 0 ? "Hết lượt quay" : "Quay Ngay"}
+                </button>
+
+                {spinCount <= 0 && (
+                  <p className="mt-4 text-sm text-gray-600 animate-pulse">
+                    {userInfo?.role === "Nhân viên"
+                      ? "Hãy quay lại vào ngày mai để nhận thêm lượt quay!"
+                      : "Chỉ nhân viên mới được quay thưởng"}
                   </p>
                 )}
               </div>
             </div>
           </div>
-
-          <div className="w-full max-w-md">
-            <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 backdrop-blur-sm bg-white/90">
-              <div className="relative">
-                {showConfetti && (
-                  <Confetti
-                    width={windowSize.width}
-                    height={windowSize.height}
-                    recycle={false}
-                    numberOfPieces={200}
-                  />
-                )}
-                <Wheel
-                  mustStartSpinning={mustSpin}
-                  prizeNumber={prizeNumber}
-                  data={data}
-                  onStopSpinning={handleStopSpinning}
-                  backgroundColors={["#ffffff"]}
-                  textColors={["#000000"]}
-                  outerBorderColor="#ffffff"
-                  outerBorderWidth={2}
-                  innerBorderColor="#ffffff"
-                  innerBorderWidth={2}
-                  innerRadius={0}
-                  radiusLineColor="#ffffff"
-                  radiusLineWidth={1}
-                  fontSize={16}
-                  perpendicularText={false}
-                  textDistance={85}
-                />
-              </div>
-
-              <div className="mt-8 text-center">
-                <button
-                  onClick={handleSpinClick}
-                  disabled={mustSpin || (spinCount === 0 && userInfo?.role !== "Admin")}
-                  className={`relative inline-flex items-center justify-center px-8 py-4 text-lg font-medium rounded-full transition-all duration-300 transform ${mustSpin || (spinCount === 0 && userInfo?.role !== "Admin")
-                    ? "bg-gray-300 cursor-not-allowed"
-                    : "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:scale-105 hover:shadow-lg"
-                    }`}
-                  onMouseEnter={() => setIsButtonHovered(true)}
-                  onMouseLeave={() => setIsButtonHovered(false)}
-                >
-                  <span className="relative z-10">
-                    {mustSpin ? "Đang quay..." : (spinCount === 0 && userInfo?.role !== "Admin") ? "Hết lượt quay" : "Quay ngay"}
-                  </span>
-                  {isButtonHovered && !mustSpin && (spinCount > 0 || userInfo?.role === "Admin") && (
-                    <Sparkles className="absolute -right-2 -top-2 h-6 w-6 text-yellow-400 animate-pulse" />
-                  )}
-                </button>
-
-                <div className="mt-4 text-sm text-gray-600">
-                  {userInfo?.role === "Admin" ? (
-                    <span className="font-bold">Không giới hạn lượt quay</span>
-                  ) : (
-                    <>Số lượt quay còn lại: <span className="font-bold">{spinCount}</span></>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
+
+      {/* Confetti effect */}
+      {showConfetti && (
+        <Confetti
+          width={windowSize.width}
+          height={windowSize.height}
+          recycle={false}
+          numberOfPieces={500}
+          gravity={0.15}
+          colors={["#10B981", "#059669", "#047857", "#0D9488", "#14B8A6", "#0891B2", "#0E7490", "#FFD700", "#22D3EE"]}
+        />
+      )}
+
+      {/* Add custom animations */}
+      <style jsx global>{`
+        @keyframes float-slow {
+          0% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-15px) rotate(5deg); }
+          100% { transform: translateY(0px) rotate(0deg); }
+        }
+        
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        
+        @keyframes blob {
+          0% { transform: scale(1); }
+          33% { transform: scale(1.1); }
+          66% { transform: scale(0.9); }
+          100% { transform: scale(1); }
+        }
+        
+        @keyframes fade-in {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
+        }
+        
+        @keyframes scale-in {
+          0% { transform: scale(0.8); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .animate-float-slow {
+          animation: float-slow 6s ease-in-out infinite;
+        }
+        
+        .animate-spin-slow {
+          animation: spin-slow 10s linear infinite;
+        }
+        
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+        
+        .animate-fade-in {
+          animation: fade-in 0.5s ease-out forwards;
+        }
+        
+        .animate-scale-in {
+          animation: scale-in 0.5s ease-out forwards;
+        }
+        
+        .animation-delay-1000 {
+          animation-delay: 1s;
+        }
+        
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+        
+        .animation-delay-3000 {
+          animation-delay: 3s;
+        }
+        
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+      `}</style>
     </section>
   )
 }
