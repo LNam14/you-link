@@ -69,10 +69,6 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       style: { backgroundColor: "#0D47A1", textColor: "white" }
     },
     {
-      option: "500.000 VND",
-      style: { backgroundColor: "#FFD700", textColor: "black" }
-    },
-    {
       option: "Quay thêm 1 lượt",
       style: { backgroundColor: "#9C27B0", textColor: "white" }
     },
@@ -172,8 +168,12 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       spinData.hasSpun = true
       localStorage.setItem("spinData", JSON.stringify(spinData))
 
-      // Generate random prize
-      const newPrizeNumber = Math.floor(Math.random() * data.length)
+      // Generate random prize, excluding 500.000 VND
+      let newPrizeNumber
+      do {
+        newPrizeNumber = Math.floor(Math.random() * data.length)
+      } while (data[newPrizeNumber].option === "500.000 VND")
+
       setPrizeNumber(newPrizeNumber)
       setMustSpin(true)
 
