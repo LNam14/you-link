@@ -1,31 +1,33 @@
-import { NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { NextResponse } from "next/server"
+import { pool } from "@/lib/db"
 
 export async function POST(request: Request) {
   try {
-    const { username, date, status } = await request.json();
+    const { username } = await request.json()
     
-    if (!username || !date) {
-      return NextResponse.json(
-        { error: 'Username and date are required' },
-        { status: 400 }
-      );
+    // Get current date in Vietnam timezone (UTC+7)
+    const vietnamDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }))
+    const currentDate = vietnamDate.toISOString().split("T")[0] // Get current date in YYYY-MM-DD format
+
+    if (!username) {
+      return NextResponse.json({ error: "Username is required" }, { status: 400 })
     }
 
-    const result = await pool.query(
-      'INSERT INTO Attendance (Username, Date, Status) VALUES ($1, $2, $3) RETURNING *',
-      [username, date, status || 'Nghỉ']
-    );
+    const result = await pool.query("INSERT INTO attendance (username, date) VALUES ($1, $2) RETURNING *", [
+      username,
+      currentDate,
+    ])
 
-    return NextResponse.json(
-      { data: result.rows[0] },
-      { status: 201 }
-    );
+    // Format the response data with Vietnam timezone
+    const formattedData = {
+      id: result.rows[0].id,
+      username: result.rows[0].username,
+      date: new Date(result.rows[0].date).toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }),
+    }
+
+    return NextResponse.json(formattedData, { status: 201 })
   } catch (error) {
-    console.error('Error creating attendance record:', error);
-    return NextResponse.json(
-      { error: 'Failed to create attendance record' },
-      { status: 500 }
-    );
+    console.error("Error creating attendance record:", error)
+    return NextResponse.json({ error: "Failed to create attendance record" }, { status: 500 })
   }
-} 
+}
