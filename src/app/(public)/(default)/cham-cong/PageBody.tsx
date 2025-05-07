@@ -108,7 +108,32 @@ export default function AttendanceTracker() {
     const nextMonth = () => {
         setCurrentMonth(moment(currentMonth).add(1, "month"))
     }
+    const sendTelegramNotification = async (username: string): Promise<boolean> => {
+        try {
+            const dateString = moment().format("DD/MM/YYYY")
+            const messageText = `${username} vừa chấm công ngày ${dateString}!`
 
+            const url = `https://api.telegram.org/bot7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U/sendMessage`
+            const params = new URLSearchParams({
+                chat_id: "-1002298300938",
+                text: messageText,
+            })
+
+            const response = await fetch(`${url}?${params.toString()}`)
+            const responseData = await response.json()
+
+            if (responseData.ok) {
+                console.log("Telegram notification sent successfully")
+                return true
+            } else {
+                console.error(`Failed to send Telegram notification: ${responseData.description}`)
+                return false
+            }
+        } catch (error) {
+            console.error("Error sending Telegram notification:", error)
+            return false
+        }
+    }
     // Xử lý chấm công
     const handleAttendance = async (day: moment.Moment) => {
         const dateString = day.format("YYYY-MM-DD")
@@ -139,6 +164,7 @@ export default function AttendanceTracker() {
             }
             setAllAttendanceData((prevData) => [...prevData, newAttendanceRecord])
             // Hiển thị thông báo thành công
+            await sendTelegramNotification(`${username}-${userInfo?.name || "No Name"}`)
             toast.success("Chấm công thành công!")
         } catch (error: any) {
             console.error("Lỗi khi chấm công:", error)
@@ -309,7 +335,7 @@ export default function AttendanceTracker() {
                             </div>
                             <div className="flex items-center space-x-2 bg-purple-100 text-purple-700 px-4 py-2 rounded-lg text-sm shadow-sm border border-purple-200">
                                 <DollarSign className="h-5 w-5" />
-                                <span className="font-medium">Lương: {formatCurrency(monthStats.totalSalary)}</span>
+                                <span className="font-medium">Ngân lượng: {formatCurrency(monthStats.totalSalary)}</span>
                             </div>
                         </div>
                     </div>

@@ -1,16 +1,30 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Trophy, Volume2, VolumeX, Sparkles, Coins, DollarSign, CreditCard } from "lucide-react"
+import {
+  Trophy,
+  Volume2,
+  VolumeX,
+  Sparkles,
+  Coins,
+  DollarSign,
+  CreditCard,
+  Eye,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+} from "lucide-react"
 import { Wheel } from "react-custom-roulette"
 import Confetti from "react-confetti"
 import { useWindowSize } from "react-use"
 import getUserInfo from "@/components/userInfo"
+import wheelApiRequest, { type Wheel as WheelType } from "@/apiRequests/wheel"
 
 // Add Telegram notification function
 const sendTelegramNotification = async (username: string, prize: string): Promise<boolean> => {
   try {
-    const messageText = `🎲 ${username} vừa quay trúng ${prize} trong vòng quay may mắn!`
+    const messageText = `🎲 ${username} vừa quay trúng: ${prize} trong vòng quay may mắn!`
 
     const url = `https://api.telegram.org/bot7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U/sendMessage`
     const params = new URLSearchParams({
@@ -43,6 +57,13 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   const [showPrizeAnimation, setShowPrizeAnimation] = useState(false)
   const [isButtonHovered, setIsButtonHovered] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
+  const [showRewards, setShowRewards] = useState(false)
+  const [rewards, setRewards] = useState<WheelType[]>([])
+  const [selectedEmployee, setSelectedEmployee] = useState<string>("")
+  const [employees, setEmployees] = useState<string[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const itemsPerPage = 10
   const windowSize = useWindowSize()
   const userInfo = getUserInfo()
 
@@ -50,47 +71,47 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   const data = [
     {
       option: "1.000 VND",
-      style: { backgroundColor: "#4CAF50", textColor: "white" }
+      style: { backgroundColor: "#4CAF50", textColor: "white" },
     },
     {
       option: "2.000 VND",
-      style: { backgroundColor: "#2E7D32", textColor: "white" }
+      style: { backgroundColor: "#2E7D32", textColor: "white" },
     },
     {
       option: "5.000 VND",
-      style: { backgroundColor: "#8BC34A", textColor: "black" }
+      style: { backgroundColor: "#8BC34A", textColor: "black" },
     },
     {
       option: "10.000 VND",
-      style: { backgroundColor: "#1976D2", textColor: "white" }
+      style: { backgroundColor: "#1976D2", textColor: "white" },
     },
     {
       option: "20.000 VND",
-      style: { backgroundColor: "#0D47A1", textColor: "white" }
+      style: { backgroundColor: "#0D47A1", textColor: "white" },
     },
     {
       option: "500.000 VND",
-      style: { backgroundColor: "#FFD700", textColor: "black" }
+      style: { backgroundColor: "#FFD700", textColor: "black" },
     },
     {
       option: "Quay thêm 1 lượt",
-      style: { backgroundColor: "#9C27B0", textColor: "white" }
+      style: { backgroundColor: "#9C27B0", textColor: "white" },
     },
     {
       option: "Quay thêm 2 lượt",
-      style: { backgroundColor: "#673AB7", textColor: "white" }
+      style: { backgroundColor: "#673AB7", textColor: "white" },
     },
     {
       option: "1 tràng vỗ tay",
-      style: { backgroundColor: "#03A9F4", textColor: "black" }
+      style: { backgroundColor: "#03A9F4", textColor: "black" },
     },
     {
       option: "- 5.000 VND",
-      style: { backgroundColor: "#F44336", textColor: "white" }
+      style: { backgroundColor: "#F44336", textColor: "white" },
     },
     {
       option: "- 10.000 VND",
-      style: { backgroundColor: "#D32F2F", textColor: "white" }
+      style: { backgroundColor: "#D32F2F", textColor: "white" },
     },
   ]
 
@@ -185,14 +206,14 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   // Function to get weighted prize number
   const getWeightedPrizeNumber = () => {
     // Create array of indices excluding the 500.000 VND prize (index 5)
-    const availableIndices = Array.from({ length: data.length }, (_, i) => i).filter(i => i !== 5)
+    const availableIndices = Array.from({ length: data.length }, (_, i) => i).filter((i) => i !== 5)
 
     // Randomly select from available indices
     const randomIndex = Math.floor(Math.random() * availableIndices.length)
     return availableIndices[randomIndex]
   }
 
-  const handleStopSpinning = () => {
+  const handleStopSpinning = async () => {
     setMustSpin(false)
     const currentPrize = data[prizeNumber].option
     setPreviousPrize(currentPrize)
@@ -202,7 +223,17 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
     // Send Telegram notification
     if (userInfo?.username) {
-      sendTelegramNotification(userInfo.username, currentPrize)
+      sendTelegramNotification(`${userInfo.username}-${userInfo.name || "No Name"}`, currentPrize)
+
+      // Save prize to database
+      try {
+        await wheelApiRequest.create({
+          username: userInfo.username,
+          reward: currentPrize,
+        })
+      } catch (error) {
+        console.error("Error saving wheel result:", error)
+      }
     }
 
     // Handle prize logic
@@ -239,6 +270,42 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       setTimeout(() => setShowConfetti(false), 5000)
     }
   }
+
+  // Fetch rewards when showRewards changes
+  useEffect(() => {
+    const fetchRewards = async () => {
+      try {
+        const response = await wheelApiRequest.get()
+        const rewardsData = response.data || []
+
+        // Filter rewards based on role and selected employee
+        let filteredRewards: WheelType[] = rewardsData
+        if (userInfo?.role === "Admin" && selectedEmployee) {
+          filteredRewards = rewardsData.filter((reward) => reward.username === selectedEmployee)
+        } else if (userInfo?.role === "Nhân viên") {
+          filteredRewards = rewardsData
+        } else {
+          filteredRewards = rewardsData.filter((reward) => reward.username === userInfo?.username)
+        }
+
+        setRewards(filteredRewards)
+        setTotalPages(Math.ceil(filteredRewards.length / itemsPerPage))
+        setCurrentPage(1) // Reset to first page when filters change
+
+        // Extract unique usernames for the select dropdown
+        if (userInfo?.role === "Admin") {
+          const uniqueUsernames = Array.from(new Set(rewardsData.map((reward) => reward.username)))
+          setEmployees(uniqueUsernames)
+        }
+      } catch (error) {
+        console.error("Error fetching rewards:", error)
+      }
+    }
+
+    if (showRewards) {
+      fetchRewards()
+    }
+  }, [showRewards, selectedEmployee, userInfo?.role, userInfo?.username])
 
   return (
     <section className="bg-gradient-to-b from-emerald-50 via-teal-50 to-cyan-50 py-16 relative overflow-hidden">
@@ -312,6 +379,19 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                   </p>
                 )}
               </div>
+
+              {/* Add View Rewards button for Admin and Nhân viên */}
+              {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
+                <div className="mt-6 border-t border-gray-100 pt-4">
+                  <button
+                    onClick={() => setShowRewards(!showRewards)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-300 shadow-md hover:shadow-lg"
+                  >
+                    <Eye className="h-5 w-5" />
+                    Xem phần thưởng
+                  </button>
+                </div>
+              )}
 
               {/* Recent winners section */}
               <div className="mt-6 border-t border-gray-100 pt-4">
@@ -444,6 +524,126 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
           </div>
         </div>
       </div>
+
+      {/* Rewards Modal */}
+      {showRewards && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Trophy className="h-6 w-6 text-yellow-500" />
+                Danh sách phần thưởng
+              </h3>
+              <button
+                onClick={() => setShowRewards(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-12rem)]">
+              {/* Employee filter for Admin */}
+              {userInfo?.role === "Admin" && (
+                <div className="mb-6">
+                  <label htmlFor="employee-select" className="block text-sm font-medium text-gray-700 mb-1">
+                    Chọn nhân viên
+                  </label>
+                  <select
+                    id="employee-select"
+                    value={selectedEmployee}
+                    onChange={(e) => setSelectedEmployee(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="">Tất cả nhân viên</option>
+                    {employees.map((employee) => (
+                      <option key={employee} value={employee}>
+                        {employee}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Table header */}
+              <div className="border rounded-t-lg bg-gray-50">
+                <div className="grid grid-cols-12 px-4 py-3 font-medium text-gray-700">
+                  <div className="col-span-1">#</div>
+                  <div className="col-span-3">Nhân viên</div>
+                  <div className="col-span-4">Phần thưởng</div>
+                  <div className="col-span-4 flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    <span>Ngày</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rewards list */}
+              <div className="border-x border-b rounded-b-lg overflow-hidden">
+                {rewards.length > 0 ? (
+                  rewards
+                    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                    .map((reward, index) => (
+                      <div
+                        key={index}
+                        className="grid grid-cols-12 px-4 py-3 border-t first:border-t-0 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="col-span-1 text-gray-500">
+                          {(currentPage - 1) * itemsPerPage + index + 1}
+                        </div>
+                        <div className="col-span-3 font-medium text-gray-700">{reward.username}</div>
+                        <div className="col-span-4 font-semibold text-emerald-600">{reward.reward}</div>
+                        <div className="col-span-4 text-gray-500">
+                          {reward.date
+                            ? new Date(reward.date).toLocaleDateString('en-CA', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit'
+                            })
+                            : 'N/A'}
+                        </div>
+                      </div>
+                    ))
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">Không có phần thưởng nào</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Pagination */}
+              {rewards.length > 0 && (
+                <div className="flex items-center justify-between mt-6">
+                  <div className="text-sm text-gray-500">
+                    Hiển thị {Math.min(rewards.length, (currentPage - 1) * itemsPerPage + 1)} - {Math.min(rewards.length, currentPage * itemsPerPage)} trong số {rewards.length} kết quả
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="p-2 rounded-md border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <div className="text-sm font-medium">
+                      Trang {currentPage} / {totalPages}
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="p-2 rounded-md border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confetti effect */}
       {showConfetti && (
