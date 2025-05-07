@@ -157,7 +157,9 @@ export default function AttendanceTracker() {
         return allAttendanceData.find((record) => {
             // Chuyển đổi date từ API sang định dạng YYYY-MM-DD để so sánh
             const recordDate = moment(record.date).format("YYYY-MM-DD")
-            return recordDate === dateString
+            const matchesDate = recordDate === dateString
+            const matchesUsername = role === "Admin" ? record.username === selectedUsername : record.username === username
+            return matchesDate && matchesUsername
         })
     }
 
@@ -180,10 +182,12 @@ export default function AttendanceTracker() {
         const isCurrentMonth = currentMonth.format("YYYY-MM") === moment().format("YYYY-MM")
         const endDate = isCurrentMonth ? today : endOfMonth
 
-        // Lọc các bản ghi trong tháng hiện tại
+        // Lọc các bản ghi trong tháng hiện tại cho username được chọn
         const monthRecords = allAttendanceData.filter((record) => {
             const recordDate = moment(record.date).format("YYYY-MM-DD")
-            return recordDate >= startOfMonth && recordDate <= endDate
+            const matchesDate = recordDate >= startOfMonth && recordDate <= endDate
+            const matchesUsername = role === "Admin" ? record.username === selectedUsername : record.username === username
+            return matchesDate && matchesUsername
         })
 
         const presentDays = monthRecords.length
