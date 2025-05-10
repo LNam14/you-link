@@ -7,6 +7,7 @@ import { Card, Spin, message, Switch, Dropdown, Modal, Checkbox, Button } from "
 import { CopyOutlined, ReloadOutlined, LoadingOutlined, MessageOutlined } from "@ant-design/icons"
 import getUserInfo from "@/components/userInfo"
 import { createPortal } from 'react-dom';
+import dynamic from 'next/dynamic'
 
 interface SiteData {
     cs: string
@@ -65,6 +66,22 @@ interface ContextMenuPosition {
     data: SiteData | null
 }
 
+// Add this near the top of the file, after other imports
+const ContextMenu = dynamic(() => Promise.resolve(({ items, x, y }: { items: any[], x: number, y: number }) => (
+    <Dropdown menu={{ items }} open={true} trigger={["contextMenu"]}>
+        <div
+            style={{
+                position: "fixed",
+                top: y,
+                left: x,
+                zIndex: 1000,
+                width: 1,
+                height: 1,
+            }}
+        />
+    </Dropdown>
+)), { ssr: false });
+
 export default function PageBody() {
     const [loading, setLoading] = useState(false)
     const [dataGPTextVN, setDataGPTextVN] = useState<SiteData[]>([])
@@ -102,6 +119,7 @@ export default function PageBody() {
     const [showNccSelectionModal, setShowNccSelectionModal] = useState(false)
     const [nccList, setNccList] = useState<Array<{ id: string; name: string }>>([])
     const [mounted, setMounted] = useState(false);
+    const portalContainerRef = useRef<HTMLDivElement | null>(null);
 
     const [showDirectMessageModal, setShowDirectMessageModal] = useState(false)
     const [directMessage, setDirectMessage] = useState("")
@@ -159,6 +177,19 @@ export default function PageBody() {
 
     useEffect(() => {
         setMounted(true);
+        // Create portal container if it doesn't exist
+        if (!document.getElementById('context-menu-portal')) {
+            const container = document.createElement('div');
+            container.id = 'context-menu-portal';
+            document.body.appendChild(container);
+            portalContainerRef.current = container;
+        }
+        return () => {
+            // Cleanup portal container on unmount
+            if (portalContainerRef.current) {
+                document.body.removeChild(portalContainerRef.current);
+            }
+        };
     }, []);
 
     const isValidDomain = (domain: string) => {
@@ -1966,22 +1997,13 @@ export default function PageBody() {
                 </div>
             </div>
 
-            {/* Context Menu */}
-            {mounted && contextMenu.visible && createPortal(
-                <Dropdown menu={{ items: contextMenuItems }} open={true} trigger={["contextMenu"]}>
-                    <div
-                        style={{
-                            position: "fixed",
-                            top: contextMenu.y,
-                            left: contextMenu.x,
-                            zIndex: 1000,
-                            width: 1,
-                            height: 1,
-                        }}
-                    />
-                </Dropdown>,
-                document.body,
-                'context-menu-portal'
+            {/* Replace the existing context menu portal with this */}
+            {mounted && contextMenu.visible && (
+                <ContextMenu
+                    items={contextMenuItems}
+                    x={contextMenu.x}
+                    y={contextMenu.y}
+                />
             )}
 
             {/* Add the NCC selection modal to the JSX return (at the end of the component, before the final closing tag) */}
