@@ -28,6 +28,7 @@ export async function POST(req: Request) {
         const cookieStore = cookies();
         const userInfo = cookieStore.get('userInfo');
         const username = userInfo ? JSON.parse(userInfo?.value).username : '';
+        const role = userInfo ? JSON.parse(userInfo?.value).role : '';
 
         // Convert rows to 2D array format for Google Sheets
         const values = rows.map(row => [
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
             '', // Blank column
             '', // Blank column
             '', // Blank column
-            username // Use username from cookies as MaNCC
+            role === "NCC" ? username : (row['NCC'] || '') // Use NCC from frontend if role is not NCC
         ]);
 
         // Append rows to the sheet

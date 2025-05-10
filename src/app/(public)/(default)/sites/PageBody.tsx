@@ -62,6 +62,8 @@ const RowHeader11: any = [
     { label: "", colspan: 2 }
 ]
 
+const userInfo = getUserInfo()
+
 const RowHeader2 = [
     "Site",
     "Chủ đề",
@@ -77,6 +79,7 @@ const RowHeader2 = [
     "Text Header ($)",
     "HH GP",
     "HH Text",
+    ...(userInfo?.role !== "NCC" ? ["NCC"] : [])
 ]
 
 // Define column settings
@@ -127,7 +130,6 @@ export default function PageBody() {
     const [initialLoading, setInitialLoading] = useState(true)
     const [showSearchHelp, setShowSearchHelp] = useState(false)
     const [activeTab, setActiveTab] = useState<"data" | "pending">("data")
-    const userInfo = getUserInfo()
     const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; row: number }>({
         visible: false,
         x: 0,
@@ -294,22 +296,34 @@ export default function PageBody() {
 
     const handleAddRows = useCallback(async () => {
         try {
-            const newRows = Array.from({ length: numberOfRows }, () => ({
-                Site: "",
-                "Chủ đề": "",
-                Nước: "",
-                "Link out": "",
-                DR: "",
-                Keywords: "",
-                "Traffic Tool": "",
-                "Tình trạng": "Bình thường",
-                "GP ($)": "",
-                "Text Footer ($)": "",
-                "Text Home ($)": "",
-                "Text Header ($)": "",
-                "HH GP": "",
-                "HH Text": ""
-            }))
+            const newRows = Array.from({ length: numberOfRows }, () => {
+                const baseRow = {
+                    Site: "",
+                    "Chủ đề": "",
+                    Nước: "",
+                    "Link out": "",
+                    DR: "",
+                    Keywords: "",
+                    "Traffic Tool": "",
+                    "Tình trạng": "Bình thường",
+                    "GP ($)": "",
+                    "Text Footer ($)": "",
+                    "Text Home ($)": "",
+                    "Text Header ($)": "",
+                    "HH GP": "",
+                    "HH Text": ""
+                };
+
+                // Add NCC column if user role is not NCC
+                if (userInfo?.role !== "NCC") {
+                    return {
+                        ...baseRow,
+                        NCC: ""
+                    };
+                }
+
+                return baseRow;
+            });
 
             setPendingRows(newRows)
             setIsAddModalVisible(false)
@@ -325,7 +339,7 @@ export default function PageBody() {
                 icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
             })
         }
-    }, [numberOfRows, messageApi])
+    }, [numberOfRows, messageApi, userInfo?.role])
 
     const handlePendingRowChange = useCallback(
         (changes: Handsontable.CellChange[] | null, source: "edit" | "paste" | Handsontable.ChangeSource) => {
