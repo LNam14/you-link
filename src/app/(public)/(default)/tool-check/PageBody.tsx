@@ -1232,21 +1232,21 @@ export default function PageBody() {
                                                 onClick={() => setShowDirectMessageModal(true)}
                                                 className="text-[13px] px-4 py-2 bg-purple-500 text-white rounded-[8px] hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 transition duration-200 ease-in-out"
                                             >
-                                                <MessageOutlined className="mr-1" /> Gửi tin nhắn trực tiếp
+                                                <MessageOutlined className="mr-1" /> Gửi đến tất cả NCC
                                             </button>
                                             <button
                                                 onClick={openNccSelectionModal}
                                                 disabled={loading || searchResults.length === 0}
                                                 className="text-[13px] px-4 py-2 bg-green-500 text-white rounded-[8px] hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 transition duration-200 ease-in-out"
                                             >
-                                                <MessageOutlined className="mr-1" /> Chọn NCC
+                                                <MessageOutlined className="mr-1" /> Chọn NCC trong bảng
                                             </button>
                                             <button
                                                 onClick={handleMessageAllNCCs}
                                                 disabled={loading || searchResults.length === 0}
                                                 className="text-[13px] px-4 py-2 bg-red-500 text-white rounded-[8px] hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 transition duration-200 ease-in-out"
                                             >
-                                                <MessageOutlined className="mr-1" /> Nhắn tất cả NCC
+                                                <MessageOutlined className="mr-1" /> Tất cả NCC trong bảng
                                             </button>
                                         </div>)}
                                 </div>
