@@ -27,18 +27,18 @@ const sheetConfigs: Record<string, SheetConfig> = {
             const safeSubtract = (a: number | null, b: number | null) =>
                 a !== null && b !== null ? formatNumber(a - b) : null
 
-            const giaBanGP = formatNumber(parseNumber(row[13]))
-            const giaBanText = formatNumber(parseNumber(row[14]))
-            const giaBanTextHome = formatNumber(parseNumber(row[15]))
-            const giaBanTextHeader = formatNumber(parseNumber(row[16]))
-            const giaBanGPLio = formatNumber(parseNumber(row[39]))
-            const giaBanTextLio = formatNumber(parseNumber(row[40]))
-            const giaBanTextHomeLio = formatNumber(parseNumber(row[41]))
-            const giaBanTextHeaderLio = formatNumber(parseNumber(row[42]))
-            const giaMuaGP = formatNumber(parseNumber(row[18]))
-            const giaMuaText = formatNumber(parseNumber(row[19]))
-            const giaMuaTextHome = formatNumber(parseNumber(row[20]))
-            const giaMuaTextHeader = formatNumber(parseNumber(row[21]))
+            const giaBanGP = row[13]
+            const giaBanText = row[14]
+            const giaBanTextHome = row[15]
+            const giaBanTextHeader = row[16]
+            const giaBanGPLio = row[39]
+            const giaBanTextLio = row[40]
+            const giaBanTextHomeLio = row[41]
+            const giaBanTextHeaderLio = row[42]
+            const giaMuaGP = row[18]
+            const giaMuaText = row[19]
+            const giaMuaTextHome = row[20]
+            const giaMuaTextHeader = row[21]
             const hoaHongGP = parseNumber(row[22]) || 0
             const hoaHongText = parseNumber(row[23]) || 0
 
