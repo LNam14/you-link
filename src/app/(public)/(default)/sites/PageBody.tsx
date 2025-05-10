@@ -41,6 +41,7 @@ const RowHeader1 = [
     "DR",
     "Keywords",
     "Traffic Tool",
+    "Ghi chú",
     "Tình trạng",
     "GP ($)",
     "Text Footer ($)",
@@ -48,7 +49,17 @@ const RowHeader1 = [
     "Text Header ($)",
     "HH GP",
     "HH Text",
+    "Kê GP",
+    "Kê Text",
     "NCC",
+]
+const RowHeader11: any = [
+    { label: ``, colspan: 1 },
+    { label: "INFO", colspan: 9 },
+    { label: "Giá", colspan: 4 },
+    { label: "Hoa hồng", colspan: 2 },
+    { label: "Kê thêm", colspan: 2 },
+    { label: "", colspan: 2 }
 ]
 
 const RowHeader2 = [
@@ -599,7 +610,7 @@ export default function PageBody() {
                                     </div>
                                 ) : (<HotTable
                                     themeName="ht-theme-main"
-                                    colHeaders={RowHeader1}
+                                    nestedHeaders={[RowHeader11, RowHeader1]}
                                     filters={true}
                                     width="auto"
                                     autoColumnSize={true}

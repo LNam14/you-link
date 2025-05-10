@@ -56,6 +56,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
             DR: row[7] || "",
             Keywords: row[8] || "",
             "Traffic Tool": row[9] || "",
+            "Ghi chú": row[10] || "",
             "Tình trạng": row[11] || "",
             "GP ($)": row[17] || 0,
             "Text Footer ($)": row[18] || 0,
@@ -63,6 +64,8 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "Text Header ($)": row[20] || 0,
             "HH GP": row[21] || 0,
             "HH Text": row[22] || 0,
+            "Kê GP": row[23] || 0,
+            "Kê Text": row[24] || 0,
             "MaNCC": row[26] || "",
         }),
         spreadsheetId: SPREADSHEET_ID
@@ -78,6 +81,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
             DR: row[7] || "",
             Keywords: row[8] || "",
             "Traffic Tool": row[9] || "",
+            "Ghi chú": row[10] || "",
             "Tình trạng": row[11] || "",
             "GP ($)": row[17] || 0,
             "Text Footer ($)": row[18] || 0,
@@ -85,6 +89,8 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "Text Header ($)": row[20] || 0,
             "HH GP": row[21] || 0,
             "HH Text": row[22] || 0,
+            "Kê GP": row[23] || 0,
+            "Kê Text": row[24] || 0,
             "MaNCC": row[26] || "",
         }),
         spreadsheetId: SPREADSHEET_ID

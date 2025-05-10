@@ -13,6 +13,7 @@ const FIELD_COLUMN_MAP = {
     'DR': 8, // H column
     'Keywords': 9, // I column
     'Traffic Tool': 10, // J column
+    'Ghi chú': 11, // K column
     'Tình trạng': 12, // L column
     'GP ($)': 18, // U column (GP ($))
     'Text Footer ($)': 19, // V column (Text Footer($))
@@ -20,6 +21,8 @@ const FIELD_COLUMN_MAP = {
     'Text Header ($)': 21, // X column (Text Header($))
     'HH GP': 22, // Y column (HH GP)
     'HH Text': 23, // Z column (HH Text)
+    'Kê GP': 24, // AA column (Kê GP)
+    'Kê Text': 25, // AB column (Kê Text)
 };
 
 export async function POST(req: Request) {
