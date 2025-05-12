@@ -384,7 +384,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                 </div>
                 <p className="text-sm text-gray-700">
                   Phần thưởng 1 phân hàng có hiệu lực từ tháng 6
-
+                  tháng này quay chơi chơi thôi :v
                 </p>
                 {!userInfo && <p className="text-red-600 text-sm">Vui lòng đăng nhập để quay thưởng</p>}
                 {userInfo && userInfo.role !== "Nhân viên" && (
