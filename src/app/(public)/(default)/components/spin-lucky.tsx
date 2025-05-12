@@ -380,7 +380,12 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                 <div className="flex items-center gap-2 mb-2">
                   <Sparkles className="h-5 w-5 text-emerald-600" />
                   <h4 className="font-semibold text-gray-900">Lượt quay còn lại: {spinCount}</h4>
+
                 </div>
+                <p className="text-sm text-gray-700">
+                  Phần thưởng 1 phân hàng có hiệu lực từ tháng 6
+
+                </p>
                 {!userInfo && <p className="text-red-600 text-sm">Vui lòng đăng nhập để quay thưởng</p>}
                 {userInfo && userInfo.role !== "Nhân viên" && (
                   <p className="text-red-600 text-sm">Chỉ nhân viên mới được quay thưởng</p>
