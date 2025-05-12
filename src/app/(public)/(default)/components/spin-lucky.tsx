@@ -90,7 +90,31 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       style: { backgroundColor: "#0D47A1", textColor: "white" },
     },
     {
+      option: "100.000 VND",
+      style: { backgroundColor: "#FFD700", textColor: "black" },
+    },
+    {
+      option: "200.000 VND",
+      style: { backgroundColor: "#FFA000", textColor: "black" },
+    },
+    {
       option: "500.000 VND",
+      style: { backgroundColor: "#FF6F00", textColor: "black" },
+    },
+    {
+      option: "-100.000 VND",
+      style: { backgroundColor: "#F44336", textColor: "white" },
+    },
+    {
+      option: "-200.000 VND",
+      style: { backgroundColor: "#D32F2F", textColor: "white" },
+    },
+    {
+      option: "-500.000 VND",
+      style: { backgroundColor: "#B71C1C", textColor: "white" },
+    },
+    {
+      option: "1 phân vàng (tháng 6 mới tính nha)",
       style: { backgroundColor: "#FFD700", textColor: "black" },
     },
     {
@@ -104,15 +128,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     {
       option: "1 tràng vỗ tay",
       style: { backgroundColor: "#03A9F4", textColor: "black" },
-    },
-    {
-      option: "- 5.000 VND",
-      style: { backgroundColor: "#F44336", textColor: "white" },
-    },
-    {
-      option: "- 10.000 VND",
-      style: { backgroundColor: "#D32F2F", textColor: "white" },
-    },
+    }
   ]
 
   // Check and reset daily spins
@@ -205,12 +221,8 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
   // Function to get weighted prize number
   const getWeightedPrizeNumber = () => {
-    // Create array of indices excluding the 500.000 VND prize (index 5)
-    const availableIndices = Array.from({ length: data.length }, (_, i) => i).filter((i) => i !== 5)
-
-    // Randomly select from available indices
-    const randomIndex = Math.floor(Math.random() * availableIndices.length)
-    return availableIndices[randomIndex]
+    // Return random index from all available prizes
+    return Math.floor(Math.random() * data.length)
   }
 
   const handleStopSpinning = async () => {
