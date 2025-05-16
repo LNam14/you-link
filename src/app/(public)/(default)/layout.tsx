@@ -11,6 +11,7 @@ import { message } from "antd"
 import { database } from "@/app/firebase/firebase"
 import Header from "./components/ui/header"
 import Footer from "./components/ui/footer"
+import Script from "next/script"
 
 interface CartItem {
   MaDon: string
@@ -483,10 +484,12 @@ export default function ClientLayout({
       </main>
       <Footer border={true} />
 
+      <Script src="https://cdn.botpress.cloud/webchat/v2.5/inject.js" strategy="afterInteractive"></Script>
+      <Script src="https://files.bpcontent.cloud/2025/05/16/10/20250516103809-ABWVLW5J.js" strategy="afterInteractive"></Script>
       {cartItems.length > 0 && (
         <button
           onClick={toggleCart}
-          className="fixed bottom-14 mb-1 right-5 p-3 rounded-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 z-40"
+          className="fixed bottom-28 mb-1 right-5 p-3 rounded-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 z-40"
           aria-label="Mở giỏ hàng"
         >
           <div className="relative">
