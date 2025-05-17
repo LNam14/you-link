@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import moment from "moment"
 import "moment/locale/vi"
-import { ChevronLeft, ChevronRight, Calendar, User, CheckCircle, DollarSign } from "lucide-react"
+import { ChevronLeft, ChevronRight, Calendar, User, CheckCircle, DollarSign, Coins } from "lucide-react"
 import attendanceApiRequest from "@/apiRequests/attendance"
 import getUserInfo from "@/components/userInfo"
 import { toast, Toaster } from "sonner"
@@ -46,10 +46,16 @@ export default function AttendanceTracker() {
                 // Nếu là Admin, lấy danh sách username duy nhất
                 if (role === "Admin") {
                     const usernames = [...new Set(response.map((record) => record.username))]
-                    setUniqueUsernames(usernames)
+                    // Sort usernames that start with 'BH' followed by numbers
+                    const sortedUsernames = usernames.sort((a, b) => {
+                        const numA = parseInt(a.replace('BH', '')) || 0;
+                        const numB = parseInt(b.replace('BH', '')) || 0;
+                        return numA - numB;
+                    });
+                    setUniqueUsernames(sortedUsernames)
                     // Nếu chưa chọn username, mặc định chọn username đầu tiên
-                    if (!selectedUsername && usernames.length > 0) {
-                        setSelectedUsername(usernames[0])
+                    if (!selectedUsername && sortedUsernames.length > 0) {
+                        setSelectedUsername(sortedUsernames[0])
                     }
                 }
             } else {
@@ -232,38 +238,37 @@ export default function AttendanceTracker() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 py-6 px-4">
+        <div className="min-h-screen py-6 px-4">
             <Toaster position="top-right" expand={true} richColors />
             {isLoading && !allAttendanceData.length && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white p-6 rounded-xl shadow-xl flex flex-col items-center">
-                        <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                         <p className="text-gray-700 font-medium">Đang tải dữ liệu...</p>
                     </div>
                 </div>
             )}
             <div className="w-full max-w-7xl mx-auto">
                 {/* Header */}
-                <div className="bg-white rounded-t-2xl shadow-xl p-4 border-b border-indigo-100">
-                    <div className="flex items-center space-x-3 mb-2">
-                        <div className="bg-indigo-600 p-2 rounded-lg shadow-md">
-                            <Calendar className="h-8 w-8 text-white" />
+                <div className="bg-white rounded-t-xl shadow-xl overflow-hidden border border-blue-100">
+                    <div className="p-6 border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                                <Calendar className="h-6 w-6" />
+                                Hệ Thống Chấm Công
+                            </h2>
                         </div>
-                        <h1 className="text-lg md:text-xl font-bold text-gray-800 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                            Hệ Thống Chấm Công
-                        </h1>
                     </div>
-
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                        <div className="flex items-center space-x-3 bg-indigo-50 px-4 py-2 rounded-lg">
-                            <div className="bg-indigo-500 p-2 rounded-full shadow-sm">
+                        <div className="flex items-center space-x-3 bg-blue-50 px-4 py-2 rounded-lg">
+                            <div className="bg-blue-500 p-2 rounded-full shadow-sm">
                                 <User className="h-5 w-5 text-white" />
                             </div>
                             {role === "Admin" ? (
                                 <div className="flex items-center space-x-3">
                                     {isLoading ? (
                                         <div className="flex items-center space-x-2">
-                                            <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                                            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                             <span className="text-sm text-gray-600">Đang tải...</span>
                                         </div>
                                     ) : (
@@ -272,7 +277,7 @@ export default function AttendanceTracker() {
                                                 <select
                                                     value={selectedUsername}
                                                     onChange={(e) => setSelectedUsername(e.target.value)}
-                                                    className="appearance-none bg-white border-2 border-indigo-300 rounded-lg pl-3 pr-10 py-2 text-sm font-medium text-gray-700 shadow-sm hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                                                    className="appearance-none bg-white border-2 border-blue-300 rounded-lg pl-3 pr-10 py-2 text-sm font-medium text-gray-700 shadow-sm hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                                                 >
                                                     {uniqueUsernames.map((username) => (
                                                         <option key={username} value={username}>
@@ -280,7 +285,7 @@ export default function AttendanceTracker() {
                                                         </option>
                                                     ))}
                                                 </select>
-                                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-indigo-500">
+                                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-blue-500">
                                                     <svg
                                                         className="h-5 w-5"
                                                         xmlns="http://www.w3.org/2000/svg"
@@ -299,7 +304,7 @@ export default function AttendanceTracker() {
                                             <button
                                                 onClick={fetchAttendanceData}
                                                 disabled={isLoading}
-                                                className="flex items-center justify-center h-10 px-3 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                className="flex items-center justify-center h-10 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
                                             >
                                                 {isLoading ? (
                                                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -329,11 +334,11 @@ export default function AttendanceTracker() {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="flex items-center space-x-2 bg-green-100 text-green-700 px-4py-2 rounded-lg text-sm shadow-sm border border-green-200">
+                            <div className="flex items-center space-x-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-lg text-sm shadow-sm border border-blue-200">
                                 <CheckCircle className="h-5 w-5" />
                                 <span className="font-medium">Đi làm: {monthStats.presentDays} ngày</span>
                             </div>
-                            <div className="flex items-center space-x-2 bg-purple-100 text-purple-700 px-4 py-2 rounded-lg text-sm shadow-sm border border-purple-200">
+                            <div className="flex items-center space-x-2 bg-teal-100 text-teal-700 px-4 py-2 rounded-lg text-sm shadow-sm border border-teal-200">
                                 <DollarSign className="h-5 w-5" />
                                 <span className="font-medium">Ngân lượng: {formatCurrency(monthStats.totalSalary)}</span>
                             </div>
@@ -342,10 +347,10 @@ export default function AttendanceTracker() {
                 </div>
 
                 {/* Calendar Navigation */}
-                <div className="bg-white px-6 border-b border-indigo-100 shadow-md">
+                <div className="bg-white px-6 border-b border-blue-100 shadow-md">
                     <div className="flex items-center justify-between">
                         <button
-                            className="p-2 rounded-full hover:bg-indigo-50 transition-colors text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                            className="p-2 rounded-full hover:bg-blue-50 transition-colors text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-200"
                             onClick={previousMonth}
                         >
                             <ChevronLeft className="h-6 w-6" />
@@ -354,7 +359,7 @@ export default function AttendanceTracker() {
                             {currentMonth.format("MMMM YYYY")}
                         </h2>
                         <button
-                            className="p-2 rounded-full hover:bg-indigo-50 transition-colors text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                            className="p-2 rounded-full hover:bg-blue-50 transition-colors text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-200"
                             onClick={nextMonth}
                         >
                             <ChevronRight className="h-6 w-6" />
@@ -363,10 +368,10 @@ export default function AttendanceTracker() {
                 </div>
 
                 {/* Legend */}
-                <div className="bg-white px-6 py-1 border-b border-indigo-100">
+                <div className="bg-white px-6 py-1 border-b border-blue-100">
                     <div className="flex flex-wrap items-center gap-4 text-sm">
                         <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-green-500 rounded"></div>
+                            <div className="w-4 h-4 bg-blue-500 rounded"></div>
                             <span className="font-medium">Đi làm</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -374,7 +379,7 @@ export default function AttendanceTracker() {
                             <span className="font-medium">Nghỉ</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-indigo-200 border border-indigo-400 rounded"></div>
+                            <div className="w-4 h-4 bg-teal-200 border border-teal-400 rounded"></div>
                             <span className="font-medium">Hôm nay</span>
                         </div>
                     </div>
@@ -411,10 +416,10 @@ export default function AttendanceTracker() {
                             let textColor = isWeekend ? "text-gray-400" : "text-gray-700"
 
                             if (attendanceRecord) {
-                                bgColor = "bg-green-100"
-                                borderColor = "border-green-500"
+                                bgColor = "bg-blue-100"
+                                borderColor = "border-blue-500"
                                 statusText = isTodayDate ? "Đã chấm công" : "Đi làm"
-                                textColor = "text-green-700"
+                                textColor = "text-blue-700"
                             } else if (isPast && !isFuture) {
                                 // Ngày trong quá khứ mà không có bản ghi thì mặc định là "Nghỉ"
                                 bgColor = "bg-red-100"
@@ -422,9 +427,9 @@ export default function AttendanceTracker() {
                                 statusText = "Nghỉ"
                                 textColor = "text-red-700"
                             } else if (isTodayDate) {
-                                bgColor = "bg-indigo-100"
-                                borderColor = "border-indigo-400"
-                                textColor = "text-indigo-700"
+                                bgColor = "bg-teal-100"
+                                borderColor = "border-teal-400"
+                                textColor = "text-teal-700"
                             } else if (isPast) {
                                 bgColor = "bg-gray-50"
                             }
@@ -432,17 +437,15 @@ export default function AttendanceTracker() {
                             return (
                                 <div
                                     key={day.format()}
-                                    className={`h-16 md:h-22 mb-1 p-0.5 rounded-lg flex flex-col transition-all ${isTodayDate ? "ring-2 ring-indigo-500 shadow-md" : `border ${borderColor}`} ${bgColor} hover:shadow-md`}
+                                    className={`h-16 md:h-22 mb-1 p-0.5 rounded-lg flex flex-col transition-all ${isTodayDate ? "ring-2 ring-blue-500 shadow-md" : `border ${borderColor}`} ${bgColor} hover:shadow-md`}
                                 >
-                                    <div
-                                        className={`text-right p-0.5 font-medium text-xs ${isTodayDate ? "text-indigo-700" : textColor}`}
-                                    >
+                                    <div className={`text-right p-0.5 font-medium text-xs ${isTodayDate ? "text-blue-700" : textColor}`}>
                                         {day.format("D")}
                                     </div>
 
                                     {(attendanceRecord || (isPast && !isFuture && !attendanceRecord)) && !isFuture && (
                                         <div
-                                            className={`text-center text-xs font-medium ${attendanceRecord ? (isTodayDate ? "text-indigo-700" : "text-green-700") : "text-red-700"}`}
+                                            className={`text-center text-xs font-medium ${attendanceRecord ? (isTodayDate ? "text-blue-700" : "text-blue-700") : "text-red-700"}`}
                                         >
                                             {statusText}
                                         </div>
@@ -452,7 +455,7 @@ export default function AttendanceTracker() {
                                         {isTodayDate && !attendanceRecord ? (
                                             <div className="w-full flex justify-center">
                                                 <button
-                                                    className={`py-1 px-2 text-xs rounded-lg transition-all bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-300 ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                                                    className={`py-1 px-2 text-xs rounded-lg transition-all bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white shadow-md focus:outline-none focus:ring-2 focus:ring-teal-300 ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
                                                     onClick={() => handleAttendance(day)}
                                                     disabled={isLoading}
                                                 >

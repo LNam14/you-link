@@ -48,7 +48,7 @@ export default function MuaBanPage() {
   }
 
   // Check if user has one of the required roles: Admin, NCC, or Khách hàng
-  if (!user || !["Admin", "NCC", "Khách hàng"].includes(user.role)) {
+  if (!user || !["Admin", "NCC", "Khách hàng", "Nhân viên"].includes(user.role)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
         <motion.div

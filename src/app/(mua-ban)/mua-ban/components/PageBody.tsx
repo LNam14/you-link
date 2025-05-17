@@ -13,7 +13,11 @@ import { database } from "@/app/firebase/firebase"
 import { Modal, Button, message as antdMessage } from "antd"
 import HelpButton from "./HelpButton"
 import { updateUserBalance } from "@/app/firebase/firebase"
-import sheetApiRequest from "@/apiRequests/sheet"
+import { FilterX, SearchX } from "lucide-react"
+import { CheckCircle } from "lucide-react"
+import { FileClock } from "lucide-react"
+import { XCircle } from "lucide-react"
+// import sheetApiRequest from "@/apiRequests/sheet"
 
 type PageBodyProps = {
     supplierName: string | null
@@ -400,13 +404,13 @@ const ChatDialog = memo(
                             ) {
                                 await updateUserBalance(updatedOrder.KHMua, refundAmount, updatedOrder.TenNCC)
                                 updatedOrder.paymentStatus1 = "refunded"
-                                sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã đồng ý hoàn ${refundAmount}$ cho đơn hàng ${updatedOrder.MaDon}, số tiền trên đã được trừ khỏi ví của bạn`)
-                                sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được hoàn tiền, số tiền ${refundAmount}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
+                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã đồng ý hoàn ${refundAmount}$ cho đơn hàng ${updatedOrder.MaDon}, số tiền trên đã được trừ khỏi ví của bạn`)
+                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được hoàn tiền, số tiền ${refundAmount}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
                             }
                         } else {
                             updatedOrder.TinhTrangNCC = "Từ chối hoàn"
-                            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã từ chối yêu cầu hoàn tiền của đơn hàng ${updatedOrder.MaDon}`)
-                            sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hoàn tiền đối với đơn hàng ${updatedOrder.MaDon} đã bị từ chối`)
+                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã từ chối yêu cầu hoàn tiền của đơn hàng ${updatedOrder.MaDon}`)
+                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hoàn tiền đối với đơn hàng ${updatedOrder.MaDon} đã bị từ chối`)
                         }
 
                         ordersArray[orderIndex] = updatedOrder
@@ -450,8 +454,8 @@ const ChatDialog = memo(
                 isComplaint: true,
                 complaintStatus: "pending",
             }
-            sheetApiRequest.getIDNCC(currentOrder.TenNCC, `Khách hàng yêu cầu hoàn tiền đối với trường hợp ${option} cho đơn hàng ${currentChatOrderId}, kiểm tra tại https://www.ylink.shop/mua-ban`)
-            sheetApiRequest.getIDKH(currentOrder.TenKH, `Yêu cầu hoàn tiền đối với trường hợp ${option} cho đơn hàng ${currentChatOrderId} đã được gửi`)
+            // sheetApiRequest.getIDNCC(currentOrder.TenNCC, `Khách hàng yêu cầu hoàn tiền đối với trường hợp ${option} cho đơn hàng ${currentChatOrderId}, kiểm tra tại https://www.ylink.shop/mua-ban`)
+            // sheetApiRequest.getIDKH(currentOrder.TenKH, `Yêu cầu hoàn tiền đối với trường hợp ${option} cho đơn hàng ${currentChatOrderId} đã được gửi`)
             if (role === "NCC") {
                 message.supplierName = supplierName || user?.name || user?.displayName || ""
             } else if (role === "Khách hàng") {
@@ -656,6 +660,71 @@ export default function PageBody({ supplierName }: PageBodyProps) {
     const [khMuaIB, setKhMuaIB] = useState<string>("")
     const [tenNBIB, setTenNBIB] = useState<string>("")
     const [selectedOrder, setSelectedOrder] = useState<any>(null)
+    const [maKHFilter, setMaKHFilter] = useState<string>("")
+    const [tenNCCFilter, setTenNCCFilter] = useState<string>("")
+    const [uniqueMaKHList, setUniqueMaKHList] = useState<string[]>([])
+    const [uniqueTenNCCList, setUniqueTenNCCList] = useState<string[]>([])
+    const [totalCompleted, setTotalCompleted] = useState<number>(0)
+    const [totalNotEntered, setTotalNotEntered] = useState<number>(0)
+    const [totalCanceled, setTotalCanceled] = useState<number>(0)
+    const [totalNotIndexed, setTotalNotIndexed] = useState<number>(0)
+
+    // Add function to extract MaKH from MaDon
+    const extractMaKH = (maDon: string) => {
+        const parts = maDon.split('-');
+        return parts[0] || '';
+    };
+
+    // Update uniqueMaKHList and uniqueTenNCCList when orders change
+    useEffect(() => {
+        const uniqueMaKHs = Array.from(new Set(orders.map(order => extractMaKH(order.MaDon)))).sort();
+        const uniqueTenNCCs = Array.from(new Set(orders.map(order => order.TenNCC))).filter(Boolean).sort();
+        setUniqueMaKHList(uniqueMaKHs);
+        setUniqueTenNCCList(uniqueTenNCCs);
+
+        // Calculate totals
+        const completed = orders.filter(order =>
+            (order.TinhTrangKH === "Đơn OK" ||
+                (order.TinhTrangKH === "Đã nhập" && order.TinhTrangNCC === "Đã lên bài")) &&
+            order.Index === "Indexed"
+        ).length;
+
+        const notEntered = orders.filter(order =>
+            order.TinhTrangKH === "Chưa nhập" ||
+            !order.TinhTrangKH
+        ).length;
+
+        const canceled = orders.filter(order =>
+            order.TinhTrangKH?.includes("Hủy") ||
+            order.TinhTrangNCC === "Hủy đơn" ||
+            order.TinhTrangNCC === "Đồng ý hủy"
+        ).length;
+
+        const notIndexed = orders.filter(order =>
+            order.Loai === "GP" &&
+            order.Index === "No" &&
+            order.TinhTrangKH === "Đã nhập" &&
+            order.TinhTrangNCC === "Đã lên bài"
+        ).length;
+
+        setTotalCompleted(completed);
+        setTotalNotEntered(notEntered);
+        setTotalCanceled(canceled);
+        setTotalNotIndexed(notIndexed);
+    }, [orders]);
+
+    // Filter orders based on filters
+    const filteredOrders = useMemo(() => {
+        if (!maKHFilter && !tenNCCFilter || (userInfo?.role !== "Admin" && userInfo?.role !== "Nhân viên")) {
+            return orders;
+        }
+        return orders.filter(order => {
+            const maKH = extractMaKH(order.MaDon);
+            const matchesMaKH = !maKHFilter || maKH === maKHFilter;
+            const matchesTenNCC = !tenNCCFilter || order.TenNCC === tenNCCFilter;
+            return matchesMaKH && matchesTenNCC;
+        });
+    }, [orders, maKHFilter, tenNCCFilter, userInfo?.role]);
 
     const handleContextMenuAction = async (row: number, action: string) => {
         // Skip if this is a summary row
@@ -694,8 +763,8 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                     updatedOrder.TinhTrangKH = "Hủy - no index"
                 } else if (updatedOrder.Index === "Indexed") {
                     updatedOrder.TinhTrangKH = "Hủy - đã index"
-                    sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Khách hàng đang yêu cầu hủy đơn ${updatedOrder.MaDon}, xử lý tại https://www.ylink.shop/mua-ban`)
-                    sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn hàng ${updatedOrder.MaDon} đã được gửi, vui lòng chờ phản hồi`)
+                    // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Khách hàng đang yêu cầu hủy đơn ${updatedOrder.MaDon}, xử lý tại https://www.ylink.shop/mua-ban`)
+                    // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn hàng ${updatedOrder.MaDon} đã được gửi, vui lòng chờ phản hồi`)
                 }
             } else {
                 // Non-GP order cancellation logic
@@ -722,20 +791,20 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                             )
                             await updateUserBalance(updatedOrder.KHMua, price, updatedOrder.TenNCC)
                             updatedOrder.paymentStatus1 = "refunded"
-                            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Khách hàng đã hủy đơn ${updatedOrder.MaDon}, đây là đơn hàng ${updatedOrder.Loai} và được yêu cầu hủy trước 12h. Hệ thống đã tự động phê duyệt yêu cầu, số tiền ${price}$ đã bị trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
-                            sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được hủy thành công, số tiền ${price}$ đã được cộng vào vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Khách hàng đã hủy đơn ${updatedOrder.MaDon}, đây là đơn hàng ${updatedOrder.Loai} và được yêu cầu hủy trước 12h. Hệ thống đã tự động phê duyệt yêu cầu, số tiền ${price}$ đã bị trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được hủy thành công, số tiền ${price}$ đã được cộng vào vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
                         } else {
                             updatedOrder.TinhTrangKH = "Hủy - đã lên bài"
-                            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Khách hàng đang yêu cầu hủy đơn ${updatedOrder.MaDon}, xử lý tại https://www.ylink.shop/mua-ban`)
-                            sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn hàng ${updatedOrder.MaDon} đã được gửi, vui lòng chờ phản hồi`)
+                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Khách hàng đang yêu cầu hủy đơn ${updatedOrder.MaDon}, xử lý tại https://www.ylink.shop/mua-ban`)
+                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn hàng ${updatedOrder.MaDon} đã được gửi, vui lòng chờ phản hồi`)
                         }
                     }
                 }
             }
         } else if (action === "ncc_cancel") {
             updatedOrder.TinhTrangNCC = "Hủy đơn"
-            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã được hủy thành công`)
-            sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã bị hủy, đặt đơn mới tại https://www.ylink.shop`)
+            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã được hủy thành công`)
+            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã bị hủy, đặt đơn mới tại https://www.ylink.shop`)
 
         } else if (action === "ncc_ok") {
             updatedOrder.TinhTrangNCC = "Đã lên bài"
@@ -797,8 +866,8 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                 ]);
 
                 updatedOrder.paymentStatus = "paid"
-                sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
-                sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
             }
         } else if (action === "ncc_accept_cancel") {
             updatedOrder.TinhTrangNCC = "Đồng ý hủy"
@@ -813,12 +882,12 @@ export default function PageBody({ supplierName }: PageBodyProps) {
             )
             await updateUserBalance(updatedOrder.KHMua, price, updatedOrder.TenNCC)
             updatedOrder.paymentStatus1 = "refunded"
-            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã đồng ý yêu cầu hủy đơn ${updatedOrder.MaDon}, số tiền ${price}$ đã bị trừ khỏi vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
-            sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn ${updatedOrder.MaDon} thành công, số tiền ${price}$ đã được cộng vào vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã đồng ý yêu cầu hủy đơn ${updatedOrder.MaDon}, số tiền ${price}$ đã bị trừ khỏi vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn ${updatedOrder.MaDon} thành công, số tiền ${price}$ đã được cộng vào vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
         } else if (action === "ncc_reject_cancel") {
             updatedOrder.TinhTrangNCC = "Từ chối hủy"
-            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã từ chối yêu cầu hủy đơn ${updatedOrder.MaDon}`)
-            sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn ${updatedOrder.MaDon} đã bị từ chối`)
+            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã từ chối yêu cầu hủy đơn ${updatedOrder.MaDon}`)
+            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn ${updatedOrder.MaDon} đã bị từ chối`)
         }
 
         // Update the order in Firebase
@@ -832,7 +901,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
     }
 
     const contextMenuItems =
-        userInfo?.role === "Khách hàng" || userInfo?.role === "Admin"
+        userInfo?.role === "Khách hàng" || userInfo?.role === "Admin" || userInfo?.role === "Nhân viên"
             ? {
                 items: {
                     ok: {
@@ -923,7 +992,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                     },
                 },
             }
-            : userInfo?.role === "NCC" || userInfo?.role === "Admin"
+            : userInfo?.role === "NCC" || userInfo?.role === "Admin" || userInfo?.role === "Nhân viên"
                 ? {
                     items: {
                         ncc_cancel: {
@@ -1287,7 +1356,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                 const month = String(now.getMonth() + 1).padStart(2, "0")
                                 const year = now.getFullYear()
                                 updatedOrder.NgayOrder = `${day}/${month}/${year}`
-                                sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/mua-ban để xử lý đơn hàng ${updatedOrder.MaDon}`)
+                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/mua-ban để xử lý đơn hàng ${updatedOrder.MaDon}`)
                             } else {
                                 updatedOrder.TinhTrangKH = "Chưa nhập"
                             }
@@ -1302,7 +1371,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                 const day = String(now.getDate()).padStart(2, "0")
                                 const month = String(now.getMonth() + 1).padStart(2, "0")
                                 updatedOrder.NgayBan = `${day}/${month}`
-                                sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, kiểm tra tại https://www.ylink.shop/mua-ban`)
                             } else {
                                 updatedOrder.TinhTrangNCC = "Chưa nhận đơn"
                                 updatedOrder.NgayBan = ""
@@ -1324,7 +1393,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                         if (updatedOrder.Loai !== "GP") {
                             if (updatedOrder.Anchor1 && updatedOrder.Link1) {
                                 updatedOrder.TinhTrangKH = "Đã nhập"
-                                sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/mua-ban để xử lý đơn hàng ${updatedOrder.MaDon}`)
+                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/mua-ban để xử lý đơn hàng ${updatedOrder.MaDon}`)
                             } else {
                                 updatedOrder.TinhTrangKH = "Chưa nhập"
                             }
@@ -1376,8 +1445,8 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                 )
                                 await updateUserBalance(updatedOrder.KHMua, -price, updatedOrder.TenNCC)
                                 updatedOrder.paymentStatus = "paid"
-                                sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
-                                sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
+                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
+                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
                             }
                         } else if (updatedOrder.Index === "Indexed" && newValue !== "Indexed") {
                             // Only process refund if payment was previously processed
@@ -1468,8 +1537,8 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                 ]);
 
                                 updatedOrder.paymentStatus = "paid"
-                                sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
-                                sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
                             }
                         }
                         break
@@ -1627,7 +1696,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
 
     const data = useMemo(() => {
         // Calculate summary data
-        const summary = calculateSummaryRows(orders)
+        const summary = calculateSummaryRows(filteredOrders)
 
         // Group orders by category
         const weeklyOrders: Record<string, any[]> = {}
@@ -1636,7 +1705,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
         const canceledOrders: any[] = []
         const otherOrders: any[] = []
 
-        orders.forEach((order) => {
+        filteredOrders.forEach((order) => {
             // Check if order is canceled
             const isCanceled =
                 order.TinhTrangKH === "Hủy đơn" ||
@@ -2302,7 +2371,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
         }
 
         return finalData
-    }, [orders, calculateSummaryRows])
+    }, [filteredOrders, calculateSummaryRows, orders, orderKeys])
 
     // Load chat messages when currentChatOrderId changes
     useEffect(() => {
@@ -2397,9 +2466,9 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                     ordersArray[orderIndex] = updatedOrder
                     // Send notification based on sender role
                     if (userInfo?.role === "Khách hàng") {
-                        sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `KH đơn ${currentChatOrderId} - ` + newChatMessage.trim())
+                        // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `KH đơn ${currentChatOrderId} - ` + newChatMessage.trim())
                     } else if (userInfo?.role === "NCC") {
-                        sheetApiRequest.getIDKH(updatedOrder.TenKH, `NCC đơn ${currentChatOrderId} - ` + newChatMessage.trim())
+                        // sheetApiRequest.getIDKH(updatedOrder.TenKH, `NCC đơn ${currentChatOrderId} - ` + newChatMessage.trim())
                     }
                     // Save the updated orders array back to Firebase
                     await set(ordersRef, ordersArray)
@@ -2500,6 +2569,101 @@ export default function PageBody({ supplierName }: PageBodyProps) {
 
     return (
         <>
+            {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
+                <div className="p-2">
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
+                        {/* Thống kê */}
+                        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                            <div className="bg-green-50 border border-green-200 rounded-2xl shadow hover:shadow-md transition-all">
+                                <div className="flex items-center text-green-700 mt-2 justify-center">
+                                    <CheckCircle className="w-5 h-5 mr-2" />
+                                    <span className="text-sm font-semibold">Đơn hoàn thành</span>
+                                </div>
+                                <div className="text-2xl text-center font-bold text-green-600">{totalCompleted}</div>
+                            </div>
+                            <div className="bg-purple-50 border border-purple-200 rounded-2xl shadow hover:shadow-md transition-all">
+                                <div className="flex items-center text-purple-700 mt-2 justify-center">
+                                    <SearchX className="w-5 h-5 mr-2" />
+                                    <span className="text-sm font-semibold">Đơn chưa Index</span>
+                                </div>
+                                <div className="text-2xl text-center font-bold text-purple-600">{totalNotIndexed}</div>
+                            </div>
+                            <div className="bg-orange-50 border border-orange-200 rounded-2xl shadow hover:shadow-md transition-all">
+                                <div className="flex items-center text-orange-700 mt-2 justify-center">
+                                    <FileClock className="w-5 h-5 mr-2" />
+                                    <span className="text-sm font-semibold">Đơn chưa nhập</span>
+                                </div>
+                                <div className="text-2xl text-center font-bold text-orange-600">{totalNotEntered}</div>
+                            </div>
+                            <div className="bg-red-50 border border-red-200 rounded-2xl shadow hover:shadow-md transition-all">
+                                <div className="flex items-center text-red-700 mt-2 justify-center">
+                                    <XCircle className="w-5 h-5 mr-2" />
+                                    <span className="text-sm font-semibold">Đơn hủy</span>
+                                </div>
+                                <div className="text-2xl text-center font-bold text-red-600">{totalCanceled}</div>
+                            </div>
+                        </div>
+
+                        {/* Bộ lọc */}
+                        <div className="lg:col-span-2 space-y-6">
+                            <div className="flex flex-col md:flex-row gap-6">
+                                <div className="flex-1">
+                                    <label htmlFor="maKHFilter" className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Lọc theo Mã KH
+                                    </label>
+                                    <select
+                                        id="maKHFilter"
+                                        value={maKHFilter}
+                                        onChange={(e) => setMaKHFilter(e.target.value)}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                                    >
+                                        <option value="">Tất cả</option>
+                                        {uniqueMaKHList.map((maKH) => (
+                                            <option key={maKH} value={maKH}>{maKH}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="flex-1">
+                                    <label htmlFor="tenNCCFilter" className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Lọc theo Tên NCC
+                                    </label>
+                                    <select
+                                        id="tenNCCFilter"
+                                        value={tenNCCFilter}
+                                        onChange={(e) => setTenNCCFilter(e.target.value)}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                                    >
+                                        <option value="">Tất cả</option>
+                                        {uniqueTenNCCList.map((tenNCC) => (
+                                            <option key={tenNCC} value={tenNCC}>{tenNCC}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex-1">
+                                    <label htmlFor="tenNCCFilter" className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Hành động
+                                    </label>
+                                    <button
+                                        onClick={() => {
+                                            setMaKHFilter("");
+                                            setTenNCCFilter("");
+                                        }}
+                                        disabled={!maKHFilter && !tenNCCFilter}
+                                        className={`inline-flex items-center px-5 py-2.5 text-sm font-medium text-white rounded-xl transition shadow ${!maKHFilter && !tenNCCFilter
+                                            ? 'bg-gray-400 cursor-not-allowed'
+                                            : 'bg-red-500 hover:bg-red-600'
+                                            }`}
+                                    >
+                                        <FilterX className="w-4 h-4 mr-2" />
+                                        Xóa bộ lọc
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
             <HotTable
                 themeName="ht-theme-main"
                 colHeaders={RowHeader2}
@@ -2642,7 +2806,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                             const month = String(now.getMonth() + 1).padStart(2, "0");
                                             const year = now.getFullYear();
                                             updatedOrder.NgayOrder = `${day}/${month}/${year}`;
-                                            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/mua-ban để xử lý đơn hàng ${updatedOrder.MaDon}`)
+                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/mua-ban để xử lý đơn hàng ${updatedOrder.MaDon}`)
                                         } else {
                                             updatedOrder.TinhTrangKH = "Chưa nhập";
                                         }
@@ -2657,7 +2821,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                             const day = String(now.getDate()).padStart(2, "0");
                                             const month = String(now.getMonth() + 1).padStart(2, "0");
                                             updatedOrder.NgayBan = `${day}/${month}`;
-                                            sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, kiểm tra tại https://www.ylink.shop/mua-ban`)
                                         } else {
                                             updatedOrder.TinhTrangNCC = "Chưa nhận đơn";
                                             updatedOrder.NgayBan = "";
@@ -2679,7 +2843,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                     if (updatedOrder.Loai !== "GP") {
                                         if (updatedOrder.Anchor1 && updatedOrder.Link1) {
                                             updatedOrder.TinhTrangKH = "Đã nhập";
-                                            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/mua-ban để xử lý đơn hàng ${updatedOrder.MaDon}`)
+                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/mua-ban để xử lý đơn hàng ${updatedOrder.MaDon}`)
                                         } else {
                                             updatedOrder.TinhTrangKH = "Chưa nhập";
                                         }
@@ -2731,8 +2895,8 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                             );
                                             updateUserBalance(updatedOrder.KHMua, -price, updatedOrder.TenNCC);
                                             updatedOrder.paymentStatus = "paid";
-                                            sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
-                                            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
+                                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
+                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
                                         }
                                     } else if (updatedOrder.Index === "Indexed" && value !== "Indexed") {
                                         // Only process refund if payment was previously processed
@@ -2823,8 +2987,8 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                             ]);
 
                                             updatedOrder.paymentStatus = "paid"
-                                            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
-                                            sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
                                         }
                                     }
                                     break;
