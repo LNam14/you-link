@@ -2,6 +2,10 @@ import { NextResponse } from "next/server"
 import { pool } from "@/lib/db"
 import { cookies } from "next/headers"
 import moment from "moment"
+const momentTz = require("moment-timezone")
+
+// Set default timezone to Vietnam
+momentTz.tz.setDefault("Asia/Ho_Chi_Minh")
 
 export async function GET(request: Request) {
     try {
