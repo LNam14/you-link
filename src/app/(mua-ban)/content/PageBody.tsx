@@ -170,7 +170,7 @@ export default function PageBody() {
                     .filter((row) => {
                         if (userInfo?.role === "NCC") {
                             return row[18] === userInfo?.username // Filter by MaNCC
-                        } else if (userInfo?.role === "Khách hàng") {
+                        } else if (userInfo?.role === "Khách hàng" || userInfo?.role === "Nhân viên") {
                             const MaKH = row[0]
                             const MaKHBeforeDash = MaKH.split("-")[0]
                             return MaKHBeforeDash === userInfo?.username // Filter by MaKH
