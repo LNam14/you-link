@@ -395,6 +395,7 @@ export default function GPTextVN({
             return Object.entries(filters).every(([key, value]: [string, any]) => {
                 if (!value) return true
                 if (key === "Đi Bóng" || key === "Đi BET") {
+                    console.log(value, item[key])
                     return item[key].toLowerCase() === value.toLowerCase()
                 }
                 if (key === "Site") {
@@ -407,12 +408,7 @@ export default function GPTextVN({
                         : item[key].toLowerCase() !== "bình thường"
                 }
                 if (key === "Chủ đề") {
-                    return value.includes(item[key])
-                }
-                if (key === "Traffic Tool" || key === "DR") {
-                    const selectedValue = Number.parseInt(value)
-                    const itemValue = Number.parseInt(item[key])
-                    return itemValue > selectedValue
+                    return item[key].toLowerCase() === value.toLowerCase()
                 }
                 if (key === "Giá GP" || key === "Giá Footer") {
                     const selectedValue = Number.parseInt(value)
@@ -693,6 +689,27 @@ export default function GPTextVN({
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="filter-group">
+                                <h3 className="text-xs font-semibold text-gray-700 mb-2">Chủ đề</h3>
+                                <select
+                                    className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                                    value={filters["Chủ đề"] || ""}
+                                    onChange={(e) => handleFilterChange("Chủ đề", e.target.value)}
+                                >
+                                    <option value="">Chọn chủ đề</option>
+                                    <option value="Thể thao">Thể thao</option>
+                                    <option value="Giải trí">Giải trí</option>
+                                    <option value="Công nghệ">Công nghệ</option>
+                                    <option value="Kinh doanh">Kinh doanh</option>
+                                    <option value="Giáo dục">Giáo dục</option>
+                                    <option value="Sức khỏe">Sức khỏe</option>
+                                    <option value="Du lịch">Du lịch</option>
+                                    <option value="Ẩm thực">Ẩm thực</option>
+                                    <option value="Thời trang">Thời trang</option>
+                                    <option value="Làm đẹp">Làm đẹp</option>
+                                    <option value="Khác">Khác</option>
+                                </select>
+                            </div>
+                            <div className="filter-group">
                                 <h3 className="text-xs font-semibold text-gray-700 mb-2">DR</h3>
                                 <select
                                     className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
@@ -707,6 +724,8 @@ export default function GPTextVN({
                                     <option value="60">&lt; 60</option>
                                 </select>
                             </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="filter-group">
                                 <h3 className="text-xs font-semibold text-gray-700 mb-2">Giá Text</h3>
                                 <select
