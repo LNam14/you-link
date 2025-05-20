@@ -69,6 +69,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
   // Enhanced prize data with money-themed colors
   const data = [
+
     {
       option: "1.000 VND",
       style: { backgroundColor: "#4CAF50", textColor: "white" },
@@ -78,8 +79,8 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       style: { backgroundColor: "#2E7D32", textColor: "white" },
     },
     {
-      option: "5.000 VND",
-      style: { backgroundColor: "#8BC34A", textColor: "black" },
+      option: "-500.000 VND",
+      style: { backgroundColor: "#B71C1C", textColor: "white" },
     },
     {
       option: "10.000 VND",
@@ -110,9 +111,10 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       style: { backgroundColor: "#D32F2F", textColor: "white" },
     },
     {
-      option: "-500.000 VND",
-      style: { backgroundColor: "#B71C1C", textColor: "white" },
+      option: "5.000 VND",
+      style: { backgroundColor: "#8BC34A", textColor: "black" },
     },
+
     {
       option: "1 phân vàng",
       style: { backgroundColor: "#FFD700", textColor: "black" },
