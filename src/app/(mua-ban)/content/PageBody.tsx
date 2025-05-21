@@ -1398,6 +1398,19 @@ export default function PageBody() {
         })
     }
 
+    const formatDate = (dateStr: string) => {
+        if (!dateStr) return "";
+        // Handle both DD/MM/YYYY and YYYY-MM-DD formats
+        if (dateStr.includes("/")) {
+            const [day, month] = dateStr.split("/");
+            return `${day}/${month}`;
+        } else if (dateStr.includes("-")) {
+            const [year, month, day] = dateStr.split("-");
+            return `${day}/${month}`;
+        }
+        return dateStr;
+    };
+
     const cells = function (
         this: Handsontable.CellProperties,
         row: number,
@@ -1508,6 +1521,11 @@ export default function PageBody() {
                 cellProperties: Handsontable.CellProperties,
             ) {
                 Handsontable.renderers.TextRenderer.apply(this, [instance, td, row, col, prop, value, cellProperties])
+
+                // Format date for NgayOrder column (col 2)
+                if (col === 2) {
+                    td.textContent = formatDate(value)
+                }
 
                 // Check if this is one of the columns that should be grayed out for completed orders
                 const nonEditableColumns = [6, 7, 8, 9] // Anchor1, URL1, Anchor2, URL2
