@@ -1689,11 +1689,14 @@ export default function PageBody() {
                                 onChange={(e) => setSelectedWeek(e.target.value)}
                                 className="px-3 py-2 rounded-md border border-gray-300 bg-white text-gray-700 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                             >
-                                {Array.from({ length: getCurrentWeek() }, (_, i) => (
-                                    <option key={i + 1} value={i + 1}>
-                                        Tuần {i + 1}
-                                    </option>
-                                ))}
+                                {Array.from({ length: getCurrentWeek() }, (_, i) => {
+                                    const weekNumber = getCurrentWeek() - i;
+                                    return (
+                                        <option key={weekNumber} value={weekNumber}>
+                                            Tuần {weekNumber}
+                                        </option>
+                                    );
+                                })}
                             </select>
                         </div>
 
