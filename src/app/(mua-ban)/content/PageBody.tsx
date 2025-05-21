@@ -1791,11 +1791,27 @@ export default function PageBody() {
 
     // Add this function to handle checkbox changes
     const handleViewOptionChange = (option: string) => {
+        // If data is merged, don't allow disabling total or pending
+        if (isMerged && (option === 'total' || option === 'pending')) {
+            return;
+        }
+
         setViewOptions(prev => ({
             ...prev,
             [option]: !prev[option as keyof typeof prev]
         }));
     };
+
+    // Add useEffect to ensure total and pending are enabled when data is merged
+    useEffect(() => {
+        if (isMerged) {
+            setViewOptions(prev => ({
+                ...prev,
+                total: true,
+                pending: true
+            }));
+        }
+    }, [isMerged]);
 
     return (
         <>
@@ -1811,18 +1827,20 @@ export default function PageBody() {
                                         type="checkbox"
                                         checked={viewOptions.total}
                                         onChange={() => handleViewOptionChange('total')}
-                                        className="form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                                        disabled={isMerged}
+                                        className={`form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500 ${isMerged ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     />
-                                    <span className="ml-2 text-sm text-gray-700">Tổng</span>
+                                    <span className={`ml-2 text-sm ${isMerged ? 'text-gray-500' : 'text-gray-700'}`}>Tổng</span>
                                 </label>
                                 <label className="inline-flex items-center">
                                     <input
                                         type="checkbox"
                                         checked={viewOptions.pending}
                                         onChange={() => handleViewOptionChange('pending')}
-                                        className="form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                                        disabled={isMerged}
+                                        className={`form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500 ${isMerged ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     />
-                                    <span className="ml-2 text-sm text-gray-700">Chưa nhập</span>
+                                    <span className={`ml-2 text-sm ${isMerged ? 'text-gray-500' : 'text-gray-700'}`}>Chưa nhập</span>
                                 </label>
                                 <label className="inline-flex items-center">
                                     <input
