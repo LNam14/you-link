@@ -1441,13 +1441,6 @@ export default function PageBody() {
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
                     td.title = value || "" // Add tooltip with full text
-                } else if (col === 0) {
-                    td.style.width = "70px"
-                    td.style.maxWidth = "70px"
-                    td.style.whiteSpace = "nowrap"
-                    td.style.overflow = "hidden"
-                    td.style.textOverflow = "ellipsis"
-                    td.title = value || "" // Add tooltip with full text
                 } else {
                     td.style.width = "80px"
                     td.style.maxWidth = "80px"
