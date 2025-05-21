@@ -590,14 +590,61 @@ export default function PageBody() {
 
                 // Apply filters
                 const filteredData = filterTableData(finalData)
-                setTableData(filteredData)
+
+                // If isMerged is true, merge the data
+                if (isMerged) {
+                    // Get the cancelled orders section
+                    const cancelledSection = filteredData.filter(row => row[12] === "Đơn hủy" ||
+                        (row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn")));
+
+                    // Get the total row
+                    const totalRow = filteredData.find(row => row[12] === "Tổng");
+
+                    // Get all non-cancelled orders
+                    const nonCancelledOrders = filteredData.filter(row =>
+                        row[12] !== "Tổng" &&
+                        row[12] !== "Đơn hủy" &&
+                        row[12] !== "Chưa nhập" &&
+                        !(row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"))
+                    );
+
+                    // Sort non-cancelled orders by order ID
+                    nonCancelledOrders.sort((a, b) => {
+                        const orderIdA = a[0];
+                        const orderIdB = b[0];
+                        const partsA = orderIdA.split("-");
+                        const partsB = orderIdB.split("-");
+                        for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
+                            const numA = Number.parseInt(partsA[i].replace(/[^0-9]/g, ""));
+                            const numB = Number.parseInt(partsB[i].replace(/[^0-9]/g, ""));
+                            if (numA !== numB) {
+                                return numA - numB;
+                            }
+                            if (partsA[i] !== partsB[i]) {
+                                return partsA[i].localeCompare(partsB[i]);
+                            }
+                        }
+                        return partsA.length - partsB.length;
+                    });
+
+                    // Create merged data array
+                    const mergedData = [
+                        totalRow,
+                        ...nonCancelledOrders,
+                        ...cancelledSection
+                    ];
+
+                    setTableData(mergedData);
+                } else {
+                    setTableData(filteredData);
+                }
             } else {
                 setTableData([])
             }
         })
 
         return () => unsubscribe()
-    }, [userInfo?.role, userInfo?.username, selectedWeek, viewOptions, selectedUser, selectedNCC])
+    }, [userInfo?.role, userInfo?.username, selectedWeek, viewOptions, selectedUser, selectedNCC, isMerged])
 
     // Load chat messages when currentChatOrderId changes
     useEffect(() => {
