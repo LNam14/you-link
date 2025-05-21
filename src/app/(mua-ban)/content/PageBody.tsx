@@ -32,8 +32,12 @@ interface ChatMessage {
 
 export default function PageBody() {
     const [tableData, setTableData] = useState<any[]>([])
-    const [isMerged, setIsMerged] = useState(false)
-    const [viewOption, setViewOption] = useState("all")
+    const [isMerged, setIsMerged] = useState(true)
+    const [viewOptions, setViewOptions] = useState({
+        total: true,
+        pending: true,
+        cancelled: true
+    });
     const [selectedWeek, setSelectedWeek] = useState("")
     const [selectedUser, setSelectedUser] = useState("")
     const [selectedNCC, setSelectedNCC] = useState("")
@@ -304,55 +308,6 @@ export default function PageBody() {
             })
             : userFilteredData
 
-        // Calculate summaries for filtered data
-        const calculateSummary = (data: any[]) => {
-            const summary = {
-                totalGiaBan: 0,
-                totalGiaMua: 0,
-                totalLN: 0,
-                totalTTNCC: 0,
-                pendingGiaBan: 0,
-                pendingGiaMua: 0,
-                pendingLN: 0,
-                pendingTTNCC: 0,
-                cancelledGiaBan: 0,
-                cancelledGiaMua: 0,
-                cancelledLN: 0,
-                cancelledTTNCC: 0,
-            }
-
-            data.forEach((row) => {
-                const giaBan = parseNumberWithComma(row[13]) || 0
-                const giaMua = parseNumberWithComma(row[14]) || 0
-                const ln = parseNumberWithComma(row[15]) || 0
-                const ttncc = parseNumberWithComma(row[16]) || 0
-                const tinhTrangKH = row[19]
-                const tinhTrangNCC = row[20]
-
-                if (
-                    (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
-                    (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
-                ) {
-                    summary.totalGiaBan += giaBan
-                    summary.totalGiaMua += giaMua
-                    summary.totalLN += ln
-                    summary.totalTTNCC += ttncc
-                } else if ((tinhTrangKH === "Chưa nhập" || tinhTrangKH === "Đã nhập") && tinhTrangNCC === "Chưa nhận") {
-                    summary.pendingGiaBan += giaBan
-                    summary.pendingGiaMua += giaMua
-                    summary.pendingLN += ln
-                    summary.pendingTTNCC += ttncc
-                } else if (tinhTrangKH === "Hủy đơn" || (tinhTrangKH === "Y/C Hủy đơn" && tinhTrangNCC === "Đồng ý hoàn")) {
-                    summary.cancelledGiaBan += giaBan
-                    summary.cancelledGiaMua += giaMua
-                    summary.cancelledLN += ln
-                    summary.cancelledTTNCC += ttncc
-                }
-            })
-
-            return summary
-        }
-
         // Calculate summary for filtered data
         const summary = calculateSummary(nccFilteredData)
 
@@ -432,53 +387,40 @@ export default function PageBody() {
             "",
         ]
 
-        // Then apply view option filter
-        switch (viewOption) {
-            case "total":
-                return [
-                    totalRow,
-                    ...nccFilteredData.filter(
-                        (row) =>
-                            (row[19] === "Đã nhập" || row[19] === "Đơn OK" || row[19] === "Y/C Hủy đơn") &&
-                            (row[20] === "Đã lên bài" || row[20] === "Từ chối hoàn"),
-                    ),
-                ]
+        // Create filtered data based on selected view options
+        const filteredData = [];
 
-            case "pending":
-                return [
-                    pendingRow,
-                    ...nccFilteredData.filter(
-                        (row) => (row[19] === "Chưa nhập" || row[19] === "Đã nhập") && row[20] === "Chưa nhận",
-                    ),
-                ]
-
-            case "cancelled":
-                return [
-                    cancelledRow,
-                    ...nccFilteredData.filter(
-                        (row) => row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"),
-                    ),
-                ]
-
-            default:
-                return [
-                    totalRow,
-                    ...nccFilteredData.filter(
-                        (row) =>
-                            (row[19] === "Đã nhập" || row[19] === "Đơn OK" || row[19] === "Y/C Hủy đơn") &&
-                            (row[20] === "Đã lên bài" || row[20] === "Từ chối hoàn"),
-                    ),
-                    pendingRow,
-                    ...nccFilteredData.filter(
-                        (row) => (row[19] === "Chưa nhập" || row[19] === "Đã nhập") && row[20] === "Chưa nhận",
-                    ),
-                    cancelledRow,
-                    ...nccFilteredData.filter(
-                        (row) => row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"),
-                    ),
-                ]
+        if (viewOptions.total) {
+            filteredData.push(
+                totalRow,
+                ...nccFilteredData.filter(
+                    (row) =>
+                        (row[19] === "Đã nhập" || row[19] === "Đơn OK" || row[19] === "Y/C Hủy đơn") &&
+                        (row[20] === "Đã lên bài" || row[20] === "Từ chối hoàn"),
+                )
+            );
         }
-    }
+
+        if (viewOptions.pending) {
+            filteredData.push(
+                pendingRow,
+                ...nccFilteredData.filter(
+                    (row) => (row[19] === "Chưa nhập" || row[19] === "Đã nhập") && row[20] === "Chưa nhận",
+                )
+            );
+        }
+
+        if (viewOptions.cancelled) {
+            filteredData.push(
+                cancelledRow,
+                ...nccFilteredData.filter(
+                    (row) => row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"),
+                )
+            );
+        }
+
+        return filteredData;
+    };
 
     // Modify useEffect to store all data and apply filters
     useEffect(() => {
@@ -549,8 +491,105 @@ export default function PageBody() {
                     return partsA.length - partsB.length
                 })
 
+                // Calculate summary
+                const summary = calculateSummary(formattedData)
+
+                // Create summary rows
+                const totalRow = [
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "Tổng",
+                    summary.totalGiaBan,
+                    summary.totalGiaMua,
+                    summary.totalLN,
+                    summary.totalTTNCC,
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                ]
+
+                const cancelledRow = [
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "Đơn hủy",
+                    summary.cancelledGiaBan,
+                    summary.cancelledGiaMua,
+                    summary.cancelledLN,
+                    summary.cancelledTTNCC,
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                ]
+
+                const pendingRow = [
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "Chưa nhập",
+                    summary.pendingGiaBan,
+                    summary.pendingGiaMua,
+                    summary.pendingLN,
+                    summary.pendingTTNCC,
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                ]
+
+                // Combine all data with summary rows
+                const finalData = [
+                    totalRow,
+                    ...formattedData.filter(
+                        (row) =>
+                            (row[19] === "Đã nhập" || row[19] === "Đơn OK" || row[19] === "Y/C Hủy đơn") &&
+                            (row[20] === "Đã lên bài" || row[20] === "Từ chối hoàn"),
+                    ),
+                    pendingRow,
+                    ...formattedData.filter(
+                        (row) => (row[19] === "Chưa nhập" || row[19] === "Đã nhập") && row[20] === "Chưa nhận",
+                    ),
+                    cancelledRow,
+                    ...formattedData.filter(
+                        (row) => row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"),
+                    ),
+                ]
+
                 // Apply filters
-                const filteredData = filterTableData(formattedData)
+                const filteredData = filterTableData(finalData)
                 setTableData(filteredData)
             } else {
                 setTableData([])
@@ -558,7 +597,7 @@ export default function PageBody() {
         })
 
         return () => unsubscribe()
-    }, [userInfo?.role, userInfo?.username, selectedWeek, viewOption, selectedUser, selectedNCC]) // Add selectedUser and selectedNCC to dependencies
+    }, [userInfo?.role, userInfo?.username, selectedWeek, viewOptions, selectedUser, selectedNCC])
 
     // Load chat messages when currentChatOrderId changes
     useEffect(() => {
@@ -1441,6 +1480,13 @@ export default function PageBody() {
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
                     td.title = value || "" // Add tooltip with full text
+                } else if (col === 0) {
+                    td.style.width = "70px"
+                    td.style.maxWidth = "70px"
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || "" // Add tooltip with full text
                 } else {
                     td.style.width = "80px"
                     td.style.maxWidth = "80px"
@@ -1462,60 +1508,60 @@ export default function PageBody() {
     const handleMergeData = () => {
         setIsMerged(!isMerged)
         if (!isMerged) {
-            // Merge Total and Pending data
-            const mergedData = tableData
-                .map((row, index) => {
-                    if (row[12] === "Tổng") {
-                        const totalRow = [...row]
-                        const pendingRow = tableData.find((r) => r[12] === "Chưa nhập")
-                        if (pendingRow) {
-                            // Add pending values to total
-                            totalRow[13] = (parseNumberWithComma(totalRow[13]) + parseNumberWithComma(pendingRow[13])).toFixed(2)
-                            totalRow[14] = (parseNumberWithComma(totalRow[14]) + parseNumberWithComma(pendingRow[14])).toFixed(2)
-                            totalRow[15] = (parseNumberWithComma(totalRow[15]) + parseNumberWithComma(pendingRow[15])).toFixed(2)
-                            totalRow[16] = (parseNumberWithComma(totalRow[16]) + parseNumberWithComma(pendingRow[16])).toFixed(2)
-                        }
-                        return totalRow
+            // Get the cancelled orders section
+            const cancelledSection = tableData.filter(row => row[12] === "Đơn hủy" ||
+                (row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn")));
+
+            // Get the total row
+            const totalRow = tableData.find(row => row[12] === "Tổng");
+
+            // Get all non-cancelled orders
+            const nonCancelledOrders = tableData.filter(row =>
+                row[12] !== "Tổng" &&
+                row[12] !== "Đơn hủy" &&
+                row[12] !== "Chưa nhập" &&
+                !(row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"))
+            );
+
+            // Sort non-cancelled orders by order ID
+            nonCancelledOrders.sort((a, b) => {
+                const orderIdA = a[0];
+                const orderIdB = b[0];
+                const partsA = orderIdA.split("-");
+                const partsB = orderIdB.split("-");
+                for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
+                    const numA = Number.parseInt(partsA[i].replace(/[^0-9]/g, ""));
+                    const numB = Number.parseInt(partsB[i].replace(/[^0-9]/g, ""));
+                    if (numA !== numB) {
+                        return numA - numB;
                     }
-                    return row
-                })
-                .filter((row) => row[12] !== "Chưa nhập" && row[12] !== "Đơn hủy")
-                .sort((a, b) => {
-                    // Skip sorting for summary rows
-                    if (a[12] === "Tổng") return -1
-                    if (b[12] === "Tổng") return 1
-
-                    const orderIdA = a[0]
-                    const orderIdB = b[0]
-
-                    // Split the order IDs into parts
-                    const [prefixA, numA] = orderIdA.split('-')
-                    const [prefixB, numB] = orderIdB.split('-')
-
-                    // First compare prefixes (e.g., BH1, BH2)
-                    if (prefixA !== prefixB) {
-                        // Extract the numeric part from prefix (e.g., BH1 -> 1)
-                        const prefixNumA = parseInt(prefixA.replace(/[^0-9]/g, ''))
-                        const prefixNumB = parseInt(prefixB.replace(/[^0-9]/g, ''))
-                        return prefixNumA - prefixNumB
+                    if (partsA[i] !== partsB[i]) {
+                        return partsA[i].localeCompare(partsB[i]);
                     }
+                }
+                return partsA.length - partsB.length;
+            });
 
-                    // If prefixes are the same, compare the order numbers
-                    return parseInt(numA) - parseInt(numB)
-                })
-            setTableData(mergedData)
+            // Create merged data array
+            const mergedData = [
+                totalRow,
+                ...nonCancelledOrders,
+                ...cancelledSection
+            ];
+
+            setTableData(mergedData);
         } else {
             // Reset to original data
-            const ordersRef = ref(database, "content")
+            const ordersRef = ref(database, "content");
             onValue(ordersRef, (snapshot) => {
-                const data = snapshot.val()
+                const data = snapshot.val();
                 if (data) {
                     // Transform the data into table format
                     const formattedData = Object.entries(data)
                         .map(([orderId, order]: [string, any]) => {
-                            const giaBan = parseNumberWithComma(order.GiaBan)
-                            const giaMua = parseNumberWithComma(order.GiaMua)
-                            const ln = giaBan - giaMua
+                            const giaBan = parseNumberWithComma(order.GiaBan);
+                            const giaMua = parseNumberWithComma(order.GiaMua);
+                            const ln = giaBan - giaMua;
 
                             return [
                                 orderId,
@@ -1539,40 +1585,40 @@ export default function PageBody() {
                                 order.MaNCC || "",
                                 order.TinhTrangKH || "",
                                 order.TinhTrangNCC || "",
-                            ]
+                            ];
                         })
                         .filter((row) => {
                             if (userInfo?.role === "NCC") {
-                                return row[18] === userInfo?.username
+                                return row[18] === userInfo?.username;
                             } else if (userInfo?.role === "Khách hàng" || userInfo?.role === "Nhân viên") {
-                                const MaKH = row[0]
-                                const MaKHBeforeDash = MaKH.split("-")[0]
-                                return MaKHBeforeDash === userInfo?.username
+                                const MaKH = row[0];
+                                const MaKHBeforeDash = MaKH.split("-")[0];
+                                return MaKHBeforeDash === userInfo?.username;
                             }
-                            return true
-                        })
-                        .sort((a, b) => {
-                            const orderIdA = a[0]
-                            const orderIdB = b[0]
+                            return true;
+                        });
 
-                            // Split the order IDs into parts
-                            const [prefixA, numA] = orderIdA.split('-')
-                            const [prefixB, numB] = orderIdB.split('-')
-
-                            // First compare prefixes (e.g., BH1, BH2)
-                            if (prefixA !== prefixB) {
-                                // Extract the numeric part from prefix (e.g., BH1 -> 1)
-                                const prefixNumA = parseInt(prefixA.replace(/[^0-9]/g, ''))
-                                const prefixNumB = parseInt(prefixB.replace(/[^0-9]/g, ''))
-                                return prefixNumA - prefixNumB
+                    // Sort the formatted data
+                    formattedData.sort((a: any[], b: any[]) => {
+                        const orderIdA = a[0];
+                        const orderIdB = b[0];
+                        const partsA = orderIdA.split("-");
+                        const partsB = orderIdB.split("-");
+                        for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
+                            const numA = Number.parseInt(partsA[i].replace(/[^0-9]/g, ""));
+                            const numB = Number.parseInt(partsB[i].replace(/[^0-9]/g, ""));
+                            if (numA !== numB) {
+                                return numA - numB;
                             }
-
-                            // If prefixes are the same, compare the order numbers
-                            return parseInt(numA) - parseInt(numB)
-                        })
+                            if (partsA[i] !== partsB[i]) {
+                                return partsA[i].localeCompare(partsB[i]);
+                            }
+                        }
+                        return partsA.length - partsB.length;
+                    });
 
                     // Calculate summary
-                    const summary = calculateSummary(formattedData)
+                    const summary = calculateSummary(formattedData);
 
                     // Create summary rows
                     const totalRow = [
@@ -1598,7 +1644,7 @@ export default function PageBody() {
                         "",
                         "",
                         "",
-                    ]
+                    ];
 
                     const cancelledRow = [
                         "",
@@ -1623,7 +1669,7 @@ export default function PageBody() {
                         "",
                         "",
                         "",
-                    ]
+                    ];
 
                     const pendingRow = [
                         "",
@@ -1648,7 +1694,7 @@ export default function PageBody() {
                         "",
                         "",
                         "",
-                    ]
+                    ];
 
                     // Combine all data with summary rows
                     const finalData = [
@@ -1666,17 +1712,25 @@ export default function PageBody() {
                         ...formattedData.filter(
                             (row) => row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"),
                         ),
-                    ]
+                    ];
 
                     // Apply filters
-                    const filteredData = filterTableData(finalData)
-                    setTableData(filteredData)
+                    const filteredData = filterTableData(finalData);
+                    setTableData(filteredData);
                 } else {
-                    setTableData([])
+                    setTableData([]);
                 }
-            })
+            });
         }
-    }
+    };
+
+    // Add this function to handle checkbox changes
+    const handleViewOptionChange = (option: string) => {
+        setViewOptions(prev => ({
+            ...prev,
+            [option]: !prev[option as keyof typeof prev]
+        }));
+    };
 
     return (
         <>
@@ -1684,18 +1738,37 @@ export default function PageBody() {
                 <div className="flex flex-col space-y-4">
                     {/* Filter Controls Row */}
                     <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex items-center">
-                            <label className="text-sm font-medium text-gray-700 mr-2">Hiển thị:</label>
-                            <select
-                                value={viewOption}
-                                onChange={(e) => setViewOption(e.target.value)}
-                                className="px-3 py-2 rounded-md border border-gray-300 bg-white text-gray-700 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                            >
-                                <option value="all">Tất cả</option>
-                                <option value="total">Tổng</option>
-                                <option value="pending">Chưa nhập</option>
-                                <option value="cancelled">Hủy</option>
-                            </select>
+                        <div className="flex items-center space-x-4">
+                            <label className="text-sm font-medium text-gray-700">Hiển thị:</label>
+                            <div className="flex items-center space-x-2">
+                                <label className="inline-flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={viewOptions.total}
+                                        onChange={() => handleViewOptionChange('total')}
+                                        className="form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                                    />
+                                    <span className="ml-2 text-sm text-gray-700">Tổng</span>
+                                </label>
+                                <label className="inline-flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={viewOptions.pending}
+                                        onChange={() => handleViewOptionChange('pending')}
+                                        className="form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                                    />
+                                    <span className="ml-2 text-sm text-gray-700">Chưa nhập</span>
+                                </label>
+                                <label className="inline-flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={viewOptions.cancelled}
+                                        onChange={() => handleViewOptionChange('cancelled')}
+                                        className="form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                                    />
+                                    <span className="ml-2 text-sm text-gray-700">Đơn hủy</span>
+                                </label>
+                            </div>
                         </div>
 
                         <div className="flex items-center">
