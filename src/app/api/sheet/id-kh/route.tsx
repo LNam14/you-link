@@ -27,7 +27,6 @@ async function getAllSheetData(gsapi: any) {
         spreadsheetId: SPREADSHEET_ID,
         ranges: [sheetConfigs.ncc.range],
     });
-
     return data.valueRanges[0]?.values?.map((row: any) => sheetConfigs.ncc.formatter(row)) || [];
 }
 
@@ -87,7 +86,6 @@ export async function POST(req: Request) {
                 { status: 500 }
             );
         }
-
 
         return NextResponse.json({ success: true, message: "Đã gửi tin nhắn thành công!" }, { status: 200 });
     } catch (e: any) {

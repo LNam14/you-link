@@ -32,12 +32,20 @@ interface ChatMessage {
 
 export default function PageBody() {
     const [tableData, setTableData] = useState<any[]>([])
+    const [isMerged, setIsMerged] = useState(false)
+    const [viewOption, setViewOption] = useState("all")
+    const [selectedWeek, setSelectedWeek] = useState("")
+    const [selectedUser, setSelectedUser] = useState("")
+    const [selectedNCC, setSelectedNCC] = useState("")
+    const [users, setUsers] = useState<string[]>([])
+    const [nccs, setNCCs] = useState<string[]>([])
     const userInfo = getUserInfo()
     const [chatDialogOpen, setChatDialogOpen] = useState(false)
     const [currentChatOrderId, setCurrentChatOrderId] = useState<string | null>(null)
     const [currentChatMessages, setCurrentChatMessages] = useState<any[]>([])
     const [newChatMessage, setNewChatMessage] = useState("")
     const [blinkingChatOrders, setBlinkingChatOrders] = useState<Set<string>>(new Set())
+    const [isFullscreen, setIsFullscreen] = useState(false)
 
     const parseNumberWithComma = (value: any): number => {
         if (typeof value === "number") return value
@@ -45,6 +53,143 @@ export default function PageBody() {
         // Thay thế dấu phẩy bằng dấu chấm và chuyển đổi thành số
         return Number.parseFloat(value.toString().replace(/,/g, "")) || 0
     }
+
+    // Add function to get current week number
+    const getCurrentWeek = () => {
+        const now = new Date()
+        const firstDayOfYear = new Date(now.getFullYear(), 0, 1)
+        const pastDaysOfYear = (now.getTime() - firstDayOfYear.getTime()) / 86400000
+        return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)
+    }
+
+    // Add function to get week number from date
+    const getWeekNumber = (dateStr: string) => {
+        if (!dateStr) return ""
+        // Parse date from DD/MM/YYYY format
+        const [day, month, year] = dateStr.split("/")
+        const date = new Date(Number.parseInt(year), Number.parseInt(month) - 1, Number.parseInt(day))
+        const firstDayOfYear = new Date(date.getFullYear(), 0, 1)
+        const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000
+        return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)
+    }
+
+    // Set current week as default when component mounts
+    useEffect(() => {
+        setSelectedWeek(getCurrentWeek().toString())
+    }, [])
+
+    // Add function to get statistics
+    const getStatistics = (data: any[]) => {
+        const stats = {
+            totalOrders: 0,
+            totalAmount: 0,
+            pendingOrders: 0,
+            pendingAmount: 0,
+            cancelledOrders: 0,
+            cancelledAmount: 0,
+        }
+
+        data.forEach((row) => {
+            if (row[0] && !row[0].includes("Tổng")) {
+                const giaBan = parseNumberWithComma(row[13]) || 0
+                const tinhTrangKH = row[19]
+                const tinhTrangNCC = row[20]
+
+                // Filter by week if selected
+                if (selectedWeek) {
+                    const orderDate = row[2]
+                    const weekNumber = getWeekNumber(orderDate)
+                    if (weekNumber.toString() !== selectedWeek) return
+                }
+
+                // Filter by user if selected
+                if (selectedUser) {
+                    const MaKH = row[0]
+                    const MaKHBeforeDash = MaKH.split("-")[0]
+                    if (MaKHBeforeDash !== selectedUser) return
+                }
+
+                // Filter by NCC if selected
+                if (selectedNCC && row[18] !== selectedNCC) return
+
+                // Count total orders
+                if (
+                    (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
+                    (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
+                ) {
+                    stats.totalOrders++
+                    stats.totalAmount += giaBan
+                }
+
+                // Count pending orders
+                if ((tinhTrangKH === "Chưa nhập" || tinhTrangKH === "Đã nhập") && tinhTrangNCC === "Chưa nhận") {
+                    stats.pendingOrders++
+                    stats.pendingAmount += giaBan
+                }
+
+                // Count cancelled orders
+                if (tinhTrangKH === "Hủy đơn" || (tinhTrangKH === "Y/C Hủy đơn" && tinhTrangNCC === "Đồng ý hoàn")) {
+                    stats.cancelledOrders++
+                    stats.cancelledAmount += giaBan
+                }
+            }
+        })
+
+        return stats
+    }
+
+    // Add useEffect to fetch users and NCCs
+    useEffect(() => {
+        if (userInfo?.role === "Admin") {
+            const ordersRef = ref(database, "content")
+
+            // Fetch orders to get unique MaKH and MaNCC
+            onValue(ordersRef, (snapshot) => {
+                const data = snapshot.val()
+                if (data) {
+                    const uniqueMaKH = new Set<string>()
+                    const uniqueMaNCC = new Set<string>()
+
+                    Object.entries(data).forEach(([orderId, order]: [string, any]) => {
+                        // Extract MaKH from order ID (e.g., "BH5-4" -> "BH5" or "KH1-2" -> "KH1")
+                        if (orderId) {
+                            const maKH = orderId.split("-")[0]
+                            if (maKH) {
+                                // Only add if it starts with BH or KH
+                                if (maKH.startsWith("BH") || maKH.startsWith("KH")) {
+                                    uniqueMaKH.add(maKH)
+                                }
+                            }
+                        }
+
+                        // Add MaNCC if exists
+                        if (order.MaNCC) uniqueMaNCC.add(order.MaNCC)
+                    })
+
+                    // Sort users by type (BH first, then KH) and then by number
+                    const sortedUsers = Array.from(uniqueMaKH).sort((a, b) => {
+                        const aType = a.startsWith("BH") ? 0 : 1
+                        const bType = b.startsWith("BH") ? 0 : 1
+                        if (aType !== bType) return aType - bType
+
+                        const aNum = Number.parseInt(a.replace(/[^0-9]/g, "")) || 0
+                        const bNum = Number.parseInt(b.replace(/[^0-9]/g, "")) || 0
+                        return aNum - bNum
+                    })
+
+                    console.log("Sorted Users:", sortedUsers) // Debug log
+                    console.log("NCCs:", Array.from(uniqueMaNCC)) // Debug log
+
+                    // Update users and NCCs lists with unique values
+                    setUsers(sortedUsers)
+                    setNCCs(Array.from(uniqueMaNCC))
+                }
+            })
+        }
+    }, [userInfo?.role])
+
+    // Get current statistics
+    const stats = getStatistics(tableData)
 
     // Add summary calculation function
     const calculateSummary = (data: any[]) => {
@@ -129,6 +274,213 @@ export default function PageBody() {
         return summary
     }
 
+    // Add filter function
+    const filterTableData = (data: any[]) => {
+        // First filter by week
+        const weekFilteredData = data.filter((row) => {
+            if (!row[0] || row[0].includes("Tổng")) return false // Remove all summary rows
+            const orderDate = row[2]
+            const weekNumber = getWeekNumber(orderDate)
+            return weekNumber.toString() === selectedWeek
+        })
+
+        // Then filter by user (MaKH) if selected
+        const userFilteredData = selectedUser
+            ? weekFilteredData.filter((row) => {
+                const orderId = row[0]
+                if (!orderId) return false
+                const maKH = orderId.split("-")[0]
+                console.log("Filtering by user:", { orderId, maKH, selectedUser }) // Debug log
+                return maKH === selectedUser
+            })
+            : weekFilteredData
+
+        // Then filter by NCC if selected
+        const nccFilteredData = selectedNCC
+            ? userFilteredData.filter((row) => {
+                const maNCC = row[18] // MaNCC is at index 18
+                console.log("Filtering by NCC:", { maNCC, selectedNCC }) // Debug log
+                return maNCC === selectedNCC
+            })
+            : userFilteredData
+
+        // Calculate summaries for filtered data
+        const calculateSummary = (data: any[]) => {
+            const summary = {
+                totalGiaBan: 0,
+                totalGiaMua: 0,
+                totalLN: 0,
+                totalTTNCC: 0,
+                pendingGiaBan: 0,
+                pendingGiaMua: 0,
+                pendingLN: 0,
+                pendingTTNCC: 0,
+                cancelledGiaBan: 0,
+                cancelledGiaMua: 0,
+                cancelledLN: 0,
+                cancelledTTNCC: 0,
+            }
+
+            data.forEach((row) => {
+                const giaBan = parseNumberWithComma(row[13]) || 0
+                const giaMua = parseNumberWithComma(row[14]) || 0
+                const ln = parseNumberWithComma(row[15]) || 0
+                const ttncc = parseNumberWithComma(row[16]) || 0
+                const tinhTrangKH = row[19]
+                const tinhTrangNCC = row[20]
+
+                if (
+                    (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
+                    (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
+                ) {
+                    summary.totalGiaBan += giaBan
+                    summary.totalGiaMua += giaMua
+                    summary.totalLN += ln
+                    summary.totalTTNCC += ttncc
+                } else if ((tinhTrangKH === "Chưa nhập" || tinhTrangKH === "Đã nhập") && tinhTrangNCC === "Chưa nhận") {
+                    summary.pendingGiaBan += giaBan
+                    summary.pendingGiaMua += giaMua
+                    summary.pendingLN += ln
+                    summary.pendingTTNCC += ttncc
+                } else if (tinhTrangKH === "Hủy đơn" || (tinhTrangKH === "Y/C Hủy đơn" && tinhTrangNCC === "Đồng ý hoàn")) {
+                    summary.cancelledGiaBan += giaBan
+                    summary.cancelledGiaMua += giaMua
+                    summary.cancelledLN += ln
+                    summary.cancelledTTNCC += ttncc
+                }
+            })
+
+            return summary
+        }
+
+        // Calculate summary for filtered data
+        const summary = calculateSummary(nccFilteredData)
+
+        // Create summary rows
+        const totalRow = [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "Tổng",
+            summary.totalGiaBan.toFixed(2),
+            summary.totalGiaMua.toFixed(2),
+            summary.totalLN.toFixed(2),
+            summary.totalTTNCC.toFixed(2),
+            "",
+            "",
+            "",
+            "",
+            "",
+        ]
+
+        const pendingRow = [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "Chưa nhập",
+            summary.pendingGiaBan.toFixed(2),
+            summary.pendingGiaMua.toFixed(2),
+            summary.pendingLN.toFixed(2),
+            summary.pendingTTNCC.toFixed(2),
+            "",
+            "",
+            "",
+            "",
+            "",
+        ]
+
+        const cancelledRow = [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "Đơn hủy",
+            summary.cancelledGiaBan.toFixed(2),
+            summary.cancelledGiaMua.toFixed(2),
+            summary.cancelledLN.toFixed(2),
+            summary.cancelledTTNCC.toFixed(2),
+            "",
+            "",
+            "",
+            "",
+            "",
+        ]
+
+        // Then apply view option filter
+        switch (viewOption) {
+            case "total":
+                return [
+                    totalRow,
+                    ...nccFilteredData.filter(
+                        (row) =>
+                            (row[19] === "Đã nhập" || row[19] === "Đơn OK" || row[19] === "Y/C Hủy đơn") &&
+                            (row[20] === "Đã lên bài" || row[20] === "Từ chối hoàn"),
+                    ),
+                ]
+
+            case "pending":
+                return [
+                    pendingRow,
+                    ...nccFilteredData.filter(
+                        (row) => (row[19] === "Chưa nhập" || row[19] === "Đã nhập") && row[20] === "Chưa nhận",
+                    ),
+                ]
+
+            case "cancelled":
+                return [
+                    cancelledRow,
+                    ...nccFilteredData.filter(
+                        (row) => row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"),
+                    ),
+                ]
+
+            default:
+                return [
+                    totalRow,
+                    ...nccFilteredData.filter(
+                        (row) =>
+                            (row[19] === "Đã nhập" || row[19] === "Đơn OK" || row[19] === "Y/C Hủy đơn") &&
+                            (row[20] === "Đã lên bài" || row[20] === "Từ chối hoàn"),
+                    ),
+                    pendingRow,
+                    ...nccFilteredData.filter(
+                        (row) => (row[19] === "Chưa nhập" || row[19] === "Đã nhập") && row[20] === "Chưa nhận",
+                    ),
+                    cancelledRow,
+                    ...nccFilteredData.filter(
+                        (row) => row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"),
+                    ),
+                ]
+        }
+    }
+
+    // Modify useEffect to store all data and apply filters
     useEffect(() => {
         const ordersRef = ref(database, "content")
         console.log(ordersRef, "ordersRef")
@@ -144,186 +496,69 @@ export default function PageBody() {
                         const ln = giaBan - giaMua
 
                         return [
-                            orderId, // Mã ĐH
-                            order.TenSP || "", // Loại
-                            order.NgayOrder || "", // Ngày order
-                            order.KHNote1 || "", // KH Note 1
-                            order.KHNote2 || "", // KH Note 2
-                            order.ChuDe || "", // Chủ Đề
-                            order.Anchor1 || "", // Anchor 1
-                            order.URL1 || "", // URL 1
-                            order.Anchor2 || "", // Anchor 2
-                            order.URL2 || "", // URL 2
-                            order.LinkKQ || "", // LINK KQ
-                            order.Deadline || "", // Deadline
-                            order.Note || "", // NOTE
-                            giaBan, // Giá Bán
-                            giaMua, // Giá Mua
-                            ln, // LN
-                            order.TTNCC || "", // TT NCC
-                            order.TenNCC || "", // Tên NCC
-                            order.MaNCC || "", // Mã NCC
-                            order.TinhTrangKH || "", // Tình Trạng KH
-                            order.TinhTrangNCC || "", // Tình Trạng NCC
+                            orderId,
+                            order.TenSP || "",
+                            order.NgayOrder || "",
+                            order.KHNote1 || "",
+                            order.KHNote2 || "",
+                            order.ChuDe || "",
+                            order.Anchor1 || "",
+                            order.URL1 || "",
+                            order.Anchor2 || "",
+                            order.URL2 || "",
+                            order.LinkKQ || "",
+                            order.Deadline || "",
+                            order.Note || "",
+                            giaBan,
+                            giaMua,
+                            ln,
+                            order.TTNCC || "",
+                            order.TenNCC || "",
+                            order.MaNCC || "",
+                            order.TinhTrangKH || "",
+                            order.TinhTrangNCC || "",
                         ]
                     })
                     .filter((row) => {
                         if (userInfo?.role === "NCC") {
-                            return row[18] === userInfo?.username // Filter by MaNCC
+                            return row[18] === userInfo?.username
                         } else if (userInfo?.role === "Khách hàng" || userInfo?.role === "Nhân viên") {
                             const MaKH = row[0]
                             const MaKHBeforeDash = MaKH.split("-")[0]
-                            return MaKHBeforeDash === userInfo?.username // Filter by MaKH
+                            return MaKHBeforeDash === userInfo?.username
                         }
-                        return true // Show all for other roles
+                        return true
                     })
 
-                // Custom sorting function for order IDs
-                const customSort = (a: any[], b: any[]) => {
+                // Sort the formatted data
+                formattedData.sort((a: any[], b: any[]) => {
                     const orderIdA = a[0]
                     const orderIdB = b[0]
-
-                    // Split the order IDs into parts
                     const partsA = orderIdA.split("-")
                     const partsB = orderIdB.split("-")
-
-                    // Compare each part
                     for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
                         const numA = Number.parseInt(partsA[i].replace(/[^0-9]/g, ""))
                         const numB = Number.parseInt(partsB[i].replace(/[^0-9]/g, ""))
-
                         if (numA !== numB) {
                             return numA - numB
                         }
-
-                        // If numbers are equal, compare the full string
                         if (partsA[i] !== partsB[i]) {
                             return partsA[i].localeCompare(partsB[i])
                         }
                     }
-
-                    // If all parts are equal, compare lengths
                     return partsA.length - partsB.length
-                }
-
-                // Sort the formatted data using the custom sort function
-                formattedData.sort(customSort)
-
-                // Calculate summary
-                const summary = calculateSummary(formattedData)
-
-                // Create summary rows
-                const totalRow = [
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "Tổng",
-                    summary.totalGiaBan,
-                    summary.totalGiaMua,
-                    summary.totalLN,
-                    summary.totalTTNCC,
-                    "",
-                    "",
-                    "",
-                    "",
-                    "", // Chat column
-                ]
-
-                const cancelledRow = [
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "Đơn hủy",
-                    summary.cancelledGiaBan,
-                    summary.cancelledGiaMua,
-                    summary.cancelledLN,
-                    summary.cancelledTTNCC,
-                    "",
-                    "",
-                    "",
-                    "",
-                    "", // Chat column
-                ]
-
-                const pendingRow = [
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "Chưa nhập",
-                    summary.pendingGiaBan,
-                    summary.pendingGiaMua,
-                    summary.pendingLN,
-                    summary.pendingTTNCC,
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "", // Chat column
-                ]
-
-                // Khi tạo formattedData, thêm cột Chat nếu thiếu
-                const formattedDataWithChat = formattedData.map((row) => {
-                    if (row.length < 22) {
-                        return [...row, ""]
-                    }
-                    return row
                 })
 
-                // Combine all data with summary rows in appropriate positions
-                const finalData = [
-                    totalRow,
-                    ...formattedDataWithChat.filter(
-                        (row) =>
-                            (row[19] === "Đã nhập" || row[19] === "Đơn OK" || row[19] === "Y/C Hủy đơn") &&
-                            (row[20] === "Đã lên bài" || row[20] === "Từ chối hoàn"),
-                    ),
-                    pendingRow,
-                    ...formattedDataWithChat.filter(
-                        (row) => (row[19] === "Chưa nhập" || row[19] === "Đã nhập") && row[20] === "Chưa nhận",
-                    ),
-                    cancelledRow,
-                    ...formattedDataWithChat.filter(
-                        (row) => row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"),
-                    ),
-                ]
-
-                console.log("Final data to be displayed:", finalData)
-                setTableData(finalData)
+                // Apply filters
+                const filteredData = filterTableData(formattedData)
+                setTableData(filteredData)
             } else {
                 setTableData([])
             }
         })
 
         return () => unsubscribe()
-    }, [userInfo?.role, userInfo?.username])
+    }, [userInfo?.role, userInfo?.username, selectedWeek, viewOption, selectedUser, selectedNCC]) // Add selectedUser and selectedNCC to dependencies
 
     // Load chat messages when currentChatOrderId changes
     useEffect(() => {
@@ -1051,13 +1286,13 @@ export default function PageBody() {
                     // If NCC sends message, notify customer
                     sheetApiRequest.getIDKH(
                         MaKH,
-                        `NCC ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`
+                        `NCC ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
                     )
                 } else if (userInfo?.role === "Khách hàng") {
                     // If customer sends message, notify NCC
                     sheetApiRequest.getIDNCC(
                         MaNCC,
-                        `Khách hàng ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`
+                        `Khách hàng ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
                     )
                 }
             }
@@ -1070,7 +1305,7 @@ export default function PageBody() {
     const handleChatOpen = (orderId: string) => {
         setCurrentChatOrderId(orderId)
         setChatDialogOpen(true)
-        setBlinkingChatOrders(prev => {
+        setBlinkingChatOrders((prev) => {
             const newSet = new Set(prev)
             newSet.delete(orderId)
             return newSet
@@ -1197,6 +1432,30 @@ export default function PageBody() {
                     td.style.backgroundColor = "#d3d3d3"
                     td.style.color = "#000000"
                 }
+
+                const fixedWidthColumns = [10, 12] // LinkKQ, Note
+                if (fixedWidthColumns.includes(col)) {
+                    td.style.width = "150px"
+                    td.style.maxWidth = "150px"
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || "" // Add tooltip with full text
+                } else if (col === 0) {
+                    td.style.width = "70px"
+                    td.style.maxWidth = "70px"
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || "" // Add tooltip with full text
+                } else {
+                    td.style.width = "80px"
+                    td.style.maxWidth = "80px"
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || "" // Add tooltip with full text
+                }
             }
         }
 
@@ -1206,129 +1465,542 @@ export default function PageBody() {
         return cellProperties
     }
 
+    // Add merge function
+    const handleMergeData = () => {
+        setIsMerged(!isMerged)
+        if (!isMerged) {
+            // Merge Total and Pending data
+            const mergedData = tableData
+                .map((row, index) => {
+                    if (row[12] === "Tổng") {
+                        const totalRow = [...row]
+                        const pendingRow = tableData.find((r) => r[12] === "Chưa nhập")
+                        if (pendingRow) {
+                            // Add pending values to total
+                            totalRow[13] = (parseNumberWithComma(totalRow[13]) + parseNumberWithComma(pendingRow[13])).toFixed(2)
+                            totalRow[14] = (parseNumberWithComma(totalRow[14]) + parseNumberWithComma(pendingRow[14])).toFixed(2)
+                            totalRow[15] = (parseNumberWithComma(totalRow[15]) + parseNumberWithComma(pendingRow[15])).toFixed(2)
+                            totalRow[16] = (parseNumberWithComma(totalRow[16]) + parseNumberWithComma(pendingRow[16])).toFixed(2)
+                        }
+                        return totalRow
+                    }
+                    return row
+                })
+                .filter((row) => row[12] !== "Chưa nhập")
+            setTableData(mergedData)
+        } else {
+            // Reset to original data
+            const ordersRef = ref(database, "content")
+            onValue(ordersRef, (snapshot) => {
+                const data = snapshot.val()
+                if (data) {
+                    // Transform the data into table format
+                    const formattedData = Object.entries(data)
+                        .map(([orderId, order]: [string, any]) => {
+                            const giaBan = parseNumberWithComma(order.GiaBan)
+                            const giaMua = parseNumberWithComma(order.GiaMua)
+                            const ln = giaBan - giaMua
+
+                            return [
+                                orderId,
+                                order.TenSP || "",
+                                order.NgayOrder || "",
+                                order.KHNote1 || "",
+                                order.KHNote2 || "",
+                                order.ChuDe || "",
+                                order.Anchor1 || "",
+                                order.URL1 || "",
+                                order.Anchor2 || "",
+                                order.URL2 || "",
+                                order.LinkKQ || "",
+                                order.Deadline || "",
+                                order.Note || "",
+                                giaBan,
+                                giaMua,
+                                ln,
+                                order.TTNCC || "",
+                                order.TenNCC || "",
+                                order.MaNCC || "",
+                                order.TinhTrangKH || "",
+                                order.TinhTrangNCC || "",
+                            ]
+                        })
+                        .filter((row) => {
+                            if (userInfo?.role === "NCC") {
+                                return row[18] === userInfo?.username
+                            } else if (userInfo?.role === "Khách hàng" || userInfo?.role === "Nhân viên") {
+                                const MaKH = row[0]
+                                const MaKHBeforeDash = MaKH.split("-")[0]
+                                return MaKHBeforeDash === userInfo?.username
+                            }
+                            return true
+                        })
+
+                    // Sort the formatted data
+                    formattedData.sort((a: any[], b: any[]) => {
+                        const orderIdA = a[0]
+                        const orderIdB = b[0]
+                        const partsA = orderIdA.split("-")
+                        const partsB = orderIdB.split("-")
+                        for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
+                            const numA = Number.parseInt(partsA[i].replace(/[^0-9]/g, ""))
+                            const numB = Number.parseInt(partsB[i].replace(/[^0-9]/g, ""))
+                            if (numA !== numB) {
+                                return numA - numB
+                            }
+                            if (partsA[i] !== partsB[i]) {
+                                return partsA[i].localeCompare(partsB[i])
+                            }
+                        }
+                        return partsA.length - partsB.length
+                    })
+
+                    // Calculate summary
+                    const summary = calculateSummary(formattedData)
+
+                    // Create summary rows
+                    const totalRow = [
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "Tổng",
+                        summary.totalGiaBan,
+                        summary.totalGiaMua,
+                        summary.totalLN,
+                        summary.totalTTNCC,
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    ]
+
+                    const cancelledRow = [
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "Đơn hủy",
+                        summary.cancelledGiaBan,
+                        summary.cancelledGiaMua,
+                        summary.cancelledLN,
+                        summary.cancelledTTNCC,
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    ]
+
+                    const pendingRow = [
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "Chưa nhập",
+                        summary.pendingGiaBan,
+                        summary.pendingGiaMua,
+                        summary.pendingLN,
+                        summary.pendingTTNCC,
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    ]
+
+                    // Combine all data with summary rows
+                    const finalData = [
+                        totalRow,
+                        ...formattedData.filter(
+                            (row) =>
+                                (row[19] === "Đã nhập" || row[19] === "Đơn OK" || row[19] === "Y/C Hủy đơn") &&
+                                (row[20] === "Đã lên bài" || row[20] === "Từ chối hoàn"),
+                        ),
+                        pendingRow,
+                        ...formattedData.filter(
+                            (row) => (row[19] === "Chưa nhập" || row[19] === "Đã nhập") && row[20] === "Chưa nhận",
+                        ),
+                        cancelledRow,
+                        ...formattedData.filter(
+                            (row) => row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"),
+                        ),
+                    ]
+
+                    // Apply filters
+                    const filteredData = filterTableData(finalData)
+                    setTableData(filteredData)
+                } else {
+                    setTableData([])
+                }
+            })
+        }
+    }
+
     return (
         <>
-            <HotTable
-                themeName="ht-theme-main"
-                nestedHeaders={[RowHeader1, RowHeader2]}
-                data={tableData}
-                filters={true}
-                width="100%"
-                autoColumnSize={true}
-                manualColumnResize={true}
-                height="100vh"
-                stretchH="all"
-                manualRowMove={true}
-                manualColumnMove={true}
-                manualRowResize={true}
-                className="custom-table"
-                licenseKey="non-commercial-and-evaluation"
-                rowHeaders={false}
-                hiddenColumns={getHiddenColumns()}
-                cells={cells}
-                contextMenu={{
-                    items: {
-                        cancelOrder: {
-                            name: "Hủy Đơn",
-                            callback: function (this: any, key: string, selection: any, clickEvent: any) {
-                                const row = selection[0].start.row
-                                handleContextMenuAction(row, key)
+            <div className="mb-4 bg-white rounded-lg shadow-md p-4">
+                <div className="flex flex-col space-y-4">
+                    {/* Filter Controls Row */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center">
+                            <label className="text-sm font-medium text-gray-700 mr-2">Hiển thị:</label>
+                            <select
+                                value={viewOption}
+                                onChange={(e) => setViewOption(e.target.value)}
+                                className="px-3 py-2 rounded-md border border-gray-300 bg-white text-gray-700 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                            >
+                                <option value="all">Tất cả</option>
+                                <option value="total">Tổng</option>
+                                <option value="pending">Chưa nhập</option>
+                                <option value="cancelled">Hủy</option>
+                            </select>
+                        </div>
+
+                        <div className="flex items-center">
+                            <label className="text-sm font-medium text-gray-700 mr-2">Tuần:</label>
+                            <select
+                                value={selectedWeek}
+                                onChange={(e) => setSelectedWeek(e.target.value)}
+                                className="px-3 py-2 rounded-md border border-gray-300 bg-white text-gray-700 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                            >
+                                {Array.from({ length: getCurrentWeek() }, (_, i) => (
+                                    <option key={i + 1} value={i + 1}>
+                                        Tuần {i + 1}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {userInfo?.role === "Admin" && (
+                            <>
+                                <div className="flex items-center">
+                                    <label className="text-sm font-medium text-gray-700 mr-2">Khách hàng:</label>
+                                    <select
+                                        value={selectedUser}
+                                        onChange={(e) => setSelectedUser(e.target.value)}
+                                        className="px-3 py-2 rounded-md border border-gray-300 bg-white text-gray-700 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                    >
+                                        <option value="">Tất cả</option>
+                                        {users.map((user) => (
+                                            <option key={user} value={user}>
+                                                {user}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="flex items-center">
+                                    <label className="text-sm font-medium text-gray-700 mr-2">NCC:</label>
+                                    <select
+                                        value={selectedNCC}
+                                        onChange={(e) => setSelectedNCC(e.target.value)}
+                                        className="px-3 py-2 rounded-md border border-gray-300 bg-white text-gray-700 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                    >
+                                        <option value="">Tất cả</option>
+                                        {nccs.map((ncc) => (
+                                            <option key={ncc} value={ncc}>
+                                                {ncc}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </>
+                        )}
+
+                        <button
+                            onClick={handleMergeData}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${isMerged
+                                ? "bg-blue-500 hover:bg-blue-600 text-white"
+                                : "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300"
+                                }`}
+                        >
+                            {isMerged ? "Tách dữ liệu" : "Gộp dữ liệu"}
+                        </button>
+
+                        <div className="ml-auto">
+                            <button
+                                onClick={() => setIsFullscreen(!isFullscreen)}
+                                className="fixed flex items-center top-4 right-4 z-[9999] p-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
+                            >
+                                {isFullscreen ? (
+                                    <div className="hidden">
+                                    </div>
+                                ) : (
+                                    <>
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className="h-4 w-4 mr-1"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"
+                                            />
+                                        </svg>
+                                        Toàn màn hình
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Stats Cards Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+                            <div className="flex items-center">
+                                <div className="p-2 bg-green-500 rounded-full mr-3">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-5 w-5 text-white"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-700">Đơn hoàn thành</h3>
+                                    <div className="flex items-baseline">
+                                        <p className="text-2xl font-bold text-green-600">{stats.totalOrders}</p>
+                                        <p className="ml-2 text-sm text-gray-600">đơn</p>
+                                    </div>
+                                    <p className="text-sm font-medium text-green-600">{stats.totalAmount.toLocaleString("vi-VN")} USDT</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 p-4 rounded-lg border border-yellow-200">
+                            <div className="flex items-center">
+                                <div className="p-2 bg-yellow-500 rounded-full mr-3">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-5 w-5 text-white"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-700">Đơn chờ xử lý</h3>
+                                    <div className="flex items-baseline">
+                                        <p className="text-2xl font-bold text-yellow-600">{stats.pendingOrders}</p>
+                                        <p className="ml-2 text-sm text-gray-600">đơn</p>
+                                    </div>
+                                    <p className="text-sm font-medium text-yellow-600">
+                                        {stats.pendingAmount.toLocaleString("vi-VN")} USDT
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-gradient-to-r from-red-50 to-red-100 p-4 rounded-lg border border-red-200">
+                            <div className="flex items-center">
+                                <div className="p-2 bg-red-500 rounded-full mr-3">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-5 w-5 text-white"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-700">Đơn hủy</h3>
+                                    <div className="flex items-baseline">
+                                        <p className="text-2xl font-bold text-red-600">{stats.cancelledOrders}</p>
+                                        <p className="ml-2 text-sm text-gray-600">đơn</p>
+                                    </div>
+                                    <p className="text-sm font-medium text-red-600">
+                                        {stats.cancelledAmount.toLocaleString("vi-VN")} USDT
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div className={`${isFullscreen ? "fixed inset-0 z-50 bg-white" : "relative"}`}>
+                <HotTable
+                    themeName="ht-theme-main"
+                    nestedHeaders={[RowHeader1, RowHeader2]}
+                    data={tableData}
+                    filters={true}
+                    width="100%"
+                    autoColumnSize={true}
+                    manualColumnResize={true}
+                    height={isFullscreen ? "calc(100vh - 40px)" : "calc(100vh - 240px)"}
+                    stretchH="all"
+                    manualRowMove={true}
+                    manualColumnMove={true}
+                    manualRowResize={true}
+                    className="custom-table"
+                    licenseKey="non-commercial-and-evaluation"
+                    rowHeaders={false}
+                    hiddenColumns={getHiddenColumns()}
+                    cells={cells}
+                    contextMenu={{
+                        items: {
+                            cancelOrder: {
+                                name: "Hủy Đơn",
+                                callback: function (this: any, key: string, selection: any, clickEvent: any) {
+                                    const row = selection[0].start.row
+                                    handleContextMenuAction(row, key)
+                                },
+                                hidden: function (this: any) {
+                                    if (userInfo?.role === "NCC") return true
+                                    const selected = this.getSelectedLast()
+                                    if (!selected || !Array.isArray(selected) || selected.length < 4) return true
+                                    const selectedRow = selected[0]
+                                    if (selectedRow < 0 || selectedRow >= tableData.length) return true
+                                    if (!tableData[selectedRow] || !tableData[selectedRow][19]) return true
+                                    const tinhTrang = tableData[selectedRow][19]
+                                    return tinhTrang === "Y/C Hủy đơn" || tinhTrang === "Hủy đơn" || tinhTrang === "Đơn OK"
+                                },
                             },
-                            hidden: function (this: any) {
-                                if (userInfo?.role === "NCC") return true
-                                const selected = this.getSelectedLast()
-                                if (!selected || !Array.isArray(selected) || selected.length < 4) return true
-                                const selectedRow = selected[0]
-                                if (selectedRow < 0 || selectedRow >= tableData.length) return true
-                                if (!tableData[selectedRow] || !tableData[selectedRow][19]) return true
-                                const tinhTrang = tableData[selectedRow][19]
-                                return tinhTrang === "Y/C Hủy đơn" || tinhTrang === "Hủy đơn" || tinhTrang === "Đơn OK"
+                            okOrder: {
+                                name: "Đơn OK",
+                                callback: function (this: any, key: string, selection: any, clickEvent: any) {
+                                    const row = selection[0].start.row
+                                    handleContextMenuAction(row, key)
+                                },
+                                hidden: function (this: any) {
+                                    if (userInfo?.role === "NCC") return true
+                                    const selected = this.getSelectedLast()
+                                    if (!selected || !Array.isArray(selected) || selected.length < 4) return true
+                                    const selectedRow = selected[0]
+                                    if (selectedRow < 0 || selectedRow >= tableData.length) return true
+                                    if (!tableData[selectedRow] || !tableData[selectedRow][19]) return true
+                                    const tinhTrang = tableData[selectedRow][19]
+                                    const tinhTrangNCC = tableData[selectedRow][20]
+                                    return (
+                                        tinhTrang === "Đơn OK" ||
+                                        tinhTrang === "Y/C Hủy đơn" ||
+                                        tinhTrang === "Chưa nhập" ||
+                                        tinhTrang === "Hủy đơn" ||
+                                        tinhTrangNCC === "Chưa nhận"
+                                    )
+                                },
+                            },
+                            approveRefund: {
+                                name: "Đồng ý hoàn",
+                                callback: function (this: any, key: string, selection: any, clickEvent: any) {
+                                    const row = selection[0].start.row
+                                    handleContextMenuAction(row, key)
+                                },
+                                hidden: function (this: any) {
+                                    if (userInfo?.role === "Khách hàng" || userInfo?.role === "Nhân viên") return true
+                                    const selected = this.getSelectedLast()
+                                    if (!selected || !Array.isArray(selected) || selected.length < 4) return true
+                                    const selectedRow = selected[0]
+                                    if (selectedRow < 0 || selectedRow >= tableData.length) return true
+                                    if (!tableData[selectedRow] || !tableData[selectedRow][19]) return true
+                                    const tinhTrangKH = tableData[selectedRow][19]
+                                    const tinhTrangNCC = tableData[selectedRow][20]
+                                    return (
+                                        tinhTrangKH !== "Y/C Hủy đơn" || tinhTrangNCC === "Đồng ý hoàn" || tinhTrangNCC === "Từ chối hoàn"
+                                    )
+                                },
+                            },
+                            rejectRefund: {
+                                name: "Từ chối hoàn",
+                                callback: function (this: any, key: string, selection: any, clickEvent: any) {
+                                    const row = selection[0].start.row
+                                    handleContextMenuAction(row, key)
+                                },
+                                hidden: function (this: any) {
+                                    if (userInfo?.role === "Khách hàng" || userInfo?.role === "Nhân viên") return true
+                                    const selected = this.getSelectedLast()
+                                    if (!selected || !Array.isArray(selected) || selected.length < 4) return true
+                                    const selectedRow = selected[0]
+                                    if (selectedRow < 0 || selectedRow >= tableData.length) return true
+                                    if (!tableData[selectedRow] || !tableData[selectedRow][19]) return true
+                                    const tinhTrangKH = tableData[selectedRow][19]
+                                    const tinhTrangNCC = tableData[selectedRow][20]
+                                    return (
+                                        tinhTrangKH !== "Y/C Hủy đơn" || tinhTrangNCC === "Đồng ý hoàn" || tinhTrangNCC === "Từ chối hoàn"
+                                    )
+                                },
                             },
                         },
-                        okOrder: {
-                            name: "Đơn OK",
-                            callback: function (this: any, key: string, selection: any, clickEvent: any) {
-                                const row = selection[0].start.row
-                                handleContextMenuAction(row, key)
-                            },
-                            hidden: function (this: any) {
-                                if (userInfo?.role === "NCC") return true
-                                const selected = this.getSelectedLast()
-                                if (!selected || !Array.isArray(selected) || selected.length < 4) return true
-                                const selectedRow = selected[0]
-                                if (selectedRow < 0 || selectedRow >= tableData.length) return true
-                                if (!tableData[selectedRow] || !tableData[selectedRow][19]) return true
-                                const tinhTrang = tableData[selectedRow][19]
-                                const tinhTrangNCC = tableData[selectedRow][20]
-                                return (
-                                    tinhTrang === "Đơn OK" ||
-                                    tinhTrang === "Y/C Hủy đơn" ||
-                                    tinhTrang === "Chưa nhập" ||
-                                    tinhTrang === "Hủy đơn" ||
-                                    tinhTrangNCC === "Chưa nhận"
-                                )
-                            },
-                        },
-                        approveRefund: {
-                            name: "Đồng ý hoàn",
-                            callback: function (this: any, key: string, selection: any, clickEvent: any) {
-                                const row = selection[0].start.row
-                                handleContextMenuAction(row, key)
-                            },
-                            hidden: function (this: any) {
-                                if (userInfo?.role === "Khách hàng") return true
-                                const selected = this.getSelectedLast()
-                                if (!selected || !Array.isArray(selected) || selected.length < 4) return true
-                                const selectedRow = selected[0]
-                                if (selectedRow < 0 || selectedRow >= tableData.length) return true
-                                if (!tableData[selectedRow] || !tableData[selectedRow][19]) return true
-                                const tinhTrangKH = tableData[selectedRow][19]
-                                const tinhTrangNCC = tableData[selectedRow][20]
-                                return (
-                                    tinhTrangKH !== "Y/C Hủy đơn" || tinhTrangNCC === "Đồng ý hoàn" || tinhTrangNCC === "Từ chối hoàn"
-                                )
-                            },
-                        },
-                        rejectRefund: {
-                            name: "Từ chối hoàn",
-                            callback: function (this: any, key: string, selection: any, clickEvent: any) {
-                                const row = selection[0].start.row
-                                handleContextMenuAction(row, key)
-                            },
-                            hidden: function (this: any) {
-                                if (userInfo?.role === "Khách hàng") return true
-                                const selected = this.getSelectedLast()
-                                if (!selected || !Array.isArray(selected) || selected.length < 4) return true
-                                const selectedRow = selected[0]
-                                if (selectedRow < 0 || selectedRow >= tableData.length) return true
-                                if (!tableData[selectedRow] || !tableData[selectedRow][19]) return true
-                                const tinhTrangKH = tableData[selectedRow][19]
-                                const tinhTrangNCC = tableData[selectedRow][20]
-                                return (
-                                    tinhTrangKH !== "Y/C Hủy đơn" || tinhTrangNCC === "Đồng ý hoàn" || tinhTrangNCC === "Từ chối hoàn"
-                                )
-                            },
-                        },
-                    },
-                }}
-                dropdownMenu={false}
-                columnSorting={false}
-                columnHeaderHeight={30}
-                afterChange={handleAfterChange}
-                afterPaste={handleAfterPaste}
-            />
-            <ChatDialog
-                chatDialogOpen={chatDialogOpen}
-                setChatDialogOpen={setChatDialogOpen}
-                currentChatOrderId={currentChatOrderId}
-                currentChatMessages={currentChatMessages}
-                newChatMessage={newChatMessage}
-                setNewChatMessage={setNewChatMessage}
-                sendChatMessage={sendChatMessage}
-                role={userInfo?.role}
-                supplierName={userInfo?.name}
-                user={userInfo}
-            />
+                    }}
+                    dropdownMenu={false}
+                    columnSorting={false}
+                    columnHeaderHeight={30}
+                    afterChange={handleAfterChange}
+                    afterPaste={handleAfterPaste}
+                />
+                {/* Nút thu nhỏ màn hình luôn nổi trên cùng khi fullscreen */}
+            </div>
+            {isFullscreen && (
+                <button
+                    onClick={() => setIsFullscreen(false)}
+                    className="fixed top-4 right-4 z-[9999] p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            )}
+            <div className={isFullscreen ? "fixed bottom-4 right-4 z-50" : ""}>
+                <ChatDialog
+                    chatDialogOpen={chatDialogOpen}
+                    setChatDialogOpen={setChatDialogOpen}
+                    currentChatOrderId={currentChatOrderId}
+                    currentChatMessages={currentChatMessages}
+                    newChatMessage={newChatMessage}
+                    setNewChatMessage={setNewChatMessage}
+                    sendChatMessage={sendChatMessage}
+                    role={userInfo?.role}
+                    supplierName={userInfo?.name}
+                    user={userInfo}
+                />
+            </div>
         </>
     )
 }
