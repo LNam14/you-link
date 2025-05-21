@@ -1486,7 +1486,30 @@ export default function PageBody() {
                     }
                     return row
                 })
-                .filter((row) => row[12] !== "Chưa nhập")
+                .filter((row) => row[12] !== "Chưa nhập" && row[12] !== "Đơn hủy")
+                .sort((a, b) => {
+                    // Skip sorting for summary rows
+                    if (a[12] === "Tổng") return -1
+                    if (b[12] === "Tổng") return 1
+
+                    const orderIdA = a[0]
+                    const orderIdB = b[0]
+
+                    // Split the order IDs into parts
+                    const [prefixA, numA] = orderIdA.split('-')
+                    const [prefixB, numB] = orderIdB.split('-')
+
+                    // First compare prefixes (e.g., BH1, BH2)
+                    if (prefixA !== prefixB) {
+                        // Extract the numeric part from prefix (e.g., BH1 -> 1)
+                        const prefixNumA = parseInt(prefixA.replace(/[^0-9]/g, ''))
+                        const prefixNumB = parseInt(prefixB.replace(/[^0-9]/g, ''))
+                        return prefixNumA - prefixNumB
+                    }
+
+                    // If prefixes are the same, compare the order numbers
+                    return parseInt(numA) - parseInt(numB)
+                })
             setTableData(mergedData)
         } else {
             // Reset to original data
@@ -1535,25 +1558,25 @@ export default function PageBody() {
                             }
                             return true
                         })
+                        .sort((a, b) => {
+                            const orderIdA = a[0]
+                            const orderIdB = b[0]
 
-                    // Sort the formatted data
-                    formattedData.sort((a: any[], b: any[]) => {
-                        const orderIdA = a[0]
-                        const orderIdB = b[0]
-                        const partsA = orderIdA.split("-")
-                        const partsB = orderIdB.split("-")
-                        for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
-                            const numA = Number.parseInt(partsA[i].replace(/[^0-9]/g, ""))
-                            const numB = Number.parseInt(partsB[i].replace(/[^0-9]/g, ""))
-                            if (numA !== numB) {
-                                return numA - numB
+                            // Split the order IDs into parts
+                            const [prefixA, numA] = orderIdA.split('-')
+                            const [prefixB, numB] = orderIdB.split('-')
+
+                            // First compare prefixes (e.g., BH1, BH2)
+                            if (prefixA !== prefixB) {
+                                // Extract the numeric part from prefix (e.g., BH1 -> 1)
+                                const prefixNumA = parseInt(prefixA.replace(/[^0-9]/g, ''))
+                                const prefixNumB = parseInt(prefixB.replace(/[^0-9]/g, ''))
+                                return prefixNumA - prefixNumB
                             }
-                            if (partsA[i] !== partsB[i]) {
-                                return partsA[i].localeCompare(partsB[i])
-                            }
-                        }
-                        return partsA.length - partsB.length
-                    })
+
+                            // If prefixes are the same, compare the order numbers
+                            return parseInt(numA) - parseInt(numB)
+                        })
 
                     // Calculate summary
                     const summary = calculateSummary(formattedData)
