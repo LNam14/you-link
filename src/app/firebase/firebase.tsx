@@ -1,36 +1,11 @@
-// firebaseConfig.js
-import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, set, onValue, push, remove, update, DataSnapshot, Database } from 'firebase/database';
+// Import Firebase database functions and database instance
+import { ref, set, onValue, push, remove, update, DataSnapshot } from 'firebase/database';
+import { database } from '@/lib/firebase';
 import { TelegramService } from '@/lib/telegram';
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-    apiKey: "AIzaSyA56zF_hHgtp_2AmWU0MuUjgbWfzA95SSs",
-    authDomain: "you-4a1e9.firebaseapp.com",
-    databaseURL: "https://you-4a1e9-default-rtdb.firebaseio.com",
-    projectId: "you-4a1e9",
-    storageBucket: "you-4a1e9.firebasestorage.app",
-    messagingSenderId: "894442863851",
-    appId: "1:894442863851:web:2647c56e8b33e3093552ae",
-    measurementId: "G-G1940DYPZK"
-};
-
-// Initialize Firebase
-let app;
-let database: Database;
+// Initialize Telegram service
 let telegramService: TelegramService;
 
-try {
-    app = initializeApp(firebaseConfig);
-    database = getDatabase(app);
-    telegramService = TelegramService.getInstance();
-} catch (error) {
-    console.error('Firebase initialization error:', error);
-    // You might want to handle this error differently in production
-    throw new Error('Failed to initialize Firebase. Please check your configuration.');
-}
-
-// Initialize Telegram service
 try {
     telegramService = TelegramService.getInstance();
 } catch (error) {
