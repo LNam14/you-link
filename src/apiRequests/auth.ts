@@ -65,7 +65,7 @@ export interface UsersResponse {
 // API endpoints
 const ENDPOINTS = {
   GET_COUNT: "/auth/get-count",
-  GET_ALL: "/auth/get",
+  GET: "/auth/get",
   GET_STAFF: "/auth/get-staff",
   GET_BY_ID: "/auth/get-by-id",
   LOGIN: "/auth/login",
@@ -89,19 +89,8 @@ const authApiRequest = {
       params: { timestamp }, // nếu cần truyền timestamp vào query
     });
   },
-  fetchData: (forceRefresh = false) => {
-    return httpService.get<UsersResponse>(ENDPOINTS.GET_ALL, {
-      cache: !forceRefresh,
-    });
-  },
-
-  /**
-   * Lấy danh sách nhân viên
-   * @param forceRefresh Bỏ qua cache và lấy dữ liệu mới
-   * @returns Promise với dữ liệu nhân viên
-   */
-  getStaff: (forceRefresh = false) => {
-    return httpService.get<UsersResponse>(ENDPOINTS.GET_STAFF, {
+  get: (forceRefresh = false) => {
+    return httpService.get<UsersResponse>(ENDPOINTS.GET, {
       cache: !forceRefresh,
     });
   },

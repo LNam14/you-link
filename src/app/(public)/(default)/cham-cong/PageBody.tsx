@@ -3,10 +3,17 @@
 import { useState, useEffect, useMemo } from "react"
 import moment from "moment"
 import "moment/locale/vi"
-import { ChevronLeft, ChevronRight, Calendar, User, CheckCircle, DollarSign, Coins } from "lucide-react"
+import { ChevronLeft, ChevronRight, Calendar, User, CheckCircle, DollarSign } from "lucide-react"
 import attendanceApiRequest from "@/apiRequests/attendance"
 import getUserInfo from "@/components/userInfo"
 import { toast, Toaster } from "sonner"
+// Remove these imports
+// import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+// import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+// import { ViewIcon as ViewList, ViewIcon as ViewGrid } from 'lucide-react'
+
+// Add these imports instead
+import { ListFilter, Grid } from "lucide-react"
 
 // Định nghĩa kiểu dữ liệu cho bản ghi chấm công
 interface AttendanceRecord {
@@ -31,6 +38,8 @@ export default function AttendanceTracker() {
     const username = userInfo?.username
     const role = userInfo?.role
     const dailyRate = 302 // Mức lương hàng ngày
+    const [viewMode, setViewMode] = useState<"calendar" | "table">("calendar")
+    const [allEmployeesData, setAllEmployeesData] = useState<{ [key: string]: any }[]>([])
 
     const fetchAttendanceData = async () => {
         try {
@@ -48,14 +57,35 @@ export default function AttendanceTracker() {
                     const usernames = [...new Set(response.map((record) => record.username))]
                     // Sort usernames that start with 'BH' followed by numbers
                     const sortedUsernames = usernames.sort((a, b) => {
-                        const numA = parseInt(a.replace('BH', '')) || 0;
-                        const numB = parseInt(b.replace('BH', '')) || 0;
-                        return numA - numB;
-                    });
+                        const numA = Number.parseInt(a.replace("BH", "")) || 0
+                        const numB = Number.parseInt(b.replace("BH", "")) || 0
+                        return numA - numB
+                    })
                     setUniqueUsernames(sortedUsernames)
                     // Nếu chưa chọn username, mặc định chọn username đầu tiên
                     if (!selectedUsername && sortedUsernames.length > 0) {
                         setSelectedUsername(sortedUsernames[0])
+                    }
+                    // Organize data for table view if admin
+                    if (role === "Admin" && response && Array.isArray(response)) {
+                        // Group attendance by username
+                        const attendanceByUser = sortedUsernames.map((username) => {
+                            const userAttendance = response.filter((record) => record.username === username)
+                            const presentDays = userAttendance.length
+                            const totalSalary = presentDays * dailyRate
+
+                            return {
+                                username,
+                                presentDays,
+                                totalSalary,
+                                lastAttendance:
+                                    userAttendance.length > 0
+                                        ? moment(userAttendance[userAttendance.length - 1].date).format("DD/MM/YYYY")
+                                        : "Chưa chấm công",
+                            }
+                        })
+
+                        setAllEmployeesData(attendanceByUser)
                     }
                 }
             } else {
@@ -257,6 +287,26 @@ export default function AttendanceTracker() {
                                 <Calendar className="h-6 w-6" />
                                 Hệ Thống Chấm Công
                             </h2>
+                            {role === "Admin" && (
+                                <div className="flex bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
+                                    <button
+                                        onClick={() => setViewMode("calendar")}
+                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "calendar" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
+                                            }`}
+                                    >
+                                        <Grid className="h-4 w-4 mr-1" />
+                                        Lịch
+                                    </button>
+                                    <button
+                                        onClick={() => setViewMode("table")}
+                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "table" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
+                                            }`}
+                                    >
+                                        <ListFilter className="h-4 w-4 mr-1" />
+                                        Bảng
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
@@ -385,90 +435,161 @@ export default function AttendanceTracker() {
                     </div>
                 </div>
 
-                {/* Calendar */}
-                <div className="bg-white rounded-b-2xl shadow-xl pt-2 pb-4 px-4">
-                    <div className="grid grid-cols-7 gap-1">
-                        {["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((day, index) => (
-                            <div key={day} className="text-center font-medium text-gray-500 py-2">
-                                {day}
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-2">
-                        {/* Tạo ô trống cho các ngày trước ngày đầu tiên của tháng */}
-                        {Array.from({ length: moment(currentMonth).startOf("month").day() }).map((_, index) => (
-                            <div key={`empty-${index}`} className="h-16 md:h-22 p-1"></div>
-                        ))}
-
-                        {/* Hiển thị các ngày trong tháng */}
-                        {daysInMonth.map((day) => {
-                            const attendanceRecord = getAttendanceStatus(day)
-                            const isTodayDate = isToday(day)
-                            const isPast = isPastDay(day)
-                            const isFuture = day.isAfter(moment(), "day")
-                            const isWeekend = day.day() === 0 || day.day() === 6
-
-                            // Xác định màu sắc dựa trên trạng thái chấm công
-                            let bgColor = "bg-white"
-                            let borderColor = "border-gray-200"
-                            let statusText = ""
-                            let textColor = isWeekend ? "text-gray-400" : "text-gray-700"
-
-                            if (attendanceRecord) {
-                                bgColor = "bg-blue-100"
-                                borderColor = "border-blue-500"
-                                statusText = isTodayDate ? "Đã chấm công" : "Đi làm"
-                                textColor = "text-blue-700"
-                            } else if (isPast && !isFuture) {
-                                // Ngày trong quá khứ mà không có bản ghi thì mặc định là "Nghỉ"
-                                bgColor = "bg-red-100"
-                                borderColor = "border-red-500"
-                                statusText = "Nghỉ"
-                                textColor = "text-red-700"
-                            } else if (isTodayDate) {
-                                bgColor = "bg-teal-100"
-                                borderColor = "border-teal-400"
-                                textColor = "text-teal-700"
-                            } else if (isPast) {
-                                bgColor = "bg-gray-50"
-                            }
-
-                            return (
-                                <div
-                                    key={day.format()}
-                                    className={`h-16 md:h-22 mb-1 p-0.5 rounded-lg flex flex-col transition-all ${isTodayDate ? "ring-2 ring-blue-500 shadow-md" : `border ${borderColor}`} ${bgColor} hover:shadow-md`}
-                                >
-                                    <div className={`text-right p-0.5 font-medium text-xs ${isTodayDate ? "text-blue-700" : textColor}`}>
-                                        {day.format("D")}
-                                    </div>
-
-                                    {(attendanceRecord || (isPast && !isFuture && !attendanceRecord)) && !isFuture && (
-                                        <div
-                                            className={`text-center text-xs font-medium ${attendanceRecord ? (isTodayDate ? "text-blue-700" : "text-blue-700") : "text-red-700"}`}
-                                        >
-                                            {statusText}
-                                        </div>
-                                    )}
-
-                                    <div className="flex-grow flex items-end justify-center p-0.5">
-                                        {isTodayDate && !attendanceRecord ? (
-                                            <div className="w-full flex justify-center">
-                                                <button
-                                                    className={`py-1 px-2 text-xs rounded-lg transition-all bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white shadow-md focus:outline-none focus:ring-2 focus:ring-teal-300 ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
-                                                    onClick={() => handleAttendance(day)}
-                                                    disabled={isLoading}
-                                                >
-                                                    {isLoading ? "Đang xử lý..." : "Chấm công"}
-                                                </button>
-                                            </div>
-                                        ) : null}
-                                    </div>
+                {viewMode === "calendar" && (
+                    <div className="bg-white rounded-b-2xl shadow-xl pt-2 pb-4 px-4">
+                        <div className="grid grid-cols-7 gap-1">
+                            {["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((day, index) => (
+                                <div key={day} className="text-center font-medium text-gray-500 py-2">
+                                    {day}
                                 </div>
-                            )
-                        })}
+                            ))}
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-2">
+                            {/* Tạo ô trống cho các ngày trước ngày đầu tiên của tháng */}
+                            {Array.from({ length: moment(currentMonth).startOf("month").day() }).map((_, index) => (
+                                <div key={`empty-${index}`} className="h-16 md:h-22 p-1"></div>
+                            ))}
+
+                            {/* Hiển thị các ngày trong tháng */}
+                            {daysInMonth.map((day) => {
+                                const attendanceRecord = getAttendanceStatus(day)
+                                const isTodayDate = isToday(day)
+                                const isPast = isPastDay(day)
+                                const isFuture = day.isAfter(moment(), "day")
+                                const isWeekend = day.day() === 0 || day.day() === 6
+
+                                // Xác định màu sắc dựa trên trạng thái chấm công
+                                let bgColor = "bg-white"
+                                let borderColor = "border-gray-200"
+                                let statusText = ""
+                                let textColor = isWeekend ? "text-gray-400" : "text-gray-700"
+
+                                if (attendanceRecord) {
+                                    bgColor = "bg-blue-100"
+                                    borderColor = "border-blue-500"
+                                    statusText = isTodayDate ? "Đã chấm công" : "Đi làm"
+                                    textColor = "text-blue-700"
+                                } else if (isPast && !isFuture) {
+                                    // Ngày trong quá khứ mà không có bản ghi thì mặc định là "Nghỉ"
+                                    bgColor = "bg-red-100"
+                                    borderColor = "border-red-500"
+                                    statusText = "Nghỉ"
+                                    textColor = "text-red-700"
+                                } else if (isTodayDate) {
+                                    bgColor = "bg-teal-100"
+                                    borderColor = "border-teal-400"
+                                    textColor = "text-teal-700"
+                                } else if (isPast) {
+                                    bgColor = "bg-gray-50"
+                                }
+
+                                return (
+                                    <div
+                                        key={day.format()}
+                                        className={`h-16 md:h-22 mb-1 p-0.5 rounded-lg flex flex-col transition-all ${isTodayDate ? "ring-2 ring-blue-500 shadow-md" : `border ${borderColor}`} ${bgColor} hover:shadow-md`}
+                                    >
+                                        <div
+                                            className={`text-right p-0.5 font-medium text-xs ${isTodayDate ? "text-blue-700" : textColor}`}
+                                        >
+                                            {day.format("D")}
+                                        </div>
+
+                                        {(attendanceRecord || (isPast && !isFuture && !attendanceRecord)) && !isFuture && (
+                                            <div
+                                                className={`text-center text-xs font-medium ${attendanceRecord ? (isTodayDate ? "text-blue-700" : "text-blue-700") : "text-red-700"}`}
+                                            >
+                                                {statusText}
+                                            </div>
+                                        )}
+
+                                        <div className="flex-grow flex items-end justify-center p-0.5">
+                                            {isTodayDate && !attendanceRecord ? (
+                                                <div className="w-full flex justify-center">
+                                                    <button
+                                                        className={`py-1 px-2 text-xs rounded-lg transition-all bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white shadow-md focus:outline-none focus:ring-2 focus:ring-teal-300 ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                                                        onClick={() => handleAttendance(day)}
+                                                        disabled={isLoading}
+                                                    >
+                                                        {isLoading ? "Đang xử lý..." : "Chấm công"}
+                                                    </button>
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
                     </div>
-                </div>
+                )}
+                {/* Table View for Admin */}
+                {role === "Admin" && viewMode === "table" && (
+                    <div className="bg-white rounded-b-2xl shadow-xl pt-4 pb-4 px-4 mt-4">
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th
+                                            scope="col"
+                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]"
+                                        >
+                                            Mã NV
+                                        </th>
+                                        <th
+                                            scope="col"
+                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                        >
+                                            Ngày Công
+                                        </th>
+                                        <th
+                                            scope="col"
+                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                        >
+                                            Lương Tháng Này
+                                        </th>
+                                        <th
+                                            scope="col"
+                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                        >
+                                            Chấm Công Gần Nhất
+                                        </th>
+                                        <th
+                                            scope="col"
+                                            className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                        >
+                                            Thao Tác
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {allEmployeesData.map((employee) => (
+                                        <tr key={employee.username} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                {employee.username}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.presentDays} ngày</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {formatCurrency(employee.totalSalary)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.lastAttendance}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedUsername(employee.username)
+                                                        setViewMode("calendar")
+                                                    }}
+                                                    className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-md transition-colors"
+                                                >
+                                                    Xem chi tiết
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )
