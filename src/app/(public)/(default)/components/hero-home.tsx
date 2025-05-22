@@ -21,8 +21,16 @@ import {
   ChevronRight,
   Database,
   Clock,
-  User,
+  Settings,
+  Users,
+  BarChart4,
+  Shield,
 } from "lucide-react"
+import { Wallet } from "lucide-react"
+import DepositModal from "@/app/(public)/(default)/components/DepositModal"
+import WithdrawModal from "@/app/(public)/(default)/components/WithdrawModal"
+import { useRouter } from "next/navigation"
+import authApiRequest from "@/apiRequests/auth"
 import { database, onValue, ref } from "@/app/firebase/firebase"
 
 export default function HeroHome() {
@@ -30,18 +38,54 @@ export default function HeroHome() {
   const [isConverterModalVisible, setIsConverterModalVisible] = useState(false)
   const [topSites, setTopSites] = useState<{ site: string; count: number }[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isEditUserModalVisible, setIsEditUserModalVisible] = useState(false)
+  const [isDepositModalVisible, setIsDepositModalVisible] = useState(false)
+  const [isWithdrawModalVisible, setIsWithdrawModalVisible] = useState(false)
+  const [amount, setAmount] = useState(0)
+  const [pendingAmount, setPendingAmount] = useState(0)
+  const [activeDepositTab, setActiveDepositTab] = useState<string>("history")
+  const [withdrawAmount, setWithdrawAmount] = useState<string>("")
+  const [binanceAddress, setBinanceAddress] = useState<string>("")
+  const [network, setNetwork] = useState<string>("TRC20")
+  const [withdrawErrors, setWithdrawErrors] = useState<{ [key: string]: string }>({})
+  const [isWithdrawSubmitting, setIsWithdrawSubmitting] = useState(false)
+
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    try {
+      document.cookie = "userInfo=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+      document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+      document.cookie = "userInfo=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; SameSite=Strict;"
+      document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; SameSite=Strict;"
+
+      try {
+        await authApiRequest.logout()
+      } catch (logoutError) {
+        console.error("Server logout failed:", logoutError)
+      }
+
+      router.push("/login")
+    } catch (error) {
+      console.error("Logout error:", error)
+    }
+  }
+
+  const handleEditInfomation = () => {
+    setIsEditUserModalVisible(true)
+  }
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const scrollLeft = () => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: -400, behavior: 'smooth' })
+      scrollContainerRef.current.scrollBy({ left: -400, behavior: "smooth" })
     }
   }
 
   const scrollRight = () => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: 400, behavior: 'smooth' })
+      scrollContainerRef.current.scrollBy({ left: 400, behavior: "smooth" })
     }
   }
 
@@ -53,7 +97,7 @@ export default function HeroHome() {
     const fetchData = async () => {
       try {
         setIsLoading(true)
-        const ordersRef = ref(database, 'orders')
+        const ordersRef = ref(database, "orders")
         onValue(ordersRef, (snapshot) => {
           if (snapshot.exists()) {
             const ordersData = snapshot.val()
@@ -82,7 +126,7 @@ export default function HeroHome() {
           setIsLoading(false)
         })
       } catch (error) {
-        console.error('Error fetching orders:', error)
+        console.error("Error fetching orders:", error)
         setIsLoading(false)
       }
     }
@@ -95,21 +139,40 @@ export default function HeroHome() {
     const interval = setInterval(() => {
       if (scrollContainerRef.current) {
         // Get the current scroll position
-        const currentScroll = scrollContainerRef.current.scrollLeft;
-        const maxScroll = scrollContainerRef.current.scrollWidth - scrollContainerRef.current.clientWidth;
+        const currentScroll = scrollContainerRef.current.scrollLeft
+        const maxScroll = scrollContainerRef.current.scrollWidth - scrollContainerRef.current.clientWidth
 
         // If we're at the end, scroll back to the beginning
         if (currentScroll >= maxScroll - 10) {
-          scrollContainerRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+          scrollContainerRef.current.scrollTo({ left: 0, behavior: "smooth" })
         } else {
           // Otherwise, scroll right by one card width (approx 280px including margin)
-          scrollContainerRef.current.scrollBy({ left: 280, behavior: 'smooth' });
+          scrollContainerRef.current.scrollBy({ left: 280, behavior: "smooth" })
         }
       }
-    }, 3000); // Scroll every 3 seconds
+    }, 3000) // Scroll every 3 seconds
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    // Check Firebase for the latest balance
+    if (userInfo?.username) {
+      const userBalanceRef = ref(database, `money/${userInfo.username}`)
+      const unsubscribe = onValue(userBalanceRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const balanceData = snapshot.val()
+          setAmount(balanceData.amount || 0)
+          setPendingAmount(balanceData.pendingAmount || 0)
+        } else {
+          setAmount(0)
+          setPendingAmount(0)
+        }
+      })
+
+      return () => unsubscribe()
+    }
+  }, [userInfo?.username])
 
   const backlinkTypes = [
     {
@@ -140,6 +203,86 @@ export default function HeroHome() {
     },
   ]
 
+  // Admin tools configuration
+  const adminTools = [
+    {
+      title: "Quản lý hệ thống",
+      icon: <Settings className="w-5 h-5 text-purple-600" />,
+      items: [
+        {
+          name: "Quản Lý Sites",
+          icon: <Database className="w-5 h-5" />,
+          href: "/sites",
+          color: "bg-gradient-to-r from-purple-500 to-indigo-600",
+          external: true,
+        },
+        {
+          name: "Tool Check Site",
+          icon: <CheckCircle className="w-5 h-5" />,
+          href: "/tool-check",
+          color: "bg-gradient-to-r from-emerald-500 to-teal-600",
+          external: true,
+        },
+        {
+          name: "Chấm Công",
+          icon: <Clock className="w-5 h-5" />,
+          href: "/cham-cong",
+          color: "bg-gradient-to-r from-blue-500 to-cyan-600",
+          external: true,
+        },
+      ],
+    },
+    {
+      title: "Tài chính",
+      icon: <DollarSign className="w-5 h-5 text-emerald-600" />,
+      items: [
+        {
+          name: "Thu Nhập",
+          icon: <DollarSign className="w-5 h-5" />,
+          href: "/money",
+          color: "bg-gradient-to-r from-amber-500 to-orange-600",
+          external: true,
+        },
+        {
+          name: "Đổi Mệnh Giá",
+          icon: <Wallet className="w-5 h-5" />,
+          action: () => setIsConverterModalVisible(true),
+          color: "bg-gradient-to-r from-rose-500 to-pink-600",
+        },
+        {
+          name: userInfo?.role === "NCC" ? "Rút tiền" : "Nạp tiền",
+          icon: <Wallet className="w-5 h-5" />,
+          action: () => (userInfo?.role === "NCC" ? setIsWithdrawModalVisible(true) : setIsDepositModalVisible(true)),
+          color: "bg-gradient-to-r from-green-500 to-emerald-600",
+        },
+      ],
+    },
+    {
+      title: "Công cụ SEO",
+      icon: <BarChart3 className="w-5 h-5 text-amber-600" />,
+      items: [
+        {
+          name: "Check Anchor Link",
+          icon: <LayoutDashboard className="w-5 h-5" />,
+          href: "https://drive.google.com/drive/folders/1dhNsD1N85VBO73yCKOsg2yniJyZDHR67?usp=drive_link",
+          color: "bg-gradient-to-r from-blue-500 to-indigo-600",
+          external: true,
+        },
+      ],
+    },
+  ]
+
+  // Admin specific tools
+  const adminSpecificTools = [
+    {
+      name: "Quản Lý Tài Khoản",
+      icon: <Users className="w-5 h-5" />,
+      href: "/quan-ly-tai-khoan",
+      color: "bg-gradient-to-r from-violet-500 to-purple-600",
+      description: "Quản lý người dùng và phân quyền",
+    }
+  ]
+
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-white to-gray-50 pt-16 pb-12">
       <PageIllustration />
@@ -165,16 +308,7 @@ export default function HeroHome() {
                   className="group inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700 text-white font-medium rounded-full px-8 py-3.5 shadow-lg hover:shadow-xl transition-all duration-300"
                 >
                   <ShoppingBag className="w-5 h-5" />
-                  Mua bán
-                  <ArrowRight className="w-4 h-4 ml-1 transition-transform duration-300 group-hover:translate-x-1" />
-                </Link>
-                <Link
-                  href="/tool-check"
-                  target="_blank"
-                  className="group inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium rounded-full px-8 py-3.5 shadow-lg hover:shadow-xl transition-all duration-300"
-                >
-                  <Globe className="w-5 h-5" />
-                  Check site
+                  GP - Text
                   <ArrowRight className="w-4 h-4 ml-1 transition-transform duration-300 group-hover:translate-x-1" />
                 </Link>
                 <Link
@@ -189,7 +323,7 @@ export default function HeroHome() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100 md:w-96">
+            <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100 w-full md:w-96">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Thống kê dịch vụ</h3>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
@@ -246,9 +380,9 @@ export default function HeroHome() {
                 ref={scrollContainerRef}
                 className="overflow-x-auto pb-4"
                 style={{
-                  scrollbarWidth: 'none',
-                  msOverflowStyle: 'none',
-                  WebkitOverflowScrolling: 'touch'
+                  scrollbarWidth: "none",
+                  msOverflowStyle: "none",
+                  WebkitOverflowScrolling: "touch",
                 }}
               >
                 <style jsx>{`
@@ -292,86 +426,87 @@ export default function HeroHome() {
             </div>
           </div>
 
-          {/* Admin and Staff tools */}
+          {/* Admin and Staff tools - REDESIGNED */}
           {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên" || userInfo?.role === "NCC") && (
-            <div className="mb-16">
-              <h3 className="text-center text-sm font-medium text-gray-500 uppercase tracking-wider mb-6">
-                Công cụ quản lý
+            <div className="mb-16 bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+              <h3 className="text-xl font-bold text-gray-900 mb-8 text-center">
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
+                  Công cụ quản lý
+                </span>
               </h3>
-              <div className="flex justify-center gap-6 flex-wrap">
-                <Link
-                  target="_blank"
-                  href="/sites"
-                  className="inline-flex items-center gap-3 px-6 py-3 text-base bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-md hover:shadow-lg"
-                >
-                  <Database className="w-5 h-5 text-blue-500" />
-                  Quản Lý Sites
-                </Link>
-                {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
-                  <>
-                    <Link
-                      href="/quan-ly-tai-khoan"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-3 px-6 py-3 text-base bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-md hover:shadow-lg"
-                    >
-                      <User className="w-5 h-5 text-emerald-500" />
-                      Quản Lý Tài Khoản
-                      <ExternalLink className="w-4 h-4 ml-1 text-gray-400" />
-                    </Link>
-                    <Link
-                      href="/tool-check"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-3 px-6 py-3 text-base bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-md hover:shadow-lg"
-                    >
-                      <CheckCircle className="w-5 h-5 text-emerald-500" />
-                      Tool Check Site
-                      <ExternalLink className="w-4 h-4 ml-1 text-gray-400" />
-                    </Link>
-                    <Link
-                      href="/cham-cong"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-3 px-6 py-3 text-base bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-md hover:shadow-lg"
-                    >
-                      <Clock className="w-5 h-5 text-emerald-500" />
-                      Chấm Công
-                      <ExternalLink className="w-4 h-4 ml-1 text-gray-400" />
-                    </Link>
-                    <Link
-                      href="/money"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-3 px-6 py-3 text-base bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-md hover:shadow-lg"
-                    >
-                      <DollarSign className="w-5 h-5 text-amber-500" />
-                      Thu Nhập
-                      <ExternalLink className="w-4 h-4 ml-1 text-gray-400" />
-                    </Link>
-                    <button
-                      onClick={() => setIsConverterModalVisible(true)}
-                      className="inline-flex items-center gap-3 px-6 py-3 text-base bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-md hover:shadow-lg"
-                    >
-                      <DollarSign className="w-5 h-5 text-amber-500" />
-                      Đổi Mệnh Giá
-                    </button>
-                    <CurrencyConverterModal
-                      isVisible={isConverterModalVisible}
-                      onClose={() => setIsConverterModalVisible(false)}
-                    />
-                    <Link
-                      href="https://drive.google.com/drive/folders/1dhNsD1N85VBO73yCKOsg2yniJyZDHR67?usp=drive_link"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-3 px-6 py-3 text-base bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-md hover:shadow-lg"
-                    >
-                      <LayoutDashboard className="w-5 h-5 text-blue-500" />
-                      Check Anchor Link
-                      <ExternalLink className="w-4 h-4 ml-1 text-gray-400" />
-                    </Link>
-                  </>
-                )}
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {adminTools.map((section, idx) => (
+                  <div key={idx} className="bg-gray-50 rounded-xl p-6 shadow-md">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 rounded-lg bg-white shadow-sm">{section.icon}</div>
+                      <h4 className="font-semibold text-gray-800">{section.title}</h4>
+                    </div>
+
+                    <div className="space-y-3">
+                      {section.items.map((tool, toolIdx) =>
+                        tool.href ? (
+                          <Link
+                            key={toolIdx}
+                            href={tool.href}
+                            target={tool.external ? "_blank" : undefined}
+                            rel={tool.external ? "noopener noreferrer" : undefined}
+                            className="flex items-center gap-3 p-3 rounded-lg bg-white hover:bg-gray-50 border border-gray-100 shadow-sm hover:shadow transition-all duration-200 group"
+                          >
+                            <div className={`${tool.color} text-white p-2 rounded-lg shadow-sm`}>{tool.icon}</div>
+                            <span className="font-medium text-gray-700 group-hover:text-gray-900">{tool.name}</span>
+                            {tool.external && <ExternalLink className="w-3.5 h-3.5 ml-auto text-gray-400" />}
+                          </Link>
+                        ) : (
+                          <button
+                            key={toolIdx}
+                            onClick={tool.action}
+                            className="w-full flex items-center gap-3 p-3 rounded-lg bg-white hover:bg-gray-50 border border-gray-100 shadow-sm hover:shadow transition-all duration-200 group"
+                          >
+                            <div className={`${tool.color} text-white p-2 rounded-lg shadow-sm`}>{tool.icon}</div>
+                            <span className="font-medium text-gray-700 group-hover:text-gray-900">{tool.name}</span>
+                          </button>
+                        ),
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Admin specific tools - REDESIGNED */}
+          {userInfo?.role === "Admin" && (
+            <div className="mb-16 bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl shadow-xl p-8 border border-gray-100">
+              <h3 className="text-xl font-bold text-gray-900 mb-8 text-center">
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
+                  Dành cho Admin
+                </span>
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {adminSpecificTools.map((tool, idx) => (
+                  <Link
+                    key={idx}
+                    href={tool.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex flex-col h-full bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                  >
+                    <div className={`${tool.color} h-2 w-full`}></div>
+                    <div className="p-6 flex flex-col h-full">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={`${tool.color} bg-opacity-10 p-3 rounded-lg`}>{tool.icon}</div>
+                        <h4 className="font-semibold text-gray-800">{tool.name}</h4>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-4">{tool.description}</p>
+                      <div className="mt-auto flex items-center text-sm font-medium text-gray-600 group-hover:text-gray-900">
+                        <span>Truy cập</span>
+                        <ArrowRight className="w-4 h-4 ml-1 transition-transform duration-300 group-hover:translate-x-1" />
+                      </div>
+                    </div>
+                  </Link>
+                ))}
               </div>
             </div>
           )}
@@ -398,6 +533,22 @@ export default function HeroHome() {
           </div>
         </div>
       </div>
+      {/* Modals */}
+      <DepositModal
+        isVisible={isDepositModalVisible}
+        onClose={() => setIsDepositModalVisible(false)}
+        username={userInfo?.username}
+      />
+
+      <WithdrawModal
+        isVisible={isWithdrawModalVisible}
+        onClose={() => setIsWithdrawModalVisible(false)}
+        username={userInfo?.username}
+        currentBalance={amount}
+        pendingAmount={pendingAmount}
+      />
+
+      <CurrencyConverterModal isVisible={isConverterModalVisible} onClose={() => setIsConverterModalVisible(false)} />
     </section>
-  );
+  )
 }
