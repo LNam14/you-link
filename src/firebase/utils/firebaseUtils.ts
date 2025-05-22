@@ -1,5 +1,5 @@
 import { ref, onValue, set, update, remove, DataSnapshot } from 'firebase/database';
-import { database } from '../config/firebase';
+import { database } from '@/lib/firebase';
 import { FirebaseQueryOptions, FirebaseUpdateOptions, FirebaseError } from '../types';
 
 export const listenToData = ({ ref, callback, errorCallback }: FirebaseQueryOptions) => {

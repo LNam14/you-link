@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ref } from 'firebase/database';
-import { database } from '../config/firebase';
+import { database } from '@/lib/firebase';
 import { listenToData, getDataSnapshot } from '../utils/firebaseUtils';
 import { FirebaseError } from '../types';
 

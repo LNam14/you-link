@@ -1,18 +1,30 @@
-import { initializeApp, getApps } from 'firebase/app'
-import { getDatabase, ref, set, onValue } from 'firebase/database'
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app'
+import { getDatabase, ref, set, onValue, Database } from 'firebase/database'
 
 const firebaseConfig = {
-    apiKey: "AIzaSyA56zF_hHgtp_2AmWU0MuUjgbWfzA95SSs",
-    authDomain: "you-4a1e9.firebaseapp.com",
-    databaseURL: "https://you-4a1e9-default-rtdb.firebaseio.com",
-    projectId: "you-4a1e9",
-    storageBucket: "you-4a1e9.firebasestorage.app",
-    messagingSenderId: "894442863851",
-    appId: "1:894442863851:web:2647c56e8b33e3093552ae"
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 }
 
 // Initialize Firebase only if it hasn't been initialized already
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
-const database = getDatabase(app)
+let app: FirebaseApp;
+let database: Database;
 
-export { database, ref, set, onValue } 
+try {
+    if (getApps().length === 0) {
+        app = initializeApp(firebaseConfig);
+    } else {
+        app = getApps()[0];
+    }
+    database = getDatabase(app);
+} catch (error) {
+    console.error('Firebase initialization error:', error);
+    throw new Error('Failed to initialize Firebase. Please check your configuration.');
+}
+
+export { app, database, ref, set, onValue } 

@@ -30,6 +30,14 @@ try {
     throw new Error('Failed to initialize Firebase. Please check your configuration.');
 }
 
+// Initialize Telegram service
+try {
+    telegramService = TelegramService.getInstance();
+} catch (error) {
+    console.error('Telegram service initialization error:', error);
+    throw new Error('Failed to initialize Telegram service. Please check your configuration.');
+}
+
 // Orders operations
 export const ordersRef = ref(database, 'orders');
 export const createOrder = async (orderData: any) => {
@@ -176,4 +184,4 @@ export const clearUserCart = async (userId: string) => {
     await remove(userCartRef);
 };
 
-export { database, ref, set, onValue, push, remove, update };
+export { ref, set, onValue, push, remove, update };
