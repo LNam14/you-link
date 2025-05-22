@@ -2,6 +2,10 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { PaymentService } from "@/lib/payment"
 import executeQuery from "@/app/db/db"
+import { pool } from "@/lib/db"
+
+// Mark route as dynamic
+export const dynamic = 'force-dynamic'
 
 // Câu truy vấn PostgreSQL
 const INSERT_TRANSACTION = `

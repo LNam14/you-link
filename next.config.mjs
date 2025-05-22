@@ -1,20 +1,34 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  env: {
-    NEXT_PUBLIC_FIREBASE_API_KEY: 'AIzaSyA56zF_hHgtp_2AmWU0MuUjgbWfzA95SSs',
-    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: 'you-4a1e9.firebaseapp.com',
-    NEXT_PUBLIC_FIREBASE_DATABASE_URL: 'https://you-4a1e9-default-rtdb.firebaseio.com',
-    NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'you-4a1e9',
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: 'you-4a1e9.firebasestorage.app',
-    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: '894442863851',
-    NEXT_PUBLIC_FIREBASE_APP_ID: '1:894442863851:web:2647c56e8b33e3093552ae',
-    GOOGLE_SERVICE_ACCOUNT_EMAIL: "f88-2506@data-436309.iam.gserviceaccount.com",
-    GOOGLE_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDQZLiS21plJg7i\nSjJA1EOzJUsg1cZfFtiAwpGmMddOlJkzwQq9YwAKHF41ghZn1U7Cz3AtUNbYW22J\nqQw1uw0kNYtLtm2/8SL/rwc5Uql7aIGZQPLcc2O93exFFge/8wNgJQZwO0UWO/MY\nMnUPMVCjFLYQSm9H15u677OQB5qB5n2W6btE424XFikCA0nijyQwjXTmizDGZT2Q\nCbuPQUOpsVPSys4dOouRXe6YmW/+V3Hcjep7rOVff50gmH9++wBPSauCmx8nsHSn\n+MQ+THVAalufMetfhT9rsIeWmY/sCatZlpRewc1Ahv37KuV+5mnC7vPJ1UG+jgqS\nvUpZdu/DAgMBAAECggEAKbPuR91DsrgyBFDqy5Ru09vjs/dz0jWlL+c/9G1G8//C\nxNudxZaZPGy+4aBd0XubXlrazQa/Z96sBf9hZSNAlv1sGcOxJNchtN8W5/7F0d9x\nB/U6ZKlmzWkqzgyBkoUUKNpf9ne19KQcmrwGNvsccvZDFPGAYXUhQgCUA3+yCMp1\nzD98jVFp/rE58urcXkZZGiQC4nOYbtwj2tMSqQNQKV9Wdj0FTGpKbPGqEJuYUiaK\n7vV3Hxp9h+gdePglY82mqQ7+tV4vNg+VOsAiTKZBRekowQ92kIJVOpgGMhvsNz9z\nCLMhTCqziaXHM/MgRHQIgnO0e6dyqZJaSaEwaORpGQKBgQDyY9hSgkU7MAZQm9RH\nr7Abhn6Rg+DhR8QZyotvCTHCikCFh8dpo81dKqR2sEDSsaiSL3kL86uDDERUtTF4\nCczNi0ZeG0E0iyFBcqV5DlSnmJCSy7ohNHMF8H4LTPtiCQ7O00Jh+XKz256V+7VL\n73+e2cCKBt7EvhK35KDqz3Vq3QKBgQDcGDQUem9deQt/2vQru92VADwxW3kBlTjV\nFqhLs8GtG0/wIPpiKZlldimqxTyp6giVltxCwOSoh40VD83j/dYs21131RK8j1k9\n+gSC8I6xDmEA5tPBCJn9G8LCXEa+lRVnEnoGpX1T1ELc9wA+WmZdKXmLpAGMu/yu\nrS8hfA2LHwKBgFyiF8wAiSDDi8ZGp2v2EqGSVtCZy9mMqb8JjxwSMXgdieb+KxGO\nTi+q2kuZtExRJREpH2OX7hYZHAwbaxpq9GAhN/VDCTphaYYvoFmRRnz+a1IOlcWW\n29aLQEBlXTTsLUKRri7vPAzMg+Dh3zl0ABvfMBwP4BbkZRbuQyk5u6/pAoGBAK4S\ncnZT02qRRrgLexxvzDOBaRn8Z7sJw1Y9QkQFWsPHmzSnUIB8uDbX+uJ2dqFIWRu+\nolwlZXOpKbsjscqFQ3Rc1xLksZnyojlzWUgabDC615u39Hhyjh/yadoA027+SFwp\n79r73iCD+5H5xPaL1vQNznTT9OnS8GlSzbjk/W0vAoGBAIquC1+Vw4fKfRzD3i9/\nequkel0eXYcyHQ8kbj7NzUNe0BRmAPIUpEGG+oB0bzUVTK2ds3ohWJ6DVcku/3b9\nsZs4wXXq/KJA9IRB+1gOrGbS+KwvOsu4QE434mEH+CaHo2r2G4NhjBYzjPSt7SbW\nJgFt+6UsR/DISwREwyZftYuv\n-----END PRIVATE KEY-----\n",
-    SPREADSHEET_ID: "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU",
-  },
+  output: 'standalone',
   experimental: {
-    serverActions: true,
+    serverComponents: true,
+  },
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,DELETE,PATCH,POST,PUT' },
+          { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
+        ],
+      },
+    ]
+  },
+  env: {
+    NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    NEXT_PUBLIC_FIREBASE_DATABASE_URL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    GOOGLE_SERVICE_ACCOUNT_EMAIL: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    GOOGLE_PRIVATE_KEY: process.env.GOOGLE_PRIVATE_KEY,
+    SPREADSHEET_ID: "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU",
   },
   typescript: {
     ignoreBuildErrors: true

@@ -2,7 +2,10 @@ import { google } from "googleapis";
 import keys from "../../../../../key.json";
 import { NextResponse } from 'next/server';
 
-const SPREADSHEET_ID = '12dFNqPQ_XKcG0dHlA7WrjHlndQ2EXFa533Md-bShMj8';
+// Mark route as dynamic
+export const dynamic = 'force-dynamic'
+
+const SPREADSHEET_ID = '10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU';
 
 interface SheetConfig {
     range: string;

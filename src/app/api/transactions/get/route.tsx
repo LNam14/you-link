@@ -2,8 +2,8 @@ import executeQuery from "@/app/db/db"
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
-// Mark the route as dynamic
-export const dynamic = "force-dynamic"
+// Mark route as dynamic
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
     try {

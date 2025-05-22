@@ -1,6 +1,7 @@
 import executeQuery from "@/app/db/db"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import { pool } from "@/lib/db"
 
 // Định nghĩa các trạng thái giao dịch hợp lệ
 const VALID_STATUSES = ["Đang chờ", "Hoàn thành", "Lỗi"]
@@ -17,6 +18,9 @@ const GET_TRANSACTION = `
   LIMIT 1
 `
 const UPDATE_ACCOUNT_BALANCE = `UPDATE account SET amount = amount + $1 WHERE username = $2`
+
+// Mark route as dynamic
+export const dynamic = 'force-dynamic'
 
 /**
  * API cập nhật trạng thái giao dịch

@@ -1,6 +1,9 @@
 import executeQuery from "@/app/db/db"
 import { NextResponse } from "next/server"
 
+// Mark route as dynamic
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: Request) {
     try {
         console.log("Starting customer count query")

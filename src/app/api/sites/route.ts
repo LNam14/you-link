@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { ref, get, set, remove } from 'firebase/database'
 import { database } from '@/app/firebase/firebase'
 
+// Mark route as dynamic
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const sitesRef = ref(database, 'sites')
