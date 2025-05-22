@@ -22,7 +22,8 @@ export async function GET(request: Request) {
                 data: {
                     Admin: groupedAccounts['Admin'] || [],
                     NCC: groupedAccounts['NCC'] || [],
-                    NV: groupedAccounts['Nhân viên'] || []
+                    NV: groupedAccounts['Nhân viên'] || [],
+                    KH: groupedAccounts['Khách hàng'] || []
                 },
                 message: "Successfully retrieved accounts grouped by role"
             },

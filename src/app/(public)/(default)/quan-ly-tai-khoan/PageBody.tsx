@@ -11,7 +11,7 @@ import Handsontable from "handsontable"
 import { toast, Toaster } from "sonner"
 import authApiRequest from "@/apiRequests/auth"
 import getUserInfo from "@/components/userInfo"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, Shield, Truck, User, Users } from "lucide-react"
 
 registerAllModules()
 
@@ -20,7 +20,7 @@ type NestedColumnHeader = {
     colspan: number
 }
 
-type TabType = "Admin" | "NCC" | "NV"
+type TabType = "Admin" | "NCC" | "NV" | "KH"
 
 export default function AccountTracker() {
     const [tableData, setTableData] = useState<any[]>([])
@@ -93,6 +93,20 @@ export default function AccountTracker() {
                         ])
                     })
                 }
+                if (response.data.KH && Array.isArray(response.data.KH)) {
+                    response.data.KH.forEach((account: any) => {
+                        formattedData.push([
+                            account.username,
+                            account.password,
+                            account.name,
+                            account.role,
+                            account.created_at,
+                            account.updated_at,
+                            account.active,
+                            account.id, // ID at index 7 (will be hidden)
+                        ])
+                    })
+                }
 
                 setTableData(formattedData)
             }
@@ -145,6 +159,10 @@ export default function AccountTracker() {
                     case "Nhân viên":
                         td.style.backgroundColor = "#9333EA" // purple-600
                         td.style.color = "#FAF5FF" // purple-50
+                        break
+                    case "Khách hàng":
+                        td.style.backgroundColor = "#007BFF" // blue-600
+                        td.style.color = "#F0FDF4" // blue-50
                         break
                 }
             }
@@ -211,12 +229,14 @@ export default function AccountTracker() {
                 return role === "NCC"
             case "NV":
                 return role === "Nhân viên"
+            case "KH":
+                return role === "Khách hàng"
             default:
                 return true
         }
     }).sort((a, b) => {
         // Only sort if we're in the NV tab
-        if (activeTab === "NV") {
+        if (activeTab === "NV" || activeTab === "KH") {
             const usernameA = a[0] // Username is in the first column
             const usernameB = b[0]
             return usernameA.localeCompare(usernameB, undefined, { numeric: true })
@@ -438,26 +458,43 @@ export default function AccountTracker() {
                     <div className="flex border-b border-gray-200">
                         <button
                             onClick={() => setActiveTab("Admin")}
-                            className={`px-6 py-3 text-sm font-medium ${activeTab === "Admin" ? "border-b-2 border-red-600 text-red-600" : "text-gray-500 hover:text-gray-700"
+                            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${activeTab === "Admin"
+                                ? "border-b-2 border-red-600 text-red-600"
+                                : "text-gray-500 hover:text-red-500"
                                 }`}
                         >
-                            Admin
+                            <Shield className={`h-4 w-4 ${activeTab === "Admin" ? "" : "opacity-70"}`} />
+                            <span>Admin</span>
                         </button>
                         <button
                             onClick={() => setActiveTab("NCC")}
-                            className={`px-6 py-3 text-sm font-medium ${activeTab === "NCC" ? "border-b-2 border-green-600 text-green-600" : "text-gray-500 hover:text-gray-700"
+                            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${activeTab === "NCC"
+                                ? "border-b-2 border-green-600 text-green-600"
+                                : "text-gray-500 hover:text-green-500"
                                 }`}
                         >
-                            Nhà cung cấp
+                            <Truck className={`h-4 w-4 ${activeTab === "NCC" ? "" : "opacity-70"}`} />
+                            <span>Nhà cung cấp</span>
                         </button>
                         <button
                             onClick={() => setActiveTab("NV")}
-                            className={`px-6 py-3 text-sm font-medium ${activeTab === "NV"
+                            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${activeTab === "NV"
                                 ? "border-b-2 border-purple-600 text-purple-600"
-                                : "text-gray-500 hover:text-gray-700"
+                                : "text-gray-500 hover:text-purple-500"
                                 }`}
                         >
-                            Nhân viên
+                            <Users className={`h-4 w-4 ${activeTab === "NV" ? "" : "opacity-70"}`} />
+                            <span>Nhân viên</span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("KH")}
+                            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors ${activeTab === "KH"
+                                ? "border-b-2 border-blue-600 text-blue-600"
+                                : "text-gray-500 hover:text-blue-500"
+                                }`}
+                        >
+                            <User className={`h-4 w-4 ${activeTab === "KH" ? "" : "opacity-70"}`} />
+                            <span>Khách hàng</span>
                         </button>
                     </div>
                 </div>

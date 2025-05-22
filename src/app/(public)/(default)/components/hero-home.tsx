@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Database,
   Clock,
+  User,
 } from "lucide-react"
 import { database, onValue, ref } from "@/app/firebase/firebase"
 
@@ -308,6 +309,16 @@ export default function HeroHome() {
                 </Link>
                 {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
                   <>
+                    <Link
+                      href="/quan-ly-tai-khoan"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-3 px-6 py-3 text-base bg-white border border-gray-200 rounded-full hover:border-gray-300 hover:bg-gray-50 transition-colors duration-200 shadow-md hover:shadow-lg"
+                    >
+                      <User className="w-5 h-5 text-emerald-500" />
+                      Quản Lý Tài Khoản
+                      <ExternalLink className="w-4 h-4 ml-1 text-gray-400" />
+                    </Link>
                     <Link
                       href="/tool-check"
                       target="_blank"
