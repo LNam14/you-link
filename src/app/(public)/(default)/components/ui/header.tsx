@@ -25,6 +25,7 @@ import {
   BarChart3,
   Shield,
   ExternalLink,
+  Inbox,
 } from "lucide-react"
 import DepositModal from "@/app/(public)/(default)/components/DepositModal"
 import WithdrawModal from "@/app/(public)/(default)/components/WithdrawModal"
@@ -187,13 +188,13 @@ export default function Header() {
     {
       name: "Quản Lý Sites",
       icon: <Database className="w-4 h-4" />,
-      href: "/sites",
+      href: "/quan-ly-site",
       color: "bg-gradient-to-r from-purple-500 to-indigo-600",
     },
     {
       name: "Tool Check Site",
       icon: <CheckCircle className="w-4 h-4" />,
-      href: "/tool-check",
+      href: "/tool-check-site",
       color: "bg-gradient-to-r from-emerald-500 to-teal-600",
     },
     {
@@ -203,9 +204,9 @@ export default function Header() {
       color: "bg-gradient-to-r from-blue-500 to-cyan-600",
     },
     {
-      name: "Thu Nhập",
+      name: "Quản Lý Thu Nhập",
       icon: <DollarSign className="w-4 h-4" />,
-      href: "/money",
+      href: "/quan-ly-thu-nhap",
       color: "bg-gradient-to-r from-amber-500 to-orange-600",
     },
     {
@@ -261,6 +262,12 @@ export default function Header() {
       icon: <Users className="w-5 h-5" />,
       href: "/quan-ly-tai-khoan",
       color: "bg-gradient-to-r from-violet-500 to-purple-600",
+    },
+    {
+      name: "Quản Lý Nạp Rút",
+      icon: <Inbox className="w-5 h-5" />,
+      href: "/quan-ly-nap-rut",
+      color: "bg-gradient-to-r from-emerald-500 to-green-600",
     }
   ]
 
@@ -581,6 +588,7 @@ export default function Header() {
                       <Link
                         key={idx}
                         href={tool.href}
+                        target="_blank"
                         className="flex items-center gap-3 p-3 rounded-lg bg-white hover:bg-gray-50 border border-gray-100 shadow-sm hover:shadow transition-all duration-200 group"
                       >
                         <div className={`${tool.color} text-white p-2 rounded-lg shadow-sm`}>{tool.icon}</div>

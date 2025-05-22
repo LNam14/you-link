@@ -25,6 +25,7 @@ import {
   Users,
   BarChart4,
   Shield,
+  Inbox,
 } from "lucide-react"
 import { Wallet } from "lucide-react"
 import DepositModal from "@/app/(public)/(default)/components/DepositModal"
@@ -212,14 +213,14 @@ export default function HeroHome() {
         {
           name: "Quản Lý Sites",
           icon: <Database className="w-5 h-5" />,
-          href: "/sites",
+          href: "/quan-ly-site",
           color: "bg-gradient-to-r from-purple-500 to-indigo-600",
           external: true,
         },
         {
           name: "Tool Check Site",
           icon: <CheckCircle className="w-5 h-5" />,
-          href: "/tool-check",
+          href: "/tool-check-site",
           color: "bg-gradient-to-r from-emerald-500 to-teal-600",
           external: true,
         },
@@ -237,9 +238,9 @@ export default function HeroHome() {
       icon: <DollarSign className="w-5 h-5 text-emerald-600" />,
       items: [
         {
-          name: "Thu Nhập",
+          name: "Quản Lý Thu Nhập",
           icon: <DollarSign className="w-5 h-5" />,
-          href: "/money",
+          href: "/quan-ly-thu-nhap",
           color: "bg-gradient-to-r from-amber-500 to-orange-600",
           external: true,
         },
@@ -280,7 +281,14 @@ export default function HeroHome() {
       href: "/quan-ly-tai-khoan",
       color: "bg-gradient-to-r from-violet-500 to-purple-600",
       description: "Quản lý người dùng và phân quyền",
-    }
+    },
+    {
+      name: "Quản Lý Nạp Rút",
+      icon: <Inbox className="w-5 h-5" />,
+      href: "/quan-ly-nap-rut",
+      color: "bg-gradient-to-r from-emerald-500 to-green-600",
+      description: "Quản lý giao dịch",
+    },
   ]
 
   return (
@@ -431,7 +439,7 @@ export default function HeroHome() {
             <div className="mb-16 bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
               <h3 className="text-xl font-bold text-gray-900 mb-8 text-center">
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
-                  Công cụ quản lý
+                  CÔNG CỤ QUẢN LÝ
                 </span>
               </h3>
 

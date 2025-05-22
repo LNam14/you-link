@@ -96,13 +96,13 @@ export default function Content({
             const userBalanceRef = ref(database, `money/${userInfo?.username}`)
             const balanceSnapshot = await get(userBalanceRef)
 
-            let currentBalance = 0
+            let currentAmount = 0
             if (balanceSnapshot.exists()) {
                 const balanceData = balanceSnapshot.val()
                 // Convert balance from string with comma to number
-                currentBalance = parseFloat(balanceData.amount.toString().replace(',', '.'))
-                if (isNaN(currentBalance)) {
-                    currentBalance = 0
+                currentAmount = parseFloat(balanceData.amount?.toString().replace(',', '.') || '0')
+                if (isNaN(currentAmount)) {
+                    currentAmount = 0
                 }
             }
 
@@ -127,9 +127,9 @@ export default function Content({
             })
 
             // Check if remaining balance is sufficient for new orders
-            if (currentBalance < totalPrice) {
+            if (currentAmount < totalPrice) {
                 toast.error("Số dư không đủ", {
-                    description: `Số dư hiện tại: ${currentBalance.toLocaleString("vi-VN")} USDT, Cần: ${totalPrice.toLocaleString("vi-VN")} USDT`,
+                    description: `Số dư hiện tại: ${currentAmount.toLocaleString("vi-VN")} USDT, Cần: ${totalPrice.toLocaleString("vi-VN")} USDT`,
                 })
                 return
             }
@@ -167,24 +167,28 @@ export default function Content({
                 await set(ref(database, `content/${newOrderId}`), orderData)
             }
 
-            // Deduct balance from user's account
-            const newBalance = currentBalance - totalPrice
-            if (isNaN(newBalance)) {
-                throw new Error("Invalid balance calculation")
-            }
-
             // Update balance in Firebase
             const userMoneyRef = ref(database, `money/${userInfo?.username}`)
             const moneySnapshot = await get(userMoneyRef)
             const existingData = moneySnapshot.val() || {}
 
+            // Calculate new values for amount and spend
+            const currentSpend = parseFloat(existingData.spend?.toString().replace(',', '.') || '0')
+            const newAmount = currentAmount - totalPrice
+            const newSpend = currentSpend + totalPrice
+
+            if (isNaN(newAmount) || isNaN(newSpend)) {
+                throw new Error("Invalid balance calculation")
+            }
+
             await set(userMoneyRef, {
                 ...existingData,
-                amount: newBalance.toFixed(2)
+                amount: newAmount.toFixed(2),
+                spend: newSpend.toFixed(2)
             })
 
             toast.success("Đặt hàng thành công", {
-                description: `Đã đặt ${quantity} ${item.TenSP}. Số dư còn lại: ${newBalance.toLocaleString("vi-VN")} USDT`,
+                description: `Đã đặt ${quantity} ${item.TenSP}. Số dư còn lại: ${newAmount.toLocaleString("vi-VN")} USDT`,
             })
         } catch (error) {
             toast.error("Đặt hàng thất bại", {

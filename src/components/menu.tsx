@@ -639,7 +639,7 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
             const validatedData: any = depositSchema.parse({
                 amount: parsedAmount,
                 paymentMethod: paymentMethod,
-                type: "recharge",
+                type: "deposit",
             })
 
 

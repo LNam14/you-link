@@ -17,6 +17,7 @@ const depositSchema = z.object({
         .min(10, { message: "Số tiền nạp tối thiểu là 10 USDT" })
         .max(10000, { message: "Số tiền nạp tối đa là 10,000 USDT" }),
     paymentMethod: z.string().min(1, { message: "Vui lòng chọn phương thức thanh toán" }),
+    type: z.literal("deposit"),
 })
 
 // Memoized BinanceWalletComponent
@@ -469,21 +470,18 @@ const DepositModal: React.FC<DepositModalProps> = ({ isVisible, onClose, usernam
             const validatedData: any = depositSchema.parse({
                 amount: parsedAmount,
                 paymentMethod: paymentMethod,
-                type: "recharge",
+                type: "deposit",
             })
-
-            // Simulate network delay for better UX
-            await new Promise((resolve) => setTimeout(resolve, 1000))
-
             const res: any = await transactionApiRequest.create(validatedData)
+            console.log(res)
             if (res.success) {
                 fetchData()
 
                 // Gửi thông báo đến Telegram nếu là nạp qua ví điện tử
                 if (validatedData.paymentMethod === "Ví điện tử") {
-                    await handleMessageNCC(validatedData.amount, validatedData.paymentMethod)
+                    // await handleMessageNCC(validatedData.amount, validatedData.paymentMethod)
                     if (username) {
-                        await sheetApiRequest.getIDKH(username, `Yêu cầu nạp ${validatedData.amount}$ đang được xử lý`)
+                        // await sheetApiRequest.getIDKH(username, `Yêu cầu nạp ${validatedData.amount}$ đang được xử lý`)
                     }
                 }
 
@@ -545,8 +543,8 @@ const DepositModal: React.FC<DepositModalProps> = ({ isVisible, onClose, usernam
                         <button
                             onClick={() => handleTabChange("history")}
                             className={`${activeDepositTab === "history"
-                                    ? "border-blue-500 text-blue-600"
-                                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                                ? "border-blue-500 text-blue-600"
+                                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                                 } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
                         >
                             <History className="h-4 w-4 mr-2" />
@@ -555,8 +553,8 @@ const DepositModal: React.FC<DepositModalProps> = ({ isVisible, onClose, usernam
                         <button
                             onClick={() => handleTabChange("new")}
                             className={`${activeDepositTab === "new"
-                                    ? "border-blue-500 text-blue-600"
-                                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                                ? "border-blue-500 text-blue-600"
+                                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                                 } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
                         >
                             <ArrowUpCircle className="h-4 w-4 mr-2" />

@@ -16,6 +16,11 @@ import {
     Calculator,
     Calendar,
     List,
+    TrendingUp,
+    Users2,
+    DollarSign,
+    Percent,
+    X,
 } from "lucide-react"
 
 export default function AttendanceTracker() {
@@ -23,6 +28,7 @@ export default function AttendanceTracker() {
     const [loading, setLoading] = useState(true)
     const [selectedMonth, setSelectedMonth] = useState<string>("")
     const [currentMonth, setCurrentMonth] = useState(moment())
+    const [searchQuery, setSearchQuery] = useState("")
 
     // Thiết lập locale tiếng Việt cho moment
     useEffect(() => {
@@ -91,14 +97,115 @@ export default function AttendanceTracker() {
 
     const getSelectedMonthData = () => {
         if (!selectedMonth) return null
-        return data.find((monthData) => Object.keys(monthData)[0] === selectedMonth)
+        const monthData = data.find((monthData) => Object.keys(monthData)[0] === selectedMonth)
+        if (!monthData) return null
+
+        // Filter by search query if exists
+        if (searchQuery) {
+            const month = Object.keys(monthData)[0]
+            const monthInfo = monthData[month]
+            const filteredInfo = Object.entries(monthInfo).reduce((acc: any, [key, value]) => {
+                if (key.toLowerCase().includes(searchQuery.toLowerCase())) {
+                    acc[key] = value
+                }
+                return acc
+            }, {})
+            return { [month]: filteredInfo }
+        }
+
+        return monthData
     }
+
+    interface Totals {
+        totalWheel: number;
+        totalWage: number;
+        totalAmount: number;
+        employeeCount: number;
+    }
+
+    const calculateTotals = (monthInfo: any): Totals => {
+        const totals = Object.values(monthInfo).reduce((acc: Totals, info: any) => {
+            acc.totalWheel += info.wheel || 0;
+            acc.totalWage += info.wage || 0;
+            acc.totalAmount += (info.wheel || 0) + (info.wage || 0);
+            acc.employeeCount += 1;
+            return acc;
+        }, { totalWheel: 0, totalWage: 0, totalAmount: 0, employeeCount: 0 });
+
+        return totals;
+    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 py-6 px-4">
             <Toaster position="top-right" expand={true} richColors />
 
             <div className="max-w-7xl mx-auto">
+                {/* Summary Cards */}
+                {(() => {
+                    const monthData = getSelectedMonthData();
+                    if (!monthData) return null;
+                    const month = Object.keys(monthData)[0];
+                    const monthInfo = monthData[month];
+                    const totals: any = calculateTotals(monthInfo);
+
+                    return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <div className="bg-white rounded-xl shadow-md p-6 border border-blue-100">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Tiền thưởng</p>
+                                        <p className="text-2xl font-bold text-blue-600 mt-1">
+                                            {formatCurrency(totals.totalWheel)}
+                                        </p>
+                                    </div>
+                                    <div className="p-3 bg-blue-100 rounded-full">
+                                        <TrendingUp className="h-6 w-6 text-blue-600" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-xl shadow-md p-6 border border-indigo-100">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Tiền lương</p>
+                                        <p className="text-2xl font-bold text-indigo-600 mt-1">
+                                            {formatCurrency(totals.totalWage)}
+                                        </p>
+                                    </div>
+                                    <div className="p-3 bg-indigo-100 rounded-full">
+                                        <DollarSign className="h-6 w-6 text-indigo-600" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-xl shadow-md p-6 border border-green-100">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Tổng tiền</p>
+                                        <p className="text-2xl font-bold text-green-600 mt-1">
+                                            {formatCurrency(totals.totalAmount)}
+                                        </p>
+                                    </div>
+                                    <div className="p-3 bg-green-100 rounded-full">
+                                        <Coins className="h-6 w-6 text-green-600" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-xl shadow-md p-6 border border-purple-100">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Số nhân viên</p>
+                                        <p className="text-2xl font-bold text-purple-600 mt-1">
+                                            {totals.employeeCount}
+                                        </p>
+                                    </div>
+                                    <div className="p-3 bg-purple-100 rounded-full">
+                                        <Users2 className="h-6 w-6 text-purple-600" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 <div className="bg-white rounded-xl shadow-xl overflow-hidden border border-blue-100">
                     <div className="p-4 border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -107,13 +214,31 @@ export default function AttendanceTracker() {
                                 Bảng Lương và Thưởng
                             </h2>
 
-                            <button
-                                onClick={refreshData}
-                                className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 shadow-md"
-                            >
-                                <RefreshCw className="h-4 w-4" />
-                                Làm mới dữ liệu
-                            </button>
+                            <div className="flex items-center gap-3">
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Tìm theo Mã NV..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-64 px-4 py-1.5 text-sm rounded-lg border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/90 text-gray-700 placeholder-gray-400"
+                                    />
+                                    {searchQuery && (
+                                        <button
+                                            onClick={() => setSearchQuery("")}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={refreshData}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 shadow-md"
+                                >
+                                    <RefreshCw className="h-4 w-4" />
+                                </button>
+                            </div>
                         </div>
                     </div>
 

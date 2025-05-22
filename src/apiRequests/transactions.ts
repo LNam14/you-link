@@ -2,15 +2,16 @@ import httpService from "@/lib/http";
 
 // Định nghĩa kiểu dữ liệu cho transaction
 export interface Transaction {
-  id: string;
-  type: string;
-  amount: string;
-  deposit_date: string;
-  method: string;
-  description: string;
-  name: string;
-  status: "Đang chờ" | "Hoàn thành" | "Lỗi";
+  id?: string;
+  type: "deposit" | "withdraw";
+  amount: number;
+  deposit_date?: string;
+  method?: string;
+  description?: string;
+  name?: string;
+  status?: "Đang chờ" | "Hoàn thành" | "Lỗi";
   customer_id?: string;
+  paymentMethod?: string;
 }
 
 // Định nghĩa kiểu dữ liệu cho response
@@ -43,9 +44,15 @@ const transactionApiRequest = {
    * @param forceRefresh Bỏ qua cache và lấy dữ liệu mới
    */
   get: () => {
-    return httpService.get<TransactionResponse>(ENDPOINTS.GET, {});
+    const timestamp = new Date().getTime();
+    return httpService.get<TransactionResponse>(`${ENDPOINTS.GET}?_t=${timestamp}`, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
   },
-
   /**
    * Tạo giao dịch mới
    * @param data Dữ liệu giao dịch

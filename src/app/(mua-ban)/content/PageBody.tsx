@@ -792,27 +792,9 @@ export default function PageBody() {
                                 ...currentData,
                                 amount: newNccBalance.toFixed(2),
                             })
-
-                            // Add to customer's doneAmount
-                            const MaKHBeforeDash = MaKH.split("-")[0]
-                            const customerRef = ref(database, `money/${MaKHBeforeDash}`)
-                            get(customerRef).then((customerSnapshot) => {
-                                if (customerSnapshot.exists()) {
-                                    const customerData = customerSnapshot.val()
-                                    console.log(customerData)
-                                    const currentDoneAmount = parseNumberWithComma(customerData.doneAmount || 0)
-                                    const newDoneAmount = currentDoneAmount + giaMua
-
-                                    // Update customer's doneAmount while preserving other fields
-                                    set(ref(database, `money/${MaKHBeforeDash}`), {
-                                        ...customerData,
-                                        doneAmount: newDoneAmount.toFixed(2),
-                                    })
-                                }
-                            })
                         })
 
-                        sheetApiRequest.getIDKH(MaKHBeforeDash, `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`)
+                        // sheetApiRequest.getIDKH(MaKHBeforeDash, `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`)
                     }
                 }
 
@@ -832,10 +814,10 @@ export default function PageBody() {
                         if (currentStatus === "Chưa nhập") {
                             updates[`${orderId}/TinhTrangKH`] = "Đã nhập"
                             const MaNCC = tableData[row][18]
-                            sheetApiRequest.getIDNCC(
-                                MaNCC,
-                                `Đơn ${orderId} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`,
-                            )
+                            // sheetApiRequest.getIDNCC(
+                            //     MaNCC,
+                            //     `Đơn ${orderId} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`,
+                            // )
                         }
                     } else {
                         if (currentStatus === "Đã nhập") {
@@ -971,10 +953,10 @@ export default function PageBody() {
                                     }
                                     nccUpdates[MaNCC] += giaMua
 
-                                    sheetApiRequest.getIDKH(
-                                        MaKHBeforeDash,
-                                        `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`,
-                                    )
+                                    // sheetApiRequest.getIDKH(
+                                    //     MaKHBeforeDash,
+                                    //     `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`,
+                                    // )
                                 }
                             }
                         }
@@ -992,10 +974,10 @@ export default function PageBody() {
                         updates[orderId].TinhTrangKH = "Đã nhập"
                         const MaNCC = updates[orderId].MaNCC
                         if (MaNCC) {
-                            sheetApiRequest.getIDNCC(
-                                MaNCC,
-                                `Đơn ${orderId} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`,
-                            )
+                            // sheetApiRequest.getIDNCC(
+                            //     MaNCC,
+                            //     `Đơn ${orderId} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`,
+                            // )
                         }
                     }
                 } else {
@@ -1042,24 +1024,6 @@ export default function PageBody() {
                 const order = updates[id]
                 return order.MaNCC === MaNCC
             })
-
-            if (orderId) {
-                const MaKHBeforeDash = orderId.split("-")[0]
-                const customerRef = ref(database, `money/${MaKHBeforeDash}`)
-                const customerSnapshot = await get(customerRef)
-
-                if (customerSnapshot.exists()) {
-                    const customerData = customerSnapshot.val()
-                    const currentDoneAmount = parseNumberWithComma(customerData.doneAmount || 0)
-                    const newDoneAmount = currentDoneAmount + amountToAdd
-
-                    // Update customer's doneAmount while preserving other fields
-                    await set(ref(database, `money/${MaKHBeforeDash}`), {
-                        ...customerData,
-                        doneAmount: newDoneAmount.toFixed(2),
-                    })
-                }
-            }
         }
 
         if (Object.keys(updates).length > 0) {
@@ -1087,9 +1051,8 @@ export default function PageBody() {
             if (action === "cancelOrder") {
                 const newStatus = linkKQ && linkKQ.trim() !== "" ? "Y/C Hủy đơn" : "Hủy đơn"
 
-                // If order is being cancelled directly (not just requesting cancellation)
                 if (newStatus === "Hủy đơn") {
-                    // Get current balance
+                    // Get current balance for customer only
                     const userBalanceRef = ref(database, `money/${MaKHBeforeDash}`)
                     const balanceSnapshot = await get(userBalanceRef)
                     let currentBalance = 0
@@ -1100,24 +1063,12 @@ export default function PageBody() {
                         currentUserData = balanceData
                     }
 
-                    // Get NCC's current balance
-                    const nccBalanceRef = ref(database, `money/${MaNCC}`)
-                    const nccBalanceSnapshot = await get(nccBalanceRef)
-                    let currentNccBalance = 0
-                    let currentNccData = {}
-                    if (nccBalanceSnapshot.exists()) {
-                        const balanceData = nccBalanceSnapshot.val()
-                        currentNccBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
-                        currentNccData = balanceData
-                    }
-
-                    // Calculate new balance for NCC (subtract giaMua)
-                    const newNccBalance = currentNccBalance - giaMua
-
-                    // Calculate new balance after refund
+                    // Calculate new balance after refund for customer
                     const newBalance = currentBalance + giaBan
+                    const currentSpend = Number.parseFloat((currentUserData as any).spend?.toString().replace(",", ".") || "0")
+                    const newSpend = currentSpend - giaBan
 
-                    // Update order status, refund money to customer, and subtract money from NCC
+                    // Update order status and refund money to customer only
                     await Promise.all([
                         update(ordersRef, {
                             TinhTrangKH: newStatus,
@@ -1125,29 +1076,26 @@ export default function PageBody() {
                         set(ref(database, `money/${MaKHBeforeDash}`), {
                             ...currentUserData,
                             amount: newBalance.toFixed(2),
-                        }),
-                        set(ref(database, `money/${MaNCC}`), {
-                            ...currentNccData,
-                            amount: newNccBalance.toFixed(2),
-                        }),
+                            spend: newSpend.toFixed(2)
+                        })
                     ])
 
-                    sheetApiRequest.getIDKH(
-                        MaKHBeforeDash,
-                        `Đơn hàng ${orderId} đã bị hủy, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
-                    )
+                    // sheetApiRequest.getIDKH(
+                    //     MaKHBeforeDash,
+                    //     `Đơn hàng ${orderId} đã bị hủy, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
+                    // )
                 } else {
                     // Just update status for cancellation request
                     await update(ordersRef, {
                         TinhTrangKH: newStatus,
                     })
-                    sheetApiRequest.getIDNCC(
-                        MaNCC,
-                        `Khách hàng đã yêu cầu hủy đơn ${orderId}, xử lý tại http://ylink.shop/content`,
-                    )
+                    // sheetApiRequest.getIDNCC(
+                    //     MaNCC,
+                    //     `Khách hàng đã yêu cầu hủy đơn ${orderId}, xử lý tại http://ylink.shop/content`,
+                    // )
                 }
             } else if (action === "approveRefund") {
-                // Get current balance
+                // Get current balance for customer
                 const userBalanceRef = ref(database, `money/${MaKHBeforeDash}`)
                 const balanceSnapshot = await get(userBalanceRef)
                 let currentBalance = 0
@@ -1172,8 +1120,10 @@ export default function PageBody() {
                 // Calculate new balance for NCC (subtract giaMua)
                 const newNccBalance = currentNccBalance - giaMua
 
-                // Calculate new balance after refund
+                // Calculate new balance after refund for customer
                 const newBalance = currentBalance + giaBan
+                const currentSpend = Number.parseFloat((currentUserData as any).spend?.toString().replace(",", ".") || "0")
+                const newSpend = currentSpend - giaBan
 
                 // Update order status, refund money to customer, and subtract money from NCC
                 await Promise.all([
@@ -1183,6 +1133,7 @@ export default function PageBody() {
                     set(ref(database, `money/${MaKHBeforeDash}`), {
                         ...currentUserData,
                         amount: newBalance.toFixed(2),
+                        spend: newSpend.toFixed(2)
                     }),
                     set(ref(database, `money/${MaNCC}`), {
                         ...currentNccData,
@@ -1190,18 +1141,18 @@ export default function PageBody() {
                     }),
                 ])
 
-                sheetApiRequest.getIDKH(
-                    MaKHBeforeDash,
-                    `NCC đã đồng ý hoàn tiền cho đơn ${orderId}, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
-                )
+                // sheetApiRequest.getIDKH(
+                //     MaKHBeforeDash,
+                //     `NCC đã đồng ý hoàn tiền cho đơn ${orderId}, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
+                // )
             } else if (action === "rejectRefund") {
                 await update(ordersRef, {
                     TinhTrangNCC: "Từ chối hoàn",
                 })
-                sheetApiRequest.getIDKH(
-                    MaKHBeforeDash,
-                    `NCC đã từ chối hoàn tiền cho đơn ${orderId}, kiểm tra tại http://ylink.shop/content`,
-                )
+                // sheetApiRequest.getIDKH(
+                //     MaKHBeforeDash,
+                //     `NCC đã từ chối hoàn tiền cho đơn ${orderId}, kiểm tra tại http://ylink.shop/content`,
+                // )
             } else if (action === "okOrder") {
                 await update(ordersRef, {
                     TinhTrangKH: "Đơn OK",
@@ -1370,16 +1321,16 @@ export default function PageBody() {
 
                 if (userInfo?.role === "NCC") {
                     // If NCC sends message, notify customer
-                    sheetApiRequest.getIDKH(
-                        MaKH,
-                        `NCC ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
-                    )
+                    // sheetApiRequest.getIDKH(
+                    //     MaKH,
+                    //     `NCC ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
+                    // )
                 } else if (userInfo?.role === "Khách hàng") {
                     // If customer sends message, notify NCC
-                    sheetApiRequest.getIDNCC(
-                        MaNCC,
-                        `Khách hàng ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
-                    )
+                    // sheetApiRequest.getIDNCC(
+                    //     MaNCC,
+                    //     `Khách hàng ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
+                    // )
                 }
             }
         } catch (error) {
@@ -1409,6 +1360,55 @@ export default function PageBody() {
             return `${day}/${month}`;
         }
         return dateStr;
+    };
+
+    // Add helper function to determine cell styling and editability
+    const getCellStyle = (col: number, row: number, isCompletedOrder: boolean, tableData: any[]) => {
+        const style = {
+            backgroundColor: "",
+            color: "#000000",
+            isReadOnly: false
+        };
+
+        // Mã ĐH column (col 0) is always gray and read-only
+        if (col === 0) {
+            style.backgroundColor = "#d3d3d3";
+            style.isReadOnly = true;
+            return style;
+        }
+
+        // Status columns (19, 20) have their own colors
+        if (col === 19 || col === 20) {
+            const status = tableData[row]?.[col];
+            const colors = getStatusColor(status);
+            style.backgroundColor = colors.bg;
+            style.color = colors.text;
+            style.isReadOnly = true;
+            return style;
+        }
+
+        // Chat column (21) is always read-only
+        if (col === 21) {
+            style.isReadOnly = true;
+            return style;
+        }
+
+        // For completed orders, certain columns are gray and read-only
+        if (isCompletedOrder && [6, 7, 8, 9].includes(col)) { // Anchor1, URL1, Anchor2, URL2
+            style.backgroundColor = "#d3d3d3";
+            style.isReadOnly = true;
+            return style;
+        }
+
+        // Check if cell should be editable based on role and permissions
+        const isEditableCell = isEditable(col, row);
+        if (!isEditableCell) {
+            style.backgroundColor = "#d3d3d3";
+            style.isReadOnly = true;
+            return style;
+        }
+
+        return style;
     };
 
     const cells = function (
@@ -1460,24 +1460,13 @@ export default function PageBody() {
             (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
             (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
 
-        // Apply colors to TinhTrangKH (column 19) and TinhTrangNCC (column 20)
-        if (col === 19 || col === 20) {
-            const status = this.instance.getDataAtCell(row, col)
-            cellProperties.renderer = function (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: any,
-                cellProperties: Handsontable.CellProperties,
-            ) {
-                Handsontable.renderers.TextRenderer.apply(this, [instance, td, row, col, prop, value, cellProperties])
-                const colors = getStatusColor(value)
-                td.style.backgroundColor = colors.bg
-                td.style.color = colors.text
-            }
-        } else if (col === 21) {
+        // Get cell style and editability
+        const cellStyle = getCellStyle(col, row, isCompletedOrder, tableData);
+
+        // Apply cell styling and editability
+        cellProperties.readOnly = cellStyle.isReadOnly;
+
+        if (col === 21) {
             // Chat column
             cellProperties.renderer = (
                 instance: Handsontable.Core,
@@ -1508,9 +1497,8 @@ export default function PageBody() {
 
                 td.appendChild(button)
             }
-            cellProperties.readOnly = true
         } else {
-            // For all other cells, apply read-only styling
+            // For all other cells
             cellProperties.renderer = function (
                 instance: Handsontable.Core,
                 td: HTMLTableCellElement,
@@ -1522,21 +1510,16 @@ export default function PageBody() {
             ) {
                 Handsontable.renderers.TextRenderer.apply(this, [instance, td, row, col, prop, value, cellProperties])
 
+                // Apply cell style
+                td.style.backgroundColor = cellStyle.backgroundColor;
+                td.style.color = cellStyle.color;
+
                 // Format date for NgayOrder column (col 2)
                 if (col === 2) {
                     td.textContent = formatDate(value)
                 }
 
-                // Check if this is one of the columns that should be grayed out for completed orders
-                const nonEditableColumns = [6, 7, 8, 9] // Anchor1, URL1, Anchor2, URL2
-                if (isCompletedOrder && nonEditableColumns.includes(col)) {
-                    td.style.backgroundColor = "#d3d3d3"
-                    td.style.color = "#000000"
-                } else if (!isEditable(col, row)) {
-                    td.style.backgroundColor = "#d3d3d3"
-                    td.style.color = "#000000"
-                }
-
+                // Apply fixed width styling
                 const fixedWidthColumns = [10, 12] // LinkKQ, Note
                 if (fixedWidthColumns.includes(col)) {
                     td.style.width = "150px"
@@ -1551,7 +1534,6 @@ export default function PageBody() {
                     td.style.whiteSpace = "nowrap"
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
-                    td.title = value || "" // Add tooltip with full text
                 } else {
                     td.style.width = "80px"
                     td.style.maxWidth = "80px"
@@ -1562,9 +1544,6 @@ export default function PageBody() {
                 }
             }
         }
-
-        // Set read-only property based on role and order status
-        cellProperties.readOnly = !isEditable(col, row)
 
         return cellProperties
     }

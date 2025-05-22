@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import moment from "moment"
 import "moment/locale/vi"
-import { ChevronLeft, ChevronRight, Calendar, User, CheckCircle, DollarSign } from "lucide-react"
+import { ChevronLeft, ChevronRight, Calendar, User, CheckCircle, DollarSign, RefreshCw } from "lucide-react"
 import attendanceApiRequest from "@/apiRequests/attendance"
 import getUserInfo from "@/components/userInfo"
 import { toast, Toaster } from "sonner"
@@ -287,26 +287,34 @@ export default function AttendanceTracker() {
                                 <Calendar className="h-6 w-6" />
                                 Hệ Thống Chấm Công
                             </h2>
-                            {role === "Admin" && (
-                                <div className="flex bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
-                                    <button
-                                        onClick={() => setViewMode("calendar")}
-                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "calendar" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
-                                            }`}
-                                    >
-                                        <Grid className="h-4 w-4 mr-1" />
-                                        Lịch
-                                    </button>
-                                    <button
-                                        onClick={() => setViewMode("table")}
-                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "table" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
-                                            }`}
-                                    >
-                                        <ListFilter className="h-4 w-4 mr-1" />
-                                        Bảng
-                                    </button>
-                                </div>
-                            )}
+                            <div className="flex items-center gap-2">
+                                {role === "Admin" && (
+                                    <div className="flex bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
+                                        <button
+                                            onClick={() => setViewMode("calendar")}
+                                            className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "calendar" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
+                                                }`}
+                                        >
+                                            <Grid className="h-4 w-4 mr-1" />
+                                            Lịch
+                                        </button>
+                                        <button
+                                            onClick={() => setViewMode("table")}
+                                            className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === "table" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
+                                                }`}
+                                        >
+                                            <ListFilter className="h-4 w-4 mr-1" />
+                                            Bảng
+                                        </button>
+                                    </div>
+                                )}
+                                <button
+                                    onClick={fetchAttendanceData}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 shadow-md"
+                                >
+                                    <RefreshCw className="h-4 w-4" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
@@ -351,30 +359,6 @@ export default function AttendanceTracker() {
                                                     </svg>
                                                 </div>
                                             </div>
-                                            <button
-                                                onClick={fetchAttendanceData}
-                                                disabled={isLoading}
-                                                className="flex items-center justify-center h-10 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-                                            >
-                                                {isLoading ? (
-                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                                ) : (
-                                                    <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        className="h-5 w-5"
-                                                        fill="none"
-                                                        viewBox="0 0 24 24"
-                                                        stroke="currentColor"
-                                                    >
-                                                        <path
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                            strokeWidth={2}
-                                                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                                                        />
-                                                    </svg>
-                                                )}
-                                            </button>
                                         </>
                                     )}
                                 </div>
@@ -490,7 +474,7 @@ export default function AttendanceTracker() {
                                         className={`h-16 md:h-22 mb-1 p-0.5 rounded-lg flex flex-col transition-all ${isTodayDate ? "ring-2 ring-blue-500 shadow-md" : `border ${borderColor}`} ${bgColor} hover:shadow-md`}
                                     >
                                         <div
-                                            className={`text-right p-0.5 font-medium text-xs ${isTodayDate ? "text-blue-700" : textColor}`}
+                                            className={`text-center p-0.5 font-medium text-xs ${isTodayDate ? "text-blue-700" : textColor}`}
                                         >
                                             {day.format("D")}
                                         </div>
@@ -531,31 +515,31 @@ export default function AttendanceTracker() {
                                     <tr>
                                         <th
                                             scope="col"
-                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]"
+                                            className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]"
                                         >
                                             Mã NV
                                         </th>
                                         <th
                                             scope="col"
-                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                            className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                                         >
                                             Ngày Công
                                         </th>
                                         <th
                                             scope="col"
-                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                            className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                                         >
                                             Lương Tháng Này
                                         </th>
                                         <th
                                             scope="col"
-                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                            className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                                         >
                                             Chấm Công Gần Nhất
                                         </th>
                                         <th
                                             scope="col"
-                                            className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                            className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                                         >
                                             Thao Tác
                                         </th>
@@ -564,15 +548,15 @@ export default function AttendanceTracker() {
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {allEmployeesData.map((employee) => (
                                         <tr key={employee.username} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            <td className="px-6 py-4 text-center whitespace-nowrap text-sm font-medium text-gray-900">
                                                 {employee.username}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.presentDays} ngày</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <td className="px-6 py-4 text-center whitespace-nowrap text-sm text-gray-500">{employee.presentDays} ngày</td>
+                                            <td className="px-6 py-4 text-center whitespace-nowrap text-sm text-gray-500">
                                                 {formatCurrency(employee.totalSalary)}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.lastAttendance}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <td className="px-6 py-4 text-center whitespace-nowrap text-sm text-gray-500">{employee.lastAttendance}</td>
+                                            <td className="px-6 py-4 text-center whitespace-nowrap text-center text-sm font-medium">
                                                 <button
                                                     onClick={() => {
                                                         setSelectedUsername(employee.username)
