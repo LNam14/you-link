@@ -56,8 +56,8 @@ export const updateUserBalance = async (userId: string, amount: number, nccName?
     let currentPendingAmount = 0;
     let currentDoneAmount = 0;
 
-    if (snapshot.exists()) {
-        const data = snapshot.val();
+    if (snapshot.exists() && snapshot.val()) {
+        const data = snapshot.val() || {};
         currentAmount = data.amount || 0;
         currentPendingAmount = data.pendingAmount || 0;
         currentDoneAmount = data.doneAmount || 0;
@@ -91,8 +91,8 @@ export const updateUserBalance = async (userId: string, amount: number, nccName?
         let nccCurrentAmount = 0;
         let nccCurrentDoneAmount = 0;
 
-        if (nccSnapshot.exists()) {
-            const data = nccSnapshot.val();
+        if (nccSnapshot.exists() && nccSnapshot.val()) {
+            const data = nccSnapshot.val() || {};
             nccCurrentAmount = data.amount || 0;
             nccCurrentDoneAmount = data.doneAmount || 0;
         }
@@ -122,8 +122,8 @@ export const updateUserBalance = async (userId: string, amount: number, nccName?
         let nccCurrentAmount = 0;
         let nccCurrentDoneAmount = 0;
 
-        if (nccSnapshot.exists()) {
-            const data = nccSnapshot.val();
+        if (nccSnapshot.exists() && nccSnapshot.val()) {
+            const data = nccSnapshot.val() || {};
             nccCurrentAmount = data.amount || 0;
             nccCurrentDoneAmount = data.doneAmount || 0;
         }
@@ -146,7 +146,10 @@ export const getUserCart = async (userId: string) => {
         }, { onlyOnce: true });
     });
 
-    return snapshot.exists() ? snapshot.val() : { items: [] };
+    if (snapshot.exists() && snapshot.val()) {
+        return snapshot.val();
+    }
+    return { items: [] };
 };
 
 export const updateUserCart = async (userId: string, cartData: any) => {
