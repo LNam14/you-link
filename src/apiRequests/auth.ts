@@ -1,4 +1,5 @@
 import httpService, { type ApiResponse } from "@/lib/http";
+import axios from "axios";
 
 // Định nghĩa kiểu dữ liệu cho user
 export interface User {
@@ -31,13 +32,9 @@ export interface RegisterRequest {
 
 // Định nghĩa kiểu dữ liệu cho update request
 export interface UpdateUserRequest {
-  id: string;
-  username?: string;
-  name?: string;
-  email?: string;
-  role?: string;
-  status?: string;
-  // Thêm các trường khác nếu cần
+  id: number;
+  field: string;
+  value: string;
 }
 
 // Định nghĩa kiểu dữ liệu cho delete request
@@ -73,6 +70,7 @@ const ENDPOINTS = {
   UPDATE: "/auth/update",
   DELETE: "/auth/delete",
   LOGOUT: "/auth/logout",
+  CREATE: "/auth/create",
 };
 
 /**
@@ -89,9 +87,14 @@ const authApiRequest = {
       params: { timestamp }, // nếu cần truyền timestamp vào query
     });
   },
-  get: (forceRefresh = false) => {
-    return httpService.get<UsersResponse>(ENDPOINTS.GET, {
-      cache: !forceRefresh,
+  get: () => {
+    const timestamp = new Date().getTime();
+    return httpService.get<UsersResponse>(`${ENDPOINTS.GET}?_t=${timestamp}`, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     });
   },
 
@@ -124,7 +127,7 @@ const authApiRequest = {
 
   /**
    * Cập nhật thông tin người dùng
-   * @param data Thông tin cập nhật
+   * @param data Thông tin cập nhật (id, field, value)
    * @returns Promise với kết quả cập nhật
    */
   update: (data: UpdateUserRequest) => {
@@ -149,6 +152,15 @@ const authApiRequest = {
    */
   logout: () => {
     return httpService.get<ApiResponse<{ success: boolean }>>(ENDPOINTS.LOGOUT);
+  },
+
+  /**
+   * Tạo nhiều tài khoản mới
+   * @param data Thông tin tạo tài khoản
+   * @returns Promise với kết quả tạo tài khoản
+   */
+  create: (data: { count: number, role: string }) => {
+    return httpService.post<ApiResponse<User[]>>(ENDPOINTS.CREATE, data);
   },
 };
 

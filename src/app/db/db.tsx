@@ -16,9 +16,19 @@ const pool = new Pool({
 export default async function executeQuery(query: string, values: any[]) {
     const client = await pool.connect()
     try {
+        // Start transaction
+        await client.query('BEGIN')
+
+        // Execute the query
         const results = await client.query(query, values)
+
+        // Commit the transaction
+        await client.query('COMMIT')
+
         return results.rows
     } catch (error: any) {
+        // Rollback in case of error
+        await client.query('ROLLBACK')
         console.error("Database query error:", error)
         return { status: false, error: error.message }
     } finally {
