@@ -3,9 +3,6 @@ import { NextResponse } from 'next/server';
 import { cache } from 'react';
 import { cookies } from 'next/headers';
 
-// Mark route as dynamic
-export const dynamic = 'force-dynamic'
-
 // Import keys securely (consider using environment variables instead)
 import keys from "../../../../key.json";
 

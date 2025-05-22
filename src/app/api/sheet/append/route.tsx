@@ -3,9 +3,6 @@ import keys from "../../../../../key.json";
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-// Mark route as dynamic
-export const dynamic = 'force-dynamic'
-
 const SPREADSHEET_ID = '10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU';
 
 export async function POST(req: Request) {

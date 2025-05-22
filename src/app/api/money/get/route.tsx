@@ -4,9 +4,6 @@ import { cookies } from "next/headers"
 import moment from "moment"
 const momentTz = require("moment-timezone")
 
-// Mark route as dynamic
-export const dynamic = 'force-dynamic'
-
 // Set default timezone to Vietnam
 momentTz.tz.setDefault("Asia/Ho_Chi_Minh")
 

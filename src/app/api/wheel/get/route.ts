@@ -3,9 +3,6 @@ import { pool } from "@/lib/db"
 import { cookies } from "next/headers"
 import moment from "moment"
 
-// Mark route as dynamic
-export const dynamic = 'force-dynamic'
-
 export async function GET(request: Request) {
   try {
     const cookieStore = cookies()

@@ -2,9 +2,6 @@ import { google } from "googleapis"
 import keys from "../../../../../key.json"
 import { NextResponse } from "next/server"
 
-// Mark route as dynamic
-export const dynamic = 'force-dynamic'
-
 const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
 
 interface SheetConfig {
