@@ -790,9 +790,9 @@ export default function ClientLayout({
                 </button>
                 <button
                   className="py-2 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200 text-sm font-medium flex items-center justify-center shadow-sm hover:shadow"
-                  onClick={processCheckout}
+                // onClick={processCheckout}
                 >
-                  Thanh toán ngay
+                  Chức năng đang bảo trì
                 </button>
               </div>
 
