@@ -29,7 +29,7 @@ import {
 } from "react-icons/fa"
 import siteApiRequest from "@/apiRequests/site"
 import { get, push, ref, set } from "firebase/database"
-import { database } from "@/app/firebase/firebase"
+import { database } from "@/lib/firebase"
 import getUserInfo from "@/components/userInfo"
 
 const iconMap: any = {

@@ -1,4 +1,4 @@
-import { database } from "@/app/firebase/firebase";
+import { database } from "@/lib/firebase";
 import getUserInfo from "@/components/userInfo";
 import { Divider, message, Spin, Tooltip } from "antd";
 import { get, ref, set } from "firebase/database";

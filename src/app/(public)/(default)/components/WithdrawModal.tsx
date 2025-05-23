@@ -7,7 +7,8 @@ import { Modal, message } from "antd"
 import { AlertCircle, Wallet } from "lucide-react"
 import { z } from "zod"
 import transactionApiRequest from "@/apiRequests/transactions"
-import { database, ref, update } from "@/app/firebase/firebase"
+import { database } from "@/lib/firebase"
+import { ref, update } from "firebase/database"
 import { get } from "firebase/database"
 
 // Define Zod schema for withdraw form validation

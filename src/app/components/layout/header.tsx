@@ -4,7 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { UserButton } from "@clerk/nextjs"
 import { ref, onValue } from "firebase/database"
-import { database } from "@/app/firebase/firebase"
+import { database } from "@/lib/firebase"
 import getUserInfo from "@/components/userInfo"
 
 interface HeaderProps {
