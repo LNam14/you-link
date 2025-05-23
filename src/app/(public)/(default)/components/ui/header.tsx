@@ -9,7 +9,7 @@ import useResponsive from "@/hook/useResponsive"
 import getUserInfo from "@/components/userInfo"
 import authApiRequest from "@/apiRequests/auth"
 import { ref, onValue } from "firebase/database"
-import { database } from "@/lib/firebase"
+import { database } from "@/app/firebase/firebase"
 import {
   Menu,
   X,
@@ -50,8 +50,6 @@ export default function Header() {
 
   // Function to check authentication status
   const checkAuth = useCallback(async () => {
-    if (typeof window === 'undefined') return;
-
     try {
       const user = getUserInfo()
       setUserInfo(user)
@@ -86,10 +84,8 @@ export default function Header() {
 
   // Check auth on mount and set up interval to check periodically
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    checkAuth()
     setIsMounted(true)
+    checkAuth()
 
     const authInterval = setInterval(checkAuth, 30000)
     return () => clearInterval(authInterval)

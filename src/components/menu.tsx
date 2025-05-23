@@ -30,7 +30,7 @@ import { z } from "zod"
 import transactionApiRequest from "@/apiRequests/transactions"
 import authApiRequest from "@/apiRequests/auth"
 import { ref, onValue, update, get } from "firebase/database"
-import { database } from "@/lib/firebase"
+import { database } from "@/app/firebase/firebase"
 import { useRouter } from "next/navigation"
 import sheetApiRequest from "@/apiRequests/sheet"
 

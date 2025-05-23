@@ -32,8 +32,7 @@ import DepositModal from "@/app/(public)/(default)/components/DepositModal"
 import WithdrawModal from "@/app/(public)/(default)/components/WithdrawModal"
 import { useRouter } from "next/navigation"
 import authApiRequest from "@/apiRequests/auth"
-import { database } from "@/lib/firebase"
-import { onValue, ref } from "firebase/database"
+import { database, onValue, ref } from "@/app/firebase/firebase"
 
 export default function HeroHome() {
   const [userInfo, setUserInfo] = useState<any>(null)

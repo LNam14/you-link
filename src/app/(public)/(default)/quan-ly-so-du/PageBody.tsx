@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Table, Spin, Empty } from "antd"
 import { ref, onValue } from "firebase/database"
-import { database } from "@/lib/firebase"
+import { database } from "@/app/firebase/firebase"
 import { DollarSign, Users, Briefcase, ArrowUpRight, ArrowDownRight, RefreshCw, ArrowUp, Calculator, Wallet } from "lucide-react"
 
 interface MoneyData {

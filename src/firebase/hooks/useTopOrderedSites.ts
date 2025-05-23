@@ -13,8 +13,6 @@ export const useTopOrderedSites = () => {
   const [error, setError] = useState<FirebaseError | null>(null);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
     const fetchTopSites = async () => {
       try {
         const sites = await getTop10OrderedSites();

@@ -15,22 +15,16 @@ const firebaseConfig = {
 let app: FirebaseApp;
 let database: Database;
 
-if (typeof window !== 'undefined') {
-    try {
-        if (getApps().length === 0) {
-            app = initializeApp(firebaseConfig);
-        } else {
-            app = getApps()[0];
-        }
-        database = getDatabase(app);
-    } catch (error) {
-        console.error('Firebase initialization error:', error);
-        throw new Error('Failed to initialize Firebase. Please check your configuration.');
+try {
+    if (getApps().length === 0) {
+        app = initializeApp(firebaseConfig);
+    } else {
+        app = getApps()[0];
     }
-} else {
-    // Provide mock objects for server-side rendering
-    app = {} as FirebaseApp;
-    database = {} as Database;
+    database = getDatabase(app);
+} catch (error) {
+    console.error('Firebase initialization error:', error);
+    throw new Error('Failed to initialize Firebase. Please check your configuration.');
 }
 
 export { app, database, ref, set, onValue } 

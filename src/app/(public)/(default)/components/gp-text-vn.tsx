@@ -28,7 +28,7 @@ import {
 } from "react-icons/fa"
 import { X } from 'lucide-react'
 import { get, ref, set, onValue } from "firebase/database"
-import { database } from "@/lib/firebase"
+import { database } from "@/app/firebase/firebase"
 import getUserInfo from "@/components/userInfo"
 
 const iconMap: any = {

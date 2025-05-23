@@ -10,8 +10,6 @@ export const useFirebaseData = <T>(path: string) => {
   const [error, setError] = useState<FirebaseError | null>(null);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
     const dbRef = ref(database, path);
     
     const unsubscribe = listenToData({

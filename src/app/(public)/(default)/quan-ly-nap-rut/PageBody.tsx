@@ -21,8 +21,8 @@ import {
     Inbox,
 } from "lucide-react"
 import transactionApiRequest, { Transaction, TransactionResponse } from "@/apiRequests/transactions"
-import { database } from "@/lib/firebase"
-import { ref, update, get } from "firebase/database"
+import { database, ref, update } from "@/app/firebase/firebase"
+import { get } from "firebase/database"
 
 export default function AttendanceTracker() {
     const [data, setData] = useState<Transaction[]>([])
