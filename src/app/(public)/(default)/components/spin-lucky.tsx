@@ -144,19 +144,19 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
         // Reset spins for new day
         const newSpinData = {
           date: today,
-          count: 1, // Start with 1 spin for a new day
+          count: userInfo?.role === "Admin" ? 999 : 1, // 999 spins for Admin, 1 for others
           hasSpun: false, // Track if user has already spun today
         }
         localStorage.setItem("spinData", JSON.stringify(newSpinData))
         setSpinCount(newSpinData.count)
       } else {
         // Load existing spins for today
-        setSpinCount(spinData.hasSpun ? 0 : spinData.count) // If already spun today, set count to 0
+        setSpinCount(spinData.hasSpun ? (userInfo?.role === "Admin" ? 999 : 0) : spinData.count) // If already spun today, set count to 999 for Admin or 0 for others
       }
     }
 
     checkAndResetDailySpins()
-  }, [])
+  }, [userInfo?.role]) // Add userInfo.role as dependency
 
   // Save spin count to localStorage whenever it changes
   useEffect(() => {
@@ -382,15 +382,17 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                 <div className="flex items-center gap-2 mb-2">
                   <Sparkles className="h-5 w-5 text-emerald-600" />
                   <h4 className="font-semibold text-gray-900">Lượt quay còn lại: {spinCount}</h4>
-
                 </div>
                 <p className="text-sm text-gray-700">
-                  Phần thưởng 1 phân hàng có hiệu lực từ tháng sau
-                  tháng này quay chơi chơi thôi :v
+                  {userInfo?.role === "Admin" ? (
+                    "Admin được quay 999 lượt mỗi ngày"
+                  ) : (
+                    "Phần thưởng 1 phân hàng có hiệu lực từ tháng sau tháng này quay chơi chơi thôi :v"
+                  )}
                 </p>
                 {!userInfo && <p className="text-red-600 text-sm">Vui lòng đăng nhập để quay thưởng</p>}
-                {userInfo && userInfo.role !== "Nhân viên" && (
-                  <p className="text-red-600 text-sm">Chỉ nhân viên mới được quay thưởng</p>
+                {userInfo && userInfo.role !== "Nhân viên" && userInfo.role !== "Admin" && (
+                  <p className="text-red-600 text-sm">Chỉ nhân viên và admin mới được quay thưởng</p>
                 )}
                 {previousPrize && (
                   <p className="text-gray-700">
@@ -517,7 +519,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                 {/* Spin button with hover effects */}
                 <button
                   onClick={handleSpinClick}
-                  disabled={mustSpin || spinCount <= 0 || !userInfo || userInfo.role !== "Nhân viên"}
+                  disabled={mustSpin || spinCount <= 0 || !userInfo || (userInfo.role !== "Nhân viên" && userInfo.role !== "Admin")}
                   onMouseEnter={() => setIsButtonHovered(true)}
                   onMouseLeave={() => setIsButtonHovered(false)}
                   className={`mt-10 px-10 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-full font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden ${isButtonHovered ? "scale-105" : ""}`}
@@ -533,9 +535,13 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
                 {spinCount <= 0 && (
                   <p className="mt-4 text-sm text-gray-600 animate-pulse">
-                    {userInfo?.role === "Nhân viên"
-                      ? "Hãy quay lại vào ngày mai để nhận thêm lượt quay!"
-                      : "Chỉ nhân viên mới được quay thưởng"}
+                    {userInfo?.role === "Admin" ? (
+                      "Hãy quay lại vào ngày mai để nhận thêm 999 lượt quay!"
+                    ) : userInfo?.role === "Nhân viên" ? (
+                      "Hãy quay lại vào ngày mai để nhận thêm lượt quay!"
+                    ) : (
+                      "Chỉ nhân viên và admin mới được quay thưởng"
+                    )}
                   </p>
                 )}
               </div>
