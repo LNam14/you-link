@@ -162,4 +162,4 @@ export const clearUserCart = async (userId: string) => {
     await remove(userCartRef);
 };
 
-export { ref, set, onValue, push, remove, update };
+export { ref, set, onValue, push, remove, update, database };
