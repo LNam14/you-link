@@ -26,6 +26,7 @@ import {
   Shield,
   ExternalLink,
   Inbox,
+  Wallet2,
 } from "lucide-react"
 import DepositModal from "@/app/(public)/(default)/components/DepositModal"
 import WithdrawModal from "@/app/(public)/(default)/components/WithdrawModal"
@@ -268,6 +269,12 @@ export default function Header() {
       icon: <Inbox className="w-5 h-5" />,
       href: "/quan-ly-nap-rut",
       color: "bg-gradient-to-r from-emerald-500 to-green-600",
+    },
+    {
+      name: "Quản Lý Số Dư",
+      icon: <Wallet2 className="w-5 h-5" />,
+      href: "/quan-ly-so-du",
+      color: "bg-gradient-to-r from-red-500 to-blue-600"
     }
   ]
 

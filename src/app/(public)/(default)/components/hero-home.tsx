@@ -26,6 +26,7 @@ import {
   BarChart4,
   Shield,
   Inbox,
+  Wallet2,
 } from "lucide-react"
 import { Wallet } from "lucide-react"
 import DepositModal from "@/app/(public)/(default)/components/DepositModal"
@@ -287,8 +288,15 @@ export default function HeroHome() {
       icon: <Inbox className="w-5 h-5" />,
       href: "/quan-ly-nap-rut",
       color: "bg-gradient-to-r from-emerald-500 to-green-600",
-      description: "Quản lý giao dịch",
+      description: "Quản lý nạp tiền và rút tiền",
     },
+    {
+      name: "Quản Lý Số Dư",
+      icon: <Wallet2 className="w-5 h-5" />,
+      href: "/quan-ly-so-du",
+      color: "bg-gradient-to-r from-red-500 to-blue-600",
+      description: "Quản lý số dư của người dùng",
+    }
   ]
 
   return (

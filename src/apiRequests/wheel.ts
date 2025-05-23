@@ -24,10 +24,15 @@ const wheelApiRequest = {
    * Lấy danh sách điểm danh
    */
   get: () => {
-    // API trả về trực tiếp mảng Attendance[]
-    return httpService.get<Wheel[]>(ENDPOINTS.GET)
+    const timestamp = new Date().getTime();
+    return httpService.get<Wheel[]>(`${ENDPOINTS.GET}?_t=${timestamp}`, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
   },
-
   /**
    * Tạo điểm danh mới
    * @param data Dữ liệu điểm danh
