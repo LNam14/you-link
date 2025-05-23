@@ -51,7 +51,7 @@ const iconMap: any = {
     textHeader: FaHeading,
 }
 
-export default function GPTextVN({
+export default function DataSite({
     fetchData,
     data,
     loading,

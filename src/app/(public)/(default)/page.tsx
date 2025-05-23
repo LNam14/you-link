@@ -13,7 +13,7 @@ export default function Home() {
   return (
     <>
       <HeroHome />
-      <Product title="Sản phẩm của You Link" />
+      <Product title="Sản phẩm của You Link Legend" />
       <SpinLucky title="Vòng quay may mắn" />
       <Chat title="Chat trực tuyến với mọi người" />
       <Contact title="Liên hệ với chúng tôi" />

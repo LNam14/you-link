@@ -794,7 +794,7 @@ export default function PageBody() {
                             })
                         })
 
-                        // sheetApiRequest.getIDKH(MaKHBeforeDash, `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`)
+                        sheetApiRequest.getIDKH(MaKHBeforeDash, `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`)
                     }
                 }
 
@@ -814,10 +814,10 @@ export default function PageBody() {
                         if (currentStatus === "Chưa nhập") {
                             updates[`${orderId}/TinhTrangKH`] = "Đã nhập"
                             const MaNCC = tableData[row][18]
-                            // sheetApiRequest.getIDNCC(
-                            //     MaNCC,
-                            //     `Đơn ${orderId} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`,
-                            // )
+                            sheetApiRequest.getIDNCC(
+                                MaNCC,
+                                `Đơn ${orderId} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`,
+                            )
                         }
                     } else {
                         if (currentStatus === "Đã nhập") {
@@ -953,10 +953,10 @@ export default function PageBody() {
                                     }
                                     nccUpdates[MaNCC] += giaMua
 
-                                    // sheetApiRequest.getIDKH(
-                                    //     MaKHBeforeDash,
-                                    //     `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`,
-                                    // )
+                                    sheetApiRequest.getIDKH(
+                                        MaKHBeforeDash,
+                                        `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`,
+                                    )
                                 }
                             }
                         }
@@ -974,10 +974,10 @@ export default function PageBody() {
                         updates[orderId].TinhTrangKH = "Đã nhập"
                         const MaNCC = updates[orderId].MaNCC
                         if (MaNCC) {
-                            // sheetApiRequest.getIDNCC(
-                            //     MaNCC,
-                            //     `Đơn ${orderId} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`,
-                            // )
+                            sheetApiRequest.getIDNCC(
+                                MaNCC,
+                                `Đơn ${orderId} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`,
+                            )
                         }
                     }
                 } else {
@@ -1080,19 +1080,19 @@ export default function PageBody() {
                         })
                     ])
 
-                    // sheetApiRequest.getIDKH(
-                    //     MaKHBeforeDash,
-                    //     `Đơn hàng ${orderId} đã bị hủy, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
-                    // )
+                    sheetApiRequest.getIDKH(
+                        MaKHBeforeDash,
+                        `Đơn hàng ${orderId} đã bị hủy, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
+                    )
                 } else {
                     // Just update status for cancellation request
                     await update(ordersRef, {
                         TinhTrangKH: newStatus,
                     })
-                    // sheetApiRequest.getIDNCC(
-                    //     MaNCC,
-                    //     `Khách hàng đã yêu cầu hủy đơn ${orderId}, xử lý tại http://ylink.shop/content`,
-                    // )
+                    sheetApiRequest.getIDNCC(
+                        MaNCC,
+                        `Khách hàng đã yêu cầu hủy đơn ${orderId}, xử lý tại http://ylink.shop/content`,
+                    )
                 }
             } else if (action === "approveRefund") {
                 // Get current balance for customer
@@ -1141,18 +1141,18 @@ export default function PageBody() {
                     }),
                 ])
 
-                // sheetApiRequest.getIDKH(
-                //     MaKHBeforeDash,
-                //     `NCC đã đồng ý hoàn tiền cho đơn ${orderId}, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
-                // )
+                sheetApiRequest.getIDKH(
+                    MaKHBeforeDash,
+                    `NCC đã đồng ý hoàn tiền cho đơn ${orderId}, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
+                )
             } else if (action === "rejectRefund") {
                 await update(ordersRef, {
                     TinhTrangNCC: "Từ chối hoàn",
                 })
-                // sheetApiRequest.getIDKH(
-                //     MaKHBeforeDash,
-                //     `NCC đã từ chối hoàn tiền cho đơn ${orderId}, kiểm tra tại http://ylink.shop/content`,
-                // )
+                sheetApiRequest.getIDKH(
+                    MaKHBeforeDash,
+                    `NCC đã từ chối hoàn tiền cho đơn ${orderId}, kiểm tra tại http://ylink.shop/content`,
+                )
             } else if (action === "okOrder") {
                 await update(ordersRef, {
                     TinhTrangKH: "Đơn OK",
@@ -1321,16 +1321,16 @@ export default function PageBody() {
 
                 if (userInfo?.role === "NCC") {
                     // If NCC sends message, notify customer
-                    // sheetApiRequest.getIDKH(
-                    //     MaKH,
-                    //     `NCC ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
-                    // )
+                    sheetApiRequest.getIDKH(
+                        MaKH,
+                        `NCC ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
+                    )
                 } else if (userInfo?.role === "Khách hàng") {
                     // If customer sends message, notify NCC
-                    // sheetApiRequest.getIDNCC(
-                    //     MaNCC,
-                    //     `Khách hàng ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
-                    // )
+                    sheetApiRequest.getIDNCC(
+                        MaNCC,
+                        `Khách hàng ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
+                    )
                 }
             }
         } catch (error) {
