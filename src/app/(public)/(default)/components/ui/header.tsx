@@ -233,6 +233,24 @@ export default function Header() {
         href: "/withdraw",
         color: "bg-gradient-to-r from-green-500 to-emerald-600",
       },
+      {
+        name: "Tool Check Site",
+        icon: <CheckCircle className="w-4 h-4" />,
+        href: "/tool-check-site",
+        color: "bg-gradient-to-r from-emerald-500 to-teal-600",
+      },
+      {
+        name: "Đổi Mệnh Giá",
+        icon: <Wallet className="w-4 h-4" />,
+        href: "/currency-converter",
+        color: "bg-gradient-to-r from-rose-500 to-pink-600",
+      },
+      {
+        name: "Check Anchor Link",
+        icon: <LayoutDashboard className="w-4 h-4" />,
+        href: "https://drive.google.com/drive/folders/1dhNsD1N85VBO73yCKOsg2yniJyZDHR67?usp=drive_link",
+        color: "bg-gradient-to-r from-blue-500 to-indigo-600",
+      },
     ]
   } else if (userInfo?.role === "Khách hàng") {
     adminTools = [
@@ -247,6 +265,24 @@ export default function Header() {
         icon: <Wallet className="w-4 h-4" />,
         href: "/withdraw",
         color: "bg-gradient-to-r from-pink-500 to-red-500",
+      },
+      {
+        name: "Tool Check Site",
+        icon: <CheckCircle className="w-4 h-4" />,
+        href: "/tool-check-site",
+        color: "bg-gradient-to-r from-emerald-500 to-teal-600",
+      },
+      {
+        name: "Đổi Mệnh Giá",
+        icon: <Wallet className="w-4 h-4" />,
+        href: "/currency-converter",
+        color: "bg-gradient-to-r from-rose-500 to-pink-600",
+      },
+      {
+        name: "Check Anchor Link",
+        icon: <LayoutDashboard className="w-4 h-4" />,
+        href: "https://drive.google.com/drive/folders/1dhNsD1N85VBO73yCKOsg2yniJyZDHR67?usp=drive_link",
+        color: "bg-gradient-to-r from-blue-500 to-indigo-600",
       },
     ]
   }

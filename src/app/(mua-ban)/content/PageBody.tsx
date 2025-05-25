@@ -845,6 +845,7 @@ export default function PageBody() {
         const ordersRef = ref(database, "content")
         const updates: any = {}
         const nccUpdates: { [key: string]: number } = {} // Track NCC balance updates
+        const linkKQUpdates: { [key: string]: { orderId: string, MaKH: string, MaNCC: string, giaMua: number } } = {} // Track LinkKQ updates
 
         coords.forEach(async (coord, index) => {
             const startRow = coord.startRow
@@ -947,16 +948,19 @@ export default function PageBody() {
                                     const MaNCC = tableData[row][18]
                                     const giaMua = parseNumberWithComma(tableData[row][14]) // Get GiaMua value
 
+                                    // Track LinkKQ update for later processing
+                                    linkKQUpdates[orderId] = {
+                                        orderId,
+                                        MaKH: MaKHBeforeDash,
+                                        MaNCC,
+                                        giaMua
+                                    }
+
                                     // Track NCC balance update
                                     if (!nccUpdates[MaNCC]) {
                                         nccUpdates[MaNCC] = 0
                                     }
                                     nccUpdates[MaNCC] += giaMua
-
-                                    sheetApiRequest.getIDKH(
-                                        MaKHBeforeDash,
-                                        `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`,
-                                    )
                                 }
                             }
                         }
@@ -997,43 +1001,44 @@ export default function PageBody() {
             })
         })
 
-        // Update all NCC balances
-        for (const [MaNCC, amountToAdd] of Object.entries(nccUpdates)) {
-            const nccBalanceRef = ref(database, `money/${MaNCC}`)
-            const nccBalanceSnapshot = await get(nccBalanceRef)
-            let currentNccBalance = 0
-            let currentData = {}
-            if (nccBalanceSnapshot.exists()) {
-                const balanceData = nccBalanceSnapshot.val()
-                currentNccBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
-                currentData = balanceData
+        try {
+            // Update all NCC balances
+            for (const [MaNCC, amountToAdd] of Object.entries(nccUpdates)) {
+                const nccBalanceRef = ref(database, `money/${MaNCC}`)
+                const nccBalanceSnapshot = await get(nccBalanceRef)
+                let currentNccBalance = 0
+                let currentData = {}
+                if (nccBalanceSnapshot.exists()) {
+                    const balanceData = nccBalanceSnapshot.val()
+                    currentNccBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
+                    currentData = balanceData
+                }
+
+                // Calculate new balance for NCC
+                const newNccBalance = currentNccBalance + amountToAdd
+
+                // Update NCC's balance while preserving other fields
+                await set(ref(database, `money/${MaNCC}`), {
+                    ...currentData,
+                    amount: newNccBalance.toFixed(2),
+                })
             }
 
-            // Calculate new balance for NCC
-            const newNccBalance = currentNccBalance + amountToAdd
-            console.log(newNccBalance, amountToAdd)
+            // Send notifications for LinkKQ updates
+            for (const { orderId, MaKH, MaNCC } of Object.values(linkKQUpdates)) {
+                sheetApiRequest.getIDKH(
+                    MaKH,
+                    `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`
+                )
+            }
 
-            // Update NCC's balance while preserving other fields
-            await set(ref(database, `money/${MaNCC}`), {
-                ...currentData,
-                amount: newNccBalance.toFixed(2),
-            })
-
-            // Find the corresponding order to get MaKHBeforeDash
-            const orderId = Object.keys(updates).find((id) => {
-                const order = updates[id]
-                return order.MaNCC === MaNCC
-            })
-        }
-
-        if (Object.keys(updates).length > 0) {
-            update(ordersRef, updates)
-                .then(() => {
-                    console.log("Data updated successfully after paste")
-                })
-                .catch((error) => {
-                    console.error("Error updating data after paste:", error)
-                })
+            // Update all order data
+            if (Object.keys(updates).length > 0) {
+                await update(ordersRef, updates)
+                console.log("Data updated successfully after paste")
+            }
+        } catch (error) {
+            console.error("Error updating data after paste:", error)
         }
     }
 

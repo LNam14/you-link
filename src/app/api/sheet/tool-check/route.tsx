@@ -22,7 +22,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
             }
 
             const formatNumber = (value: number | null) =>
-                value !== null && !isNaN(value) ? value.toFixed(2).replace(".", ",") : null
+                value !== null && !isNaN(value) ? value.toFixed(0).replace(".", ",") : null
 
             const safeSubtract = (a: number | null, b: number | null) =>
                 a !== null && b !== null ? formatNumber(a - b) : null

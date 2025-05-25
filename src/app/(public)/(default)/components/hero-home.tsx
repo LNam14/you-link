@@ -205,6 +205,36 @@ export default function HeroHome() {
     },
   ]
 
+  // Common tools configuration - visible to all users
+  const commonTools = [
+    {
+      title: "Công cụ chung",
+      icon: <Settings className="w-5 h-5 text-purple-600" />,
+      items: [
+        {
+          name: "Tool Check Site",
+          icon: <CheckCircle className="w-5 h-5" />,
+          href: "/tool-check-site",
+          color: "bg-gradient-to-r from-emerald-500 to-teal-600",
+          external: true,
+        },
+        {
+          name: "Đổi Mệnh Giá",
+          icon: <Wallet className="w-5 h-5" />,
+          action: () => setIsConverterModalVisible(true),
+          color: "bg-gradient-to-r from-rose-500 to-pink-600",
+        },
+        {
+          name: "Check Anchor Link",
+          icon: <LayoutDashboard className="w-5 h-5" />,
+          href: "https://drive.google.com/drive/folders/1dhNsD1N85VBO73yCKOsg2yniJyZDHR67?usp=drive_link",
+          color: "bg-gradient-to-r from-blue-500 to-indigo-600",
+          external: true,
+        },
+      ],
+    },
+  ]
+
   // Admin tools configuration
   const adminTools = [
     {
@@ -216,13 +246,6 @@ export default function HeroHome() {
           icon: <Database className="w-5 h-5" />,
           href: "/quan-ly-site",
           color: "bg-gradient-to-r from-purple-500 to-indigo-600",
-          external: true,
-        },
-        {
-          name: "Tool Check Site",
-          icon: <CheckCircle className="w-5 h-5" />,
-          href: "/tool-check-site",
-          color: "bg-gradient-to-r from-emerald-500 to-teal-600",
           external: true,
         },
         {
@@ -246,29 +269,10 @@ export default function HeroHome() {
           external: true,
         },
         {
-          name: "Đổi Mệnh Giá",
-          icon: <Wallet className="w-5 h-5" />,
-          action: () => setIsConverterModalVisible(true),
-          color: "bg-gradient-to-r from-rose-500 to-pink-600",
-        },
-        {
           name: userInfo?.role === "NCC" ? "Rút tiền" : "Nạp tiền",
           icon: <Wallet className="w-5 h-5" />,
           action: () => (userInfo?.role === "NCC" ? setIsWithdrawModalVisible(true) : setIsDepositModalVisible(true)),
           color: "bg-gradient-to-r from-green-500 to-emerald-600",
-        },
-      ],
-    },
-    {
-      title: "Công cụ SEO",
-      icon: <BarChart3 className="w-5 h-5 text-amber-600" />,
-      items: [
-        {
-          name: "Check Anchor Link",
-          icon: <LayoutDashboard className="w-5 h-5" />,
-          href: "https://drive.google.com/drive/folders/1dhNsD1N85VBO73yCKOsg2yniJyZDHR67?usp=drive_link",
-          color: "bg-gradient-to-r from-blue-500 to-indigo-600",
-          external: true,
         },
       ],
     },
@@ -441,6 +445,55 @@ export default function HeroHome() {
               </div>
             </div>
           </div>
+
+          {/* Common tools - visible to all users */}
+          {userInfo && (
+            <div className="mb-16 bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+              <h3 className="text-xl font-bold text-gray-900 mb-8 text-center">
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
+                  CÔNG CỤ CHUNG
+                </span>
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-8">
+                {commonTools.map((section, idx) => (
+                  <div key={idx} className="bg-gray-50 rounded-xl p-6 shadow-md">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 rounded-lg bg-white shadow-sm">{section.icon}</div>
+                      <h4 className="font-semibold text-gray-800">{section.title}</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {section.items.map((tool, toolIdx) =>
+                        tool.href ? (
+                          <Link
+                            key={toolIdx}
+                            href={tool.href}
+                            target={tool.external ? "_blank" : undefined}
+                            rel={tool.external ? "noopener noreferrer" : undefined}
+                            className="flex items-center gap-3 p-3 rounded-lg bg-white hover:bg-gray-50 border border-gray-100 shadow-sm hover:shadow transition-all duration-200 group"
+                          >
+                            <div className={`${tool.color} text-white p-2 rounded-lg shadow-sm`}>{tool.icon}</div>
+                            <span className="font-medium text-gray-700 group-hover:text-gray-900">{tool.name}</span>
+                            {tool.external && <ExternalLink className="w-3.5 h-3.5 ml-auto text-gray-400" />}
+                          </Link>
+                        ) : (
+                          <button
+                            key={toolIdx}
+                            onClick={tool.action}
+                            className="flex items-center gap-3 p-3 rounded-lg bg-white hover:bg-gray-50 border border-gray-100 shadow-sm hover:shadow transition-all duration-200 group"
+                          >
+                            <div className={`${tool.color} text-white p-2 rounded-lg shadow-sm`}>{tool.icon}</div>
+                            <span className="font-medium text-gray-700 group-hover:text-gray-900">{tool.name}</span>
+                          </button>
+                        ),
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Admin and Staff tools - REDESIGNED */}
           {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên" || userInfo?.role === "NCC") && (

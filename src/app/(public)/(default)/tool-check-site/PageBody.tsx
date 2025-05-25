@@ -287,7 +287,7 @@ export default function PageBody() {
 
                 const terms = searchTerms
                     .split(/[\s\n]+/)
-                    .map((term) => (searchMode === "site" ? extractDomain(term.trim()) : term.trim()))
+                    .map((term) => term.trim())
                     .filter(Boolean)
 
                 const results: SiteData[] = []
@@ -297,12 +297,26 @@ export default function PageBody() {
                 terms.forEach((term) => {
                     if (!term) return
 
-                    const matchingSites = dataToSearch.filter((item: SiteData) =>
-                        searchMode === "site" ? extractDomain(item.site) === term : item.MaNCC === term,
-                    )
+                    if (searchMode === "site") {
+                        // For site search, normalize the term to include http/https/www
+                        const normalizedTerm = term.toLowerCase()
+                        const termWithHttp = normalizedTerm.startsWith('http') ? normalizedTerm : `http://${normalizedTerm}`
+                        const termWithHttps = normalizedTerm.startsWith('http') ? normalizedTerm : `https://${normalizedTerm}`
+                        const termWithWww = normalizedTerm.startsWith('www.') ? normalizedTerm : `www.${normalizedTerm}`
+                        const termWithWwwHttp = `http://www.${normalizedTerm.replace(/^www\./, '')}`
+                        const termWithWwwHttps = `https://www.${normalizedTerm.replace(/^www\./, '')}`
 
-                    if (matchingSites.length > 0) {
-                        if (searchMode === "site") {
+                        const matchingSites = dataToSearch.filter((item: SiteData) => {
+                            const siteUrl = item.site.toLowerCase()
+                            return siteUrl === normalizedTerm ||
+                                siteUrl === termWithHttp ||
+                                siteUrl === termWithHttps ||
+                                siteUrl === termWithWww ||
+                                siteUrl === termWithWwwHttp ||
+                                siteUrl === termWithWwwHttps
+                        })
+
+                        if (matchingSites.length > 0) {
                             matchingSites.sort((a, b) =>
                                 categoryType === "GP"
                                     ? Number.parseFloat(a.giaMuaGP) - Number.parseFloat(b.giaMuaGP)
@@ -319,56 +333,63 @@ export default function PageBody() {
                             if (matchingSites.length > 1) {
                                 duplicates.push(...matchingSites.slice(1))
                             }
-                        } else {
-                            // For NCC search, add all matching results
-                            results.push(...matchingSites)
+                        } else if (isValidDomain(term)) {
+                            const emptySite: SiteData = {
+                                cs: "",
+                                tinhTrang: "",
+                                site: term,
+                                bong: "",
+                                bet: "",
+                                chuDe: "",
+                                DR: "",
+                                trafficTool: "",
+                                ghiChu: "",
+                                giaBanGP: "",
+                                giaBanText: "",
+                                giaBanTextHome: "",
+                                giaBanTextHeader: "",
+                                giaBanGPLio: "",
+                                giaBanTextLio: "",
+                                giaBanTextHomeLio: "",
+                                giaBanTextHeaderLio: "",
+                                giaMuaGP: "",
+                                giaMuaText: "",
+                                giaMuaTextHome: "",
+                                giaMuaTextHeader: "",
+                                hoaHongGP: "",
+                                hoaHongText: "",
+                                giaCuoiGP: "",
+                                giaCuoiText: "",
+                                giaCuoiTextHome: "",
+                                giaCuoiTextHeader: "",
+                                loiNhuanGP: "",
+                                loiNhuanText: "",
+                                loiNhuanTextHome: "",
+                                loiNhuanTextHeader: "",
+                                loiNhuanGPLio: "",
+                                loiNhuanTextLio: "",
+                                loiNhuanTextHomeLio: "",
+                                loiNhuanTextHeaderLio: "",
+                                NCC: "",
+                                MaNCC: "",
+                                FileNCC: "",
+                                GroupNCC: "",
+                                GhiChuNCC: "",
+                                timeText: "",
+                            }
+                            results.push(emptySite)
+                            siteMap.set(term, emptySite)
                         }
-                    } else if (searchMode === "site" && isValidDomain(term)) {
-                        const emptySite: SiteData = {
-                            cs: "",
-                            tinhTrang: "",
-                            site: term,
-                            bong: "",
-                            bet: "",
-                            chuDe: "",
-                            DR: "",
-                            trafficTool: "",
-                            ghiChu: "",
-                            giaBanGP: "",
-                            giaBanText: "",
-                            giaBanTextHome: "",
-                            giaBanTextHeader: "",
-                            giaBanGPLio: "",
-                            giaBanTextLio: "",
-                            giaBanTextHomeLio: "",
-                            giaBanTextHeaderLio: "",
-                            giaMuaGP: "",
-                            giaMuaText: "",
-                            giaMuaTextHome: "",
-                            giaMuaTextHeader: "",
-                            hoaHongGP: "",
-                            hoaHongText: "",
-                            giaCuoiGP: "",
-                            giaCuoiText: "",
-                            giaCuoiTextHome: "",
-                            giaCuoiTextHeader: "",
-                            loiNhuanGP: "",
-                            loiNhuanText: "",
-                            loiNhuanTextHome: "",
-                            loiNhuanTextHeader: "",
-                            loiNhuanGPLio: "",
-                            loiNhuanTextLio: "",
-                            loiNhuanTextHomeLio: "",
-                            loiNhuanTextHeaderLio: "",
-                            NCC: "",
-                            MaNCC: "",
-                            FileNCC: "",
-                            GroupNCC: "",
-                            GhiChuNCC: "",
-                            timeText: "",
+                    } else {
+                        // For NCC search, only match codes starting with 'N' and exact match
+                        if (term.startsWith('N')) {
+                            const matchingSites = dataToSearch.filter((item: SiteData) =>
+                                item.MaNCC === term
+                            )
+                            if (matchingSites.length > 0) {
+                                results.push(...matchingSites)
+                            }
                         }
-                        results.push(emptySite)
-                        siteMap.set(term, emptySite)
                     }
                 })
 
@@ -379,26 +400,55 @@ export default function PageBody() {
                     setDuplicateSites(searchMode === "site" ? duplicates : [])
 
                     const notFoundShow = terms.filter(
-                        (term) =>
-                            !dataToSearch.some((item: SiteData) =>
-                                searchMode === "site" ? extractDomain(item.site) === term : item.MaNCC === term,
-                            ),
+                        (term) => {
+                            if (searchMode === "site") {
+                                const normalizedTerm = term.toLowerCase()
+                                const termWithHttp = normalizedTerm.startsWith('http') ? normalizedTerm : `http://${normalizedTerm}`
+                                const termWithHttps = normalizedTerm.startsWith('http') ? normalizedTerm : `https://${normalizedTerm}`
+                                const termWithWww = normalizedTerm.startsWith('www.') ? normalizedTerm : `www.${normalizedTerm}`
+                                const termWithWwwHttp = `http://www.${normalizedTerm.replace(/^www\./, '')}`
+                                const termWithWwwHttps = `https://www.${normalizedTerm.replace(/^www\./, '')}`
+
+                                return !dataToSearch.some((item: SiteData) => {
+                                    const siteUrl = item.site.toLowerCase()
+                                    return siteUrl === normalizedTerm ||
+                                        siteUrl === termWithHttp ||
+                                        siteUrl === termWithHttps ||
+                                        siteUrl === termWithWww ||
+                                        siteUrl === termWithWwwHttp ||
+                                        siteUrl === termWithWwwHttps
+                                })
+                            } else {
+                                return term.startsWith('N') && !dataToSearch.some((item: SiteData) => item.MaNCC === term)
+                            }
+                        }
                     )
 
                     const notFound = terms
-                        .filter(
-                            (term) =>
-                                !dataToSearch.some((item: SiteData) =>
-                                    searchMode === "site" ? extractDomain(item.site) === term : item.MaNCC === term,
-                                ),
-                        )
-                        .filter((term) => (searchMode === "site" ? isValidDomain(term) : true))
+                        .filter((term) => {
+                            if (searchMode === "site") {
+                                return isValidDomain(term) && !dataToSearch.some((item: SiteData) => {
+                                    const siteUrl = item.site.toLowerCase()
+                                    const normalizedTerm = term.toLowerCase()
+                                    const termWithHttp = normalizedTerm.startsWith('http') ? normalizedTerm : `http://${normalizedTerm}`
+                                    const termWithHttps = normalizedTerm.startsWith('http') ? normalizedTerm : `https://${normalizedTerm}`
+                                    const termWithWww = normalizedTerm.startsWith('www.') ? normalizedTerm : `www.${normalizedTerm}`
+                                    const termWithWwwHttp = `http://www.${normalizedTerm.replace(/^www\./, '')}`
+                                    const termWithWwwHttps = `https://www.${normalizedTerm.replace(/^www\./, '')}`
+
+                                    return siteUrl === normalizedTerm ||
+                                        siteUrl === termWithHttp ||
+                                        siteUrl === termWithHttps ||
+                                        siteUrl === termWithWww ||
+                                        siteUrl === termWithWwwHttp ||
+                                        siteUrl === termWithWwwHttps
+                                })
+                            } else {
+                                return term.startsWith('N') && !dataToSearch.some((item: SiteData) => item.MaNCC === term)
+                            }
+                        })
 
                     setNotFoundSites(notFoundShow)
-
-                    if (notFound.length > 0 && searchMode === "site") {
-                        // await siteApiRequest.save(notFound)
-                    }
                 } else {
                     message.success("Vui lòng load lại trang để nạp dữ liệu")
                 }
