@@ -4,7 +4,7 @@ import sheetApiRequest from "@/apiRequests/sheet"
 import "./custom-table.css"
 import getUserInfo from "@/components/userInfo"
 import { HotTable } from "@handsontable/react-wrapper"
-import type Handsontable from "handsontable"
+import Handsontable from "handsontable"
 import "handsontable/styles/handsontable.css"
 import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
@@ -984,6 +984,11 @@ export default function PageBody() {
         return summary as SiteData & { _fileUrls?: string[]; _groupUrls?: string[] }
     }
 
+    // Add a function to count NCCs with valid IdGroup
+    const getValidNCCsCount = (data: SiteData[]) => {
+        return data.filter((item) => item.IdGroup && item.IdGroup.trim() !== "").length
+    }
+
     // Add a custom renderer for the HotTable to handle clickable File NCC and Group NCC cells
     const renderHotTable = (data: SiteData[], columns: any[], tableKey: string) => {
         if (!data || data.length === 0) return null
@@ -1013,15 +1018,93 @@ export default function PageBody() {
                     autoWrapRow={true}
                     rowHeaders={false}
                     colHeaders={true}
-                    contextMenu={["copy"]}
-                    filters={true}
-                    dropdownMenu={true}
+                    // Enable copy paste functionality
+                    copyPaste={true}
+                    // Enhanced context menu with copy options
+                    // contextMenu={{
+                    //     items: {
+                    //         copy: {},
+                    //         copy_with_column_headers: {},
+                    //         separator1: Handsontable.plugins.ContextMenu.SEPARATOR,
+                    //         selectAll: {
+                    //             name: 'Select All',
+                    //             callback: function () {
+                    //                 this.selectAll();
+                    //             }
+                    //         }
+                    //     }
+                    // }}
+                    // Enable keyboard shortcuts
+                    beforeKeyDown={(event: KeyboardEvent) => {
+                        const target = event.target as HTMLElement
+                        const hotInstance = (target.closest(".handsontable") as any)?.__hotInstance
+
+                        // Ctrl+C for copy
+                        if (event.ctrlKey && event.key === "c") {
+                            if (hotInstance) {
+                                const copyPastePlugin = hotInstance.getPlugin("copyPaste")
+                                if (copyPastePlugin && copyPastePlugin.isEnabled()) {
+                                    // Let HotTable handle the copy
+                                    return true
+                                }
+                            }
+                        }
+                        // Ctrl+A for select all
+                        if (event.ctrlKey && event.key === "a") {
+                            event.preventDefault()
+                            if (hotInstance) {
+                                hotInstance.selectAll()
+                            }
+                            return false
+                        }
+                        return true
+                    }}
+                    // filters={true}
+                    // dropdownMenu={true}
                     columnSorting={true}
                     manualColumnResize={true}
                     manualRowResize={true}
-                    copyPaste={true}
                     className="custom-table"
                     themeName="ht-theme-main"
+                    // Additional settings for better copy experience
+                    outsideClickDeselects={false}
+                    fillHandle={false}
+                    // Custom hooks for copy events
+                    afterCopy={(data: any[][], coords: any[]) => {
+                        console.log("Data copied:", data)
+                        const copiedCells = data.length * (data[0]?.length || 0)
+                        if (copiedCells > 0) {
+                            console.log(`Copied ${copiedCells} cells to clipboard`)
+                            // Optional: Show a brief success message
+                            const notification = document.createElement("div")
+                            notification.textContent = `Đã copy ${copiedCells} ô dữ liệu`
+                            notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            z-index: 10000;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          `
+                            document.body.appendChild(notification)
+                            setTimeout(() => {
+                                document.body.removeChild(notification)
+                            }, 2000)
+                        }
+                    }}
+                    // Store instance reference for easier access
+                    ref={(hotTableComponent) => {
+                        if (hotTableComponent && hotTableComponent.hotInstance) {
+                            const container = hotTableComponent.hotInstance.rootElement
+                            if (container) {
+                                ; (container as any).__hotInstance = hotTableComponent.hotInstance
+                            }
+                        }
+                    }}
                 />
             </div>
         )
@@ -1314,6 +1397,23 @@ export default function PageBody() {
     const hasDuplicates = Object.keys(duplicateSites).length > 0
     const duplicatesCount = Object.values(duplicateSites).flat().length
 
+    // Add this useEffect to handle global copy functionality
+    useEffect(() => {
+        const handleGlobalCopy = (event: KeyboardEvent) => {
+            // Only handle if focus is on a HotTable
+            const activeElement = document.activeElement
+            if (activeElement && activeElement.closest(".handsontable")) {
+                // Let HotTable handle the copy
+                return
+            }
+        }
+
+        document.addEventListener("keydown", handleGlobalCopy)
+        return () => {
+            document.removeEventListener("keydown", handleGlobalCopy)
+        }
+    }, [])
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 py-6 px-4">
             <div className="max-w-7xl mx-auto">
@@ -1394,8 +1494,8 @@ export default function PageBody() {
                         <div className="relative">
                             <textarea
                                 placeholder={`Tìm kiếm ${selectedSearchType === "Site"
-                                        ? "site (hỗ trợ mọi định dạng domain: example.com, https://example.com, www.example.com - không phân biệt hoa thường)"
-                                        : "mã NCC (chỉ tìm mã bắt đầu bằng chữ N, ví dụ: N001, N123)"
+                                    ? "site (hỗ trợ mọi định dạng domain: example.com, https://example.com, www.example.com - không phân biệt hoa thường)"
+                                    : "mã NCC (chỉ tìm mã bắt đầu bằng chữ N, ví dụ: N001, N123)"
                                     } (nhập từng giá trị trên một dòng hoặc cách nhau bằng dấu phẩy, khoảng trắng...)`}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -1426,7 +1526,8 @@ export default function PageBody() {
                                                     <Inbox className="h-4 w-4 text-white" />
                                                 </div>
                                                 <h3 className="text-lg font-500 text-blue-700 mb-1">
-                                                    Kết quả tìm kiếm ({filteredData.length} kết quả)
+                                                    Kết quả tìm kiếm ({filteredData.length} kết quả - {getValidNCCsCount(filteredData)} có
+                                                    IdGroup)
                                                 </h3>
                                             </div>
 
@@ -1443,8 +1544,8 @@ export default function PageBody() {
                                                         key={type.id}
                                                         onClick={() => handlePriceTypeChange(type.id as PriceType)}
                                                         className={`flex items-center px-2 py-1 rounded text-sm font-medium transition-all duration-200 ${selectedPriceType === type.id
-                                                                ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-sm"
-                                                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                                            ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-sm"
+                                                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                                                             }`}
                                                     >
                                                         <span className="mr-1 text-xs">{type.icon}</span>
@@ -1458,9 +1559,15 @@ export default function PageBody() {
                                             <div className="flex items-center justify-end">
                                                 <div className="text-right">
                                                     <p className="text-xs text-gray-500">
-                                                        Bạn có thể nhắn tin theo mẫu hoặc soạn tin nhắn gửi đến ncc
+                                                        {getValidNCCsCount(filteredData) > 0
+                                                            ? `Bạn có thể nhắn tin cho ${getValidNCCsCount(filteredData)} NCC có IdGroup`
+                                                            : "Không có NCC nào có IdGroup để gửi tin nhắn"}
                                                     </p>
-                                                    <p className="text-xs text-gray-500">Chọn 1 trong các lựa chọn dưới đây</p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {getValidNCCsCount(filteredData) > 0
+                                                            ? "Chọn 1 trong các lựa chọn dưới đây"
+                                                            : "Chỉ NCC có IdGroup mới có thể nhận tin nhắn"}
+                                                    </p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1">
@@ -1468,26 +1575,54 @@ export default function PageBody() {
                                                     <>
                                                         <button
                                                             onClick={() => setShowDirectMessageModal(true)}
-                                                            className="flex items-center px-2 py-1 text-sm bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+                                                            disabled={getValidNCCsCount(filteredData) === 0}
+                                                            className={`flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${getValidNCCsCount(filteredData) === 0
+                                                                ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                                                                : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 hover:scale-105"
+                                                                }`}
+                                                            title={
+                                                                getValidNCCsCount(filteredData) === 0
+                                                                    ? "Không có NCC nào có IdGroup để gửi tin nhắn"
+                                                                    : "Soạn tin nhắn tùy chỉnh"
+                                                            }
                                                         >
                                                             <MessageSquare className="h-4 w-4 mr-2" />
                                                             Soạn tin nhắn
+                                                            {getValidNCCsCount(filteredData) === 0 && <span className="ml-1 text-xs">(0)</span>}
                                                         </button>
                                                         <button
                                                             onClick={openNccSelectionModal}
-                                                            disabled={loading || filteredData.length === 0}
-                                                            className="flex items-center px-2 py-1 text-sm bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
+                                                            disabled={loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0}
+                                                            className={`flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0
+                                                                ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                                                                : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:scale-105"
+                                                                }`}
+                                                            title={
+                                                                getValidNCCsCount(filteredData) === 0
+                                                                    ? "Không có NCC nào có IdGroup để gửi tin nhắn"
+                                                                    : "Chọn NCC cụ thể để gửi tin nhắn"
+                                                            }
                                                         >
                                                             <MessageSquare className="h-4 w-4 mr-2" />
                                                             Chọn NCC
+                                                            <span className="ml-1 text-xs">({getValidNCCsCount(filteredData)})</span>
                                                         </button>
                                                         <button
                                                             onClick={handleMessageAllNCCs}
-                                                            disabled={loading || filteredData.length === 0}
-                                                            className="flex items-center px-2 py-1 text-sm bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
+                                                            disabled={loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0}
+                                                            className={`flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0
+                                                                ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                                                                : "bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 hover:scale-105"
+                                                                }`}
+                                                            title={
+                                                                getValidNCCsCount(filteredData) === 0
+                                                                    ? "Không có NCC nào có IdGroup để gửi tin nhắn"
+                                                                    : `Gửi tin nhắn đến tất cả ${getValidNCCsCount(filteredData)} NCC có IdGroup`
+                                                            }
                                                         >
                                                             <MessageSquare className="h-4 w-4 mr-2" />
                                                             Gửi tất cả NCC
+                                                            <span className="ml-1 text-xs">({getValidNCCsCount(filteredData)})</span>
                                                         </button>
                                                     </>
                                                 )}
@@ -1495,8 +1630,8 @@ export default function PageBody() {
                                                     <button
                                                         onClick={() => setShowDuplicates(!showDuplicates)}
                                                         className={`flex items-center px-2 py-1 rounded-lg text-sm font-medium transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 border ${!showDuplicates
-                                                                ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-400 hover:from-amber-600 hover:to-orange-600"
-                                                                : "bg-gradient-to-r from-slate-500 to-slate-600 text-white border-slate-400 hover:from-slate-600 hover:to-slate-700"
+                                                            ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-400 hover:from-amber-600 hover:to-orange-600"
+                                                            : "bg-gradient-to-r from-slate-500 to-slate-600 text-white border-slate-400 hover:from-slate-600 hover:to-slate-700"
                                                             }`}
                                                     >
                                                         {showDuplicates ? (
@@ -1591,7 +1726,7 @@ export default function PageBody() {
 
             {/* Direct Message Modal */}
             {showDirectMessageModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
                     <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-xl font-500 text-gray-800">Gửi tin nhắn trực tiếp</h3>
@@ -1642,7 +1777,7 @@ export default function PageBody() {
 
             {/* NCC Selection Modal */}
             {showNccSelectionModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
                     <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-xl font-500 text-gray-800">Chọn NCC để gửi tin nhắn</h3>
