@@ -1,14 +1,31 @@
 "use client"
-
-import type React from "react"
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useCallback } from "react"
 import sheetApiRequest from "@/apiRequests/sheet"
-import { Card, Spin, message, Switch, Dropdown, Modal, Checkbox, Button } from "antd"
-import { CopyOutlined, ReloadOutlined, LoadingOutlined, MessageOutlined } from "@ant-design/icons"
+import "./custom-table.css"
 import getUserInfo from "@/components/userInfo"
-import { createPortal } from 'react-dom';
-import dynamic from 'next/dynamic'
+import { HotTable } from "@handsontable/react-wrapper"
+import type Handsontable from "handsontable"
+import "handsontable/styles/handsontable.css"
+import "handsontable/styles/ht-theme-main.css"
+import "handsontable/styles/ht-theme-horizon.css"
+import {
+    Search,
+    Check,
+    MessageSquare,
+    X,
+    RefreshCw,
+    DollarSign,
+    CreditCard,
+    Coins,
+    FileText,
+    Globe,
+    User,
+    Inbox,
+    EyeOff,
+    Eye,
+} from "lucide-react"
 
+// Update the SiteData interface to handle arrays for FileNCC and GroupNCC
 interface SiteData {
     cs: string
     tinhTrang: string
@@ -54,118 +71,53 @@ interface SiteData {
     IdGroup?: string
 }
 
-interface CellPosition {
-    row: number
-    col: number
-}
+type PriceType = "GP" | "Text" | "TextHome" | "TextHeader"
+type BrandType = "F" | "X"
+type CurrencyType = "USDT" | "VND"
+type SearchType = "Site" | "NCC"
 
-interface ContextMenuPosition {
-    x: number
-    y: number
-    visible: boolean
-    data: SiteData | null
-}
-
-// Add this near the top of the file, after other imports
-const ContextMenu = dynamic(() => Promise.resolve(({ items, x, y }: { items: any[], x: number, y: number }) => (
-    <Dropdown menu={{ items }} open={true} trigger={["contextMenu"]}>
-        <div
-            style={{
-                position: "fixed",
-                top: y,
-                left: x,
-                zIndex: 1000,
-                width: 1,
-                height: 1,
-            }}
-        />
-    </Dropdown>
-)), { ssr: false });
+// Add type definition for renderer function
+type RendererFunction = (
+    instance: Handsontable,
+    td: HTMLTableCellElement,
+    row: number,
+    col: number,
+    prop: string | number,
+    value: any,
+    cellProperties?: Handsontable.CellMeta,
+) => HTMLTableCellElement
 
 export default function PageBody() {
     const [loading, setLoading] = useState(false)
-    const [dataGPTextVN, setDataGPTextVN] = useState<SiteData[]>([])
-    const [dataGPTextLio, setDataGPTextLio] = useState<SiteData[]>([])
-    const [dataGPTextE, setDataGPTextE] = useState<SiteData[]>([])
-    const [searchTerms, setSearchTerms] = useState("")
-    const [searchType, setSearchType] = useState("VN")
-    const [categoryType, setCategoryType] = useState("GP")
-    const [searchResults, setSearchResults] = useState<SiteData[]>([])
-    const [selectedAreas, setSelectedAreas] = useState<Set<string>[]>([new Set()])
-    const [isSelecting, setIsSelecting] = useState(false)
-    const [viewMode, setViewMode] = useState<"table" | "card">("table")
-    const tableRef: any = useRef<HTMLTableElement>(null)
-    const duplicateTableRef: any = useRef<HTMLTableElement>(null)
-    const [showResult, setShowResult] = useState(false)
-    const [lastSelectedCell, setLastSelectedCell] = useState<CellPosition | null>(null)
-    const [notFoundSites, setNotFoundSites] = useState<string[]>([])
-    const [selectedColumns, setSelectedColumns] = useState<number[]>([])
-    const [isMobile, setIsMobile] = useState(false)
-    const [duplicateSites, setDuplicateSites] = useState<SiteData[]>([])
-    const [selectedDuplicateAreas, setSelectedDuplicateAreas] = useState<Set<string>[]>([new Set()])
-    const [selectedDuplicateColumns, setSelectedDuplicateColumns] = useState<number[]>([])
-    const [searchMode, setSearchMode] = useState<"site" | "ncc">("site")
-    const [currency, setCurrency] = useState<"VND" | "USD">("USD")
-    const [contextMenu, setContextMenu] = useState<ContextMenuPosition>({
-        x: 0,
-        y: 0,
-        visible: false,
-        data: null,
-    })
-    const userInfo = getUserInfo()
-
-    // Add a new state for selected NCCs after the other state declarations (around line 60)
-    const [selectedNCCs, setSelectedNCCs] = useState<Set<string>>(new Set())
-    const [showNccSelectionModal, setShowNccSelectionModal] = useState(false)
-    const [nccList, setNccList] = useState<Array<{ id: string; name: string }>>([])
-    const [mounted, setMounted] = useState(false);
-    const portalContainerRef = useRef<HTMLDivElement | null>(null);
-
+    const [allData, setAllData] = useState<SiteData[]>([])
+    const [filteredData, setFilteredData] = useState<SiteData[]>([])
+    const [searchTerm, setSearchTerm] = useState("")
+    const [hasSearched, setHasSearched] = useState(false)
+    const [selectedPriceType, setSelectedPriceType] = useState<PriceType>("GP")
+    const [selectedBrand, setSelectedBrand] = useState<BrandType>("F")
+    const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>("USDT")
+    const [selectedSearchType, setSelectedSearchType] = useState<SearchType>("Site")
+    const [userInfo] = useState(getUserInfo())
+    const [duplicateSites, setDuplicateSites] = useState<{ [key: string]: SiteData[] }>({})
     const [showDirectMessageModal, setShowDirectMessageModal] = useState(false)
     const [directMessage, setDirectMessage] = useState("")
+    const [showNccSelectionModal, setShowNccSelectionModal] = useState(false)
+    const [selectedNCCs, setSelectedNCCs] = useState<Set<string>>(new Set())
+    const [nccList, setNccList] = useState<Array<{ id: string; name: string }>>([])
+    const [showDuplicates, setShowDuplicates] = useState(true)
 
-    const columnNames = [
-        "Chủ site",
-        "Tình trạng",
-        "Đi Bóng",
-        "Đi BET",
-        "Site",
-        "Chủ đề",
-        "DR",
-        "Traffic Tool",
-        "Ghi chú",
-        "Giá bán",
-        "Giá mua",
-        "Hoa hồng",
-        "Giá cuối",
-        "Lợi nhuận",
-        "Time text",
-        "Tên NCC",
-        "Mã NCC",
-        "File NCC",
-        "Group NCC",
-        "Ghi chú NCC",
-    ]
-    const columnsKH = [
-        "Tình trạng",
-        "Đi Bóng",
-        "Đi BET",
-        "Site",
-        "Chủ đề",
-        "DR",
-        "Traffic Tool",
-        "Ghi chú",
-        "Giá bán",
-    ]
     const fetchData = async () => {
         try {
             setLoading(true)
             const data: any = await sheetApiRequest.getDataTool()
             console.log("data", data)
-            setDataGPTextVN(data.gpTextVN)
-            setDataGPTextLio(data.gpTextVN)
+            setAllData(data.gpTextVN || [])
+            if (searchTerm) {
+                handleSearch(searchTerm)
+            }
         } catch (error) {
             console.error("Error fetching data:", error)
+            alert("Không thể tải dữ liệu. Vui lòng thử lại sau.")
         } finally {
             setLoading(false)
         }
@@ -173,737 +125,1171 @@ export default function PageBody() {
 
     useEffect(() => {
         fetchData()
-    }, []) //Fixed: Added dependency to fetchData
-
-    useEffect(() => {
-        setMounted(true);
-        // Create portal container if it doesn't exist
-        if (!document.getElementById('context-menu-portal')) {
-            const container = document.createElement('div');
-            container.id = 'context-menu-portal';
-            document.body.appendChild(container);
-            portalContainerRef.current = container;
-        }
-        return () => {
-            // Cleanup portal container on unmount
-            if (portalContainerRef.current) {
-                document.body.removeChild(portalContainerRef.current);
-            }
-        };
-    }, []);
-
-    const isValidDomain = (domain: string) => {
-        const domainRegex = /^(?!:\/\/)([a-zA-Z0-9-_]+(\.[a-zA-Z0-9-_]+)+.*)$/
-        return domainRegex.test(domain)
-    }
-
-    const calculateTotals = (results: SiteData[]): SiteData => {
-        const totals: any = {
-            site: "",
-            bong: "",
-            bet: "",
-            chuDe: "",
-            DR: "",
-            trafficTool: "",
-            ghiChu: "Tổng",
-            giaBanGP: "0",
-            giaBanText: "0",
-            giaBanTextHome: "0",
-            giaBanTextHeader: "0",
-            giaBanGPLio: "0",
-            giaBanTextLio: "0",
-            giaBanTextHomeLio: "0",
-            giaBanTextHeaderLio: "0",
-            giaMuaGP: "0",
-            giaMuaText: "0",
-            giaMuaTextHome: "0",
-            giaMuaTextHeader: "0",
-            hoaHongGP: "0",
-            hoaHongText: "0",
-            giaCuoiGP: "0",
-            giaCuoiText: "0",
-            giaCuoiTextHome: "0",
-            giaCuoiTextHeader: "0",
-            loiNhuanGP: "0",
-            loiNhuanText: "0",
-            loiNhuanTextHome: "0",
-            loiNhuanTextHeader: "0",
-            loiNhuanGPLio: "0",
-            loiNhuanTextLio: "0",
-            loiNhuanTextHomeLio: "0",
-            loiNhuanTextHeaderLio: "0",
-            NCC: "",
-            MaNCC: "",
-            FileNCC: [],
-            GroupNCC: [],
-            timeText: "",
-        }
-
-        results.forEach((result: any) => {
-            Object.keys(totals).forEach((key) => {
-                if (key === "FileNCC" || key === "GroupNCC") {
-                    if (result[key] && !totals[key].includes(result[key])) {
-                        totals[key].push(result[key])
-                    }
-                } else if (typeof totals[key] === "string" && !isNaN(Number.parseFloat(totals[key]))) {
-                    // Convert to strings, replace commas with dots if needed
-                    const totalValue = totals[key].toString().replace(",", ".")
-                    const resultValue = result[key] ? result[key].toString().replace(",", ".") : "0"
-
-                    // Check if resultValue is a number
-                    if (!isNaN(Number.parseFloat(resultValue))) {
-                        // Parse as floats
-                        const totalFloat = Number.parseFloat(totalValue)
-                        const resultFloat = Number.parseFloat(resultValue)
-
-                        // Calculate sum with precision handling
-                        const sum = (totalFloat * 100 + resultFloat * 100) / 100
-
-                        // Convert back to string with original decimal separator and round
-                        totals[key] = Math.round(sum).toString()
-                    }
-                }
-            })
-        })
-
-        return totals
-    }
-
-    const extractDomain = (url: string | undefined): string => {
-        if (!url) return ""
-        return url
-            .replace(/^(?:https?:\/\/)?(?:www\.)?/i, "")
-            .split("/")[0]
-            .toLowerCase()
-    }
-
-    const handleSearch = useCallback(
-        async (value: string) => {
-            try {
-                setLoading(true)
-                setShowResult(true)
-
-                const dataToSearch = value === "VN" ? dataGPTextVN : dataGPTextLio
-
-                const terms = searchTerms
-                    .split(/[\s\n]+/)
-                    .map((term) => term.trim())
-                    .filter(Boolean)
-
-                const results: SiteData[] = []
-                const duplicates: SiteData[] = []
-                const siteMap = new Map<string, SiteData>()
-
-                terms.forEach((term) => {
-                    if (!term) return
-
-                    if (searchMode === "site") {
-                        // For site search, normalize the term to include http/https/www
-                        const normalizedTerm = term.toLowerCase()
-                        const termWithHttp = normalizedTerm.startsWith('http') ? normalizedTerm : `http://${normalizedTerm}`
-                        const termWithHttps = normalizedTerm.startsWith('http') ? normalizedTerm : `https://${normalizedTerm}`
-                        const termWithWww = normalizedTerm.startsWith('www.') ? normalizedTerm : `www.${normalizedTerm}`
-                        const termWithWwwHttp = `http://www.${normalizedTerm.replace(/^www\./, '')}`
-                        const termWithWwwHttps = `https://www.${normalizedTerm.replace(/^www\./, '')}`
-
-                        const matchingSites = dataToSearch.filter((item: SiteData) => {
-                            const siteUrl = item.site.toLowerCase()
-                            return siteUrl === normalizedTerm ||
-                                siteUrl === termWithHttp ||
-                                siteUrl === termWithHttps ||
-                                siteUrl === termWithWww ||
-                                siteUrl === termWithWwwHttp ||
-                                siteUrl === termWithWwwHttps
-                        })
-
-                        if (matchingSites.length > 0) {
-                            matchingSites.sort((a, b) =>
-                                categoryType === "GP"
-                                    ? Number.parseFloat(a.giaMuaGP) - Number.parseFloat(b.giaMuaGP)
-                                    : categoryType === "Text"
-                                        ? Number.parseFloat(a.giaMuaText) - Number.parseFloat(b.giaMuaText)
-                                        : categoryType === "TextHome"
-                                            ? Number.parseFloat(a.giaMuaTextHome) - Number.parseFloat(b.giaMuaTextHome)
-                                            : Number.parseFloat(a.giaMuaTextHeader) - Number.parseFloat(b.giaMuaTextHeader),
-                            )
-
-                            results.push(matchingSites[0])
-                            siteMap.set(term, matchingSites[0])
-
-                            if (matchingSites.length > 1) {
-                                duplicates.push(...matchingSites.slice(1))
-                            }
-                        } else if (isValidDomain(term)) {
-                            const emptySite: SiteData = {
-                                cs: "",
-                                tinhTrang: "",
-                                site: term,
-                                bong: "",
-                                bet: "",
-                                chuDe: "",
-                                DR: "",
-                                trafficTool: "",
-                                ghiChu: "",
-                                giaBanGP: "",
-                                giaBanText: "",
-                                giaBanTextHome: "",
-                                giaBanTextHeader: "",
-                                giaBanGPLio: "",
-                                giaBanTextLio: "",
-                                giaBanTextHomeLio: "",
-                                giaBanTextHeaderLio: "",
-                                giaMuaGP: "",
-                                giaMuaText: "",
-                                giaMuaTextHome: "",
-                                giaMuaTextHeader: "",
-                                hoaHongGP: "",
-                                hoaHongText: "",
-                                giaCuoiGP: "",
-                                giaCuoiText: "",
-                                giaCuoiTextHome: "",
-                                giaCuoiTextHeader: "",
-                                loiNhuanGP: "",
-                                loiNhuanText: "",
-                                loiNhuanTextHome: "",
-                                loiNhuanTextHeader: "",
-                                loiNhuanGPLio: "",
-                                loiNhuanTextLio: "",
-                                loiNhuanTextHomeLio: "",
-                                loiNhuanTextHeaderLio: "",
-                                NCC: "",
-                                MaNCC: "",
-                                FileNCC: "",
-                                GroupNCC: "",
-                                GhiChuNCC: "",
-                                timeText: "",
-                            }
-                            results.push(emptySite)
-                            siteMap.set(term, emptySite)
-                        }
-                    } else {
-                        // For NCC search, only match codes starting with 'N' and exact match
-                        if (term.startsWith('N')) {
-                            const matchingSites = dataToSearch.filter((item: SiteData) =>
-                                item.MaNCC === term
-                            )
-                            if (matchingSites.length > 0) {
-                                results.push(...matchingSites)
-                            }
-                        }
-                    }
-                })
-
-                if (dataToSearch.length > 0) {
-                    const totalRow = calculateTotals(results)
-                    setSearchResults([totalRow, ...results])
-
-                    setDuplicateSites(searchMode === "site" ? duplicates : [])
-
-                    const notFoundShow = terms.filter(
-                        (term) => {
-                            if (searchMode === "site") {
-                                const normalizedTerm = term.toLowerCase()
-                                const termWithHttp = normalizedTerm.startsWith('http') ? normalizedTerm : `http://${normalizedTerm}`
-                                const termWithHttps = normalizedTerm.startsWith('http') ? normalizedTerm : `https://${normalizedTerm}`
-                                const termWithWww = normalizedTerm.startsWith('www.') ? normalizedTerm : `www.${normalizedTerm}`
-                                const termWithWwwHttp = `http://www.${normalizedTerm.replace(/^www\./, '')}`
-                                const termWithWwwHttps = `https://www.${normalizedTerm.replace(/^www\./, '')}`
-
-                                return !dataToSearch.some((item: SiteData) => {
-                                    const siteUrl = item.site.toLowerCase()
-                                    return siteUrl === normalizedTerm ||
-                                        siteUrl === termWithHttp ||
-                                        siteUrl === termWithHttps ||
-                                        siteUrl === termWithWww ||
-                                        siteUrl === termWithWwwHttp ||
-                                        siteUrl === termWithWwwHttps
-                                })
-                            } else {
-                                return term.startsWith('N') && !dataToSearch.some((item: SiteData) => item.MaNCC === term)
-                            }
-                        }
-                    )
-
-                    const notFound = terms
-                        .filter((term) => {
-                            if (searchMode === "site") {
-                                return isValidDomain(term) && !dataToSearch.some((item: SiteData) => {
-                                    const siteUrl = item.site.toLowerCase()
-                                    const normalizedTerm = term.toLowerCase()
-                                    const termWithHttp = normalizedTerm.startsWith('http') ? normalizedTerm : `http://${normalizedTerm}`
-                                    const termWithHttps = normalizedTerm.startsWith('http') ? normalizedTerm : `https://${normalizedTerm}`
-                                    const termWithWww = normalizedTerm.startsWith('www.') ? normalizedTerm : `www.${normalizedTerm}`
-                                    const termWithWwwHttp = `http://www.${normalizedTerm.replace(/^www\./, '')}`
-                                    const termWithWwwHttps = `https://www.${normalizedTerm.replace(/^www\./, '')}`
-
-                                    return siteUrl === normalizedTerm ||
-                                        siteUrl === termWithHttp ||
-                                        siteUrl === termWithHttps ||
-                                        siteUrl === termWithWww ||
-                                        siteUrl === termWithWwwHttp ||
-                                        siteUrl === termWithWwwHttps
-                                })
-                            } else {
-                                return term.startsWith('N') && !dataToSearch.some((item: SiteData) => item.MaNCC === term)
-                            }
-                        })
-
-                    setNotFoundSites(notFoundShow)
-                } else {
-                    message.success("Vui lòng load lại trang để nạp dữ liệu")
-                }
-            } catch (error) {
-                console.error("Search error:", error)
-            } finally {
-                setTimeout(() => {
-                    setLoading(false)
-                }, 200)
-            }
-        },
-        [searchTerms, categoryType, dataGPTextVN, dataGPTextLio, searchMode, searchType, currency],
-    )
-    useEffect(() => {
-        if (searchTerms) {
-            handleSearch(searchType)
-        }
-    }, [categoryType, handleSearch, searchType, currency])
-
-    const handleColumnSelect = (colIndex: number) => {
-        setSelectedAreas([])
-        setSelectedColumns((prev) => {
-            if (prev.includes(colIndex)) {
-                return prev.filter((col) => col !== colIndex)
-            } else {
-                return [...prev, colIndex]
-            }
-        })
-    }
-
-    const resetColumnSelection = () => {
-        setSelectedColumns([])
-        setSelectedAreas([])
-    }
-
-    const copyToClipboardFallback = (text: string) => {
-        const textArea = document.createElement("textarea")
-        textArea.value = text
-        document.body.appendChild(textArea)
-        textArea.focus()
-        textArea.select()
-        try {
-            document.execCommand("copy")
-            message.success("Copied to clipboard")
-        } catch (err) {
-            console.error("Fallback: Oops, unable to copy", err)
-            message.error("Failed to copy")
-        }
-        document.body.removeChild(textArea)
-    }
-
-    const addEmptyColumns = (rowData: string[], selectedIndices: number[]) => {
-        const profitIndex = columnNames.indexOf("Lợi nhuận")
-        const timeTextIndex = columnNames.indexOf("Time text")
-
-        const selectedProfitIndex = selectedIndices.indexOf(profitIndex)
-        const selectedTimeTextIndex = selectedIndices.indexOf(timeTextIndex) //Fixed: declared selectedTimeTextIndex
-
-        if (selectedProfitIndex !== -1 && selectedProfitIndex < rowData.length - 1) {
-            rowData.splice(selectedProfitIndex + 1, 0, " ")
-            selectedIndices = selectedIndices.map((i) => (i > selectedProfitIndex ? i + 1 : i))
-        }
-
-        if (selectedTimeTextIndex !== -1 && selectedTimeTextIndex < rowData.length - 1) {
-            rowData.splice(selectedTimeTextIndex + 2, 0, " ")
-        }
-
-        return rowData
-    }
-
-    const copySelectedCells = useCallback(() => {
-        if (!tableRef.current) return
-        let copyText = ""
-        const rows = tableRef.current.querySelectorAll("tbody tr")
-
-        if (selectedColumns.length > 0) {
-            rows.forEach((row: any) => {
-                const cells = row.querySelectorAll("td")
-                let rowData = selectedColumns.map((colIndex) => (cells[colIndex].textContent || "").trim() || " ")
-                rowData = addEmptyColumns(rowData, selectedColumns)
-                copyText += rowData.join("\t") + "\n"
-            })
-        } else {
-            const allSelectedCells = new Set<string>()
-            selectedAreas.forEach((area) => {
-                area.forEach((cell) => allSelectedCells.add(cell))
-            })
-
-            let minRow = Number.POSITIVE_INFINITY,
-                maxRow = Number.NEGATIVE_INFINITY,
-                minCol = Number.POSITIVE_INFINITY,
-                maxCol = Number.NEGATIVE_INFINITY
-
-            allSelectedCells.forEach((cell) => {
-                const [row, col] = cell.split(",").map(Number)
-                minRow = Math.min(minRow, row)
-                maxRow = Math.max(maxRow, row)
-                minCol = Math.min(minCol, col)
-                maxCol = Math.max(maxCol, col)
-            })
-
-            for (let r = minRow; r <= maxRow; r++) {
-                let rowData = []
-                for (let c = minCol; c <= maxCol; c++) {
-                    if (allSelectedCells.has(`${r},${c}`)) {
-                        const cell = rows[r - 1].querySelectorAll("td")[c]
-                        rowData.push((cell.textContent || "").trim() || " ")
-                    } else {
-                        rowData.push(" ")
-                    }
-                }
-                rowData = addEmptyColumns(
-                    rowData,
-                    Array.from({ length: maxCol - minCol + 1 }, (_, i) => i + minCol),
-                )
-                copyText += rowData.join("\t") + "\n"
-            }
-        }
-
-        if (copyText) {
-            navigator.clipboard
-                .writeText(copyText)
-                .then(() => message.success("Đã sao chép"))
-                .catch((err) => {
-                    console.error("Failed to copy: ", err)
-                    copyToClipboardFallback(copyText)
-                })
-        }
-    }, [selectedColumns, selectedAreas, columnNames])
-
-    const handleCellClick = useCallback(
-        (row: number, col: number, event: React.MouseEvent) => {
-            // Hide context menu on normal click
-            setContextMenu((prev) => ({ ...prev, visible: false }))
-
-            setSelectedDuplicateColumns([])
-            setSelectedDuplicateAreas([])
-            if (row === 0) return
-            if (isMobile) {
-                setSelectedAreas((prev) => {
-                    const newAreas = [...prev]
-                    const lastArea = newAreas[newAreas.length - 1]
-                    if (lastArea.has(`${row},${col}`)) {
-                        lastArea.delete(`${row},${col}`)
-                    } else {
-                        lastArea.add(`${row},${col}`)
-                    }
-                    return newAreas
-                })
-            } else {
-                setSelectedColumns([])
-                if (event.ctrlKey) {
-                    setSelectedAreas((prev) => [...prev, new Set([`${row},${col}`])])
-                } else {
-                    setSelectedAreas((prev) => [...prev, new Set([`${row},${col}`])])
-                }
-                setLastSelectedCell({ row, col })
-                setIsSelecting(true)
-            }
-        },
-        [isMobile],
-    )
-
-    const handleCellEnter = useCallback(
-        (row: number, col: number, event: React.MouseEvent) => {
-            if (isMobile || row === 0) return
-            if (isSelecting && event.buttons === 1) {
-                setSelectedAreas((prev) => {
-                    const newAreas = [...prev]
-                    const lastArea = newAreas[newAreas.length - 1]
-                    if (lastSelectedCell) {
-                        const startRow = Math.min(row, lastSelectedCell.row)
-                        const endRow = Math.max(row, lastSelectedCell.row)
-                        const startCol = Math.min(col, lastSelectedCell.col)
-                        const endCol = Math.max(col, lastSelectedCell.col)
-                        for (let r = startRow; r <= endRow; r++) {
-                            for (let c = startCol; c <= endCol; c++) {
-                                lastArea.add(`${r},${c}`)
-                            }
-                        }
-                    }
-                    return newAreas
-                })
-            }
-        },
-        [isSelecting, lastSelectedCell, isMobile],
-    )
-
-    const handleMouseUp = useCallback(() => {
-        setIsSelecting(false)
     }, [])
 
-    const isCellSelected = useCallback(
-        (row: number, col: number) => {
-            return selectedAreas.some((area) => area.has(`${row},${col}`))
-        },
-        [selectedAreas],
-    )
+    // Normalize URL for comparison
+    const normalizeUrl = (url: string): string => {
+        if (!url || typeof url !== "string") return ""
 
-    const getLowestPrice = (result: SiteData) => {
-        if (categoryType === "GP") {
-            return Number.parseFloat(result.giaMuaGP) || 0
-        } else if (categoryType === "Text") {
-            return Number.parseFloat(result.giaMuaText) || 0
-        } else if (categoryType === "TextHome") {
-            return Number.parseFloat(result.giaMuaTextHome) || 0
-        } else if (categoryType === "TextHeader") {
-            return Number.parseFloat(result.giaMuaTextHeader) || 0
-        }
-        return 0
+        // Remove protocol (http://, https://, ftp://, etc.)
+        let normalized = url.replace(/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//, "")
+
+        // Remove www. prefix if present
+        normalized = normalized.replace(/^www\./, "")
+
+        // Remove trailing slashes and paths
+        normalized = normalized.replace(/\/.*$/, "")
+
+        // Remove port numbers
+        normalized = normalized.replace(/:\d+$/, "")
+
+        // Convert to lowercase for case-insensitive comparison
+        normalized = normalized.toLowerCase().trim()
+
+        return normalized
     }
 
-    const renderPrice = (result: SiteData) => {
-        const isLio = searchType === "Lio"
-        let price = ""
+    // Function to check if a site matches any of the search terms and return the normalized value if it does
+    const itemMatchesSearch = useCallback(
+        (item: SiteData, searchTerms: string[]): string | false => {
+            const searchField = selectedSearchType === "Site" ? item.site : item.MaNCC
 
-        if (categoryType === "GP") {
-            price = isLio ? result.giaBanGPLio : result.giaBanGP
-        } else if (categoryType === "Text") {
-            price = isLio ? result.giaBanTextLio : result.giaBanText
-        } else if (categoryType === "TextHome") {
-            price = isLio ? result.giaBanTextHomeLio : result.giaBanTextHome
-        } else if (categoryType === "TextHeader") {
-            price = isLio ? result.giaBanTextHeaderLio : result.giaBanTextHeader
-        }
+            if (!searchField) return false
 
-        // If price is already a string that's not a number, return it as is
-        if (typeof price === "string" && isNaN(Number(price.replace(",", ".")))) {
-            return price
-        }
+            if (selectedSearchType === "Site") {
+                const normalizedSite = normalizeUrl(searchField)
+                if (!normalizedSite) return false
 
-        // Convert price to VND only when currency is set to VND and price is a number
-        if (currency === "VND" && price) {
-            const priceValue = Number.parseFloat(price.toString().replace(",", ".")) // Convert to number
-            if (!isNaN(priceValue)) {
-                const vndPrice = priceValue * 26
-                return vndPrice.toFixed(0) // No decimal places
+                for (const term of searchTerms) {
+                    const trimmedTerm = term.trim()
+                    if (!trimmedTerm) continue
+
+                    const normalizedTerm = normalizeUrl(trimmedTerm)
+                    if (!normalizedTerm) continue
+
+                    // Exact match or contains match for normalized domains
+                    if (
+                        normalizedSite === normalizedTerm ||
+                        normalizedSite.includes(normalizedTerm) ||
+                        normalizedTerm.includes(normalizedSite)
+                    ) {
+                        return normalizedSite
+                    }
+                }
+            } else {
+                // For NCC search, only process terms that start with "N" (case insensitive)
+                const normalizedMaNCC = searchField.toLowerCase().trim()
+
+                for (const term of searchTerms) {
+                    const trimmedTerm = term.trim()
+                    if (!trimmedTerm) continue
+
+                    // Only process terms that start with "N" or "n"
+                    if (!trimmedTerm.toLowerCase().startsWith("n")) continue
+
+                    const normalizedTerm = trimmedTerm.toLowerCase()
+
+                    // Exact match or starts with match for NCC codes
+                    if (normalizedMaNCC === normalizedTerm || normalizedMaNCC.startsWith(normalizedTerm)) {
+                        return normalizedMaNCC
+                    }
+                }
             }
-        }
 
-        // For numeric values, ensure they're displayed without decimal places
-        if (price && !isNaN(Number(price.toString().replace(",", ".")))) {
-            return Math.round(Number(price.toString().replace(",", "."))).toString()
-        }
+            return false
+        },
+        [selectedSearchType],
+    )
 
+    // Debounce function to prevent too many searches while typing
+    const debounce = (func: Function, delay: number) => {
+        let timeoutId: NodeJS.Timeout
+        return (...args: any) => {
+            clearTimeout(timeoutId)
+            timeoutId = setTimeout(() => func(...args), delay)
+        }
+    }
+
+    // Handle search with debounce
+    const handleSearch = useCallback(
+        debounce((value: string) => {
+            if (!value.trim()) {
+                setFilteredData([])
+                setDuplicateSites({})
+                setHasSearched(false)
+                return
+            }
+
+            // Split search terms by commas, newlines, or spaces
+            const searchTerms = value.split(/[,\n\s]+/).filter((term) => term.trim() !== "")
+
+            if (searchTerms.length === 0) {
+                setFilteredData([])
+                setDuplicateSites({})
+                setHasSearched(false)
+                return
+            }
+
+            // Validate search terms based on search type
+            let validTerms: string[] = []
+
+            if (selectedSearchType === "Site") {
+                // For site search, accept any non-empty term
+                validTerms = searchTerms.filter((term) => term.trim().length > 0)
+            } else {
+                // For NCC search, only accept terms starting with "N"
+                validTerms = searchTerms.filter((term) => {
+                    const trimmed = term.trim()
+                    return trimmed.length > 0 && trimmed.toLowerCase().startsWith("n")
+                })
+            }
+
+            // If no valid terms, don't search
+            if (validTerms.length === 0) {
+                setFilteredData([])
+                setDuplicateSites({})
+                setHasSearched(false)
+                return
+            }
+
+            // Group items by normalized search field to find duplicates
+            const itemGroups: { [key: string]: SiteData[] } = {}
+            const matchedItems: SiteData[] = []
+
+            allData.forEach((item) => {
+                const normalizedValue = itemMatchesSearch(item, validTerms)
+                if (normalizedValue) {
+                    if (!itemGroups[normalizedValue]) {
+                        itemGroups[normalizedValue] = []
+                    }
+                    itemGroups[normalizedValue].push(item)
+                    matchedItems.push(item)
+                }
+            })
+
+            // Process duplicate items
+            const duplicates: { [key: string]: SiteData[] } = {}
+            const mainItems: SiteData[] = []
+
+            Object.entries(itemGroups).forEach(([normalizedValue, items]) => {
+                if (items.length > 1) {
+                    // Sort by purchase price (numeric values first, then non-numeric)
+                    items.sort((a, b) => {
+                        const priceA = Number.parseFloat(a.giaMuaGP)
+                        const priceB = Number.parseFloat(b.giaMuaGP)
+
+                        const isNumericA = !isNaN(priceA)
+                        const isNumericB = !isNaN(priceB)
+
+                        // If both are numeric, compare values
+                        if (isNumericA && isNumericB) {
+                            return priceA - priceB
+                        }
+
+                        // Numeric values come before non-numeric
+                        if (isNumericA) return -1
+                        if (isNumericB) return 1
+
+                        // If both are non-numeric, keep original order
+                        return 0
+                    })
+
+                    // Add the item with lowest price to main table
+                    mainItems.push(items[0])
+
+                    // Add the rest to duplicates
+                    duplicates[normalizedValue] = items.slice(1)
+                } else {
+                    // Non-duplicate items go to main table
+                    mainItems.push(items[0])
+                }
+            })
+
+            setFilteredData(mainItems)
+            setDuplicateSites(duplicates)
+            setHasSearched(true)
+        }, 300),
+        [allData, itemMatchesSearch, selectedSearchType],
+    )
+
+    // Update search when input changes or search type changes
+    useEffect(() => {
+        handleSearch(searchTerm)
+    }, [searchTerm, handleSearch, selectedSearchType])
+
+    const handlePriceTypeChange = (priceType: PriceType) => {
+        setSelectedPriceType(priceType)
+    }
+
+    // Function to convert price based on currency selection
+    const convertPrice = (price: string): string => {
+        if (selectedCurrency === "VND") {
+            const numericPrice = Number.parseFloat(price || "0") || 0
+            return (numericPrice * 26).toString()
+        }
         return price
     }
 
-    useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth <= 768)
-        }
-        checkMobile()
-        window.addEventListener("resize", checkMobile)
-        return () => window.removeEventListener("resize", checkMobile)
-    }, [])
+    const getPriceColumnData = (
+        priceType: PriceType,
+        brand: BrandType,
+        field: "giaBan" | "giaMua" | "giaCuoi" | "loiNhuan",
+    ) => {
+        const suffix = brand === "X" ? "Lio" : ""
 
-    const handleDuplicateColumnSelect = (colIndex: number) => {
-        setSelectedDuplicateAreas([])
-        setSelectedDuplicateColumns((prev) => {
-            if (prev.includes(colIndex)) {
-                return prev.filter((col) => col !== colIndex)
-            } else {
-                return [...prev, colIndex]
+        const typeMap = {
+            GP: "GP",
+            Text: "Text",
+            TextHome: "TextHome",
+            TextHeader: "TextHeader",
+        }
+
+        return `${field}${typeMap[priceType]}${suffix}`
+    }
+
+    // Add a helper function to handle price column rendering
+    const createPriceRenderer = (field: string) => {
+        return ((
+            instance: Handsontable,
+            td: HTMLTableCellElement,
+            row: number,
+            col: number,
+            prop: string | number,
+            value: any,
+        ): HTMLTableCellElement => {
+            td.innerHTML = ""
+            td.style.whiteSpace = "nowrap"
+            td.style.overflow = "hidden"
+            td.style.textOverflow = "ellipsis"
+
+            // Make summary row values red
+            if (row === 0) {
+                td.style.color = "red"
+                td.style.fontWeight = "500"
             }
+
+            td.title = value || ""
+            td.textContent = value || ""
+            return td
+        }) as RendererFunction
+    }
+
+    const generateColumns = () => {
+        const baseColumns = [
+            {
+                title: "CS",
+                data: "cs",
+                width: 40,
+                className: "htMiddle",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+            {
+                title: "Tình Trạng",
+                data: "tinhTrang",
+                width: 95,
+                className: "htMiddle",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+            {
+                title: "Bóng",
+                data: "bong",
+                width: 50,
+                className: "htMiddle",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+            {
+                title: "BET",
+                data: "bet",
+                width: 40,
+                className: "htMiddle",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+            {
+                title: "Site",
+                data: "site",
+                width: 120,
+                className: "htMiddle",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+            {
+                title: "Chủ đề",
+                data: "chuDe",
+                width: 95,
+                className: "htMiddle",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+            {
+                title: "DR",
+                data: "DR",
+                width: 40,
+                className: "htMiddle",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+            {
+                title: "Traffic",
+                data: "trafficTool",
+                width: 80,
+                className: "htMiddle",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+            {
+                title: "Ghi Chú",
+                data: "ghiChu",
+                width: 100,
+                className: "htMiddle",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+
+                    // Make "Tổng" text red in summary row
+                    if (row === 0 && value === "Tổng") {
+                        td.style.color = "red"
+                        td.style.fontWeight = "500"
+                    }
+
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+        ]
+
+        // Add single price column based on selected type and brand
+        const sellPriceColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaBan")
+        baseColumns.push({
+            title: `Giá Bán`,
+            data: sellPriceColumn,
+            width: 65,
+            className: "htMiddle",
+            renderer: createPriceRenderer(sellPriceColumn),
         })
-    }
 
-    const resetDuplicateColumnSelection = () => {
-        setSelectedDuplicateColumns([])
-        setSelectedDuplicateAreas([])
-    }
+        // Add remaining columns with the same configuration
+        const buyPriceColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaMua")
+        const finalPriceColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaCuoi")
+        const profitColumn = getPriceColumnData(selectedPriceType, selectedBrand, "loiNhuan")
 
-    const copyDuplicateSelectedCells = useCallback(() => {
-        if (!duplicateTableRef.current) return
-        let copyText = ""
-        const rows = duplicateTableRef.current.querySelectorAll("tbody tr")
+        const additionalColumns = [
+            {
+                title: `Giá Mua`,
+                data: buyPriceColumn,
+                width: 70,
+                className: "htMiddle",
+                renderer: createPriceRenderer(buyPriceColumn),
+            },
+            {
+                title: `HH`,
+                data: selectedPriceType === "GP" ? "hoaHongGP" : "hoaHongText",
+                width: 40,
+                className: "htMiddle",
+                renderer: createPriceRenderer(selectedPriceType === "GP" ? "hoaHongGP" : "hoaHongText"),
+            },
+            {
+                title: `Giá Cuối`,
+                data: finalPriceColumn,
+                width: 69,
+                className: "htMiddle",
+                renderer: createPriceRenderer(finalPriceColumn),
+            },
+            {
+                title: `LN`,
+                data: profitColumn,
+                width: 40,
+                className: "htMiddle",
+                renderer: createPriceRenderer(profitColumn),
+            },
+            {
+                title: "Time",
+                data: "timeText",
+                width: 50,
+                className: "htMiddle",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+            {
+                title: "Tên",
+                data: "NCC",
+                width: 70,
+                className: "htMiddle",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+            {
+                title: "Mã",
+                data: "MaNCC",
+                width: 60,
+                className: "htMiddle",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+            {
+                title: "File",
+                data: "FileNCC",
+                width: 60,
+                className: "htMiddle",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                    cellProperties?: Handsontable.CellMeta,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
 
-        if (selectedDuplicateColumns.length > 0) {
-            rows.forEach((row: any) => {
-                const cells = row.querySelectorAll("td")
-                let rowData = selectedDuplicateColumns.map((colIndex) => (cells[colIndex].textContent || "").trim() || " ")
-                rowData = addEmptyColumns(rowData, selectedDuplicateColumns)
-                copyText += rowData.join("\t") + "\n"
-            })
-        } else {
-            const allSelectedCells = new Set<string>()
-            selectedDuplicateAreas.forEach((area) => {
-                area.forEach((cell) => allSelectedCells.add(cell))
-            })
+                    // Check if this is the summary row (first row)
+                    const isSummaryRow = row === 0
 
-            let minRow = Number.POSITIVE_INFINITY,
-                maxRow = Number.NEGATIVE_INFINITY,
-                minCol = Number.POSITIVE_INFINITY,
-                maxCol = Number.NEGATIVE_INFINITY
+                    if (isSummaryRow) {
+                        // For summary row, make text red and 500
+                        td.style.color = "red"
+                        td.style.fontWeight = "500"
 
-            allSelectedCells.forEach((cell) => {
-                const [row, col] = cell.split(",").map(Number)
-                minRow = Math.min(minRow, row)
-                maxRow = Math.max(maxRow, row)
-                minCol = Math.min(minCol, col)
-                maxCol = Math.max(maxCol, col)
-            })
-
-            for (let r = minRow; r <= maxRow; r++) {
-                let rowData = []
-                for (let c = minCol; c <= maxCol; c++) {
-                    if (allSelectedCells.has(`${r},${c}`)) {
-                        const cell = rows[r - 1].querySelectorAll("td")[c]
-                        rowData.push((cell.textContent || "").trim() || " ")
-                    } else {
-                        rowData.push(" ")
-                    }
-                }
-                rowData = addEmptyColumns(
-                    rowData,
-                    Array.from({ length: maxCol - minCol + 1 }, (_, i) => i + minCol),
-                )
-                copyText += rowData.join("\t") + "\n"
-            }
-        }
-
-        if (copyText) {
-            navigator.clipboard
-                .writeText(copyText)
-                .then(() => message.success("Đã sao chép"))
-                .catch((err) => {
-                    console.error("Failed to copy: ", err)
-                    copyToClipboardFallback(copyText)
-                })
-        }
-    }, [selectedDuplicateColumns, selectedDuplicateAreas, columnNames])
-
-    const handleDuplicateCellClick = useCallback(
-        (row: number, col: number, event: React.MouseEvent) => {
-            // Hide context menu on normal click
-            setContextMenu((prev) => ({ ...prev, visible: false }))
-
-            setSelectedColumns([])
-            setSelectedAreas([])
-            if (row === 0) return
-            if (isMobile) {
-                setSelectedDuplicateAreas((prev) => {
-                    const newAreas = [...prev]
-                    const lastArea = newAreas[newAreas.length - 1]
-                    if (lastArea.has(`${row},${col}`)) {
-                        lastArea.delete(`${row},${col}`)
-                    } else {
-                        lastArea.add(`${row},${col}`)
-                    }
-                    return newAreas
-                })
-            } else {
-                setSelectedDuplicateColumns([])
-                if (event.ctrlKey) {
-                    setSelectedDuplicateAreas((prev) => [...prev, new Set([`${row},${col}`])])
-                } else {
-                    setSelectedDuplicateAreas((prev) => [...prev, new Set([`${row},${col}`])])
-                }
-                setLastSelectedCell({ row, col })
-                setIsSelecting(true)
-            }
-        },
-        [isMobile],
-    )
-
-    const handleDuplicateCellEnter = useCallback(
-        (row: number, col: number, event: React.MouseEvent) => {
-            if (isMobile || row === 0) return
-            if (isSelecting && event.buttons === 1) {
-                setSelectedDuplicateAreas((prev) => {
-                    const newAreas = [...prev]
-                    const lastArea = newAreas[newAreas.length - 1]
-                    if (lastSelectedCell) {
-                        const startRow = Math.min(row, lastSelectedCell.row)
-                        const endRow = Math.max(row, lastSelectedCell.row)
-                        const startCol = Math.min(col, lastSelectedCell.col)
-                        const endCol = Math.max(col, lastSelectedCell.col)
-                        for (let r = startRow; r <= endRow; r++) {
-                            for (let c = startCol; c <= endCol; c++) {
-                                lastArea.add(`${r},${c}`)
+                        // If there are file URLs in the summary row, make them clickable
+                        const fileUrls = (cellProperties?.instance?.getSourceDataAtRow(row) as any)?._fileUrls
+                        if (fileUrls && fileUrls.length > 0) {
+                            td.innerHTML = `<a href="#" class="file-link" style="color: red; font-weight: 500; text-decoration: underline;">${value}</a>`
+                            td.onclick = (e: MouseEvent) => {
+                                e.preventDefault()
+                                fileUrls.forEach((url: string) => {
+                                    window.open(url, "_blank")
+                                })
                             }
+                        } else {
+                            td.textContent = "No"
+                        }
+                    } else {
+                        // For regular rows
+                        if (Array.isArray(value) && value.length > 0) {
+                            // Handle array of files
+                            const links = value
+                                .map(
+                                    (url: string, index: number) =>
+                                        `<a href="${url}" target="_blank" style="color: blue; text-decoration: underline;">File${value.length > 1 ? ` ${index + 1}` : ""}</a>`,
+                                )
+                                .join(", ")
+                            td.innerHTML = links
+                        } else if (value && typeof value === "string" && value.trim() !== "") {
+                            // Handle single file
+                            td.innerHTML = `<a href="${value}" target="_blank" style="color: blue; text-decoration: underline;">File</a>`
+                        } else {
+                            td.textContent = "No"
+                            td.style.color = "#999" // Gray color for "No" text
                         }
                     }
-                    return newAreas
-                })
-            }
-        },
-        [isSelecting, lastSelectedCell, isMobile],
-    )
 
-    const isDuplicateCellSelected = useCallback(
-        (row: number, col: number) => {
-            return selectedDuplicateAreas.some((area) => area.has(`${row},${col}`))
-        },
-        [selectedDuplicateAreas],
-    )
+                    td.title = value || "No"
+                    return td
+                }) as RendererFunction,
+            },
+            {
+                title: "Group",
+                data: "GroupNCC",
+                width: 80,
+                className: "htMiddle",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                    cellProperties?: Handsontable.CellMeta,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
 
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.ctrlKey && e.key === "c") {
-                e.preventDefault()
-                copySelectedCells()
-                copyDuplicateSelectedCells()
+                    // Check if this is the summary row (first row)
+                    const isSummaryRow = row === 0
+
+                    if (isSummaryRow) {
+                        // For summary row, make text red and 500
+                        td.style.color = "red"
+                        td.style.fontWeight = "500"
+
+                        // If there are group URLs in the summary row, make them clickable
+                        const groupUrls = (cellProperties?.instance?.getSourceDataAtRow(row) as any)?._groupUrls
+                        if (groupUrls && groupUrls.length > 0) {
+                            td.innerHTML = `<a href="#" class="group-link" style="color: red; font-weight: 500; text-decoration: underline;">${value}</a>`
+                            td.onclick = (e: MouseEvent) => {
+                                e.preventDefault()
+                                groupUrls.forEach((url: string) => {
+                                    window.open(url, "_blank")
+                                })
+                            }
+                        } else {
+                            td.textContent = "No Group"
+                        }
+                    } else {
+                        // For regular rows
+                        if (Array.isArray(value) && value.length > 0) {
+                            // Handle array of groups
+                            const links = value
+                                .map(
+                                    (url: string, index: number) =>
+                                        `<a href="${url}" target="_blank" style="color: blue; text-decoration: underline;">Group${value.length > 1 ? ` ${index + 1}` : ""}</a>`,
+                                )
+                                .join(", ")
+                            td.innerHTML = links
+                        } else if (value && typeof value === "string" && value.trim() !== "") {
+                            // Handle single group
+                            td.innerHTML = `<a href="${value}" target="_blank" style="color: blue; text-decoration: underline;">Group</a>`
+                        } else {
+                            td.textContent = "No Group"
+                            td.style.color = "#999" // Gray color for "No Group" text
+                        }
+                    }
+
+                    td.title = value || "No Group"
+                    return td
+                }) as RendererFunction,
+            },
+            {
+                title: "Note",
+                data: "GhiChuNCC",
+                width: 60,
+                className: "htMiddle",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+        ]
+
+        return [...baseColumns, ...additionalColumns]
+    }
+
+    // Add a function to calculate summary data
+    const calculateSummary = (data: SiteData[]) => {
+        if (!data || data.length === 0) return null
+
+        // Get the correct price column based on selected type and brand
+        const getPriceColumn = (
+            type: PriceType,
+            brand: BrandType,
+            field: "giaBan" | "giaMua" | "hoaHong" | "giaCuoi" | "loiNhuan",
+        ) => {
+            const suffix = brand === "X" ? "Lio" : ""
+
+            // Map field to its base name
+            const fieldMap = {
+                giaBan: "giaBan",
+                giaMua: "giaMua",
+                hoaHong: "hoaHong",
+                giaCuoi: "giaCuoi",
+                loiNhuan: "loiNhuan",
             }
+
+            // Map price type to its suffix
+            const typeSuffix = {
+                GP: "GP",
+                Text: "Text",
+                TextHome: "TextHome",
+                TextHeader: "TextHeader",
+            }
+
+            // For hoaHong, we only have GP and Text variants
+            if (field === "hoaHong") {
+                return type === "GP" ? "hoaHongGP" : "hoaHongText"
+            }
+
+            // For all fields (giaBan, giaMua, giaCuoi, loiNhuan), use the selected type
+            // This ensures giaMua, giaCuoi, and loiNhuan change with the price type
+            return `${fieldMap[field]}${typeSuffix[type]}${suffix}`
         }
 
-        document.addEventListener("keydown", handleKeyDown)
-        return () => {
-            document.removeEventListener("keydown", handleKeyDown)
+        // Get the current price columns based on selected type and brand
+        const giaBanColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaBan")
+        const giaMuaColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaMua")
+        const hoaHongColumn = selectedPriceType === "GP" ? "hoaHongGP" : "hoaHongText"
+        const giaCuoiColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaCuoi")
+        const loiNhuanColumn = getPriceColumnData(selectedPriceType, selectedBrand, "loiNhuan")
+
+        // Initialize summary with the correct columns
+        const summary: any = {
+            ghiChu: "Tổng",
+            [giaBanColumn]: "0",
+            [giaMuaColumn]: "0",
+            [hoaHongColumn]: "0",
+            [giaCuoiColumn]: "0",
+            [loiNhuanColumn]: "0",
         }
-    }, [copySelectedCells, copyDuplicateSelectedCells])
 
-    const copyEntireTable = useCallback((tableRef: React.RefObject<HTMLTableElement>) => {
-        setSelectedColumns([])
-        setSelectedAreas([])
-        setSelectedDuplicateColumns([])
-        setSelectedDuplicateAreas([])
+        // Count total files and groups
+        let totalFiles = 0
+        let totalGroups = 0
+        let fileUrls: string[] = []
+        let groupUrls: string[] = []
 
-        if (!tableRef.current) return
-        let copyText = ""
-        const rows = tableRef.current.querySelectorAll("tbody tr")
-        rows.forEach((row) => {
-            const cells = row.querySelectorAll("td")
-            const rowData = Array.from(cells).map((cell) => (cell.textContent || "").trim() || " ")
-            copyText += rowData.join("\t") + "\n"
+        data.forEach((item) => {
+            // Extract numeric value from commission field, handling cases like "20 avc ngưng" or "30 + ngưng"
+            const getNumericValue = (value: any): number => {
+                // Convert value to string and handle null/undefined
+                const strValue = value?.toString() || ""
+                if (!strValue || strValue.trim() === "") return 0
+
+                // Split by '+' and take the first part, then extract the number
+                const firstPart = strValue.split("+")[0].trim()
+                const match = firstPart.match(/^\d+(\.\d+)?/)
+                return match ? Number.parseFloat(match[0]) : 0
+            }
+
+            // Get values using the correct columns for the selected type
+            const giaBanValue = getNumericValue(item[giaBanColumn as keyof SiteData])
+            const giaMuaValue = getNumericValue(item[giaMuaColumn as keyof SiteData])
+            const hoaHongValue = getNumericValue(item[hoaHongColumn as keyof SiteData])
+            const giaCuoiValue = getNumericValue(item[giaCuoiColumn as keyof SiteData])
+            const loiNhuanValue = getNumericValue(item[loiNhuanColumn as keyof SiteData])
+
+            // Apply currency conversion if VND is selected
+            const convertedGiaBan = selectedCurrency === "VND" ? giaBanValue * 26 : giaBanValue
+            const convertedGiaMua = selectedCurrency === "VND" ? giaMuaValue * 26 : giaMuaValue
+            const convertedHoaHong = selectedCurrency === "VND" ? hoaHongValue * 26 : hoaHongValue
+            const convertedGiaCuoi = selectedCurrency === "VND" ? giaCuoiValue * 26 : giaCuoiValue
+            const convertedLoiNhuan = selectedCurrency === "VND" ? loiNhuanValue * 26 : loiNhuanValue
+
+            // Update summary using the correct columns for the selected type
+            summary[giaBanColumn as keyof SiteData] = (
+                Number.parseFloat(summary[giaBanColumn as keyof SiteData]?.toString() || "0") + convertedGiaBan
+            ).toString()
+            summary[giaMuaColumn as keyof SiteData] = (
+                Number.parseFloat(summary[giaMuaColumn as keyof SiteData]?.toString() || "0") + convertedGiaMua
+            ).toString()
+            summary[hoaHongColumn as keyof SiteData] = (
+                Number.parseFloat(summary[hoaHongColumn as keyof SiteData]?.toString() || "0") + convertedHoaHong
+            ).toString()
+            summary[giaCuoiColumn as keyof SiteData] = (
+                Number.parseFloat(summary[giaCuoiColumn as keyof SiteData]?.toString() || "0") + convertedGiaCuoi
+            ).toString()
+            summary[loiNhuanColumn as keyof SiteData] = (
+                Number.parseFloat(summary[loiNhuanColumn as keyof SiteData]?.toString() || "0") + convertedLoiNhuan
+            ).toString()
+
+            // Collect file URLs
+            if (Array.isArray(item.FileNCC)) {
+                totalFiles += item.FileNCC.length
+                fileUrls = [...fileUrls, ...item.FileNCC]
+            } else if (item.FileNCC && item.FileNCC !== "No") {
+                totalFiles += 1
+                fileUrls.push(item.FileNCC as string)
+            }
+
+            // Collect group URLs
+            if (Array.isArray(item.GroupNCC)) {
+                totalGroups += item.GroupNCC.length
+                groupUrls = [...groupUrls, ...item.GroupNCC]
+            } else if (item.GroupNCC && item.GroupNCC !== "No Group") {
+                totalGroups += 1
+                groupUrls.push(item.GroupNCC as string)
+            }
         })
 
-        if (copyText) {
-            navigator.clipboard
-                .writeText(copyText)
-                .then(() => message.success("Đã sao chép toàn bộ bảng"))
-                .catch((err) => {
-                    console.error("Failed to copy: ", err)
-                    copyToClipboardFallback(copyText)
-                })
+        // Store the actual URLs for later use
+        summary._fileUrls = fileUrls
+        summary._groupUrls = groupUrls
+
+        // Set file and group counts
+        summary.FileNCC = totalFiles > 0 ? `File (${totalFiles})` : "No"
+        summary.GroupNCC = totalGroups > 0 ? `Group (${totalGroups})` : "No Group"
+
+        return summary as SiteData & { _fileUrls?: string[]; _groupUrls?: string[] }
+    }
+
+    // Add a custom renderer for the HotTable to handle clickable File NCC and Group NCC cells
+    const renderHotTable = (data: SiteData[], columns: any[], tableKey: string) => {
+        if (!data || data.length === 0) return null
+
+        // Add summary row at the beginning
+        const summaryRow = calculateSummary(data)
+        const dataWithSummary = summaryRow ? [summaryRow, ...data] : [...data]
+
+        return (
+            <div className="overflow-x-auto w-full max-w-8xl">
+                <HotTable
+                    key={`${tableKey}-${selectedCurrency}`}
+                    data={dataWithSummary}
+                    columns={columns.map((col) => ({
+                        data: col.data,
+                        title: col.title,
+                        type: "text",
+                        readOnly: true,
+                        width: col.width,
+                        className: col.className,
+                        renderer: col.renderer,
+                    }))}
+                    height="auto"
+                    width="100%"
+                    licenseKey="non-commercial-and-evaluation"
+                    stretchH="all"
+                    autoWrapRow={true}
+                    rowHeaders={false}
+                    colHeaders={true}
+                    contextMenu={["copy"]}
+                    filters={true}
+                    dropdownMenu={true}
+                    columnSorting={true}
+                    manualColumnResize={true}
+                    manualRowResize={true}
+                    copyPaste={true}
+                    className="custom-table"
+                    themeName="ht-theme-main"
+                />
+            </div>
+        )
+    }
+
+    // Add message handling functions
+    const handleDirectMessage = useCallback(async () => {
+        if (!directMessage.trim()) {
+            alert("Vui lòng nhập tin nhắn")
+            return
         }
-    }, [])
 
-    // Handle right-click on table cell to show context menu
-    const handleCellContextMenu = useCallback((event: React.MouseEvent, rowData: SiteData) => {
-        event.preventDefault()
-
-        // Only show context menu if the row has NCC data
-        if (rowData && rowData.MaNCC) {
-            setContextMenu({
-                x: event.clientX,
-                y: event.clientY,
-                visible: true,
-                data: rowData,
+        try {
+            setLoading(true)
+            const response = await fetch("/api/sheet/tool-check", {
+                method: "POST",
             })
-        }
-    }, [])
+            const data = await response.json()
 
-    // Add a function to handle NCC selection after the other handler functions (around line 600)
+            if (!data.gpTextVN) {
+                alert("Không thể lấy dữ liệu từ sheet")
+                return
+            }
+
+            // Extract all unique IdGroups
+            const uniqueIdGroups = new Set<string>()
+            data.gpTextVN.forEach((item: SiteData) => {
+                if (item.IdGroup && item.IdGroup.trim() !== "") {
+                    let chatId = item.IdGroup.trim()
+                    if (chatId.startsWith("#")) {
+                        chatId = chatId.replace("#", "")
+                    }
+                    uniqueIdGroups.add(chatId)
+                }
+            })
+
+            if (uniqueIdGroups.size === 0) {
+                alert("Không tìm thấy IdGroup nào trong dữ liệu")
+                return
+            }
+
+            // Confirm with user
+            if (confirm(`Bạn có chắc chắn muốn gửi tin nhắn đến tất cả ${uniqueIdGroups.size} NCC?`)) {
+                alert(`Đang gửi tin nhắn cho ${uniqueIdGroups.size} NCC...`)
+
+                const successfulSends: string[] = []
+                const errors: string[] = []
+
+                // Updated bot token
+                const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
+
+                // Send message to Telegram
+                for (const chatId of uniqueIdGroups) {
+                    try {
+                        const url = `https://api.telegram.org/bot${botToken}/sendMessage`
+                        const params = new URLSearchParams({
+                            chat_id: chatId,
+                            text: directMessage,
+                        })
+
+                        console.log("Sending message to chat ID:", chatId)
+                        const res = await fetch(`${url}?${params.toString()}`)
+                        const responseData = await res.json()
+
+                        if (responseData.ok) {
+                            successfulSends.push(chatId)
+                        } else {
+                            errors.push(`Failed to send to ${chatId}: ${responseData.description}`)
+                        }
+                    } catch (error) {
+                        console.error("Error sending message:", error)
+                        errors.push(`Failed to send to ${chatId}: Unknown error`)
+                    }
+                }
+
+                // Show results
+                if (successfulSends.length > 0) {
+                    alert(`Đã gửi tin nhắn thành công đến ${successfulSends.length} NCC`)
+                }
+
+                if (errors.length > 0) {
+                    alert(errors.join("\n"))
+                }
+
+                setShowDirectMessageModal(false)
+                setDirectMessage("")
+            }
+        } catch (error) {
+            console.error("Error:", error)
+            alert("Có lỗi xảy ra khi gửi tin nhắn")
+        } finally {
+            setLoading(false)
+        }
+    }, [directMessage])
+
+    const openNccSelectionModal = useCallback(() => {
+        // Extract unique NCCs from the filtered data
+        const uniqueNccs = new Map<string, { id: string; name: string }>()
+
+        filteredData.forEach((result) => {
+            if (result.IdGroup && result.IdGroup.trim() !== "" && result.NCC) {
+                let chatId = result.IdGroup.trim()
+                if (chatId.startsWith("#")) {
+                    chatId = chatId.replace("#", "")
+                }
+
+                uniqueNccs.set(chatId, {
+                    id: chatId,
+                    name: result.NCC,
+                })
+            }
+        })
+
+        setNccList(Array.from(uniqueNccs.values()))
+        setShowNccSelectionModal(true)
+    }, [filteredData])
+
+    const handleMessageNCC = useCallback(
+        async (data: SiteData | null, useSelectedNccs = false) => {
+            const messages = [
+                "Lên bài giúp em nhé, em note trong file rồi ạ",
+                "Em có bài cần gắn trong file rồi ạ",
+                "Anh ơi, em odr bài gp ạ, thông tin bài trong file anh nhé",
+                "Có bài cần gắn, em để trong file rùi. anh gắn giúp em nha",
+                "Anh ơi, em lên đơn, thông tin em bỏ trong file ạ",
+            ]
+
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)]
+            let selectedChatIds: Array<{ value: string; label: string }> = []
+
+            if (useSelectedNccs) {
+                if (selectedNCCs.size === 0) {
+                    alert("Vui lòng chọn ít nhất một NCC để gửi tin nhắn")
+                    return
+                }
+
+                selectedChatIds = Array.from(selectedNCCs).map((id) => {
+                    const ncc = nccList.find((n) => n.id === id)
+                    return {
+                        value: id,
+                        label: ncc ? ncc.name : "NCC",
+                    }
+                })
+
+                alert(`Đang gửi tin nhắn cho ${selectedChatIds.length} NCC...`)
+            } else if (data) {
+                if (data.IdGroup && data.IdGroup.trim() !== "") {
+                    let chatId = data.IdGroup.trim()
+                    if (chatId.startsWith("#")) {
+                        chatId = chatId.replace("#", "")
+                    }
+
+                    selectedChatIds = [{ value: chatId, label: data.NCC || "NCC" }]
+                    alert(`Đang gửi tin nhắn cho NCC: ${data.NCC}...`)
+                } else {
+                    alert("Không tìm thấy IdGroup cho NCC này")
+                    return
+                }
+            } else {
+                return
+            }
+
+            const successfulSends: string[] = []
+            const errors: string[] = []
+            const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
+
+            for (const chatId of selectedChatIds) {
+                try {
+                    const url = `https://api.telegram.org/bot${botToken}/sendMessage`
+                    const params = new URLSearchParams({
+                        chat_id: chatId.value,
+                        text: randomMessage,
+                    })
+
+                    const res = await fetch(`${url}?${params.toString()}`)
+                    const responseData = await res.json()
+
+                    if (responseData.ok) {
+                        successfulSends.push(chatId.label)
+                    }
+                } catch (error) {
+                    console.error("Error sending message:", error)
+                    errors.push(`Failed to send to ${chatId.label}: Unknown error`)
+                }
+            }
+
+            if (successfulSends.length > 0) {
+                alert(`Đã gửi tin nhắn thành công đến: ${successfulSends.join(", ")}`)
+            }
+
+            if (errors.length > 0) {
+                alert(errors.join("\n"))
+            }
+
+            setShowNccSelectionModal(false)
+        },
+        [selectedNCCs, nccList],
+    )
+
+    const handleMessageAllNCCs = useCallback(async () => {
+        const validNCCs = filteredData
+            .filter((result) => result.IdGroup && result.IdGroup.trim() !== "" && result.NCC)
+            .map((result) => {
+                let chatId = result.IdGroup ? result.IdGroup.trim() : ""
+                if (chatId.startsWith("#")) {
+                    chatId = chatId.replace("#", "")
+                }
+                return {
+                    value: chatId,
+                    label: result.NCC || "NCC",
+                }
+            })
+
+        const uniqueNCCs = Array.from(new Map(validNCCs.map((item) => [item.value, item])).values())
+
+        if (uniqueNCCs.length === 0) {
+            alert("Không tìm thấy NCC nào có IdGroup trong kết quả tìm kiếm")
+            return
+        }
+
+        if (confirm(`Bạn có chắc chắn muốn gửi tin nhắn đến tất cả ${uniqueNCCs.length} NCC?`)) {
+            const messages = [
+                "Lên bài giúp em nhé, em note trong file rồi ạ",
+                "Em có bài cần gắn trong file rồi ạ",
+                "Anh ơi, em odr bài gp ạ, thông tin bài trong file anh nhé",
+                "Có bài cần gắn, em để trong file rùi. anh gắn giúp em nha",
+                "Anh ơi, em lên đơn, thông tin em bỏ trong file ạ",
+            ]
+
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)]
+            alert(`Đang gửi tin nhắn cho ${uniqueNCCs.length} NCC...`)
+
+            const successfulSends: string[] = []
+            const errors: string[] = []
+            const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
+
+            for (const chatId of uniqueNCCs) {
+                try {
+                    const url = `https://api.telegram.org/bot${botToken}/sendMessage`
+                    const params = new URLSearchParams({
+                        chat_id: chatId.value,
+                        text: randomMessage,
+                    })
+
+                    const res = await fetch(`${url}?${params.toString()}`)
+                    const responseData = await res.json()
+
+                    if (responseData.ok) {
+                        successfulSends.push(chatId.label)
+                    } else {
+                        errors.push(`Failed to send to ${chatId.label}: ${responseData.description}`)
+                    }
+                } catch (error) {
+                    console.error("Error sending message:", error)
+                    errors.push(`Failed to send to ${chatId.label}: Unknown error`)
+                }
+            }
+
+            if (successfulSends.length > 0) {
+                alert(`Đã gửi tin nhắn thành công đến: ${successfulSends.join(", ")}`)
+            }
+
+            if (errors.length > 0) {
+                alert(errors.join("\n"))
+            }
+        }
+    }, [filteredData])
+
     const handleNccSelection = (nccId: string) => {
         setSelectedNCCs((prev) => {
             const newSelection = new Set(prev)
@@ -925,1223 +1311,410 @@ export default function PageBody() {
         setSelectedNCCs(new Set())
     }
 
-    // Add a function to open the NCC selection modal
-    const openNccSelectionModal = useCallback(() => {
-        // Extract unique NCCs from the search results
-        const uniqueNccs = new Map<string, { id: string; name: string }>()
-
-        searchResults.forEach((result) => {
-            if (result.IdGroup && result.IdGroup.trim() !== "" && result.NCC) {
-                // Clean up the chat ID - remove any non-numeric characters except the negative sign
-                let chatId = result.IdGroup.trim()
-
-                // If the chat ID starts with "#-", just keep the negative number part
-                if (chatId.startsWith("#")) {
-                    chatId = chatId.replace("#", "")
-                }
-
-                uniqueNccs.set(chatId, {
-                    id: chatId,
-                    name: result.NCC,
-                })
-            }
-        })
-
-        // Convert to array for rendering
-        setNccList(Array.from(uniqueNccs.values()))
-        setShowNccSelectionModal(true)
-    }, [searchResults])
-
-    // Modify the handleMessageNCC function to handle multiple NCCs
-    const handleMessageNCC = useCallback(
-        async (data: SiteData | null, useSelectedNccs = false) => {
-            // Random messages to choose from
-            const messages = [
-                "Lên bài giúp em nhé, em note trong file rồi ạ",
-                "Em có bài cần gắn trong file rồi ạ",
-                "Anh ơi, em odr bài gp ạ, thông tin bài trong file anh nhé",
-                "Có bài cần gắn, em để trong file rùi. anh gắn giúp em nha",
-                "Anh ơi, em lên đơn, thông tin em bỏ trong file ạ",
-            ]
-
-            // Select a random message
-            const randomMessage = messages[Math.floor(Math.random() * messages.length)]
-
-            let selectedChatIds: Array<{ value: string; label: string }> = []
-
-            if (useSelectedNccs) {
-                // Use the selected NCCs from the modal
-                if (selectedNCCs.size === 0) {
-                    message.warning("Vui lòng chọn ít nhất một NCC để gửi tin nhắn")
-                    return
-                }
-
-                // Find the names for the selected IDs
-                selectedChatIds = Array.from(selectedNCCs).map((id) => {
-                    const ncc = nccList.find((n) => n.id === id)
-                    return {
-                        value: id,
-                        label: ncc ? ncc.name : "NCC",
-                    }
-                })
-
-                message.loading(`Đang gửi tin nhắn cho ${selectedChatIds.length} NCC...`)
-            } else if (data) {
-                // Single NCC mode (from context menu)
-                if (data.IdGroup && data.IdGroup.trim() !== "") {
-                    // Clean up the chat ID
-                    let chatId = data.IdGroup.trim()
-
-                    // If the chat ID starts with "#-", just keep the negative number part
-                    if (chatId.startsWith("#")) {
-                        chatId = chatId.replace("#", "")
-                    }
-
-                    console.log("Cleaned IdGroup for messaging:", chatId)
-                    selectedChatIds = [{ value: chatId, label: data.NCC || "NCC" }]
-                    message.loading(`Đang gửi tin nhắn cho NCC: ${data.NCC}...`)
-                } else {
-                    console.log("NCC data:", data)
-                    message.error("Không tìm thấy IdGroup cho NCC này")
-                    return
-                }
-            } else {
-                return
-            }
-
-            const successfulSends: string[] = []
-            const errors: string[] = []
-
-            // Updated bot token
-            const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
-
-            // Send message to Telegram
-            for (const chatId of selectedChatIds) {
-                try {
-                    // Using fetch with proper URL encoding for the message text
-                    const url = `https://api.telegram.org/bot${botToken}/sendMessage`
-                    const params = new URLSearchParams({
-                        chat_id: chatId.value,
-                        text: randomMessage,
-                    })
-
-                    console.log("Sending message to chat ID:", chatId.value)
-                    const res = await fetch(`${url}?${params.toString()}`)
-                    const responseData = await res.json()
-
-                    console.log("Telegram API response:", responseData)
-
-                    if (responseData.ok) {
-                        successfulSends.push(chatId.label)
-                    } else {
-                        // errors.push(`Failed to send to ${chatId.label}: ${responseData.description}`)
-                    }
-                } catch (error) {
-                    console.error("Error sending message:", error)
-                    errors.push(`Failed to send to ${chatId.label}: Unknown error`)
-                }
-            }
-
-            // Show results
-            if (successfulSends.length > 0) {
-                message.success(`Đã gửi tin nhắn thành công đến: ${successfulSends.join(", ")}`)
-            }
-
-            if (errors.length > 0) {
-                message.error(errors.join("\n"))
-            }
-
-            // Hide the context menu and modal
-            setContextMenu((prev) => ({ ...prev, visible: false }))
-            setShowNccSelectionModal(false)
-        },
-        [selectedNCCs, nccList],
-    )
-
-    // Add a new function to handle sending messages to all NCCs
-    const handleMessageAllNCCs = useCallback(async () => {
-        // Extract all unique NCCs with valid IdGroup from search results
-        const validNCCs = searchResults
-            .filter((result) => result.IdGroup && result.IdGroup.trim() !== "" && result.NCC)
-            .map((result) => {
-                // Clean up the chat ID
-                let chatId = result.IdGroup ? result.IdGroup.trim() : ""
-                if (chatId.startsWith("#")) {
-                    chatId = chatId.replace("#", "")
-                }
-                return {
-                    value: chatId,
-                    label: result.NCC || "NCC",
-                }
-            })
-
-        // Remove duplicates by chat ID
-        const uniqueNCCs = Array.from(new Map(validNCCs.map((item) => [item.value, item])).values())
-
-        if (uniqueNCCs.length === 0) {
-            message.warning("Không tìm thấy NCC nào có IdGroup trong kết quả tìm kiếm")
-            return
-        }
-
-        // Confirm with user
-        Modal.confirm({
-            title: "Xác nhận gửi tin nhắn",
-            content: `Bạn có chắc chắn muốn gửi tin nhắn đến tất cả ${uniqueNCCs.length} NCC?`,
-            onOk: async () => {
-                // Random messages to choose from
-                const messages = [
-                    "Lên bài giúp em nhé, em note trong file rồi ạ",
-                    "Em có bài cần gắn trong file rồi ạ",
-                    "Anh ơi, em odr bài gp ạ, thông tin bài trong file anh nhé",
-                    "Có bài cần gắn, em để trong file rùi. anh gắn giúp em nha",
-                    "Anh ơi, em lên đơn, thông tin em bỏ trong file ạ",
-                ]
-
-                // Select a random message
-                const randomMessage = messages[Math.floor(Math.random() * messages.length)]
-
-                message.loading(`Đang gửi tin nhắn cho ${uniqueNCCs.length} NCC...`)
-
-                const successfulSends: string[] = []
-                const errors: string[] = []
-
-                // Updated bot token
-                const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
-
-                // Send message to Telegram
-                for (const chatId of uniqueNCCs) {
-                    try {
-                        // Using fetch with proper URL encoding for the message text
-                        const url = `https://api.telegram.org/bot${botToken}/sendMessage`
-                        const params = new URLSearchParams({
-                            chat_id: chatId.value,
-                            text: randomMessage,
-                        })
-
-                        console.log("Sending message to chat ID:", chatId.value)
-                        const res = await fetch(`${url}?${params.toString()}`)
-                        const responseData = await res.json()
-
-                        console.log("Telegram API response:", responseData)
-
-                        if (responseData.ok) {
-                            successfulSends.push(chatId.label)
-                        } else {
-                            errors.push(`Failed to send to ${chatId.label}: ${responseData.description}`)
-                        }
-                    } catch (error) {
-                        console.error("Error sending message:", error)
-                        errors.push(`Failed to send to ${chatId.label}: Unknown error`)
-                    }
-                }
-
-                // Show results
-                if (successfulSends.length > 0) {
-                    message.success(`Đã gửi tin nhắn thành công đến: ${successfulSends.join(", ")}`)
-                }
-
-                if (errors.length > 0) {
-                    message.error(errors.join("\n"))
-                }
-            },
-            onCancel() {
-                console.log("Cancelled")
-            },
-        })
-    }, [searchResults])
-
-    // Add a new item to the context menu items array
-    const contextMenuItems = [
-        {
-            key: "message",
-            label: "Nhắn tin cho NCC",
-            icon: <MessageOutlined />,
-            onClick: () => handleMessageNCC(contextMenu.data),
-        },
-        {
-            key: "messageMultiple",
-            label: "Nhắn tin cho nhiều NCC",
-            icon: <MessageOutlined />,
-            onClick: openNccSelectionModal,
-        },
-    ]
-
-    // Add this new function after the other handler functions
-    const handleDirectMessage = useCallback(async () => {
-        if (!directMessage.trim()) {
-            message.warning("Vui lòng nhập tin nhắn")
-            return
-        }
-
-        try {
-            setLoading(true)
-            const response = await fetch("/api/sheet/tool-check", {
-                method: "POST",
-            })
-            const data = await response.json()
-
-            if (!data.gpTextVN) {
-                message.error("Không thể lấy dữ liệu từ sheet")
-                return
-            }
-
-            // Extract all unique IdGroups
-            const uniqueIdGroups = new Set<string>()
-            data.gpTextVN.forEach((item: SiteData) => {
-                if (item.IdGroup && item.IdGroup.trim() !== "") {
-                    let chatId = item.IdGroup.trim()
-                    if (chatId.startsWith("#")) {
-                        chatId = chatId.replace("#", "")
-                    }
-                    uniqueIdGroups.add(chatId)
-                }
-            })
-
-            if (uniqueIdGroups.size === 0) {
-                message.warning("Không tìm thấy IdGroup nào trong dữ liệu")
-                return
-            }
-
-            // Confirm with user
-            Modal.confirm({
-                title: "Xác nhận gửi tin nhắn",
-                content: `Bạn có chắc chắn muốn gửi tin nhắn đến tất cả ${uniqueIdGroups.size} NCC?`,
-                onOk: async () => {
-                    message.loading(`Đang gửi tin nhắn cho ${uniqueIdGroups.size} NCC...`)
-
-                    const successfulSends: string[] = []
-                    const errors: string[] = []
-
-                    // Updated bot token
-                    const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
-
-                    // Send message to Telegram
-                    for (const chatId of uniqueIdGroups) {
-                        try {
-                            const url = `https://api.telegram.org/bot${botToken}/sendMessage`
-                            const params = new URLSearchParams({
-                                chat_id: chatId,
-                                text: directMessage,
-                            })
-
-                            console.log("Sending message to chat ID:", chatId)
-                            const res = await fetch(`${url}?${params.toString()}`)
-                            const responseData = await res.json()
-
-                            if (responseData.ok) {
-                                successfulSends.push(chatId)
-                            } else {
-                                errors.push(`Failed to send to ${chatId}: ${responseData.description}`)
-                            }
-                        } catch (error) {
-                            console.error("Error sending message:", error)
-                            errors.push(`Failed to send to ${chatId}: Unknown error`)
-                        }
-                    }
-
-                    // Show results
-                    if (successfulSends.length > 0) {
-                        message.success(`Đã gửi tin nhắn thành công đến ${successfulSends.length} NCC`)
-                    }
-
-                    if (errors.length > 0) {
-                        message.error(errors.join("\n"))
-                    }
-
-                    setShowDirectMessageModal(false)
-                    setDirectMessage("")
-                },
-                onCancel() {
-                    console.log("Cancelled")
-                },
-            })
-        } catch (error) {
-            console.error("Error:", error)
-            message.error("Có lỗi xảy ra khi gửi tin nhắn")
-        } finally {
-            setLoading(false)
-        }
-    }, [directMessage])
+    const hasDuplicates = Object.keys(duplicateSites).length > 0
+    const duplicatesCount = Object.values(duplicateSites).flat().length
 
     return (
-        <Spin indicator={<LoadingOutlined style={{ fontSize: 42 }} spin />} spinning={loading}>
-            <div className="min-h-screen bg-gradient-to-b from-blue-100 to-white">
-                <div className="max-w-7xl mx-auto p-0 pt-2">
-                    <div className="rounded-lg pt-6 mb-8">
-                        <h2 className="text-xl font-bold mb-6 text-center text-blue-600">Check GP - Text</h2>
-                        <div className="space-y-6">
-                            <div className="flex flex-col space-y-2 px-2 md:px-0">
-                                <div className="p-4 border rounded-lg flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-sm font-medium">Tìm Site</span>
-                                        <Switch
-                                            checked={searchMode === "ncc"}
-                                            onChange={(checked) => setSearchMode(checked ? "ncc" : "site")}
-                                        />
-                                        <span className="text-sm font-medium">Tìm NCC</span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-sm font-medium">USD</span>
-                                        <Switch checked={currency === "VND"} onChange={(checked) => setCurrency(checked ? "VND" : "USD")} />
-                                        <span className="text-sm font-medium">VND</span>
-                                    </div>
-                                </div>
-
-                                <textarea
-                                    placeholder={`Nhập vào ${searchMode === "site" ? "site" : "Mã NCC"} (cách nhau bằng dấu cách hoặc xuống dòng)...`}
-                                    value={searchTerms}
-                                    onChange={(e) => {
-                                        setSearchTerms(e.target.value)
-                                    }}
-                                    className="bg-blue-50 text-[14px] w-full px-4 py-2 shadow-md border-gray-300 rounded-[10px] focus:outline-none  focus:ring-2 focus:ring-blue-500 transition duration-200 ease-in-out"
-                                    rows={5}
-                                    style={{ scrollbarWidth: "thin" }}
-                                />
-                                <div className="flex justify-between mt-2">
-                                    <button
-                                        onClick={() => {
-                                            handleSearch(searchType)
-                                        }}
-                                        disabled={loading}
-                                        className="text-[13px] px-6 py-3 bg-blue-500 text-white rounded-[8px] hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition duration-200 ease-in-out transform hover:scale-105"
-                                    >
-                                        {loading ? "Đang tìm kiếm..." : "Tìm kiếm"}
-                                    </button>
-                                    {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
-                                        <div className="flex space-x-2">
-                                            <button
-                                                onClick={() => setShowDirectMessageModal(true)}
-                                                className="text-[13px] px-4 py-2 bg-purple-500 text-white rounded-[8px] hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 transition duration-200 ease-in-out"
-                                            >
-                                                <MessageOutlined className="mr-1" /> Gửi đến tất cả NCC
-                                            </button>
-                                            <button
-                                                onClick={openNccSelectionModal}
-                                                disabled={loading || searchResults.length === 0}
-                                                className="text-[13px] px-4 py-2 bg-green-500 text-white rounded-[8px] hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 transition duration-200 ease-in-out"
-                                            >
-                                                <MessageOutlined className="mr-1" /> Chọn NCC trong bảng
-                                            </button>
-                                            <button
-                                                onClick={handleMessageAllNCCs}
-                                                disabled={loading || searchResults.length === 0}
-                                                className="text-[13px] px-4 py-2 bg-red-500 text-white rounded-[8px] hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 transition duration-200 ease-in-out"
-                                            >
-                                                <MessageOutlined className="mr-1" /> Tất cả NCC trong bảng
-                                            </button>
-                                        </div>)}
-                                </div>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 py-6 px-4">
+            <div className="max-w-7xl mx-auto">
+                <div className="bg-white rounded-xl shadow-xl overflow-hidden border border-blue-100">
+                    <div className="p-4 border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex-1 text-center md:text-left">
+                                <h2 className="text-2xl font-500 text-white flex items-center justify-center md:justify-start gap-2">
+                                    <FileText className="h-6 w-6" />
+                                    Quản lý dữ liệu
+                                </h2>
                             </div>
 
-                            <div className="flex flex-col px-2 md:px-0 sm:flex-row sm:space-x-4 justify-start md:gap-20 gap-2 text-[13px]">
-                                <div>
-                                    <span className="text-[#195A8B] text-[15px] font-medium"> Chọn thương hiệu</span>
-                                    <div className="flex flex-col ml-6">
-                                        <label className="inline-flex items-center mt-2">
-                                            <input
-                                                type="radio"
-                                                className="form-radio text-blue-500"
-                                                name="searchType"
-                                                value="VN"
-                                                checked={searchType === "VN"}
-                                                onChange={() => {
-                                                    setSearchType("VN")
-                                                    handleSearch("VN")
-                                                }}
-                                            />
-                                            <span className="ml-2 mr-4">F - ALL</span>
-                                        </label>
-                                        <label className="inline-flex items-center mt-2">
-                                            <input
-                                                type="radio"
-                                                className="form-radio text-blue-500"
-                                                name="searchType"
-                                                value="Lio"
-                                                checked={searchType === "Lio"}
-                                                onChange={() => {
-                                                    setSearchType("Lio")
-                                                    handleSearch("Lio")
-                                                }}
-                                            />
-                                            <span className="ml-2 mr-4">X - ALL</span>
-                                        </label>
-                                    </div>
+                            <div className="flex items-center gap-2">
+                                <div className="flex bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
+                                    <button
+                                        onClick={() => setSelectedSearchType("Site")}
+                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedSearchType === "Site" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
+                                            }`}
+                                    >
+                                        <Globe className="h-4 w-4 mr-1" />
+                                        Site
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedSearchType("NCC")}
+                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedSearchType === "NCC" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
+                                            }`}
+                                    >
+                                        <User className="h-4 w-4 mr-1" />
+                                        NCC
+                                    </button>
                                 </div>
-                                <div>
-                                    <span className="text-[#195A8B] text-[15px] font-medium">Chọn loại</span>
-                                    <div className="flex flex-col ml-6">
-                                        <label className="inline-flex items-center mt-2">
-                                            <input
-                                                type="radio"
-                                                className="form-radio text-blue-500"
-                                                name="categoryType"
-                                                value="GP"
-                                                checked={categoryType === "GP"}
-                                                onChange={() => {
-                                                    setCategoryType("GP")
-                                                    setLoading(true)
-                                                    handleSearch(searchType)
-                                                    setTimeout(() => {
-                                                        setLoading(false)
-                                                    }, 200)
-                                                }}
-                                                onClick={() => handleSearch(searchType)}
-                                            />
-                                            <span className="ml-2 mr-2">GP</span>
-                                        </label>
-                                        <label className="inline-flex items-center mt-2">
-                                            <input
-                                                type="radio"
-                                                className="form-radio  text-blue-500"
-                                                name="categoryType"
-                                                value="Text"
-                                                checked={categoryType === "Text"}
-                                                onChange={() => {
-                                                    setCategoryType("Text")
-                                                    setLoading(true)
-                                                    handleSearch(searchType)
-                                                    setTimeout(() => {
-                                                        setLoading(false)
-                                                    }, 200)
-                                                }}
-                                                onClick={() => handleSearch(searchType)}
-                                            />
-                                            <span className="ml-2 mr-2">Text Footer</span>
-                                        </label>
-                                        <label className="inline-flex items-center mt-2">
-                                            <input
-                                                type="radio"
-                                                className="form-radio text-blue-500"
-                                                name="categoryType"
-                                                value="TextHome"
-                                                checked={categoryType === "TextHome"}
-                                                onChange={() => {
-                                                    setCategoryType("TextHome")
-                                                    setLoading(true)
-                                                    handleSearch(searchType)
-                                                    setTimeout(() => {
-                                                        setLoading(false)
-                                                    }, 200)
-                                                }}
-                                                onClick={() => handleSearch(searchType)}
-                                            />
-                                            <span className="ml-2 mr-2">Text Home</span>
-                                        </label>
-                                        <label className="inline-flex  items-center mt-2">
-                                            <input
-                                                type="radio"
-                                                className="form-radio text-blue-500"
-                                                name="categoryType"
-                                                value="TextHeader"
-                                                checked={categoryType === "TextHeader"}
-                                                onChange={() => {
-                                                    setCategoryType("TextHeader")
-                                                    setLoading(true)
-                                                    setTimeout(() => {
-                                                        setLoading(false)
-                                                    }, 200)
-                                                }}
-                                                onClick={() => handleSearch(searchType)}
-                                            />
-                                            <span className="ml-2 mr-2">Text Header</span>
-                                        </label>
-                                    </div>
+                                <div className="flex bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
+                                    <button
+                                        onClick={() => setSelectedCurrency("USDT")}
+                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedCurrency === "USDT" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
+                                            }`}
+                                    >
+                                        <DollarSign className="h-4 w-4 mr-1" />
+                                        USDT
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedCurrency("VND")}
+                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedCurrency === "VND" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
+                                            }`}
+                                    >
+                                        <Coins className="h-4 w-4 mr-1" />
+                                        VND
+                                    </button>
                                 </div>
-                                <div className="flex flex-col gap-1">
-                                    <span className="text-[#195A8B] text-[15px] font-medium">Hướng dẫn sử dụng</span>
-                                    <span className="text-[14px] text-[#DB2323]">
-                                        Lưu ý: <span className="text-[#1169B9]">GP - Text VN & NN nằm chung ở F - ALL</span>
-                                    </span>
-                                    <span className="text-[13px] text-[#1169B9]">1. Copy theo vùng dữ liệu (PC)</span>
-                                    <span className="ml-4 text-[13px] text-[#1169B9]">Kéo thả vùng cần copy sau đó ấn Ctrl + C</span>
-                                    <span className="text-[13px] text-[#1169B9]">2. Copy theo cột</span>
-                                    <span className="ml-4 text-[13px] text-[#1169B9]">
-                                        Chọn cột cần copy sau đó ấn Ctrl + C hoặc nút Copy (mobile)
-                                    </span>
-                                    <span className="text-[13px] text-[#1169B9]">3. Ấn vào nút reset để clear vùng, cột đã chọn</span>
-                                    <span className="text-[13px] text-[#1169B9]">4. Nhấn chuột phải vào dữ liệu NCC để nhắn tin</span>
+                                <div className="flex bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
+                                    <button
+                                        onClick={() => setSelectedBrand("F")}
+                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedBrand === "F" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
+                                    >
+                                        <CreditCard className="h-4 w-4 mr-1" />
+                                        F-ALL
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedBrand("X")}
+                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedBrand === "X" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
+                                    >
+                                        <CreditCard className="h-4 w-4 mr-1" />
+                                        X-ALL
+                                    </button>
                                 </div>
+                                <button
+                                    onClick={fetchData}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 shadow-md"
+                                >
+                                    <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                                </button>
                             </div>
                         </div>
                     </div>
 
-                    {searchResults.length > 0 && (
-                        <div className="pt-2 overflow-hidden mb-8">
-                            <div className="flex justify-between items-center px-6 mb-4 flex-wrap">
-                                <h3 className="text-xl font-semibold text-blue-600">Kết quả</h3>
-                                <div className="flex items-center space-x-4 mt-2 sm:mt-0">
-                                    <div className="hidden sm:flex items-center space-x-4">
-                                        <button
-                                            onClick={resetColumnSelection}
-                                            className="flex items-center gap-1 text-[13px] px-3 py-1 text-white bg-blue-500 rounded hover:bg-blue-600"
-                                        >
-                                            <ReloadOutlined /> Reset
-                                        </button>
-                                        <button
-                                            onClick={() => copyEntireTable(tableRef)}
-                                            className="flex items-center gap-1 text-[13px] px-3 py-1 text-white bg-green-500 rounded hover:bg-green-600"
-                                        >
-                                            <CopyOutlined /> Copy All
-                                        </button>
-                                    </div>
-                                    <div className="flex sm:hidden space-x-2">
-                                        <button
-                                            onClick={resetColumnSelection}
-                                            className="flex items-center gap-1 text-[13px] px-3 py-1 text-white bg-blue-500 rounded hover:bg-blue-600"
-                                        >
-                                            <ReloadOutlined /> Reset
-                                        </button>
-                                        <button
-                                            onClick={copySelectedCells}
-                                            disabled={selectedColumns.length === 0}
-                                            className={`flex items-center gap-1 text-[13px] px-3 py-1 rounded ${selectedColumns.length === 0 ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-green-500 text-white hover:bg-green-600"}`}
-                                        >
-                                            <CopyOutlined /> Copy
-                                        </button>
-                                    </div>
-                                    <div className="flex items-center">
-                                        <span className="mr-2">Bảng</span>
-                                        <Switch
-                                            checked={viewMode === "card"}
-                                            onChange={() => setViewMode(viewMode === "table" ? "card" : "table")}
-                                        />
-                                        <span className="ml-2">Thẻ</span>
+                    <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4">
+                        <div className="relative">
+                            <textarea
+                                placeholder={`Tìm kiếm ${selectedSearchType === "Site"
+                                        ? "site (hỗ trợ mọi định dạng domain: example.com, https://example.com, www.example.com - không phân biệt hoa thường)"
+                                        : "mã NCC (chỉ tìm mã bắt đầu bằng chữ N, ví dụ: N001, N123)"
+                                    } (nhập từng giá trị trên một dòng hoặc cách nhau bằng dấu phẩy, khoảng trắng...)`}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                rows={5}
+                                className="w-full px-4 py-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10 text-gray-700 placeholder-gray-400 bg-white shadow-sm resize-none overflow-y-auto"
+                            />
+                            <Search className="absolute right-3 top-3 text-gray-400 h-5 w-5" />
+                        </div>
+                    </div>
+
+                    {/* Unified Table Display */}
+                    {loading ? (
+                        <div className="flex justify-center items-center h-64">
+                            <div className="flex flex-col items-center">
+                                <RefreshCw className="h-10 w-10 text-blue-500 animate-spin mb-4" />
+                                <p className="text-gray-500">Đang tải dữ liệu...</p>
+                            </div>
+                        </div>
+                    ) : hasSearched && filteredData.length > 0 ? (
+                        <div className="bg-white p-4">
+                            {/* Compact Table Stats and Controls */}
+                            <div className="mb-4">
+                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3 shadow-sm">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex flex-col items-left gap-2">
+                                            <div className="flex items-center">
+                                                <div className="mr-2 p-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-md shadow-sm">
+                                                    <Inbox className="h-4 w-4 text-white" />
+                                                </div>
+                                                <h3 className="text-lg font-500 text-blue-700 mb-1">
+                                                    Kết quả tìm kiếm ({filteredData.length} kết quả)
+                                                </h3>
+                                            </div>
+
+                                            {/* Compact Price Type Selection */}
+                                            <div className="flex items-center gap-1">
+                                                <span className="text-xs text-gray-600 mr-1">Loại giá:</span>
+                                                {[
+                                                    { id: "GP", label: "GP", icon: "💰" },
+                                                    { id: "Text", label: "Text", icon: "📝" },
+                                                    { id: "TextHome", label: "Home", icon: "🏠" },
+                                                    { id: "TextHeader", label: "Header", icon: "📋" },
+                                                ].map((type) => (
+                                                    <button
+                                                        key={type.id}
+                                                        onClick={() => handlePriceTypeChange(type.id as PriceType)}
+                                                        className={`flex items-center px-2 py-1 rounded text-sm font-medium transition-all duration-200 ${selectedPriceType === type.id
+                                                                ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-sm"
+                                                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                                            }`}
+                                                    >
+                                                        <span className="mr-1 text-xs">{type.icon}</span>
+                                                        {type.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center justify-end">
+                                                <div className="text-right">
+                                                    <p className="text-xs text-gray-500">
+                                                        Bạn có thể nhắn tin theo mẫu hoặc soạn tin nhắn gửi đến ncc
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">Chọn 1 trong các lựa chọn dưới đây</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => setShowDirectMessageModal(true)}
+                                                            className="flex items-center px-2 py-1 text-sm bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+                                                        >
+                                                            <MessageSquare className="h-4 w-4 mr-2" />
+                                                            Soạn tin nhắn
+                                                        </button>
+                                                        <button
+                                                            onClick={openNccSelectionModal}
+                                                            disabled={loading || filteredData.length === 0}
+                                                            className="flex items-center px-2 py-1 text-sm bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
+                                                        >
+                                                            <MessageSquare className="h-4 w-4 mr-2" />
+                                                            Chọn NCC
+                                                        </button>
+                                                        <button
+                                                            onClick={handleMessageAllNCCs}
+                                                            disabled={loading || filteredData.length === 0}
+                                                            className="flex items-center px-2 py-1 text-sm bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
+                                                        >
+                                                            <MessageSquare className="h-4 w-4 mr-2" />
+                                                            Gửi tất cả NCC
+                                                        </button>
+                                                    </>
+                                                )}
+                                                {hasDuplicates && (
+                                                    <button
+                                                        onClick={() => setShowDuplicates(!showDuplicates)}
+                                                        className={`flex items-center px-2 py-1 rounded-lg text-sm font-medium transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 border ${!showDuplicates
+                                                                ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-400 hover:from-amber-600 hover:to-orange-600"
+                                                                : "bg-gradient-to-r from-slate-500 to-slate-600 text-white border-slate-400 hover:from-slate-600 hover:to-slate-700"
+                                                            }`}
+                                                    >
+                                                        {showDuplicates ? (
+                                                            <>
+                                                                <EyeOff className="h-4 w-4 mr-2" />
+                                                                Site Trùng
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Eye className="h-4 w-4 mr-2" />
+                                                                Site Trùng
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            {viewMode === "table" ? (
-                                <div className="overflow-x-auto">
-                                    <div className="max-h-[600px] overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
-                                        <table ref={tableRef} className="min-w-full">
-                                            <thead className="sticky top-0 z-10 bg-blue-500">
-                                                <tr className="bg-blue-500">
-                                                    {((userInfo?.role !== "Admin" && userInfo?.role !== "Nhân viên") ? columnsKH : columnNames).map((header, index) => (
-                                                        <th
-                                                            key={index}
-                                                            className={`px-2 py-2 text-left text-xs font-medium text-white tracking-wider border cursor-pointer ${selectedColumns.includes(index) ? "bg-blue-700" : ""}`}
-                                                            onClick={() => handleColumnSelect(index)}
-                                                        >
-                                                            <div className="flex items-center">{header}</div>
-                                                        </th>
-                                                    ))}
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {searchResults.map((result, rowIndex) => (
-                                                    <tr key={rowIndex} className={rowIndex % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                                                        {((userInfo?.role !== "Admin" && userInfo?.role !== "Nhân viên") ? columnsKH : columnNames).map((_, columnIndex) => (
-                                                            <td
-                                                                key={columnIndex}
-                                                                style={{ userSelect: "none" }}
-                                                                className={`px-2 py-1
-                                                                ${rowIndex === 0 ? "text-red-500 font-bold" : ""}
-                                                                text-xs border whitespace-nowrap overflow-hidden text-ellipsis max-w-xs
-                                                                ${selectedColumns.includes(columnIndex) ? "bg-blue-200" : ""}
-                                                                ${isMobile
-                                                                        ? isCellSelected(rowIndex + 1, columnIndex)
-                                                                            ? "bg-blue-200"
-                                                                            : ""
-                                                                        : isCellSelected(rowIndex + 1, columnIndex)
-                                                                            ? "bg-sky-100"
-                                                                            : ""
-                                                                    }`}
-                                                                onMouseDown={(e) => handleCellClick(rowIndex + 1, columnIndex, e)}
-                                                                onMouseEnter={(e) => handleCellEnter(rowIndex + 1, columnIndex, e)}
-                                                                onMouseUp={handleMouseUp}
-                                                                onContextMenu={(e) => handleCellContextMenu(e, result)}
-                                                            >
-                                                                {userInfo?.role === "Admin" || userInfo?.role === "Nhân viên" ? (
-                                                                    columnIndex === 0 ? (
-                                                                        result.cs
-                                                                    ) : columnIndex === 1 ? (
-                                                                        result.tinhTrang
-                                                                    ) : columnIndex === 2 ? (
-                                                                        result.bong
-                                                                    ) : columnIndex === 3 ? (
-                                                                        result.bet
-                                                                    ) : columnIndex === 4 ? (
-                                                                        result.site
-                                                                    ) : columnIndex === 5 ? (
-                                                                        result.chuDe
-                                                                    ) : columnIndex === 6 ? (
-                                                                        result.DR
-                                                                    ) : columnIndex === 7 ? (
-                                                                        result.trafficTool
-                                                                    ) : columnIndex === 8 ? (
-                                                                        result.ghiChu
-                                                                    ) : columnIndex === 9 ? (
-                                                                        renderPrice(result)
-                                                                    ) : columnIndex === 10 ? (
-                                                                        categoryType === "GP" ? (
-                                                                            result.giaMuaGP
-                                                                        ) : categoryType === "Text" ? (
-                                                                            result.giaMuaText
-                                                                        ) : categoryType === "TextHome" ? (
-                                                                            result.giaMuaTextHome
-                                                                        ) : (
-                                                                            result.giaMuaTextHeader
-                                                                        )
-                                                                    ) : columnIndex === 11 ? (
-                                                                        categoryType === "GP" ? (
-                                                                            result.hoaHongGP
-                                                                        ) : (
-                                                                            result.hoaHongText
-                                                                        )
-                                                                    ) : columnIndex === 12 ? (
-                                                                        categoryType === "GP" ? (
-                                                                            result.giaCuoiGP
-                                                                        ) : categoryType === "Text" ? (
-                                                                            result.giaCuoiText
-                                                                        ) : categoryType === "TextHome" ? (
-                                                                            result.giaCuoiTextHome
-                                                                        ) : (
-                                                                            result.giaCuoiTextHeader
-                                                                        )
-                                                                    ) : columnIndex === 13 ? (
-                                                                        searchType === "Lio" ? (
-                                                                            categoryType === "GP" ? (
-                                                                                result.loiNhuanGPLio
-                                                                            ) : categoryType === "Text" ? (
-                                                                                result.loiNhuanTextLio
-                                                                            ) : categoryType === "TextHome" ? (
-                                                                                result.loiNhuanTextHomeLio
-                                                                            ) : (
-                                                                                result.loiNhuanTextHeaderLio
-                                                                            )
-                                                                        ) : categoryType === "GP" ? (
-                                                                            result.loiNhuanGP
-                                                                        ) : categoryType === "Text" ? (
-                                                                            result.loiNhuanText
-                                                                        ) : categoryType === "TextHome" ? (
-                                                                            result.loiNhuanTextHome
-                                                                        ) : (
-                                                                            result.loiNhuanTextHeader
-                                                                        )
-                                                                    ) : columnIndex === 14 ? (
-                                                                        result.timeText
-                                                                    ) : columnIndex === 15 ? (
-                                                                        result.NCC
-                                                                    ) : columnIndex === 16 ? (
-                                                                        result.MaNCC
-                                                                    ) : columnIndex === 17 ? (
-                                                                        <a
-                                                                            href="#"
-                                                                            onClick={(e) => {
-                                                                                e.preventDefault()
-                                                                                const files = Array.isArray(result.FileNCC) ? result.FileNCC : [result.FileNCC]
-                                                                                const uniqueFiles = [...new Set(files.filter(Boolean))]
-                                                                                if (uniqueFiles.length === 0) {
-                                                                                    message.info("No file available")
-                                                                                    return
-                                                                                }
-                                                                                uniqueFiles.forEach((file) => {
-                                                                                    if (file) window.open(file, "_blank")
-                                                                                })
-                                                                            }}
-                                                                            className={`text-blue-500 hover:underline ${!result.FileNCC || (Array.isArray(result.FileNCC) && result.FileNCC.length === 0) ? "text-gray-400" : ""}`}
-                                                                        >
-                                                                            {Array.isArray(result.FileNCC) && result.FileNCC.filter(Boolean).length > 0
-                                                                                ? `File NCC (${result.FileNCC.filter(Boolean).length})`
-                                                                                : !Array.isArray(result.FileNCC) && result.FileNCC
-                                                                                    ? "File NCC"
-                                                                                    : "No File"}
-                                                                        </a>
-                                                                    ) : columnIndex === 18 ? (
-                                                                        <a
-                                                                            href="#"
-                                                                            onClick={(e) => {
-                                                                                e.preventDefault()
-                                                                                const groups = Array.isArray(result.GroupNCC) ? result.GroupNCC : [result.GroupNCC]
-                                                                                const uniqueGroups = [...new Set(groups.filter(Boolean))]
-                                                                                if (uniqueGroups.length === 0) {
-                                                                                    message.info("No group available")
-                                                                                    return
-                                                                                }
-                                                                                uniqueGroups.forEach((group) => {
-                                                                                    if (group) window.open(group, "_blank")
-                                                                                })
-                                                                            }}
-                                                                            className={`text-blue-500 hover:underline ${!result.GroupNCC || (Array.isArray(result.GroupNCC) && result.GroupNCC.length === 0) ? "text-gray-400" : ""}`}
-                                                                        >
-                                                                            {Array.isArray(result.GroupNCC) && result.GroupNCC.filter(Boolean).length > 0
-                                                                                ? `Group NCC (${result.GroupNCC.filter(Boolean).length})`
-                                                                                : !Array.isArray(result.GroupNCC) && result.GroupNCC
-                                                                                    ? "Group NCC"
-                                                                                    : "No Group"}
-                                                                        </a>
-                                                                    ) : (
-                                                                        result.GhiChuNCC
-                                                                    )
-                                                                ) : (
-                                                                    columnIndex === 0 ? (
-                                                                        result.tinhTrang
-                                                                    ) : columnIndex === 1 ? (
-                                                                        result.bong
-                                                                    ) : columnIndex === 2 ? (
-                                                                        result.bet
-                                                                    ) : columnIndex === 3 ? (
-                                                                        result.site
-                                                                    ) : columnIndex === 4 ? (
-                                                                        result.chuDe
-                                                                    ) : columnIndex === 5 ? (
-                                                                        result.DR
-                                                                    ) : columnIndex === 6 ? (
-                                                                        result.trafficTool
-                                                                    ) : columnIndex === 7 ? (
-                                                                        result.ghiChu
-                                                                    ) : columnIndex === 8 ? (
-                                                                        renderPrice(result)
-                                                                    ) : null
-                                                                )}
-                                                            </td>
-                                                        ))}
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+
+                            {/* Main Results Table */}
+                            {renderHotTable(
+                                filteredData,
+                                generateColumns(),
+                                `main-${selectedPriceType}-${selectedBrand}-${selectedSearchType}`,
+                            )}
+
+                            {/* Enhanced Duplicates Table */}
+                            {showDuplicates && hasDuplicates && (
+                                <div className="mt-8 border-t-2 border-gray-200 pt-6">
+                                    <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-xl p-4 mb-4 shadow-sm">
+                                        <div className="flex items-center">
+                                            <div className="mr-3 p-2 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg shadow-md">
+                                                <Globe className="h-6 w-6 text-white" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-lg font-500 text-gray-800 mb-1">Site trùng lặp</h3>
+                                                <p className="text-sm text-gray-600">
+                                                    Hiển thị {duplicatesCount} site có cùng domain nhưng giá khác nhau.
+                                                    <span className="text-orange-600 font-medium ml-1">
+                                                        Site có giá thấp nhất đã được hiển thị ở bảng chính.
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-4">
-                                    {searchResults.map((result, index) => (
-                                        <Card key={index} className="bg-blue-50 border-none shadow-md border-t-2">
-                                            <h4 className="font-semibold mb-2 text-[#FA298A] text-lg">{result.site}</h4>
-                                            <p>Chủ site: {result.bong}</p>
-                                            <p>Tình trạng: {result.bong}</p>
-                                            <p>Đi Bóng: {result.bong}</p>
-                                            <p>Đi BET: {result.bet}</p>
-                                            <p>Chủ đề: {result.chuDe}</p>
-                                            <p>DR: {result.DR}</p>
-                                            <p>Traffic Tool: {result.trafficTool}</p>
-                                            <p>Ghi chú: {result.ghiChu}</p>
-                                            <p>Giá bán: {renderPrice(result)}</p>
-                                            {userInfo?.role !== 4 && (
-                                                <>
-                                                    <p>
-                                                        Giá mua:{" "}
-                                                        {categoryType === "GP"
-                                                            ? result.giaMuaGP
-                                                            : categoryType === "Text"
-                                                                ? result.giaMuaText
-                                                                : categoryType === "TextHome"
-                                                                    ? result.giaMuaTextHome
-                                                                    : result.giaMuaTextHeader}
-                                                    </p>
-                                                    <p>Hoa hồng: {categoryType === "GP" ? result.hoaHongGP : result.hoaHongText}</p>
-                                                    <p>
-                                                        Giá cuối:{" "}
-                                                        {categoryType === "GP"
-                                                            ? result.giaCuoiGP
-                                                            : categoryType === "Text"
-                                                                ? result.giaCuoiText
-                                                                : categoryType === "TextHome"
-                                                                    ? result.giaCuoiTextHome
-                                                                    : result.giaCuoiTextHeader}
-                                                    </p>
-                                                    <p>
-                                                        Lợi nhuận:{" "}
-                                                        {searchType === "Lio"
-                                                            ? categoryType === "GP"
-                                                                ? result.loiNhuanGPLio
-                                                                : categoryType === "Text"
-                                                                    ? result.loiNhuanTextLio
-                                                                    : categoryType === "TextHome"
-                                                                        ? result.loiNhuanTextHomeLio
-                                                                        : result.loiNhuanTextHeaderLio
-                                                            : categoryType === "GP"
-                                                                ? result.loiNhuanGP
-                                                                : categoryType === "Text"
-                                                                    ? result.loiNhuanText
-                                                                    : categoryType === "TextHome"
-                                                                        ? result.loiNhuanTextHome
-                                                                        : result.loiNhuanTextHeader}
-                                                    </p>
-                                                    <p>Tên NCC: {result.NCC}</p>
-                                                    <p>Mã NCC: {result.MaNCC}</p>
-                                                    <p>
-                                                        File NCC:{" "}
-                                                        <a
-                                                            href="#"
-                                                            onClick={(e) => {
-                                                                e.preventDefault()
-                                                                const files = Array.isArray(result.FileNCC) ? result.FileNCC : [result.FileNCC]
-                                                                const uniqueFiles = [...new Set(files.filter(Boolean))] // Remove duplicates and empty values
-                                                                if (uniqueFiles.length === 0) {
-                                                                    message.info("No file available")
-                                                                    return
-                                                                }
-                                                                uniqueFiles.forEach((file) => {
-                                                                    if (file) window.open(file, "_blank")
-                                                                })
-                                                            }}
-                                                            className={`text-blue-500 hover:underline ${!result.FileNCC || (Array.isArray(result.FileNCC) && result.FileNCC.length === 0) ? "text-gray-400" : ""}`}
-                                                        >
-                                                            {Array.isArray(result.FileNCC) && result.FileNCC.filter(Boolean).length > 0
-                                                                ? `View Files (${result.FileNCC.filter(Boolean).length})`
-                                                                : !Array.isArray(result.FileNCC) && result.FileNCC
-                                                                    ? "View File"
-                                                                    : "No File"}
-                                                        </a>
-                                                    </p>
-                                                    <p>
-                                                        Group NCC:{" "}
-                                                        <a
-                                                            href="#"
-                                                            onClick={(e) => {
-                                                                e.preventDefault()
-                                                                const groups = Array.isArray(result.GroupNCC) ? result.GroupNCC : [result.GroupNCC]
-                                                                const uniqueGroups = [...new Set(groups.filter(Boolean))] // Remove duplicates and empty values
-                                                                if (uniqueGroups.length === 0) {
-                                                                    message.info("No group available")
-                                                                    return
-                                                                }
-                                                                uniqueGroups.forEach((group) => {
-                                                                    if (group) window.open(group, "_blank")
-                                                                })
-                                                            }}
-                                                            className={`text-blue-500 hover:underline ${!result.GroupNCC || (Array.isArray(result.GroupNCC) && result.GroupNCC.length === 0) ? "text-gray-400" : ""}`}
-                                                        >
-                                                            {Array.isArray(result.GroupNCC) && result.GroupNCC.filter(Boolean).length > 0
-                                                                ? `View Groups (${result.GroupNCC.filter(Boolean).length})`
-                                                                : !Array.isArray(result.GroupNCC) && result.GroupNCC
-                                                                    ? "View Group"
-                                                                    : "No Group"}
-                                                        </a>
-                                                    </p>
-                                                </>
-                                            )}
-                                        </Card>
-                                    ))}
+                                    {renderHotTable(
+                                        Object.values(duplicateSites).flat(),
+                                        generateColumns(),
+                                        `duplicates-${selectedPriceType}-${selectedBrand}-${selectedSearchType}`,
+                                    )}
                                 </div>
                             )}
                         </div>
-                    )}
-
-                    {searchMode === "site" && duplicateSites.length > 0 && (
-                        <div className="pt-2 overflow-hidden mb-8">
-                            <div className="flex justify-between items-center px-6 mb-4 flex-wrap">
-                                <h3 className="text-xl font-semibold text-blue-600">Các site trùng</h3>
-                                <div className="flex items-center space-x-4 mt-2 sm:mt-0">
-                                    <div className="hidden sm:flex items-center space-x-4">
-                                        <button
-                                            onClick={resetDuplicateColumnSelection}
-                                            className="flex items-center gap-1 text-[13px] px-3 py-1 text-white bg-blue-500 rounded hover:bg-blue-600"
-                                        >
-                                            <ReloadOutlined /> Reset
-                                        </button>
-                                    </div>
-                                    <button
-                                        onClick={() => copyEntireTable(duplicateTableRef)}
-                                        className="flex items-center gap-1 text-[13px] px-3 py-1 text-white bg-green-500 rounded hover:bg-green-600"
-                                    >
-                                        <CopyOutlined /> Copy All
-                                    </button>
-                                    <div className="flex sm:hidden space-x-2">
-                                        <button
-                                            onClick={resetDuplicateColumnSelection}
-                                            className="flex items-center gap-1 text-[13px] px-3 py-1 text-white bg-blue-500 rounded hover:bg-blue-600"
-                                        >
-                                            <ReloadOutlined /> Reset
-                                        </button>
-                                        <button
-                                            onClick={copyDuplicateSelectedCells}
-                                            disabled={selectedDuplicateColumns.length === 0}
-                                            className={`flex items-center gap-1 text-[13px] px-3 py-1 rounded ${selectedDuplicateColumns.length === 0 ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-green-500 text-white hover:bg-green-600"}`}
-                                        >
-                                            <CopyOutlined /> Copy
-                                        </button>
-                                    </div>
-                                </div>
+                    ) : hasSearched ? (
+                        <div className="flex flex-col items-center justify-center py-12 px-4">
+                            <div className="p-4 bg-gray-50 rounded-full mb-4">
+                                <Inbox className="h-12 w-12 text-gray-400" />
                             </div>
-                            <div className="overflow-x-auto">
-                                <div className="max-h-[400px] overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
-                                    <table ref={duplicateTableRef} className="min-w-full">
-                                        <thead className="sticky top-0 z-10 bg-blue-500">
-                                            <tr>
-                                                {((userInfo?.role !== "Admin" && userInfo?.role !== "Nhân viên") ? columnsKH : columnNames).map((header, index) => (
-                                                    <th
-                                                        key={index}
-                                                        className={`px-2 py-2 text-left text-xs font-medium text-white tracking-wider border cursor-pointer ${selectedDuplicateColumns.includes(index) ? "bg-blue-700" : ""}`}
-                                                        onClick={() => handleDuplicateColumnSelect(index)}
-                                                    >
-                                                        {header}
-                                                    </th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {duplicateSites.map((result, rowIndex) => (
-                                                <tr key={rowIndex} className={rowIndex % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                                                    {((userInfo?.role !== "Admin" && userInfo?.role !== "Nhân viên") ? columnsKH : columnNames).map((_, columnIndex) => (
-                                                        <td
-                                                            key={columnIndex}
-                                                            style={{ userSelect: "none" }}
-                                                            className={`px-2 py-1 text-xs border whitespace-nowrap overflow-hidden text-ellipsis max-w-xs
-                                ${selectedDuplicateColumns.includes(columnIndex) ? "bg-blue-200" : ""}
-                                ${isMobile
-                                                                    ? isDuplicateCellSelected(rowIndex + 1, columnIndex)
-                                                                        ? "bg-blue-200"
-                                                                        : ""
-                                                                    : isDuplicateCellSelected(rowIndex + 1, columnIndex)
-                                                                        ? "bg-sky-100"
-                                                                        : ""
-                                                                }`}
-                                                            onMouseDown={(e) => handleDuplicateCellClick(rowIndex + 1, columnIndex, e)}
-                                                            onMouseEnter={(e) => handleDuplicateCellEnter(rowIndex + 1, columnIndex, e)}
-                                                            onMouseUp={handleMouseUp}
-                                                            onContextMenu={(e) => handleCellContextMenu(e, result)}
-                                                        >
-                                                            {userInfo?.role === "Admin" || userInfo?.role === "Nhân viên" ? (
-                                                                columnIndex === 0 ? (
-                                                                    result.cs
-                                                                ) : columnIndex === 1 ? (
-                                                                    result.tinhTrang
-                                                                ) : columnIndex === 2 ? (
-                                                                    result.bong
-                                                                ) : columnIndex === 3 ? (
-                                                                    result.bet
-                                                                ) : columnIndex === 4 ? (
-                                                                    result.site
-                                                                ) : columnIndex === 5 ? (
-                                                                    result.chuDe
-                                                                ) : columnIndex === 6 ? (
-                                                                    result.DR
-                                                                ) : columnIndex === 7 ? (
-                                                                    result.trafficTool
-                                                                ) : columnIndex === 8 ? (
-                                                                    result.ghiChu
-                                                                ) : columnIndex === 9 ? (
-                                                                    renderPrice(result)
-                                                                ) : columnIndex === 10 ? (
-                                                                    categoryType === "GP" ? (
-                                                                        result.giaMuaGP
-                                                                    ) : categoryType === "Text" ? (
-                                                                        result.giaMuaText
-                                                                    ) : categoryType === "TextHome" ? (
-                                                                        result.giaMuaTextHome
-                                                                    ) : (
-                                                                        result.giaMuaTextHeader
-                                                                    )
-                                                                ) : columnIndex === 11 ? (
-                                                                    categoryType === "GP" ? (
-                                                                        result.hoaHongGP
-                                                                    ) : (
-                                                                        result.hoaHongText
-                                                                    )
-                                                                ) : columnIndex === 12 ? (
-                                                                    categoryType === "GP" ? (
-                                                                        result.giaCuoiGP
-                                                                    ) : categoryType === "Text" ? (
-                                                                        result.giaCuoiText
-                                                                    ) : categoryType === "TextHome" ? (
-                                                                        result.giaCuoiTextHome
-                                                                    ) : (
-                                                                        result.giaCuoiTextHeader
-                                                                    )
-                                                                ) : columnIndex === 13 ? (
-                                                                    searchType === "Lio" ? (
-                                                                        categoryType === "GP" ? (
-                                                                            result.loiNhuanGPLio
-                                                                        ) : categoryType === "Text" ? (
-                                                                            result.loiNhuanTextLio
-                                                                        ) : categoryType === "TextHome" ? (
-                                                                            result.loiNhuanTextHomeLio
-                                                                        ) : (
-                                                                            result.loiNhuanTextHeaderLio
-                                                                        )
-                                                                    ) : categoryType === "GP" ? (
-                                                                        result.loiNhuanGP
-                                                                    ) : categoryType === "Text" ? (
-                                                                        result.loiNhuanText
-                                                                    ) : categoryType === "TextHome" ? (
-                                                                        result.loiNhuanTextHome
-                                                                    ) : (
-                                                                        result.loiNhuanTextHeader
-                                                                    )
-                                                                ) : columnIndex === 14 ? (
-                                                                    result.timeText
-                                                                ) : columnIndex === 15 ? (
-                                                                    result.NCC
-                                                                ) : columnIndex === 16 ? (
-                                                                    result.MaNCC
-                                                                ) : columnIndex === 17 ? (
-                                                                    <a
-                                                                        href="#"
-                                                                        onClick={(e) => {
-                                                                            e.preventDefault()
-                                                                            const files = Array.isArray(result.FileNCC) ? result.FileNCC : [result.FileNCC]
-                                                                            const uniqueFiles = [...new Set(files.filter(Boolean))]
-                                                                            if (uniqueFiles.length === 0) {
-                                                                                message.info("No file available")
-                                                                                return
-                                                                            }
-                                                                            uniqueFiles.forEach((file) => {
-                                                                                if (file) window.open(file, "_blank")
-                                                                            })
-                                                                        }}
-                                                                        className={`text-blue-500 hover:underline ${!result.FileNCC || (Array.isArray(result.FileNCC) && result.FileNCC.length === 0) ? "text-gray-400" : ""}`}
-                                                                    >
-                                                                        {Array.isArray(result.FileNCC) && result.FileNCC.filter(Boolean).length > 0
-                                                                            ? `File NCC (${result.FileNCC.filter(Boolean).length})`
-                                                                            : !Array.isArray(result.FileNCC) && result.FileNCC
-                                                                                ? "File NCC"
-                                                                                : "No File"}
-                                                                    </a>
-                                                                ) : columnIndex === 18 ? (
-                                                                    <a
-                                                                        href="#"
-                                                                        onClick={(e) => {
-                                                                            e.preventDefault()
-                                                                            const groups = Array.isArray(result.GroupNCC) ? result.GroupNCC : [result.GroupNCC]
-                                                                            const uniqueGroups = [...new Set(groups.filter(Boolean))]
-                                                                            if (uniqueGroups.length === 0) {
-                                                                                message.info("No group available")
-                                                                                return
-                                                                            }
-                                                                            uniqueGroups.forEach((group) => {
-                                                                                if (group) window.open(group, "_blank")
-                                                                            })
-                                                                        }}
-                                                                        className={`text-blue-500 hover:underline ${!result.GroupNCC || (Array.isArray(result.GroupNCC) && result.GroupNCC.length === 0) ? "text-gray-400" : ""}`}
-                                                                    >
-                                                                        {Array.isArray(result.GroupNCC) && result.GroupNCC.filter(Boolean).length > 0
-                                                                            ? `Group NCC (${result.GroupNCC.filter(Boolean).length})`
-                                                                            : !Array.isArray(result.GroupNCC) && result.GroupNCC
-                                                                                ? "Group NCC"
-                                                                                : "No Group"}
-                                                                    </a>
-                                                                ) : (
-                                                                    result.GhiChuNCC
-                                                                )
-                                                            ) : (
-                                                                columnIndex === 0 ? (
-                                                                    result.tinhTrang
-                                                                ) : columnIndex === 1 ? (
-                                                                    result.bong
-                                                                ) : columnIndex === 2 ? (
-                                                                    result.bet
-                                                                ) : columnIndex === 3 ? (
-                                                                    result.site
-                                                                ) : columnIndex === 4 ? (
-                                                                    result.chuDe
-                                                                ) : columnIndex === 5 ? (
-                                                                    result.DR
-                                                                ) : columnIndex === 6 ? (
-                                                                    result.trafficTool
-                                                                ) : columnIndex === 7 ? (
-                                                                    result.ghiChu
-                                                                ) : columnIndex === 8 ? (
-                                                                    renderPrice(result)
-                                                                ) : null
-                                                            )}
-                                                        </td>
-                                                    ))}
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                            <h3 className="text-lg font-medium text-gray-900 mb-1">Không có dữ liệu</h3>
+                            <p className="text-sm text-gray-500 text-center max-w-sm">
+                                {selectedSearchType === "Site"
+                                    ? `Không tìm thấy site nào phù hợp với từ khóa "${searchTerm}"`
+                                    : `Không tìm thấy mã NCC nào bắt đầu bằng "N" phù hợp với từ khóa "${searchTerm}"`}
+                            </p>
+                            <p className="text-xs text-gray-400 text-center max-w-sm mt-2">
+                                {selectedSearchType === "Site"
+                                    ? "Hãy thử với các định dạng khác: example.com, https://example.com, www.example.com"
+                                    : "Chỉ tìm kiếm mã NCC bắt đầu bằng chữ N (ví dụ: N001, N123)"}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-12 px-4">
+                            <div className="p-4 bg-gray-50 rounded-full mb-4">
+                                <Search className="h-12 w-12 text-gray-400" />
                             </div>
+                            <h3 className="text-lg font-medium text-gray-900 mb-1">Nhập từ khóa tìm kiếm</h3>
+                            <p className="text-sm text-gray-500 text-center max-w-sm">
+                                {selectedSearchType === "Site"
+                                    ? "Nhập domain để tìm kiếm (hỗ trợ mọi định dạng: example.com, https://example.com, www.example.com)"
+                                    : "Nhập mã NCC bắt đầu bằng chữ N để tìm kiếm (ví dụ: N001, N123)"}
+                            </p>
+                            <p className="text-xs text-gray-400 text-center max-w-sm mt-2">
+                                Bạn có thể tìm kiếm nhiều {selectedSearchType === "Site" ? "site" : "mã NCC"} cùng lúc bằng cách phân
+                                cách chúng bằng dấu phẩy.
+                            </p>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Replace the existing context menu portal with this */}
-            {mounted && contextMenu.visible && (
-                <ContextMenu
-                    items={contextMenuItems}
-                    x={contextMenu.x}
-                    y={contextMenu.y}
-                />
+            {/* Direct Message Modal */}
+            {showDirectMessageModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-500 text-gray-800">Gửi tin nhắn trực tiếp</h3>
+                            <button
+                                onClick={() => {
+                                    setShowDirectMessageModal(false)
+                                    setDirectMessage("")
+                                }}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        <div className="mb-4">
+                            <p className="text-gray-600 mb-2">Tin nhắn sẽ được gửi đến tất cả NCC có IdGroup trong dữ liệu.</p>
+                            <textarea
+                                value={directMessage}
+                                onChange={(e) => setDirectMessage(e.target.value)}
+                                placeholder="Nhập tin nhắn cần gửi..."
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                rows={4}
+                            />
+                        </div>
+
+                        <div className="flex justify-end space-x-3">
+                            <button
+                                onClick={() => {
+                                    setShowDirectMessageModal(false)
+                                    setDirectMessage("")
+                                }}
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleDirectMessage}
+                                disabled={!directMessage.trim()}
+                                className={`px-4 py-2 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${!directMessage.trim() ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                                    }`}
+                            >
+                                Gửi tin nhắn
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
-            {/* Add the NCC selection modal to the JSX return (at the end of the component, before the final closing tag) */}
             {/* NCC Selection Modal */}
-            <Modal
-                title="Chọn NCC để gửi tin nhắn"
-                open={showNccSelectionModal}
-                onCancel={() => setShowNccSelectionModal(false)}
-                footer={[
-                    <Button key="cancel" onClick={() => setShowNccSelectionModal(false)}>
-                        Hủy
-                    </Button>,
-                    <Button
-                        key="submit"
-                        type="primary"
-                        onClick={() => handleMessageNCC(null, true)}
-                        disabled={selectedNCCs.size === 0}
-                    >
-                        Gửi tin nhắn ({selectedNCCs.size})
-                    </Button>,
-                ]}
-                width={600}
-            >
-                <div className="mb-4 flex justify-between">
-                    <Button onClick={selectAllNccs}>Chọn tất cả</Button>
-                    <Button onClick={deselectAllNccs}>Bỏ chọn tất cả</Button>
-                </div>
+            {showNccSelectionModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-500 text-gray-800">Chọn NCC để gửi tin nhắn</h3>
+                            <button onClick={() => setShowNccSelectionModal(false)} className="text-gray-500 hover:text-gray-700">
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
 
-                <div className="max-h-[400px] overflow-y-auto border rounded p-2">
-                    {nccList.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {nccList.map((ncc) => (
-                                <div key={ncc.id} className="flex items-center p-2 border rounded hover:bg-gray-50">
-                                    <Checkbox checked={selectedNCCs.has(ncc.id)} onChange={() => handleNccSelection(ncc.id)} />
-                                    <span className="ml-2">
-                                        {ncc.name} (ID: {ncc.id})
-                                    </span>
+                        <div className="mb-4 flex justify-between">
+                            <button
+                                onClick={selectAllNccs}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-sm"
+                            >
+                                Chọn tất cả
+                            </button>
+                            <button
+                                onClick={deselectAllNccs}
+                                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 text-sm"
+                            >
+                                Bỏ chọn tất cả
+                            </button>
+                        </div>
+
+                        <div className="max-h-[400px] overflow-y-auto border border-gray-200 rounded-lg p-4">
+                            {nccList.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {nccList.map((ncc) => (
+                                        <div
+                                            key={ncc.id}
+                                            className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors duration-150"
+                                            onClick={() => handleNccSelection(ncc.id)}
+                                        >
+                                            <div
+                                                className={`w-5 h-5 border rounded flex items-center justify-center mr-3 ${selectedNCCs.has(ncc.id) ? "bg-blue-600 border-blue-600" : "bg-white border-gray-300"
+                                                    }`}
+                                            >
+                                                {selectedNCCs.has(ncc.id) && <Check className="h-3 w-3 text-white" />}
+                                            </div>
+                                            <div>
+                                                <span className="font-medium text-gray-800">{ncc.name}</span>
+                                                <span className="text-sm text-gray-500 block">ID: {ncc.id}</span>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-8">
+                                    <Search className="h-8 w-8 text-gray-400 mb-2" />
+                                    <p className="text-gray-500 text-center">Không tìm thấy NCC nào có IdGroup trong kết quả tìm kiếm</p>
+                                </div>
+                            )}
                         </div>
-                    ) : (
-                        <div className="text-center py-4 text-gray-500">
-                            Không tìm thấy NCC nào có IdGroup trong kết quả tìm kiếm
-                        </div>
-                    )}
-                </div>
-            </Modal>
 
-            {/* Direct Message Modal */}
-            <Modal
-                title="Gửi tin nhắn trực tiếp"
-                open={showDirectMessageModal}
-                onCancel={() => {
-                    setShowDirectMessageModal(false)
-                    setDirectMessage("")
-                }}
-                footer={[
-                    <Button key="cancel" onClick={() => {
-                        setShowDirectMessageModal(false)
-                        setDirectMessage("")
-                    }}>
-                        Hủy
-                    </Button>,
-                    <Button
-                        key="submit"
-                        type="primary"
-                        onClick={handleDirectMessage}
-                        disabled={!directMessage.trim()}
-                    >
-                        Gửi tin nhắn
-                    </Button>,
-                ]}
-                width={600}
-            >
-                <div className="mb-4">
-                    <p className="text-gray-600 mb-2">
-                        Tin nhắn sẽ được gửi đến tất cả NCC có IdGroup trong dữ liệu.
-                    </p>
-                    <textarea
-                        value={directMessage}
-                        onChange={(e) => setDirectMessage(e.target.value)}
-                        placeholder="Nhập tin nhắn cần gửi..."
-                        className="w-full p-2 border rounded"
-                        rows={4}
-                    />
+                        <div className="flex justify-end space-x-3 mt-4">
+                            <button
+                                onClick={() => setShowNccSelectionModal(false)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={() => handleMessageNCC(null, true)}
+                                disabled={selectedNCCs.size === 0}
+                                className={`px-4 py-2 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${selectedNCCs.size === 0 ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                                    }`}
+                            >
+                                Gửi tin nhắn ({selectedNCCs.size})
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            </Modal>
-        </Spin>
+            )}
+        </div>
     )
 }
-

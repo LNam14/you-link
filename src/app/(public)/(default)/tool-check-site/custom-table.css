@@ -1,0 +1,99 @@
+.handsontable thead tr th .relative {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: #eff6ff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.handsontable tbody tr th .relative {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: #eff6ff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.handsontable thead tr th .relative:hover,
+.handsontable tbody tr th .relative:hover {
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Custom scrollbar styles for the table */
+.custom-table .ht_master .wtHolder {
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+/* Horizontal scrollbar styling */
+.custom-table .ht_master .wtHolder::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+
+.custom-table .ht_master .wtHolder::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+.custom-table .ht_master .wtHolder::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+}
+
+.custom-table .ht_master .wtHolder::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #475569 0%, #334155 100%);
+}
+
+/* Corner where scrollbars meet */
+.custom-table .ht_master .wtHolder::-webkit-scrollbar-corner {
+    background: #f1f5f9;
+}
+
+/* Firefox scrollbar styling */
+.custom-table .ht_master .wtHolder {
+    scrollbar-width: thin;
+    scrollbar-color: #64748b #f1f5f9;
+}
+
+/* Table container scrollbar */
+.overflow-x-auto::-webkit-scrollbar {
+    height: 8px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-radius: 4px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border-radius: 4px;
+    border: 1px solid #dbeafe;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+/* Table row hover effects */
+.handsontable tbody tr:hover td {
+    background-color: #f0f9ff !important;
+    transition: background-color 0.2s ease;
+}
+
+/* Summary row styling */
+.handsontable tbody tr:first-child td {
+    font-weight: 600;
+    border-bottom: 2px solid #f50b0b;
+}
+
+/* Alternating row colors */
+.handsontable tbody tr:nth-child(even) td {
+    background-color: #f8fafc;
+}
+
+.handsontable tbody tr:nth-child(odd) td {
+    background-color: #ffffff;
+}
