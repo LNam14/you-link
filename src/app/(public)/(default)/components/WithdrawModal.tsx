@@ -84,12 +84,12 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
         setWithdrawErrors({})
 
         try {
-            // Parse amount to number - remove commas first
-            const parsedAmount = Number.parseInt(withdrawAmount.replace(/,/g, ""), 10)
+            // Parse amount to number - replace comma with dot for proper decimal parsing
+            const parsedAmount = Number.parseFloat(withdrawAmount.replace(/,/g, "."))
 
             // Validate with Zod
             const validatedData: any = withdrawSchema.parse({
-                amount: parsedAmount,
+                amount: Math.round(parsedAmount), // Round to nearest integer for validation
                 binanceAddress,
                 network,
             })
@@ -128,6 +128,7 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
                 type: "withdraw",
                 status: "pending",
                 username: username,
+                description: `${binanceAddress}`,
             })
 
             if (res.success) {
@@ -239,13 +240,11 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
                             value={withdrawAmount}
                             onChange={(e) => {
                                 const value = e.target.value
-                                if (/^[0-9,]*$/.test(value) || value === "") {
-                                    const plainValue = value.replace(/,/g, "")
-                                    if (plainValue === "") {
-                                        setWithdrawAmount("")
-                                    } else {
-                                        setWithdrawAmount(plainValue.replace(/\B(?=(\d{3})+(?!\d))/g, ","))
-                                    }
+                                // Allow numbers with one decimal separator (either , or .)
+                                if (/^[0-9]*[,.]?[0-9]*$/.test(value) || value === "") {
+                                    // Replace dot with comma for consistency
+                                    const valueWithCommas = value.replace(/\./g, ',')
+                                    setWithdrawAmount(valueWithCommas)
                                 }
                             }}
                             className={`block w-full pr-20 border ${withdrawErrors.amount ? "border-red-300 focus:ring-red-500 focus:border-red-500" : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"} rounded-md py-2 px-3 focus:outline-none focus:ring-1 sm:text-sm`}
