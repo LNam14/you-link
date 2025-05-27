@@ -128,7 +128,7 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
                 type: "withdraw",
                 status: "pending",
                 username: username,
-                description: `${binanceAddress}`,
+                wallet: `${binanceAddress}`,
             })
 
             if (res.success) {
