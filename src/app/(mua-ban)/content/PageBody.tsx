@@ -62,8 +62,11 @@ export default function PageBody() {
     const getCurrentWeek = () => {
         const now = new Date()
         const firstDayOfYear = new Date(now.getFullYear(), 0, 1)
+        // Adjust first day to be Monday (1) instead of Sunday (0)
+        const firstDayOfWeek = firstDayOfYear.getDay() || 7 // Convert Sunday (0) to 7
         const pastDaysOfYear = (now.getTime() - firstDayOfYear.getTime()) / 86400000
-        return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)
+        // Adjust calculation to start from Monday
+        return Math.ceil((pastDaysOfYear + firstDayOfWeek) / 7)
     }
 
     // Add function to get week number from date
@@ -73,8 +76,11 @@ export default function PageBody() {
         const [day, month, year] = dateStr.split("/")
         const date = new Date(Number.parseInt(year), Number.parseInt(month) - 1, Number.parseInt(day))
         const firstDayOfYear = new Date(date.getFullYear(), 0, 1)
+        // Adjust first day to be Monday (1) instead of Sunday (0)
+        const firstDayOfWeek = firstDayOfYear.getDay() || 7 // Convert Sunday (0) to 7
         const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000
-        return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)
+        // Adjust calculation to start from Monday
+        return Math.ceil((pastDaysOfYear + firstDayOfWeek) / 7)
     }
 
     // Set current week as default when component mounts
@@ -181,10 +187,7 @@ export default function PageBody() {
                         return aNum - bNum
                     })
 
-                    console.log("Sorted Users:", sortedUsers) // Debug log
-                    console.log("NCCs:", Array.from(uniqueMaNCC)) // Debug log
-
-                    // Update users and NCCs lists with unique values
+                    // Update users and NCCs lists with unique value
                     setUsers(sortedUsers)
                     setNCCs(Array.from(uniqueMaNCC))
                 }
@@ -303,7 +306,6 @@ export default function PageBody() {
         const nccFilteredData = selectedNCC
             ? userFilteredData.filter((row) => {
                 const maNCC = row[18] // MaNCC is at index 18
-                console.log("Filtering by NCC:", { maNCC, selectedNCC }) // Debug log
                 return maNCC === selectedNCC
             })
             : userFilteredData
@@ -788,7 +790,7 @@ export default function PageBody() {
                             const newNccBalance = currentNccBalance + giaMua
 
                             // Update NCC's balance while preserving other fields
-                            set(ref(database, `money/${MaNCC}`), {
+                            await set(ref(database, `money/${MaNCC}`), {
                                 ...currentData,
                                 amount: newNccBalance.toFixed(2),
                             })
@@ -796,6 +798,7 @@ export default function PageBody() {
 
                         sheetApiRequest.getIDKH(MaKHBeforeDash, `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`)
                     }
+
                 }
 
                 // Kiểm tra và cập nhật TinhTrangKH khi thay đổi các trường liên quan
@@ -948,20 +951,30 @@ export default function PageBody() {
                                     const MaNCC = tableData[row][18]
                                     const giaMua = parseNumberWithComma(tableData[row][14]) // Get GiaMua value
 
-                                    // Track LinkKQ update for later processing
-                                    linkKQUpdates[orderId] = {
-                                        orderId,
-                                        MaKH: MaKHBeforeDash,
-                                        MaNCC,
-                                        giaMua
-                                    }
+                                    // Add money to NCC's account
+                                    const nccBalanceRef = ref(database, `money/${MaNCC}`)
+                                    get(nccBalanceRef).then(async (nccBalanceSnapshot) => {
+                                        let currentNccBalance = 0
+                                        let currentData = {}
+                                        if (nccBalanceSnapshot.exists()) {
+                                            const balanceData = nccBalanceSnapshot.val()
+                                            currentNccBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
+                                            currentData = balanceData
+                                        }
 
-                                    // Track NCC balance update
-                                    if (!nccUpdates[MaNCC]) {
-                                        nccUpdates[MaNCC] = 0
-                                    }
-                                    nccUpdates[MaNCC] += giaMua
+                                        // Calculate new balance for NCC
+                                        const newNccBalance = currentNccBalance + giaMua
+
+                                        // Update NCC's balance while preserving other fields
+                                        await set(ref(database, `money/${MaNCC}`), {
+                                            ...currentData,
+                                            amount: newNccBalance.toFixed(2),
+                                        })
+                                    })
+
+                                    sheetApiRequest.getIDKH(MaKHBeforeDash, `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`)
                                 }
+
                             }
                         }
                     }
