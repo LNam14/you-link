@@ -1907,9 +1907,12 @@ export default function PageBody() {
 
                         <button
                             onClick={handleMergeData}
+                            disabled={!viewOptions.total || !viewOptions.pending}
                             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${isMerged
                                 ? "bg-blue-500 hover:bg-blue-600 text-white"
-                                : "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300"
+                                : !viewOptions.total || !viewOptions.pending
+                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-300"
+                                    : "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300"
                                 }`}
                         >
                             {isMerged ? "Tách dữ liệu" : "Gộp dữ liệu"}
