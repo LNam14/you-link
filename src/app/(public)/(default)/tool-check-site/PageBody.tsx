@@ -277,6 +277,23 @@ export default function PageBody() {
             .toLowerCase()
     }
 
+    const normalizeDomain = (domain: string): string[] => {
+        // Remove protocol and www if present
+        let cleanDomain = domain.toLowerCase().replace(/^(?:https?:\/\/)?(?:www\.)?/i, '');
+        // Remove trailing slashes and everything after
+        cleanDomain = cleanDomain.split('/')[0];
+
+        // Generate all possible domain variations
+        return [
+            cleanDomain,                    // example.com
+            `www.${cleanDomain}`,          // www.example.com
+            `http://${cleanDomain}`,       // http://example.com
+            `https://${cleanDomain}`,      // https://example.com
+            `http://www.${cleanDomain}`,   // http://www.example.com
+            `https://www.${cleanDomain}`   // https://www.example.com
+        ];
+    }
+
     const handleSearch = useCallback(
         async (value: string) => {
             try {
@@ -298,22 +315,12 @@ export default function PageBody() {
                     if (!term) return
 
                     if (searchMode === "site") {
-                        // For site search, normalize the term to include http/https/www
-                        const normalizedTerm = term.toLowerCase()
-                        const termWithHttp = normalizedTerm.startsWith('http') ? normalizedTerm : `http://${normalizedTerm}`
-                        const termWithHttps = normalizedTerm.startsWith('http') ? normalizedTerm : `https://${normalizedTerm}`
-                        const termWithWww = normalizedTerm.startsWith('www.') ? normalizedTerm : `www.${normalizedTerm}`
-                        const termWithWwwHttp = `http://www.${normalizedTerm.replace(/^www\./, '')}`
-                        const termWithWwwHttps = `https://www.${normalizedTerm.replace(/^www\./, '')}`
+                        // For site search, try to normalize the domain
+                        const domainVariations = normalizeDomain(term)
 
                         const matchingSites = dataToSearch.filter((item: SiteData) => {
                             const siteUrl = item.site.toLowerCase()
-                            return siteUrl === normalizedTerm ||
-                                siteUrl === termWithHttp ||
-                                siteUrl === termWithHttps ||
-                                siteUrl === termWithWww ||
-                                siteUrl === termWithWwwHttp ||
-                                siteUrl === termWithWwwHttps
+                            return domainVariations.some(variation => siteUrl === variation)
                         })
 
                         if (matchingSites.length > 0) {
@@ -381,10 +388,11 @@ export default function PageBody() {
                             siteMap.set(term, emptySite)
                         }
                     } else {
-                        // For NCC search, only match codes starting with 'N' and exact match
-                        if (term.startsWith('N')) {
+                        // For NCC search, ensure the term starts with 'N' and is uppercase
+                        const nccCode = term.toUpperCase()
+                        if (nccCode.startsWith('N')) {
                             const matchingSites = dataToSearch.filter((item: SiteData) =>
-                                item.MaNCC === term
+                                item.MaNCC === nccCode
                             )
                             if (matchingSites.length > 0) {
                                 results.push(...matchingSites)
@@ -402,24 +410,14 @@ export default function PageBody() {
                     const notFoundShow = terms.filter(
                         (term) => {
                             if (searchMode === "site") {
-                                const normalizedTerm = term.toLowerCase()
-                                const termWithHttp = normalizedTerm.startsWith('http') ? normalizedTerm : `http://${normalizedTerm}`
-                                const termWithHttps = normalizedTerm.startsWith('http') ? normalizedTerm : `https://${normalizedTerm}`
-                                const termWithWww = normalizedTerm.startsWith('www.') ? normalizedTerm : `www.${normalizedTerm}`
-                                const termWithWwwHttp = `http://www.${normalizedTerm.replace(/^www\./, '')}`
-                                const termWithWwwHttps = `https://www.${normalizedTerm.replace(/^www\./, '')}`
-
+                                const domainVariations = normalizeDomain(term)
                                 return !dataToSearch.some((item: SiteData) => {
                                     const siteUrl = item.site.toLowerCase()
-                                    return siteUrl === normalizedTerm ||
-                                        siteUrl === termWithHttp ||
-                                        siteUrl === termWithHttps ||
-                                        siteUrl === termWithWww ||
-                                        siteUrl === termWithWwwHttp ||
-                                        siteUrl === termWithWwwHttps
+                                    return domainVariations.some(variation => siteUrl === variation)
                                 })
                             } else {
-                                return term.startsWith('N') && !dataToSearch.some((item: SiteData) => item.MaNCC === term)
+                                const nccCode = term.toUpperCase()
+                                return nccCode.startsWith('N') && !dataToSearch.some((item: SiteData) => item.MaNCC === nccCode)
                             }
                         }
                     )
@@ -429,22 +427,12 @@ export default function PageBody() {
                             if (searchMode === "site") {
                                 return isValidDomain(term) && !dataToSearch.some((item: SiteData) => {
                                     const siteUrl = item.site.toLowerCase()
-                                    const normalizedTerm = term.toLowerCase()
-                                    const termWithHttp = normalizedTerm.startsWith('http') ? normalizedTerm : `http://${normalizedTerm}`
-                                    const termWithHttps = normalizedTerm.startsWith('http') ? normalizedTerm : `https://${normalizedTerm}`
-                                    const termWithWww = normalizedTerm.startsWith('www.') ? normalizedTerm : `www.${normalizedTerm}`
-                                    const termWithWwwHttp = `http://www.${normalizedTerm.replace(/^www\./, '')}`
-                                    const termWithWwwHttps = `https://www.${normalizedTerm.replace(/^www\./, '')}`
-
-                                    return siteUrl === normalizedTerm ||
-                                        siteUrl === termWithHttp ||
-                                        siteUrl === termWithHttps ||
-                                        siteUrl === termWithWww ||
-                                        siteUrl === termWithWwwHttp ||
-                                        siteUrl === termWithWwwHttps
+                                    const domainVariations = normalizeDomain(term)
+                                    return domainVariations.some(variation => siteUrl === variation)
                                 })
                             } else {
-                                return term.startsWith('N') && !dataToSearch.some((item: SiteData) => item.MaNCC === term)
+                                const nccCode = term.toUpperCase()
+                                return nccCode.startsWith('N') && !dataToSearch.some((item: SiteData) => item.MaNCC === nccCode)
                             }
                         })
 

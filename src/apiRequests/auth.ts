@@ -59,6 +59,14 @@ export interface UsersResponse {
   data: User[];
 }
 
+// Định nghĩa kiểu dữ liệu cho create request
+export interface CreateUserRequest {
+  count: number;
+  role: string;
+  team?: string;
+  position?: string;
+}
+
 // API endpoints
 const ENDPOINTS = {
   GET_COUNT: "/auth/get-count",
@@ -159,7 +167,7 @@ const authApiRequest = {
    * @param data Thông tin tạo tài khoản
    * @returns Promise với kết quả tạo tài khoản
    */
-  create: (data: { count: number, role: string }) => {
+  create: (data: CreateUserRequest) => {
     return httpService.post<ApiResponse<User[]>>(ENDPOINTS.CREATE, data);
   },
 };

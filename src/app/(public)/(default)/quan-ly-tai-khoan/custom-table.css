@@ -28,3 +28,68 @@
 .custom-table .ht_master .wtHolder::-webkit-scrollbar {
     display: none;
 }
+
+/* Add these styles to fix the header visibility issue */
+.handsontable .ht_master .wtHider {
+    overflow: visible;
+}
+
+.handsontable .ht_clone_top {
+    z-index: 1 !important;
+}
+
+.handsontable .ht_clone_top .wtHider {
+    overflow: visible;
+}
+
+/* Increase the height of the header rows to ensure text is fully visible */
+.handsontable .ht_clone_top .wtHolder {
+    overflow: visible;
+}
+
+/* Ensure the nested headers have enough height */
+.handsontable th {
+    height: auto !important;
+    white-space: normal;
+    padding: 8px 4px;
+}
+
+/* Fix for the specific header "Thông tin tài khoản" */
+.handsontable .ht_clone_top .htCore thead tr th {
+    height: auto !important;
+    line-height: 1.5;
+    vertical-align: middle;
+}
+
+/* Override column sorting styles */
+.handsontable .columnSorting:not(.indicatorDisabled).sortAction {
+    padding-inline-start: 4px !important;
+    padding-inline-end: 4px !important;
+    min-width: auto !important;
+    max-width: none !important;
+}
+
+/* Disable column sorting indicators completely if needed */
+.handsontable .columnSorting.sortAction::after {
+    display: none !important;
+}
+
+/* Alternative: Hide all column sorting functionality */
+.handsontable .columnSorting {
+    padding: 4px !important;
+}
+
+/* Remove sorting cursor */
+.handsontable .columnSorting.sortAction {
+    cursor: default !important;
+}
+
+/* Ensure modal is always on top */
+.fixed.inset-0.bg-black.bg-opacity-50 {
+    z-index: 9999 !important;
+}
+
+/* Ensure table content stays below modal */
+.handsontable {
+    z-index: 0 !important;
+}

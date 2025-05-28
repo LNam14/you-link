@@ -5,8 +5,8 @@ import executeQuery from "@/app/db/db"
 
 // Câu truy vấn PostgreSQL
 const INSERT_TRANSACTION = `
-  INSERT INTO transactions (type, amount, deposit_date, method, description, customer_id, name, status) 
-  VALUES ($1, $2, NOW(), $3, $4, $5, $6, 'Đang chờ')
+  INSERT INTO transactions (type, amount, deposit_date, method, description, customer_id, name, wallet, status) 
+  VALUES ($1, $2, NOW(), $3, $4, $5, $6, $7, 'Đang chờ')
   RETURNING id
 `
 
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
         // Lấy và kiểm tra dữ liệu đầu vào
         const body = await request.json().catch(() => ({}))
-        const { type, amount, paymentMethod, customer_id = userInfo?.id } = body
+        const { type, amount, paymentMethod, wallet, customer_id = userInfo?.id } = body
 
         // Tạo description theo format: username + timestamp
         const timestamp = Date.now()
@@ -83,6 +83,7 @@ export async function POST(request: Request) {
                 description,
                 customer_id,
                 userInfo?.username || "unknown",
+                wallet,
             ])
 
             if (!insertResult || insertResult.length === 0) {

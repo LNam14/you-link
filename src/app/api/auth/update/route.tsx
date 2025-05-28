@@ -12,7 +12,7 @@ export async function POST(request: Request) {
                     success: false,
                     message: "Missing required fields: id, field, and value are required",
                 },
-                { status: 400 }
+                { status: 400 },
             )
         }
 
@@ -22,9 +22,11 @@ export async function POST(request: Request) {
             1: "password",
             2: "name",
             3: "role",
-            4: "create_at",
-            5: "updated_at",
-            6: "status"
+            4: "position",
+            5: "created_at",
+            6: "updated_at",
+            7: "status",
+            8: "team",
         }
 
         const columnName = fieldMap[field]
@@ -32,15 +34,16 @@ export async function POST(request: Request) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: `Invalid field index: ${field}. Valid values are: 0-5`,
+                    message: `Invalid field index: ${field}. Valid values are: 0-8`,
                 },
-                { status: 400 }
+                { status: 400 },
             )
         }
 
         // Update the account
         const query = `UPDATE account SET ${columnName} = $1 WHERE id = $2 RETURNING *`
         const result = await executeQuery(query, [value, id])
+
         // Check if any rows were affected
         if (!Array.isArray(result) || result.length === 0) {
             return NextResponse.json(
@@ -48,7 +51,7 @@ export async function POST(request: Request) {
                     success: false,
                     message: "Username đã tồn tại!",
                 },
-                { status: 404 }
+                { status: 404 },
             )
         }
 
@@ -56,22 +59,21 @@ export async function POST(request: Request) {
             {
                 success: true,
                 message: "Account updated successfully",
-                data: result[0]
+                data: result[0],
             },
-            { status: 200 }
+            { status: 200 },
         )
-
     } catch (error: any) {
         console.error("Error updating account:", error)
 
         // Check for duplicate username error
-        if (error.message && error.message.includes('account_username_key')) {
+        if (error.message && error.message.includes("account_username_key")) {
             return NextResponse.json(
                 {
                     success: false,
                     message: "Username đã tồn tại",
                 },
-                { status: 400 }
+                { status: 400 },
             )
         }
 
@@ -81,7 +83,7 @@ export async function POST(request: Request) {
                 message: "Error updating account",
                 error: error.message,
             },
-            { status: 500 }
+            { status: 500 },
         )
     }
-} 
+}
