@@ -96,12 +96,15 @@ const authApiRequest = {
     });
   },
   get: () => {
-    const timestamp = new Date().getTime();
-    return httpService.get<UsersResponse>(`${ENDPOINTS.GET}?_t=${timestamp}`, {
+    // Generate a unique cache-busting parameter
+    const cacheBuster = Math.random().toString(36).substring(7);
+    return httpService.get<UsersResponse>(`${ENDPOINTS.GET}?_=${cacheBuster}`, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
-        'Expires': '0'
+        'Expires': '0',
+        'If-Modified-Since': '0',
+        'If-None-Match': cacheBuster
       }
     });
   },
