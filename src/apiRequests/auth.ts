@@ -95,10 +95,11 @@ const authApiRequest = {
       params: { timestamp }, // nếu cần truyền timestamp vào query
     });
   },
-  get: () => {
+  get: (timestamp?: number | null) => {
     // Generate a unique cache-busting parameter
     const cacheBuster = Math.random().toString(36).substring(7);
     return httpService.get<UsersResponse>(`${ENDPOINTS.GET}?_=${cacheBuster}`, {
+      params: { timestamp }, // Add timestamp to query parameters
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',

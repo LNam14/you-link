@@ -1381,8 +1381,8 @@ export default function PageBody() {
     };
 
     // Add helper function to determine cell styling and editability
-    const getCellStyle = (col: number, row: number, isCompletedOrder: boolean, tableData: any[]) => {
-        const style = {
+    const getCellStyle = (col: number, row: number, isCompletedOrder: boolean, tableData: any[]): { backgroundColor: string; color: string; isReadOnly: boolean } => {
+        const style: { backgroundColor: string; color: string; isReadOnly: boolean } = {
             backgroundColor: "",
             color: "#000000",
             isReadOnly: false
@@ -1393,6 +1393,22 @@ export default function PageBody() {
             style.backgroundColor = "#d3d3d3";
             style.isReadOnly = true;
             return style;
+        }
+
+        // LinkKQ column (col 10) - Check for duplicates
+        if (col === 10) {
+            const currentLinkKQ = tableData[row]?.[10];
+            if (currentLinkKQ && currentLinkKQ.trim() !== "") {
+                // Count how many times this LinkKQ appears
+                const duplicateCount = tableData.filter(row =>
+                    row[10] && row[10].trim() !== "" && row[10] === currentLinkKQ
+                ).length;
+
+                // If there are duplicates, apply a background color
+                if (duplicateCount > 1) {
+                    style.backgroundColor = "#FFE4E1"; // Light pink color for duplicates
+                }
+            }
         }
 
         // Status columns (19, 20) have their own colors
@@ -1482,7 +1498,9 @@ export default function PageBody() {
         const cellStyle = getCellStyle(col, row, isCompletedOrder, tableData);
 
         // Apply cell styling and editability
-        cellProperties.readOnly = cellStyle.isReadOnly;
+        if (cellStyle) {
+            cellProperties.readOnly = cellStyle.isReadOnly;
+        }
 
         if (col === 21) {
             // Chat column
@@ -1529,8 +1547,10 @@ export default function PageBody() {
                 Handsontable.renderers.TextRenderer.apply(this, [instance, td, row, col, prop, value, cellProperties])
 
                 // Apply cell style
-                td.style.backgroundColor = cellStyle.backgroundColor;
-                td.style.color = cellStyle.color;
+                if (cellStyle) {
+                    td.style.backgroundColor = cellStyle.backgroundColor;
+                    td.style.color = cellStyle.color;
+                }
 
                 // Format date for NgayOrder column (col 2)
                 if (col === 2) {
