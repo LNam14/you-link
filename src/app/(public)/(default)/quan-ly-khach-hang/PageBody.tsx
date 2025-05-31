@@ -9,13 +9,22 @@ import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
 import Handsontable from "handsontable"
 import { toast, Toaster } from "sonner"
-import { RefreshCw, Search, Plus } from "lucide-react"
+import { RefreshCw, Search, Plus, Copy } from "lucide-react"
 
 registerAllModules()
 
 type NestedColumnHeader = {
     label: string
     colspan: number
+}
+
+type TooltipData = {
+    data: string[]
+    position: {
+        x: number
+        y: number
+    }
+    sourceElement: HTMLElement | null
 }
 
 export default function AccountTracker() {
@@ -26,8 +35,8 @@ export default function AccountTracker() {
             "22", // Phiên Bản
             "L304, P32", // Mã Cũ
             "44", // Cty
-            "Roseanne, Tường Vi, Sarah D, Kem - OS, Emily Tan", // Tên (multiple names)
-            "@12341234, #1884364594, @KEM668899, @fty4us, @nanaseo98", // Telegram (multiple handles)
+            ["Roseanne", "Tường Vi", "Tường Vi", "Sarah D", "Kem - OS", "Emily Tan"], // Tên - array
+            ["@12341234", "@KEM668899", "@fty4us", "@telegram_sarah", "@telegram_kem", "#1884364594"], // Telegram - array
             "6", // Link Nhóm
             "7", // ID nhóm
             "8", // Nhóm
@@ -39,105 +48,90 @@ export default function AccountTracker() {
             "14", // Đếm Ngày
             "8", // Tình Trạng
             "4 tuần chưa lên đơn", // Ghi Chú KT
-            "8" // Ghi chú khác
+            "8", // Ghi chú khác
         ],
-        // Additional mock data (hidden in table)
-        [
-            "S29",
-            "11",
-            "22",
-            "L305, P33",
-            "44",
-            "Tường Vi",
-            "#1884364594",
-            "6",
-            "7",
-            "8",
-            "An Nhiên",
-            "https://docs.google.com/spreadsheets/d/1eUwnoVUmuYE6OFQ_u5TJhkWBwh14kPNNXbWafw55Djc/edit?gid=1872445161#gid=1872445161",
-            "3500",
-            "2000",
-            "15/5",
-            "14",
-            "8",
-            "4 tuần chưa lên đơn",
-            "8"
-        ],
-        [
-            "S30",
-            "11",
-            "22",
-            "L306, P34",
-            "44",
-            "Sarah D",
-            "@KEM668899",
-            "6",
-            "7",
-            "8",
-            "An Nhiên",
-            "https://docs.google.com/spreadsheets/d/1eUwnoVUmuYE6OFQ_u5TJhkWBwh14kPNNXbWafw55Djc/edit?gid=1872445161#gid=1872445161",
-            "3500",
-            "2000",
-            "15/5",
-            "14",
-            "8",
-            "4 tuần chưa lên đơn",
-            "8"
-        ],
-        [
-            "S31",
-            "11",
-            "22",
-            "L307, P35",
-            "44",
-            "Kem - OS",
-            "@fty4us",
-            "6",
-            "7",
-            "8",
-            "An Nhiên",
-            "https://docs.google.com/spreadsheets/d/1eUwnoVUmuYE6OFQ_u5TJhkWBwh14kPNNXbWafw55Djc/edit?gid=1872445161#gid=1872445161",
-            "3500",
-            "2000",
-            "15/5",
-            "14",
-            "8",
-            "4 tuần chưa lên đơn",
-            "8"
-        ],
-        [
-            "S32",
-            "11",
-            "22",
-            "L308, P36",
-            "44",
-            "Emily Tan",
-            "@nanaseo98",
-            "6",
-            "7",
-            "8",
-            "An Nhiên",
-            "https://docs.google.com/spreadsheets/d/1eUwnoVUmuYE6OFQ_u5TJhkWBwh14kPNNXbWafw55Djc/edit?gid=1872445161#gid=1872445161",
-            "3500",
-            "2000",
-            "15/5",
-            "14",
-            "8",
-            "4 tuần chưa lên đơn",
-            "8"
-        ]
     ])
     const [searchTerm, setSearchTerm] = useState("")
     const hotTableRef = useRef<any>(null)
+    const [showTooltip, setShowTooltip] = useState(false)
+    const [tooltipData, setTooltipData] = useState<TooltipData | null>(null)
+    const tooltipRef = useRef<HTMLDivElement>(null)
+    const [isMouseOverTooltip, setIsMouseOverTooltip] = useState(false)
 
     // Filter data based on search term
     const filteredData = tableData.filter((row) => {
         const searchFields = [0, 1, 4, 5, 9, 10] // Indices of columns to search in
-        return searchTerm === "" || searchFields.some(fieldIndex => {
-            const value = row[fieldIndex]?.toLowerCase() || ""
-            return value.includes(searchTerm.toLowerCase())
-        })
+        return (
+            searchTerm === "" ||
+            searchFields.some((fieldIndex) => {
+                const value = row[fieldIndex]
+                if (Array.isArray(value)) {
+                    return value.some((item) => item.toLowerCase().includes(searchTerm.toLowerCase()))
+                }
+                return (value?.toLowerCase() || "").includes(searchTerm.toLowerCase())
+            })
+        )
     })
+
+    // Show tooltip on hover
+    const showTooltipOnHover = (data: string[], event: MouseEvent) => {
+        const element = event.target as HTMLElement
+        const rect = element.getBoundingClientRect()
+
+        setTooltipData({
+            data,
+            position: {
+                x: rect.left,
+                y: rect.bottom + window.scrollY,
+            },
+            sourceElement: element,
+        })
+        setShowTooltip(true)
+    }
+
+    // Hide tooltip
+    const hideTooltip = () => {
+        // Only hide if mouse is not over tooltip
+        if (!isMouseOverTooltip) {
+            setShowTooltip(false)
+            setTooltipData(null)
+        }
+    }
+
+    // Copy text to clipboard
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text).then(
+            () => {
+                toast.success("Đã sao chép vào clipboard")
+            },
+            (err) => {
+                toast.error("Không thể sao chép: " + err)
+            },
+        )
+    }
+
+    // Handle mouse events for tooltip
+    useEffect(() => {
+        const handleMouseLeave = (e: MouseEvent) => {
+            const relatedTarget = e.relatedTarget as HTMLElement
+            // Check if mouse is moving from tooltip to source element or vice versa
+            if (
+                tooltipRef.current &&
+                tooltipData?.sourceElement &&
+                !tooltipRef.current.contains(relatedTarget) &&
+                !tooltipData.sourceElement.contains(relatedTarget)
+            ) {
+                setShowTooltip(false)
+                setTooltipData(null)
+                setIsMouseOverTooltip(false)
+            }
+        }
+
+        document.addEventListener("mouseleave", handleMouseLeave, true)
+        return () => {
+            document.removeEventListener("mouseleave", handleMouseLeave, true)
+        }
+    }, [tooltipData])
 
     // Cells function for styling
     const cells = function (
@@ -148,11 +142,93 @@ export default function AccountTracker() {
     ): Handsontable.CellMeta {
         const cellProperties: Handsontable.CellMeta = {
             // Add default styling for all cells
-            className: 'htMiddle htCenter', // Center content vertically and horizontally
+            className: "htMiddle htCenter", // Center content vertically and horizontally
             wordWrap: false, // Disable word wrap
-            overflow: 'hidden', // Hide overflow
-            textOverflow: 'ellipsis', // Show ellipsis for overflow
-            whiteSpace: 'nowrap', // Keep text in one line
+            overflow: "hidden", // Hide overflow
+            textOverflow: "ellipsis", // Show ellipsis for overflow
+            whiteSpace: "nowrap", // Keep text in one line
+        }
+
+        // Format Tên column (index 5) - array display
+        if (col === 5) {
+            cellProperties.renderer = function (
+                instance: Handsontable.Core,
+                td: HTMLTableCellElement,
+                row: number,
+                col: number,
+                prop: string | number,
+                value: any,
+                cellProperties: Handsontable.CellProperties,
+            ) {
+                if (Array.isArray(value) && value.length > 0) {
+                    const count = value.length
+                    const firstItem = value[0]
+                    const displayText = count > 1 ? `${firstItem} (${count})` : firstItem
+
+                    // Make it look like a normal cell but with hover effect
+                    td.innerHTML = displayText
+                    td.style.color = "#1E40AF" // blue-800
+                    td.style.cursor = "pointer"
+
+                    // Add hover events
+                    td.addEventListener("mouseenter", (event) => {
+                        if (count > 1) {
+                            showTooltipOnHover(value, event as unknown as MouseEvent)
+                        }
+                    })
+
+                    td.addEventListener("mouseleave", (event) => {
+                        // Check if mouse is moving to tooltip
+                        const relatedTarget = (event as MouseEvent).relatedTarget as HTMLElement
+                        if (tooltipRef.current && !tooltipRef.current.contains(relatedTarget)) {
+                            hideTooltip()
+                        }
+                    })
+                } else {
+                    Handsontable.renderers.TextRenderer.apply(this, [instance, td, row, col, prop, value, cellProperties])
+                }
+            }
+        }
+
+        // Format Telegram column (index 6) - array display
+        if (col === 6) {
+            cellProperties.renderer = function (
+                instance: Handsontable.Core,
+                td: HTMLTableCellElement,
+                row: number,
+                col: number,
+                prop: string | number,
+                value: any,
+                cellProperties: Handsontable.CellProperties,
+            ) {
+                if (Array.isArray(value) && value.length > 0) {
+                    const count = value.length
+                    const firstItem = value[0]
+                    const displayText = count > 1 ? `${firstItem} (${count})` : firstItem
+
+                    // Make it look like a normal cell but with hover effect
+                    td.innerHTML = displayText
+                    td.style.color = "#16A34A" // green-600
+                    td.style.cursor = "pointer"
+
+                    // Add hover events
+                    td.addEventListener("mouseenter", (event) => {
+                        if (count > 1) {
+                            showTooltipOnHover(value, event as unknown as MouseEvent)
+                        }
+                    })
+
+                    td.addEventListener("mouseleave", (event) => {
+                        // Check if mouse is moving to tooltip
+                        const relatedTarget = (event as MouseEvent).relatedTarget as HTMLElement
+                        if (tooltipRef.current && !tooltipRef.current.contains(relatedTarget)) {
+                            hideTooltip()
+                        }
+                    })
+                } else {
+                    Handsontable.renderers.TextRenderer.apply(this, [instance, td, row, col, prop, value, cellProperties])
+                }
+            }
         }
 
         // Format date columns (Ngày check)
@@ -198,7 +274,7 @@ export default function AccountTracker() {
 
         // Format Tab Đơn column (make it clickable)
         if (col === 11) {
-            cellProperties.renderer = function (
+            cellProperties.renderer = (
                 instance: Handsontable.Core,
                 td: HTMLTableCellElement,
                 row: number,
@@ -206,25 +282,25 @@ export default function AccountTracker() {
                 prop: string | number,
                 value: any,
                 cellProperties: Handsontable.CellProperties,
-            ) {
+            ) => {
                 if (value) {
                     // Create a clickable link with ellipsis
-                    const link = document.createElement('a')
+                    const link = document.createElement("a")
                     link.href = value
-                    link.target = '_blank'
-                    link.style.color = '#2563EB'
-                    link.style.textDecoration = 'underline'
-                    link.style.cursor = 'pointer'
-                    link.style.display = 'block'
-                    link.style.overflow = 'hidden'
-                    link.style.textOverflow = 'ellipsis'
-                    link.style.whiteSpace = 'nowrap'
+                    link.target = "_blank"
+                    link.style.color = "#2563EB"
+                    link.style.textDecoration = "underline"
+                    link.style.cursor = "pointer"
+                    link.style.display = "block"
+                    link.style.overflow = "hidden"
+                    link.style.textOverflow = "ellipsis"
+                    link.style.whiteSpace = "nowrap"
                     link.title = value // Show full URL on hover
                     link.textContent = value
-                    td.innerHTML = ''
+                    td.innerHTML = ""
                     td.appendChild(link)
                 } else {
-                    td.textContent = ''
+                    td.textContent = ""
                 }
             }
         }
@@ -234,44 +310,42 @@ export default function AccountTracker() {
 
     // Get columns configuration
     const columns = [
-        { data: 0, width: 60, className: 'htMiddle htCenter' }, // Mã Mới
-        { data: 1, width: 70, className: 'htMiddle htCenter' }, // Phân Loại
-        { data: 2, width: 70, className: 'htMiddle htCenter' }, // Phiên Bản
-        { data: 3, width: 70, className: 'htMiddle htCenter' }, // Mã Cũ
-        { data: 4, width: 60, className: 'htMiddle htCenter' }, // Cty
-        { data: 5, width: 120, className: 'htMiddle htCenter' }, // Tên
-        { data: 6, width: 60, className: 'htMiddle htCenter' }, // Telegram
-        { data: 7, width: 80, className: 'htMiddle htCenter' }, // Link Nhóm
-        { data: 8, width: 80, className: 'htMiddle htCenter' }, // ID nhóm
-        { data: 9, width: 80, className: 'htMiddle htCenter' }, // Nhóm
-        { data: 10, width: 100, className: 'htMiddle htCenter' }, // Ng Chăm
+        { data: 0, width: 60, className: "htMiddle htCenter" }, // Mã Mới
+        { data: 1, width: 70, className: "htMiddle htCenter" }, // Phân Loại
+        { data: 2, width: 70, className: "htMiddle htCenter" }, // Phiên Bản
+        { data: 3, width: 70, className: "htMiddle htCenter" }, // Mã Cũ
+        { data: 4, width: 60, className: "htMiddle htCenter" }, // Cty
+        { data: 5, width: 120, className: "htMiddle htCenter" }, // Tên
+        { data: 6, width: 60, className: "htMiddle htCenter" }, // Telegram
+        { data: 7, width: 80, className: "htMiddle htCenter" }, // Link Nhóm
+        { data: 8, width: 80, className: "htMiddle htCenter" }, // ID nhóm
+        { data: 9, width: 80, className: "htMiddle htCenter" }, // Nhóm
+        { data: 10, width: 100, className: "htMiddle htCenter" }, // Ng Chăm
         {
             data: 11, // Tab Đơn
             width: 100,
-            renderer: 'html',
-            className: 'htMiddle htCenter'
+            renderer: "html",
+            className: "htMiddle htCenter",
         },
-        { data: 12, width: 100, className: 'htMiddle htCenter' }, // Công Nợ
-        { data: 13, width: 100, className: 'htMiddle htCenter' }, // Tín Dụng
+        { data: 12, width: 100, className: "htMiddle htCenter" }, // Công Nợ
+        { data: 13, width: 100, className: "htMiddle htCenter" }, // Tín Dụng
         {
             data: 14, // Ngày check
             width: 100,
-            className: 'htMiddle htCenter'
+            className: "htMiddle htCenter",
         },
-        { data: 15, width: 80, className: 'htMiddle htCenter' }, // Đếm Ngày
+        { data: 15, width: 80, className: "htMiddle htCenter" }, // Đếm Ngày
         {
             data: 16, // Tình Trạng
             width: 100,
-            className: 'htMiddle htCenter'
+            className: "htMiddle htCenter",
         },
-        { data: 17, width: 100, className: 'htMiddle htCenter' }, // Ghi Chú KT
-        { data: 18, width: 100, className: 'htMiddle htCenter' } // Ghi chú khác
+        { data: 17, width: 100, className: "htMiddle htCenter" }, // Ghi Chú KT
+        { data: 18, width: 100, className: "htMiddle htCenter" }, // Ghi chú khác
     ]
 
     // Dynamic headers based on new columns
-    const RowHeader1: NestedColumnHeader[] = [
-        { label: `Quản lý khách hàng`, colspan: 19 },
-    ]
+    const RowHeader1: NestedColumnHeader[] = [{ label: `Quản lý khách hàng`, colspan: 19 }]
 
     const RowHeader2 = [
         "Mã Mới",
@@ -292,7 +366,7 @@ export default function AccountTracker() {
         "Đếm Ngày",
         "Tình Trạng",
         "Ghi Chú KT",
-        "Ghi chú khác"
+        "Ghi chú khác",
     ]
 
     const handleAfterChange = (changes: any, source: any) => {
@@ -331,22 +405,73 @@ export default function AccountTracker() {
     // Add custom CSS for the table
     useEffect(() => {
         // Add custom styles for cell content
-        const style = document.createElement('style')
+        const style = document.createElement("style")
         style.textContent = `
-            .custom-table .htCore td {
-                max-width: 0;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-            .custom-table .htCore td:hover {
-                overflow: visible;
-                white-space: normal;
-                word-break: break-word;
-                z-index: 1;
-                position: relative;
-            }
-        `
+      .custom-table .htCore td {
+        max-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .custom-table .htCore td:hover {
+        overflow: visible;
+        white-space: normal;
+        word-break: break-word;
+        z-index: 1;
+        position: relative;
+      }
+      /* Simple tooltip styles matching the image */
+      .simple-tooltip {
+        position: absolute;
+        background: white;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        padding: 8px 12px;
+        z-index: 1000;
+        font-size: 13px;
+        line-height: 1.4;
+        color: #374151;
+        min-width: 120px;
+      }
+      .tooltip-item {
+        margin: 4px 0;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .tooltip-item:hover {
+        background-color: #f3f4f6;
+        border-radius: 4px;
+      }
+      .copy-button {
+        opacity: 0;
+        cursor: pointer;
+        margin-left: 8px;
+        color: #6B7280;
+        transition: opacity 0.2s;
+      }
+      .tooltip-item:hover .copy-button {
+        opacity: 1;
+      }
+      .copy-button:hover {
+        color: #1E40AF;
+      }
+      /* Arrow for tooltip */
+      .simple-tooltip::before {
+        content: '';
+        position: absolute;
+        top: -6px;
+        left: 20px;
+        width: 12px;
+        height: 12px;
+        background-color: white;
+        transform: rotate(45deg);
+        border-left: 1px solid #d1d5db;
+        border-top: 1px solid #d1d5db;
+      }
+    `
         document.head.appendChild(style)
         return () => {
             document.head.removeChild(style)
@@ -431,6 +556,29 @@ export default function AccountTracker() {
                     />
                 </div>
             </div>
+
+            {/* Simple tooltip for displaying array data */}
+            {showTooltip && tooltipData && (
+                <div
+                    ref={tooltipRef}
+                    className="simple-tooltip"
+                    style={{
+                        top: tooltipData.position.y,
+                        left: tooltipData.position.x,
+                    }}
+                    onMouseEnter={() => setIsMouseOverTooltip(true)}
+                    onMouseLeave={() => setIsMouseOverTooltip(false)}
+                >
+                    {tooltipData.data.map((item, index) => (
+                        <div key={index} className="tooltip-item">
+                            <span>{item}</span>
+                            <span className="copy-button" onClick={() => copyToClipboard(item)}>
+                                <Copy size={14} />
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     )
 }

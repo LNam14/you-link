@@ -22,7 +22,10 @@ const attendanceApiRequest = {
    */
 
   get: () => {
-    const timestamp = new Date().getTime();
+    // Get current time in Vietnam timezone (UTC+7)
+    const vietnamTime = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    const timestamp = vietnamTime.getTime();
+    
     return httpService.get<Attendance[]>(`${ENDPOINTS.GET}?_t=${timestamp}`, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
