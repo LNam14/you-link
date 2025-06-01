@@ -97,3 +97,17 @@
 .handsontable tbody tr:nth-child(odd) td {
     background-color: #ffffff;
 }
+
+.ht-theme-main,
+.ht-theme-main-dark,
+.ht-theme-main-dark-auto {
+    --ht-cell-horizontal-padding: 0px !important;
+}
+
+/* Override column sorting styles */
+.handsontable .columnSorting:not(.indicatorDisabled).sortAction {
+    padding-inline-start: 4px !important;
+    padding-inline-end: 4px !important;
+    min-width: auto !important;
+    max-width: none !important;
+}

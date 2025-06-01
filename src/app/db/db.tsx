@@ -12,20 +12,12 @@ const pool = new Pool({
     idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
 })
 
-// Set timezone to Vietnam timezone for all database connections
-pool.on('connect', (client) => {
-    client.query('SET timezone = \'Asia/Ho_Chi_Minh\';');
-});
-
 // Function to execute queries with proper connection handling
 export default async function executeQuery(query: string, values: any[]) {
     const client = await pool.connect()
     try {
         // Start transaction
         await client.query('BEGIN')
-
-        // Set timezone for this session
-        await client.query('SET timezone = \'Asia/Ho_Chi_Minh\';')
 
         // Execute the query
         const results = await client.query(query, values)
