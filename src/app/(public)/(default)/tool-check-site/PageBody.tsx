@@ -258,6 +258,7 @@ export default function PageBody() {
             // Group items by normalized search field to find duplicates
             const itemGroups: { [key: string]: SiteData[] } = {}
             const matchedItems: SiteData[] = []
+            const matchedOrder: { [key: string]: number } = {} // Track the order of matches
 
             allData.forEach((item) => {
                 const normalizedValue = itemMatchesSearch(item, validTerms)
@@ -267,6 +268,15 @@ export default function PageBody() {
                     }
                     itemGroups[normalizedValue].push(item)
                     matchedItems.push(item)
+
+                    // Find which search term matched first
+                    const matchedTermIndex = validTerms.findIndex(term => {
+                        const normalizedTerm = normalizeUrl(term)
+                        return normalizedValue === normalizedTerm ||
+                            normalizedValue.includes(normalizedTerm) ||
+                            normalizedTerm.includes(normalizedValue)
+                    })
+                    matchedOrder[normalizedValue] = matchedTermIndex
                 }
             })
 
@@ -274,7 +284,13 @@ export default function PageBody() {
             const duplicates: { [key: string]: SiteData[] } = {}
             const mainItems: SiteData[] = []
 
-            Object.entries(itemGroups).forEach(([normalizedValue, items]) => {
+            // Sort the normalized values based on search term order
+            const sortedNormalizedValues = Object.keys(itemGroups).sort((a, b) => {
+                return (matchedOrder[a] ?? Infinity) - (matchedOrder[b] ?? Infinity)
+            })
+
+            sortedNormalizedValues.forEach((normalizedValue) => {
+                const items = itemGroups[normalizedValue]
                 if (items.length > 1) {
                     // Sort by purchase price (numeric values first, then non-numeric)
                     items.sort((a, b) => {
@@ -378,6 +394,10 @@ export default function PageBody() {
     }
 
     const generateColumns = () => {
+        // Add debug log to check user role
+        console.log("Current user role:", userInfo?.role)
+        console.log("Is restricted user:", userInfo?.role !== "Admin" && userInfo?.role !== "Nhân viên")
+
         const baseColumns = [
             {
                 title: "CS",
@@ -596,7 +616,21 @@ export default function PageBody() {
             renderer: createPriceRenderer(sellPriceColumn),
         })
 
-        // Add remaining columns with the same configuration
+        // Modified role check with more explicit conditions
+        const isRestrictedUser = !userInfo || (userInfo.role !== "Admin" && userInfo.role !== "Nhân viên")
+        console.log("Is restricted user (modified):", isRestrictedUser)
+
+        if (isRestrictedUser) {
+            console.log("Showing restricted columns for user role:", userInfo?.role)
+            // Filter columns to only show the specified ones
+            const allowedColumns = ["tinhTrang", "bong", "bet", "site", "chuDe", "DR", "trafficTool", "ghiChu", sellPriceColumn]
+            const filteredColumns = baseColumns.filter(col => allowedColumns.includes(col.data as string))
+            console.log("Filtered columns:", filteredColumns.map(col => col.data))
+            return filteredColumns
+        }
+
+        console.log("Showing all columns for user role:", userInfo?.role)
+        // Add remaining columns with the same configuration for Admin and Nhân viên
         const buyPriceColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaMua")
         const finalPriceColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaCuoi")
         const profitColumn = getPriceColumnData(selectedPriceType, selectedBrand, "loiNhuan")
@@ -994,18 +1028,29 @@ export default function PageBody() {
 
     // Add a custom renderer for the HotTable to handle clickable File NCC and Group NCC cells
     const renderHotTable = (data: SiteData[], columns: any[], tableKey: string) => {
+        console.log("renderHotTable called with:", {
+            dataLength: data?.length,
+            tableKey,
+            userRole: userInfo?.role,
+            isRestricted: userInfo?.role !== "Admin" && userInfo?.role !== "Nhân viên"
+        })
+
         if (!data || data.length === 0) return null
 
         // Add summary row at the beginning
         const summaryRow = calculateSummary(data)
         const dataWithSummary = summaryRow ? [summaryRow, ...data] : [...data]
 
+        // Generate columns here instead of passing them as parameter
+        const generatedColumns = generateColumns()
+        console.log("Generated columns:", generatedColumns.map(col => col.data))
+
         return (
             <div className="overflow-x-auto w-full max-w-8xl">
                 <HotTable
                     key={`${tableKey}-${selectedCurrency}`}
                     data={dataWithSummary}
-                    columns={columns.map((col) => ({
+                    columns={generatedColumns.map((col) => ({
                         data: col.data,
                         title: col.title,
                         type: "text",
@@ -1021,12 +1066,7 @@ export default function PageBody() {
                     autoWrapRow={true}
                     rowHeaders={false}
                     colHeaders={true}
-                    // Use Handsontable's built-in context menu plugin
-                    // contextMenu={true}
-                    // Use Handsontable's built-in copy/paste plugin
                     copyPaste={true}
-                    // filters={true}
-                    // dropdownMenu={true}
                     columnSorting={true}
                     manualColumnResize={true}
                     manualRowResize={true}
@@ -1456,8 +1496,7 @@ export default function PageBody() {
                                                     <Inbox className="h-4 w-4 text-white" />
                                                 </div>
                                                 <h3 className="text-lg font-500 text-blue-700 mb-1">
-                                                    Kết quả tìm kiếm ({filteredData.length} kết quả - {getValidNCCsCount(filteredData)} có
-                                                    IdGroup)
+                                                    Kết quả tìm kiếm
                                                 </h3>
                                             </div>
 
@@ -1586,7 +1625,7 @@ export default function PageBody() {
                             {/* Main Results Table */}
                             {renderHotTable(
                                 filteredData,
-                                generateColumns(),
+                                [], // Remove columns parameter since we generate them inside renderHotTable
                                 `main-${selectedPriceType}-${selectedBrand}-${selectedSearchType}`,
                             )}
 
@@ -1611,7 +1650,7 @@ export default function PageBody() {
                                     </div>
                                     {renderHotTable(
                                         Object.values(duplicateSites).flat(),
-                                        generateColumns(),
+                                        [], // Remove columns parameter since we generate them inside renderHotTable
                                         `duplicates-${selectedPriceType}-${selectedBrand}-${selectedSearchType}`,
                                     )}
                                 </div>
