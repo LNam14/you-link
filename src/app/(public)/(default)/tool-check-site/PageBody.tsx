@@ -1,9 +1,9 @@
 "use client"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import sheetApiRequest from "@/apiRequests/sheet"
 import "./custom-table.css"
 import getUserInfo from "@/components/userInfo"
-import { HotTable } from "@handsontable/react-wrapper"
+import { HotTable, HotTableRef } from "@handsontable/react-wrapper"
 import type Handsontable from "handsontable"
 import "handsontable/styles/handsontable.css"
 import "handsontable/styles/ht-theme-main.css"
@@ -108,6 +108,7 @@ export default function PageBody() {
     const [selectedNCCs, setSelectedNCCs] = useState<Set<string>>(new Set())
     const [nccList, setNccList] = useState<Array<{ id: string; name: string }>>([])
     const [showDuplicates, setShowDuplicates] = useState(true)
+    const hotTableRef = useRef<HotTableRef>(null); // Add useRef for HotTable instance
 
     const fetchData = async () => {
         try {
@@ -170,12 +171,8 @@ export default function PageBody() {
                     const normalizedTerm = normalizeUrl(trimmedTerm)
                     if (!normalizedTerm) continue
 
-                    // Exact match or contains match for normalized domains
-                    if (
-                        normalizedSite === normalizedTerm ||
-                        normalizedSite.includes(normalizedTerm) ||
-                        normalizedTerm.includes(normalizedSite)
-                    ) {
+                    // Exact match for normalized domains
+                    if (normalizedSite === normalizedTerm) {
                         return normalizedSite
                     }
                 }
@@ -255,29 +252,48 @@ export default function PageBody() {
                 return
             }
 
-            // Group items by normalized search field to find duplicates
-            const itemGroups: { [key: string]: SiteData[] } = {}
+            // First, filter items based on search type
             const matchedItems: SiteData[] = []
-            const matchedOrder: { [key: string]: number } = {} // Track the order of matches
-
             allData.forEach((item) => {
-                const normalizedValue = itemMatchesSearch(item, validTerms)
-                if (normalizedValue) {
-                    if (!itemGroups[normalizedValue]) {
-                        itemGroups[normalizedValue] = []
-                    }
-                    itemGroups[normalizedValue].push(item)
-                    matchedItems.push(item)
+                const searchField = selectedSearchType === "Site" ? item.site : item.MaNCC
+                if (!searchField) return
 
-                    // Find which search term matched first
-                    const matchedTermIndex = validTerms.findIndex(term => {
+                if (selectedSearchType === "Site") {
+                    const normalizedSite = normalizeUrl(searchField)
+                    if (!normalizedSite) return
+
+                    for (const term of validTerms) {
                         const normalizedTerm = normalizeUrl(term)
-                        return normalizedValue === normalizedTerm ||
-                            normalizedValue.includes(normalizedTerm) ||
-                            normalizedTerm.includes(normalizedValue)
-                    })
-                    matchedOrder[normalizedValue] = matchedTermIndex
+                        if (!normalizedTerm) continue
+
+                        if (normalizedSite === normalizedTerm) {
+                            matchedItems.push(item)
+                            break
+                        }
+                    }
+                } else {
+                    // For NCC search
+                    const normalizedMaNCC = searchField.toLowerCase().trim()
+                    for (const term of validTerms) {
+                        const normalizedTerm = term.toLowerCase()
+                        if (normalizedMaNCC === normalizedTerm || normalizedMaNCC.startsWith(normalizedTerm)) {
+                            matchedItems.push(item)
+                            break
+                        }
+                    }
                 }
+            })
+
+            // Then, group matched items by site domain for duplicate detection
+            const itemGroups: { [key: string]: SiteData[] } = {}
+            matchedItems.forEach((item) => {
+                const normalizedSite = normalizeUrl(item.site)
+                if (!normalizedSite) return
+
+                if (!itemGroups[normalizedSite]) {
+                    itemGroups[normalizedSite] = []
+                }
+                itemGroups[normalizedSite].push(item)
             })
 
             // Process duplicate items
@@ -286,7 +302,15 @@ export default function PageBody() {
 
             // Sort the normalized values based on search term order
             const sortedNormalizedValues = Object.keys(itemGroups).sort((a, b) => {
-                return (matchedOrder[a] ?? Infinity) - (matchedOrder[b] ?? Infinity)
+                const matchedTermIndexA = validTerms.findIndex(term => {
+                    const normalizedTerm = normalizeUrl(term)
+                    return a === normalizedTerm || a.includes(normalizedTerm) || normalizedTerm.includes(a)
+                })
+                const matchedTermIndexB = validTerms.findIndex(term => {
+                    const normalizedTerm = normalizeUrl(term)
+                    return b === normalizedTerm || b.includes(normalizedTerm) || normalizedTerm.includes(b)
+                })
+                return (matchedTermIndexA ?? Infinity) - (matchedTermIndexB ?? Infinity)
             })
 
             sortedNormalizedValues.forEach((normalizedValue) => {
@@ -327,14 +351,46 @@ export default function PageBody() {
             setFilteredData(mainItems)
             setDuplicateSites(duplicates)
             setHasSearched(true)
+
+            // Add currency conversion AFTER filtering and splitting main/duplicates
+            const applyCurrencyConversion = (dataToConvert: SiteData[]): SiteData[] => {
+                return dataToConvert.map(item => {
+                    const newItem = { ...item }
+
+                    // Determine the correct 'Giá Bán' field based on selectedPriceType and selectedBrand
+                    const sellPriceField = getPriceColumnData(selectedPriceType, selectedBrand, "giaBan")
+
+                    // Convert 'Giá Bán' to VND if selected currency is VND AND it's a valid number
+                    if (selectedCurrency === "VND") {
+                        const originalSellPrice = newItem[sellPriceField as keyof SiteData]?.toString() || ""
+                        const numericSellPrice = Number.parseFloat(originalSellPrice)
+
+                        if (!isNaN(numericSellPrice)) {
+                            newItem[sellPriceField as keyof SiteData] = (numericSellPrice * 26).toString()
+                        }
+                    }
+
+                    return newItem
+                })
+            }
+
+            // Apply conversion to filteredData
+            setFilteredData(applyCurrencyConversion(mainItems))
         }, 300),
-        [allData, itemMatchesSearch, selectedSearchType],
+        [allData, selectedSearchType, selectedCurrency, selectedBrand],
     )
 
     // Update search when input changes or search type changes
     useEffect(() => {
         handleSearch(searchTerm)
     }, [searchTerm, handleSearch, selectedSearchType])
+
+    // Update data when currency or brand changes
+    useEffect(() => {
+        if (hasSearched) { // Only re-apply conversion if a search has already been performed
+            handleSearch(searchTerm); // Re-run search logic to apply conversion
+        }
+    }, [selectedCurrency, selectedBrand, hasSearched, searchTerm, handleSearch]); // Added hasSearched, searchTerm, handleSearch to dependencies
 
     const handlePriceTypeChange = (priceType: PriceType) => {
         setSelectedPriceType(priceType)
@@ -380,15 +436,17 @@ export default function PageBody() {
             td.style.whiteSpace = "nowrap"
             td.style.overflow = "hidden"
             td.style.textOverflow = "ellipsis"
-            td.style.textAlign = "end"
+            td.style.textAlign = "center"
+
+            let displayValue = value || ""
+
             // Make summary row values red
             if (row === 0) {
                 td.style.color = "red"
-                td.style.fontWeight = "500"
             }
 
-            td.title = value || ""
-            td.textContent = value || ""
+            td.title = displayValue
+            td.textContent = displayValue
             return td
         }) as RendererFunction
     }
@@ -403,7 +461,7 @@ export default function PageBody() {
                 title: "CS",
                 data: "cs",
                 width: 40,
-                className: "htMiddle",
+                className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
                     td: HTMLTableCellElement,
@@ -416,6 +474,7 @@ export default function PageBody() {
                     td.style.whiteSpace = "nowrap"
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
                     td.title = value || ""
                     td.textContent = value || ""
                     return td
@@ -425,7 +484,7 @@ export default function PageBody() {
                 title: "Tình Trạng",
                 data: "tinhTrang",
                 width: 95,
-                className: "htMiddle",
+                className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
                     td: HTMLTableCellElement,
@@ -438,6 +497,7 @@ export default function PageBody() {
                     td.style.whiteSpace = "nowrap"
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
                     td.title = value || ""
                     td.textContent = value || ""
                     return td
@@ -447,7 +507,7 @@ export default function PageBody() {
                 title: "Bóng",
                 data: "bong",
                 width: 50,
-                className: "htMiddle",
+                className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
                     td: HTMLTableCellElement,
@@ -460,6 +520,7 @@ export default function PageBody() {
                     td.style.whiteSpace = "nowrap"
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
                     td.title = value || ""
                     td.textContent = value || ""
                     return td
@@ -469,7 +530,7 @@ export default function PageBody() {
                 title: "BET",
                 data: "bet",
                 width: 40,
-                className: "htMiddle",
+                className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
                     td: HTMLTableCellElement,
@@ -482,6 +543,7 @@ export default function PageBody() {
                     td.style.whiteSpace = "nowrap"
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
                     td.title = value || ""
                     td.textContent = value || ""
                     return td
@@ -491,7 +553,7 @@ export default function PageBody() {
                 title: "Site",
                 data: "site",
                 width: 120,
-                className: "htMiddle",
+                className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
                     td: HTMLTableCellElement,
@@ -504,6 +566,7 @@ export default function PageBody() {
                     td.style.whiteSpace = "nowrap"
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
                     td.title = value || ""
                     td.textContent = value || ""
                     return td
@@ -513,7 +576,7 @@ export default function PageBody() {
                 title: "Chủ đề",
                 data: "chuDe",
                 width: 95,
-                className: "htMiddle",
+                className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
                     td: HTMLTableCellElement,
@@ -526,6 +589,7 @@ export default function PageBody() {
                     td.style.whiteSpace = "nowrap"
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
                     td.title = value || ""
                     td.textContent = value || ""
                     return td
@@ -535,7 +599,7 @@ export default function PageBody() {
                 title: "DR",
                 data: "DR",
                 width: 40,
-                className: "htMiddle",
+                className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
                     td: HTMLTableCellElement,
@@ -548,6 +612,7 @@ export default function PageBody() {
                     td.style.whiteSpace = "nowrap"
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
                     td.title = value || ""
                     td.textContent = value || ""
                     return td
@@ -557,7 +622,7 @@ export default function PageBody() {
                 title: "Traffic",
                 data: "trafficTool",
                 width: 80,
-                className: "htMiddle",
+                className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
                     td: HTMLTableCellElement,
@@ -570,6 +635,7 @@ export default function PageBody() {
                     td.style.whiteSpace = "nowrap"
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
                     td.title = value || ""
                     td.textContent = value || ""
                     return td
@@ -579,7 +645,7 @@ export default function PageBody() {
                 title: "Ghi Chú",
                 data: "ghiChu",
                 width: 100,
-                className: "htMiddle",
+                className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
                     td: HTMLTableCellElement,
@@ -592,11 +658,11 @@ export default function PageBody() {
                     td.style.whiteSpace = "nowrap"
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
 
                     // Make "Tổng" text red in summary row
                     if (row === 0 && value === "Tổng") {
                         td.style.color = "red"
-                        td.style.fontWeight = "500"
                     }
 
                     td.title = value || ""
@@ -683,6 +749,7 @@ export default function PageBody() {
                     td.style.textOverflow = "ellipsis"
                     td.title = value || ""
                     td.textContent = value || ""
+                    td.style.textAlign = "center"
                     return td
                 }) as RendererFunction,
             },
@@ -705,6 +772,7 @@ export default function PageBody() {
                     td.style.textOverflow = "ellipsis"
                     td.title = value || ""
                     td.textContent = value || ""
+                    td.style.textAlign = "center"
                     return td
                 }) as RendererFunction,
             },
@@ -727,6 +795,7 @@ export default function PageBody() {
                     td.style.textOverflow = "ellipsis"
                     td.title = value || ""
                     td.textContent = value || ""
+                    td.style.textAlign = "center"
                     return td
                 }) as RendererFunction,
             },
@@ -748,6 +817,7 @@ export default function PageBody() {
                     td.style.whiteSpace = "nowrap"
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
 
                     // Check if this is the summary row (first row)
                     const isSummaryRow = row === 0
@@ -755,35 +825,46 @@ export default function PageBody() {
                     if (isSummaryRow) {
                         // For summary row, make text red and 500
                         td.style.color = "red"
-                        td.style.fontWeight = "500"
 
                         // If there are file URLs in the summary row, make them clickable
                         const fileUrls = (cellProperties?.instance?.getSourceDataAtRow(row) as any)?._fileUrls
                         if (fileUrls && fileUrls.length > 0) {
-                            td.innerHTML = `<a href="#" class="file-link" style="color: red; font-weight: 500; text-decoration: underline;">${value}</a>`
                             td.onclick = (e: MouseEvent) => {
                                 e.preventDefault()
                                 fileUrls.forEach((url: string) => {
                                     window.open(url, "_blank")
                                 })
                             }
+                            // Set textContent for copying
+                            td.textContent = `File (${fileUrls.length})`
                         } else {
                             td.textContent = "No"
+                            td.style.color = "#999"
                         }
                     } else {
                         // For regular rows
                         if (Array.isArray(value) && value.length > 0) {
                             // Handle array of files
-                            const links = value
-                                .map(
-                                    (url: string, index: number) =>
-                                        `<a href="${url}" target="_blank" style="color: blue; text-decoration: underline;">File${value.length > 1 ? ` ${index + 1}` : ""}</a>`,
-                                )
-                                .join(", ")
-                            td.innerHTML = links
-                        } else if (value && typeof value === "string" && value.trim() !== "") {
+                            td.onclick = (e: MouseEvent) => {
+                                e.preventDefault()
+                                value.forEach((url: string) => {
+                                    window.open(url, "_blank")
+                                })
+                            }
+                            td.style.color = "#2563EB"
+                            td.style.textDecoration = "underline"
+                            td.style.cursor = "pointer"
+                            td.textContent = "File"
+                        } else if (value && typeof value === "string" && value.trim() !== "" && value !== "No") {
                             // Handle single file
-                            td.innerHTML = `<a href="${value}" target="_blank" style="color: blue; text-decoration: underline;">File</a>`
+                            td.onclick = (e: MouseEvent) => {
+                                e.preventDefault()
+                                window.open(value, "_blank")
+                            }
+                            td.style.color = "#2563EB"
+                            td.style.textDecoration = "underline"
+                            td.style.cursor = "pointer"
+                            td.textContent = "File"
                         } else {
                             td.textContent = "No"
                             td.style.color = "#999" // Gray color for "No" text
@@ -812,6 +893,7 @@ export default function PageBody() {
                     td.style.whiteSpace = "nowrap"
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
 
                     // Check if this is the summary row (first row)
                     const isSummaryRow = row === 0
@@ -819,42 +901,55 @@ export default function PageBody() {
                     if (isSummaryRow) {
                         // For summary row, make text red and 500
                         td.style.color = "red"
-                        td.style.fontWeight = "500"
 
                         // If there are group URLs in the summary row, make them clickable
                         const groupUrls = (cellProperties?.instance?.getSourceDataAtRow(row) as any)?._groupUrls
                         if (groupUrls && groupUrls.length > 0) {
-                            td.innerHTML = `<a href="#" class="group-link" style="color: red; font-weight: 500; text-decoration: underline;">${value}</a>`
                             td.onclick = (e: MouseEvent) => {
                                 e.preventDefault()
                                 groupUrls.forEach((url: string) => {
                                     window.open(url, "_blank")
                                 })
                             }
+                            // Set textContent for copying
+                            td.textContent = `Group (${groupUrls.length})`
                         } else {
-                            td.textContent = "No Group"
+                            td.textContent = "No"
+                            td.style.color = "#999"
                         }
                     } else {
                         // For regular rows
                         if (Array.isArray(value) && value.length > 0) {
                             // Handle array of groups
-                            const links = value
-                                .map(
-                                    (url: string, index: number) =>
-                                        `<a href="${url}" target="_blank" style="color: blue; text-decoration: underline;">Group${value.length > 1 ? ` ${index + 1}` : ""}</a>`,
-                                )
-                                .join(", ")
-                            td.innerHTML = links
-                        } else if (value && typeof value === "string" && value.trim() !== "") {
+                            td.onclick = (e: MouseEvent) => {
+                                e.preventDefault()
+                                value.forEach((url: string) => {
+                                    window.open(url, "_blank")
+                                })
+                            }
+                            // Set textContent for copying
+                            td.style.color = "#2563EB"
+                            td.style.textDecoration = "underline"
+                            td.style.cursor = "pointer"
+                            td.textContent = "Group"
+                        } else if (value && typeof value === "string" && value.trim() !== "" && value !== "No Group") {
                             // Handle single group
-                            td.innerHTML = `<a href="${value}" target="_blank" style="color: blue; text-decoration: underline;">Group</a>`
+                            td.onclick = (e: MouseEvent) => {
+                                e.preventDefault()
+                                window.open(value, "_blank")
+                            }
+                            // Set textContent for copying
+                            td.style.color = "#2563EB"
+                            td.style.textDecoration = "underline"
+                            td.style.cursor = "pointer"
+                            td.textContent = "Group"
                         } else {
-                            td.textContent = "No Group"
-                            td.style.color = "#999" // Gray color for "No Group" text
+                            td.textContent = "No"
+                            td.style.color = "#999" // Gray color for "No" text
                         }
                     }
 
-                    td.title = value || "No Group"
+                    td.title = value || "No"
                     return td
                 }) as RendererFunction,
             },
@@ -877,6 +972,7 @@ export default function PageBody() {
                     td.style.textOverflow = "ellipsis"
                     td.title = value || ""
                     td.textContent = value || ""
+                    td.style.textAlign = "center"
                     return td
                 }) as RendererFunction,
             },
@@ -967,28 +1063,21 @@ export default function PageBody() {
             const giaCuoiValue = getNumericValue(item[giaCuoiColumn as keyof SiteData])
             const loiNhuanValue = getNumericValue(item[loiNhuanColumn as keyof SiteData])
 
-            // Apply currency conversion if VND is selected
-            const convertedGiaBan = selectedCurrency === "VND" ? giaBanValue * 26 : giaBanValue
-            const convertedGiaMua = selectedCurrency === "VND" ? giaMuaValue * 26 : giaMuaValue
-            const convertedHoaHong = selectedCurrency === "VND" ? hoaHongValue * 26 : hoaHongValue
-            const convertedGiaCuoi = selectedCurrency === "VND" ? giaCuoiValue * 26 : giaCuoiValue
-            const convertedLoiNhuan = selectedCurrency === "VND" ? loiNhuanValue * 26 : loiNhuanValue
-
             // Update summary using the correct columns for the selected type
             summary[giaBanColumn as keyof SiteData] = (
-                Number.parseFloat(summary[giaBanColumn as keyof SiteData]?.toString() || "0") + convertedGiaBan
+                Number.parseFloat(summary[giaBanColumn as keyof SiteData]?.toString() || "0") + giaBanValue
             ).toString()
             summary[giaMuaColumn as keyof SiteData] = (
-                Number.parseFloat(summary[giaMuaColumn as keyof SiteData]?.toString() || "0") + convertedGiaMua
+                Number.parseFloat(summary[giaMuaColumn as keyof SiteData]?.toString() || "0") + giaMuaValue
             ).toString()
             summary[hoaHongColumn as keyof SiteData] = (
-                Number.parseFloat(summary[hoaHongColumn as keyof SiteData]?.toString() || "0") + convertedHoaHong
+                Number.parseFloat(summary[hoaHongColumn as keyof SiteData]?.toString() || "0") + hoaHongValue
             ).toString()
             summary[giaCuoiColumn as keyof SiteData] = (
-                Number.parseFloat(summary[giaCuoiColumn as keyof SiteData]?.toString() || "0") + convertedGiaCuoi
+                Number.parseFloat(summary[giaCuoiColumn as keyof SiteData]?.toString() || "0") + giaCuoiValue
             ).toString()
             summary[loiNhuanColumn as keyof SiteData] = (
-                Number.parseFloat(summary[loiNhuanColumn as keyof SiteData]?.toString() || "0") + convertedLoiNhuan
+                Number.parseFloat(summary[loiNhuanColumn as keyof SiteData]?.toString() || "0") + loiNhuanValue
             ).toString()
 
             // Collect file URLs
@@ -1026,8 +1115,78 @@ export default function PageBody() {
         return data.filter((item) => item.IdGroup && item.IdGroup.trim() !== "").length
     }
 
-    // Add a custom renderer for the HotTable to handle clickable File NCC and Group NCC cells
-    const renderHotTable = (data: SiteData[], columns: any[], tableKey: string) => {
+    // Add the beforeCopy handler function using useCallback
+    const handleBeforeCopy = useCallback((data: string[][], coords: any[], copiedHeadersCount: { columnHeadersCount: number }): boolean | void => { // Corrected type and name of the third parameter
+        const hotInstance = hotTableRef.current?.hotInstance; // Access instance via ref
+        if (!hotInstance) {
+            console.warn("Handsontable instance not found for copy.");
+            return; // Let default behavior happen if instance not found
+        }
+
+        const selected = hotInstance.getSelected(); // Get selected ranges
+        if (!selected || selected.length === 0) {
+            console.warn("No selection found for copy.");
+            return; // No selection, let default behavior happen
+        }
+
+        // Calculate the overall bounding box of the selection
+        let minRow = Infinity, minCol = Infinity, maxRow = -Infinity, maxCol = -Infinity;
+        selected.forEach(range => {
+            const [startRow, startCol, endRow, endCol] = range;
+            minRow = Math.min(minRow, startRow, endRow);
+            minCol = Math.min(minCol, startCol, endCol);
+            maxRow = Math.max(maxRow, startRow, endRow);
+            maxCol = Math.max(maxCol, startCol, endCol);
+        });
+
+        const numRows = maxRow - minRow + 1;
+        const numCols = maxCol - minCol + 1;
+
+        // Initialize a 2D array with empty strings
+        let copiedDataArray: string[][] = Array.from({ length: numRows }, () => Array(numCols).fill(''));
+
+        // Populate the 2D array with data from selected ranges
+        selected.forEach(range => {
+            const [startRow, startCol, endRow, endCol] = range;
+            const rowStart = Math.min(startRow, endRow);
+            const rowEnd = Math.max(startRow, endRow);
+            const colStart = Math.min(startCol, endCol);
+            const colEnd = Math.max(colStart, endCol);
+
+            for (let r = rowStart; r <= rowEnd; r++) {
+                for (let c = colStart; c <= colEnd; c++) {
+                    // Get the rendered value from the cell element's textContent
+                    const cellElement = hotInstance.getCell(r, c);
+                    const cellValue = cellElement ? cellElement.textContent || '' : '';
+                    // Place the value in the correct position relative to the bounding box
+                    copiedDataArray[r - minRow][c - minCol] = cellValue;
+                }
+            }
+        });
+
+        // Format the 2D array into a tab-separated string
+        const finalData = copiedDataArray.map(row => row.join('\t')).join('\n');
+
+
+        // Set the data to be copied to the clipboard using the Clipboard API
+        navigator.clipboard.writeText(finalData)
+            .then(() => {
+                console.log('Custom data copied to clipboard successfully.');
+            })
+            .catch(err => {
+                console.error('Failed to copy custom data to clipboard: ', err);
+                // If custom copy fails, allow Handsontable's default copy as a fallback
+                // Returning true here might still lead to the original issue for multiple selections,
+                // but it prevents a complete failure to copy anything.
+                return true;
+            });
+
+        // Prevent Handsontable's default copy behavior since we handled it
+        return false;
+    }, [hotTableRef]); // Add hotTableRef to dependencies
+
+    // Modify renderHotTable to pass the ref and the beforeCopy prop
+    const renderHotTable = (data: SiteData[], tableKey: string) => { // Removed columns parameter as they are generated
         console.log("renderHotTable called with:", {
             dataLength: data?.length,
             tableKey,
@@ -1041,13 +1200,14 @@ export default function PageBody() {
         const summaryRow = calculateSummary(data)
         const dataWithSummary = summaryRow ? [summaryRow, ...data] : [...data]
 
-        // Generate columns here instead of passing them as parameter
+        // Generate columns here
         const generatedColumns = generateColumns()
         console.log("Generated columns:", generatedColumns.map(col => col.data))
 
         return (
             <div className="overflow-x-auto w-full max-w-8xl">
                 <HotTable
+                    ref={hotTableRef} // Assign the ref
                     key={`${tableKey}-${selectedCurrency}`}
                     data={dataWithSummary}
                     columns={generatedColumns.map((col) => ({
@@ -1066,15 +1226,17 @@ export default function PageBody() {
                     autoWrapRow={true}
                     rowHeaders={false}
                     colHeaders={true}
-                    copyPaste={true}
+                    copyPaste={true} // Keep this true to enable the feature
                     columnSorting={true}
                     manualColumnResize={true}
                     manualRowResize={true}
-                    className="custom-table"
+                    className="custom-table" // Keep className for querySelector fallback (less reliable)
                     themeName="ht-theme-main"
                     outsideClickDeselects={false}
                     fillHandle={false}
                     selectionMode="multiple"
+                    // Pass beforeCopy directly as a prop
+                    beforeCopy={handleBeforeCopy}
                 />
             </div>
         )
@@ -1121,9 +1283,7 @@ export default function PageBody() {
                 alert(`Đang gửi tin nhắn cho ${uniqueIdGroups.size} NCC...`)
 
                 const successfulSends: string[] = []
-                const errors: string[] = []
-
-                // Updated bot token
+                const errors: string[] = [] // Declare errors array
                 const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
 
                 // Send message to Telegram
@@ -1137,14 +1297,14 @@ export default function PageBody() {
 
                         console.log("Sending message to chat ID:", chatId)
                         const res = await fetch(`${url}?${params.toString()}`)
-                        const responseData = await res.json()
+                        const responseData = await res.json() // Declare responseData
 
                         if (responseData.ok) {
                             successfulSends.push(chatId)
                         } else {
                             errors.push(`Failed to send to ${chatId}: ${responseData.description}`)
                         }
-                    } catch (error) {
+                    } catch (error: any) { // Add type annotation for error
                         console.error("Error sending message:", error)
                         errors.push(`Failed to send to ${chatId}: Unknown error`)
                     }
@@ -1162,7 +1322,7 @@ export default function PageBody() {
                 setShowDirectMessageModal(false)
                 setDirectMessage("")
             }
-        } catch (error) {
+        } catch (error: any) { // Add type annotation for error
             console.error("Error:", error)
             alert("Có lỗi xảy ra khi gửi tin nhắn")
         } finally {
@@ -1625,7 +1785,6 @@ export default function PageBody() {
                             {/* Main Results Table */}
                             {renderHotTable(
                                 filteredData,
-                                [], // Remove columns parameter since we generate them inside renderHotTable
                                 `main-${selectedPriceType}-${selectedBrand}-${selectedSearchType}`,
                             )}
 
@@ -1650,7 +1809,6 @@ export default function PageBody() {
                                     </div>
                                     {renderHotTable(
                                         Object.values(duplicateSites).flat(),
-                                        [], // Remove columns parameter since we generate them inside renderHotTable
                                         `duplicates-${selectedPriceType}-${selectedBrand}-${selectedSearchType}`,
                                     )}
                                 </div>
