@@ -108,7 +108,35 @@ export default function PageBody() {
     const [selectedNCCs, setSelectedNCCs] = useState<Set<string>>(new Set())
     const [nccList, setNccList] = useState<Array<{ id: string; name: string }>>([])
     const [showDuplicates, setShowDuplicates] = useState(true)
-    const hotTableRef = useRef<HotTableRef>(null); // Add useRef for HotTable instance
+    const mainTableRef = useRef<HotTableRef>(null)
+    const duplicatesTableRef = useRef<HotTableRef>(null)
+
+    // Add click outside handler
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as HTMLElement
+            const isClickInsideTable = target.closest('.handsontable')
+
+            if (!isClickInsideTable) {
+                // Clear selection for main table
+                const mainTableInstance = mainTableRef.current?.hotInstance
+                if (mainTableInstance) {
+                    mainTableInstance.deselectCell()
+                }
+
+                // Clear selection for duplicates table
+                const duplicatesTableInstance = duplicatesTableRef.current?.hotInstance
+                if (duplicatesTableInstance) {
+                    duplicatesTableInstance.deselectCell()
+                }
+            }
+        }
+
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+        }
+    }, [])
 
     const fetchData = async () => {
         try {
@@ -230,30 +258,41 @@ export default function PageBody() {
                 return
             }
 
-            // Validate search terms based on search type
+            // Validate and filter search terms based on search type
             let validTerms: string[] = []
 
             if (selectedSearchType === "Site") {
-                // For site search, accept any non-empty term
-                validTerms = searchTerms.filter((term) => term.trim().length > 0)
+                // For site search, only accept terms that could be valid domains
+                // This regex checks for basic domain-like patterns
+                const domainPattern = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$|^(?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+$/
+                validTerms = searchTerms.filter(term => {
+                    const trimmed = term.trim().toLowerCase()
+                    // Remove protocol and www if present for validation
+                    const cleanTerm = trimmed.replace(/^(?:https?:\/\/)?(?:www\.)?/, '')
+                    return domainPattern.test(cleanTerm)
+                })
             } else {
-                // For NCC search, only accept terms starting with "N"
-                validTerms = searchTerms.filter((term) => {
+                // For NCC search, only accept terms starting with "N" followed by numbers
+                const nccPattern = /^N\d+$/i
+                validTerms = searchTerms.filter(term => {
                     const trimmed = term.trim()
-                    return trimmed.length > 0 && trimmed.toLowerCase().startsWith("n")
+                    return nccPattern.test(trimmed)
                 })
             }
 
-            // If no valid terms, don't search
+            // If no valid terms after filtering, clear results
             if (validTerms.length === 0) {
                 setFilteredData([])
                 setDuplicateSites({})
-                setHasSearched(false)
+                setHasSearched(true) // Set to true to show "no results" message
                 return
             }
 
-            // First, filter items based on search type
+            // Continue with the existing search logic using only valid terms
             const matchedItems: SiteData[] = []
+            const processedDomains = new Set<string>() // Track which domains we've processed
+
+            // First, find all matching items from existing data
             allData.forEach((item) => {
                 const searchField = selectedSearchType === "Site" ? item.site : item.MaNCC
                 if (!searchField) return
@@ -268,6 +307,7 @@ export default function PageBody() {
 
                         if (normalizedSite === normalizedTerm) {
                             matchedItems.push(item)
+                            processedDomains.add(normalizedTerm) // Mark this domain as processed
                             break
                         }
                     }
@@ -283,6 +323,60 @@ export default function PageBody() {
                     }
                 }
             })
+
+            // For site search, add non-existent domains as empty items
+            if (selectedSearchType === "Site") {
+                validTerms.forEach(term => {
+                    const normalizedTerm = normalizeUrl(term)
+                    if (!normalizedTerm || processedDomains.has(normalizedTerm)) return
+
+                    // Create an empty item with just the site field
+                    const emptyItem: SiteData = {
+                        cs: "",
+                        tinhTrang: "",
+                        site: term.trim(), // Use the original term to preserve format
+                        bong: "",
+                        bet: "",
+                        chuDe: "",
+                        DR: "",
+                        trafficTool: "",
+                        ghiChu: "",
+                        giaBanGP: "",
+                        giaBanText: "",
+                        giaBanTextHome: "",
+                        giaBanTextHeader: "",
+                        giaBanGPLio: "",
+                        giaBanTextLio: "",
+                        giaBanTextHomeLio: "",
+                        giaBanTextHeaderLio: "",
+                        giaMuaGP: "",
+                        giaMuaText: "",
+                        giaMuaTextHome: "",
+                        giaMuaTextHeader: "",
+                        hoaHongGP: "",
+                        hoaHongText: "",
+                        giaCuoiGP: "",
+                        giaCuoiText: "",
+                        giaCuoiTextHome: "",
+                        giaCuoiTextHeader: "",
+                        loiNhuanGP: "",
+                        loiNhuanText: "",
+                        loiNhuanTextHome: "",
+                        loiNhuanTextHeader: "",
+                        loiNhuanGPLio: "",
+                        loiNhuanTextLio: "",
+                        loiNhuanTextHomeLio: "",
+                        loiNhuanTextHeaderLio: "",
+                        NCC: "",
+                        MaNCC: "",
+                        FileNCC: "",
+                        GroupNCC: "",
+                        GhiChuNCC: "",
+                        timeText: "",
+                    }
+                    matchedItems.push(emptyItem)
+                })
+            }
 
             // Then, group matched items by site domain for duplicate detection
             const itemGroups: { [key: string]: SiteData[] } = {}
@@ -357,16 +451,15 @@ export default function PageBody() {
                 return dataToConvert.map(item => {
                     const newItem = { ...item }
 
-                    // Determine the correct 'Giá Bán' field based on selectedPriceType and selectedBrand
+                    // Only determine the sell price field (Giá Bán)
                     const sellPriceField = getPriceColumnData(selectedPriceType, selectedBrand, "giaBan")
 
-                    // Convert 'Giá Bán' to VND if selected currency is VND AND it's a valid number
+                    // Convert only 'Giá Bán' to VND if selected currency is VND
                     if (selectedCurrency === "VND") {
-                        const originalSellPrice = newItem[sellPriceField as keyof SiteData]?.toString() || ""
-                        const numericSellPrice = Number.parseFloat(originalSellPrice)
-
-                        if (!isNaN(numericSellPrice)) {
-                            newItem[sellPriceField as keyof SiteData] = (numericSellPrice * 26).toString()
+                        const value = newItem[sellPriceField as keyof SiteData]?.toString() || ""
+                        const numericValue = Number.parseFloat(value)
+                        if (!isNaN(numericValue)) {
+                            newItem[sellPriceField as keyof SiteData] = (numericValue * 26).toString()
                         }
                     }
 
@@ -374,8 +467,15 @@ export default function PageBody() {
                 })
             }
 
-            // Apply conversion to filteredData
+            // Apply conversion to both filteredData and duplicateSites
             setFilteredData(applyCurrencyConversion(mainItems))
+
+            // Convert duplicate sites
+            const convertedDuplicates: { [key: string]: SiteData[] } = {}
+            Object.entries(duplicates).forEach(([key, items]) => {
+                convertedDuplicates[key] = applyCurrencyConversion(items)
+            })
+            setDuplicateSites(convertedDuplicates)
         }, 300),
         [allData, selectedSearchType, selectedCurrency, selectedBrand],
     )
@@ -1015,8 +1115,6 @@ export default function PageBody() {
                 return type === "GP" ? "hoaHongGP" : "hoaHongText"
             }
 
-            // For all fields (giaBan, giaMua, giaCuoi, loiNhuan), use the selected type
-            // This ensures giaMua, giaCuoi, and loiNhuan change with the price type
             return `${fieldMap[field]}${typeSuffix[type]}${suffix}`
         }
 
@@ -1043,19 +1141,21 @@ export default function PageBody() {
         let fileUrls: string[] = []
         let groupUrls: string[] = []
 
+        // Helper function to check if a value is a pure number
+        const isPureNumber = (value: any): boolean => {
+            if (value === null || value === undefined) return false
+            const strValue = value.toString().trim()
+            // Check if the string is a valid number (integer or decimal)
+            return /^-?\d*\.?\d+$/.test(strValue)
+        }
+
+        // Helper function to safely parse numeric value
+        const getNumericValue = (value: any): number => {
+            if (!isPureNumber(value)) return 0
+            return Number.parseFloat(value.toString().trim())
+        }
+
         data.forEach((item) => {
-            // Extract numeric value from commission field, handling cases like "20 avc ngưng" or "30 + ngưng"
-            const getNumericValue = (value: any): number => {
-                // Convert value to string and handle null/undefined
-                const strValue = value?.toString() || ""
-                if (!strValue || strValue.trim() === "") return 0
-
-                // Split by '+' and take the first part, then extract the number
-                const firstPart = strValue.split("+")[0].trim()
-                const match = firstPart.match(/^\d+(\.\d+)?/)
-                return match ? Number.parseFloat(match[0]) : 0
-            }
-
             // Get values using the correct columns for the selected type
             const giaBanValue = getNumericValue(item[giaBanColumn as keyof SiteData])
             const giaMuaValue = getNumericValue(item[giaMuaColumn as keyof SiteData])
@@ -1116,17 +1216,21 @@ export default function PageBody() {
     }
 
     // Add the beforeCopy handler function using useCallback
-    const handleBeforeCopy = useCallback((data: string[][], coords: any[], copiedHeadersCount: { columnHeadersCount: number }): boolean | void => { // Corrected type and name of the third parameter
-        const hotInstance = hotTableRef.current?.hotInstance; // Access instance via ref
+    const handleBeforeCopy = useCallback((data: string[][], coords: any[], copiedHeadersCount: { columnHeadersCount: number }): boolean | void => {
+        // Try to get the instance from either table
+        const mainTableInstance = mainTableRef.current?.hotInstance
+        const duplicatesTableInstance = duplicatesTableRef.current?.hotInstance
+        const hotInstance = mainTableInstance || duplicatesTableInstance
+
         if (!hotInstance) {
-            console.warn("Handsontable instance not found for copy.");
-            return; // Let default behavior happen if instance not found
+            console.warn("Handsontable instance not found for copy.")
+            return
         }
 
-        const selected = hotInstance.getSelected(); // Get selected ranges
+        const selected = hotInstance.getSelected()
         if (!selected || selected.length === 0) {
-            console.warn("No selection found for copy.");
-            return; // No selection, let default behavior happen
+            console.warn("No selection found for copy.")
+            return
         }
 
         // Calculate the overall bounding box of the selection
@@ -1183,10 +1287,10 @@ export default function PageBody() {
 
         // Prevent Handsontable's default copy behavior since we handled it
         return false;
-    }, [hotTableRef]); // Add hotTableRef to dependencies
+    }, [mainTableRef, duplicatesTableRef]) // Update dependencies to include both refs
 
-    // Modify renderHotTable to pass the ref and the beforeCopy prop
-    const renderHotTable = (data: SiteData[], tableKey: string) => { // Removed columns parameter as they are generated
+    // Modify renderHotTable to accept a ref parameter
+    const renderHotTable = (data: SiteData[], tableKey: string, tableRef: React.RefObject<HotTableRef>) => {
         console.log("renderHotTable called with:", {
             dataLength: data?.length,
             tableKey,
@@ -1207,7 +1311,7 @@ export default function PageBody() {
         return (
             <div className="overflow-x-auto w-full max-w-8xl">
                 <HotTable
-                    ref={hotTableRef} // Assign the ref
+                    ref={tableRef}
                     key={`${tableKey}-${selectedCurrency}`}
                     data={dataWithSummary}
                     columns={generatedColumns.map((col) => ({
@@ -1226,16 +1330,15 @@ export default function PageBody() {
                     autoWrapRow={true}
                     rowHeaders={false}
                     colHeaders={true}
-                    copyPaste={true} // Keep this true to enable the feature
+                    copyPaste={true}
                     columnSorting={true}
                     manualColumnResize={true}
                     manualRowResize={true}
-                    className="custom-table" // Keep className for querySelector fallback (less reliable)
+                    className="custom-table"
                     themeName="ht-theme-main"
                     outsideClickDeselects={false}
                     fillHandle={false}
                     selectionMode="multiple"
-                    // Pass beforeCopy directly as a prop
                     beforeCopy={handleBeforeCopy}
                 />
             </div>
@@ -1786,6 +1889,7 @@ export default function PageBody() {
                             {renderHotTable(
                                 filteredData,
                                 `main-${selectedPriceType}-${selectedBrand}-${selectedSearchType}`,
+                                mainTableRef
                             )}
 
                             {/* Enhanced Duplicates Table */}
@@ -1810,6 +1914,7 @@ export default function PageBody() {
                                     {renderHotTable(
                                         Object.values(duplicateSites).flat(),
                                         `duplicates-${selectedPriceType}-${selectedBrand}-${selectedSearchType}`,
+                                        duplicatesTableRef
                                     )}
                                 </div>
                             )}
