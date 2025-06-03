@@ -51,13 +51,6 @@ interface CustomerData {
     noteKhac: string
 }
 
-// Add new type for API response
-interface CustomerApiResponse {
-    customers: ApiCustomerData[]
-    staffNames: string[]
-    teamNames: string[]
-}
-
 // Add utility functions before component
 const calculateDaysDifference = (checkDate: string) => {
     if (!checkDate) return ""
@@ -390,11 +383,8 @@ export default function AccountTracker() {
     const [tableData, setTableData] = useState<CustomerData[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [searchTerm, setSearchTerm] = useState("")
-    const [selectedTeam, setSelectedTeam] = useState("")
     const [showAddModal, setShowAddModal] = useState(false)
     const [numberOfRows, setNumberOfRows] = useState("")
-    const [staffNames, setStaffNames] = useState<string[]>([])
-    const [teamNames, setTeamNames] = useState<string[]>([])
     const hotTableRef = useRef<any>(null)
     const [showArrayFieldModal, setShowArrayFieldModal] = useState(false)
     const [arrayFieldModalData, setArrayFieldModalData] = useState<{
@@ -409,23 +399,19 @@ export default function AccountTracker() {
 
         try {
             setIsLoading(true)
-            const response = await customerApiRequest.get() as CustomerApiResponse
-            console.log("API Response:", response)
-
-            // Store staff and team names
-            setStaffNames(response.staffNames || [])
-            setTeamNames(response.teamNames || [])
+            const customers = await customerApiRequest.get()
+            console.log("API Response (customers):", customers)
 
             // Check if customers is an array before mapping
-            if (!Array.isArray(response.customers)) {
-                console.error("API did not return an array:", response.customers)
+            if (!Array.isArray(customers)) {
+                console.error("API did not return an array:", customers)
                 toast.error("Định dạng dữ liệu khách hàng không hợp lệ từ server")
                 setTableData([])
                 return
             }
 
             // Transform API data to match our table format
-            const transformedData = response.customers.map((customer) => ({
+            const transformedData = customers.map((customer) => ({
                 id: customer.id,
                 maMoi: customer.ma_moi,
                 phanLoai: customer.phan_loai,
@@ -501,50 +487,20 @@ export default function AccountTracker() {
         note_khac: data.noteKhac,
     })
 
-    // Update filtered data to always include team headers
-    const filteredData = (() => {
-        // First filter by search term
-        const searchFiltered = tableData.filter((row: CustomerData) => {
-            const searchFields = ["maMoi", "phanLoai", "cty", "ten", "nhom", "nguoiCham"] as const
-            return searchTerm === "" || searchFields.some((field) => {
+    // Filter data based on search term
+    const filteredData = tableData.filter((row: CustomerData) => {
+        const searchFields = ["maMoi", "phanLoai", "cty", "ten", "nhom", "nguoiCham"] as const
+        return (
+            searchTerm === "" ||
+            searchFields.some((field) => {
                 const value = row[field]
                 if (Array.isArray(value)) {
                     return value.some((item) => item.toLowerCase().includes(searchTerm.toLowerCase()))
                 }
                 return (value?.toString().toLowerCase() || "").includes(searchTerm.toLowerCase())
             })
-        })
-
-        // Always group by teams and add headers
-        const groupedData: (CustomerData | { isTeamHeader: true; nhom: string })[] = []
-
-        // If a specific team is selected, only show that team
-        if (selectedTeam !== "") {
-            groupedData.push({ isTeamHeader: true, nhom: selectedTeam })
-            const teamData = searchFiltered.filter(row => row.nhom === selectedTeam)
-            groupedData.push(...teamData)
-        } else {
-            // For "Tất cả Team", show all teams
-            const teams = [...new Set(searchFiltered.map(row => row.nhom).filter(Boolean))].sort()
-
-            teams.forEach(team => {
-                // Add team header
-                groupedData.push({ isTeamHeader: true, nhom: team })
-                // Add team's data
-                const teamData = searchFiltered.filter(row => row.nhom === team)
-                groupedData.push(...teamData)
-            })
-
-            // Add ungrouped data (rows without team) at the end
-            const ungroupedData = searchFiltered.filter(row => !row.nhom)
-            if (ungroupedData.length > 0) {
-                groupedData.push({ isTeamHeader: true, nhom: "Chưa phân nhóm" })
-                groupedData.push(...ungroupedData)
-            }
-        }
-
-        return groupedData
-    })()
+        )
+    })
 
     // Copy text to clipboard
     const copyToClipboard = (text: string) => {
@@ -580,197 +536,10 @@ export default function AccountTracker() {
                 value: any,
                 cellProperties: Handsontable.CellProperties,
             ) {
-                // Check if this is a team header row
-                const rowData = instance.getSourceDataAtRow(row)
-                if (rowData && 'isTeamHeader' in rowData) {
-                    // Style for team header
-                    td.style.backgroundColor = "#EFF6FF"
-                    td.style.color = "#1E40AF"
-                    td.style.fontWeight = "600"
-                    td.style.padding = "2px"
-                    td.style.borderBottom = "2px solid #93C5FD"
-                    td.style.borderTop = "2px solid #93C5FD"
-                    td.style.textAlign = "center"
-                    td.style.verticalAlign = "middle"
-                    // Only show team name in the first column
-                    if (col === 0) {
-                        td.textContent = rowData.nhom
-                        td.setAttribute('style', td.getAttribute('style') + '; font-size: 14px !important;')
-                        td.colSpan = instance.countCols()
-                    } else {
-                        td.textContent = ""
-                    }
-                    return
-                }
-
-                // For regular rows, allow editing based on the column
-                cellProperties.readOnly = ['nhom', 'nguoiCham', 'tinhTrang', 'congNo'].includes(prop as string)
-
-                // Regular cell rendering
                 Handsontable.renderers.TextRenderer.apply(this, [instance, td, row, col, prop, value, cellProperties])
                 td.style.textAlign = "center"
                 td.style.verticalAlign = "middle"
             },
-        }
-
-        // Format Team (nhom) column
-        if (prop === "nhom") {
-            cellProperties.renderer = (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: string,
-                cellProperties: Handsontable.CellProperties,
-            ) => {
-                const select = document.createElement("select")
-                select.style.width = "100%"
-                select.style.height = "100%"
-                select.style.padding = "4px 8px"
-                select.style.borderRadius = "4px"
-                select.style.border = "1px solid #E5E7EB"
-                select.style.backgroundColor = value ? "#EFF6FF" : "white"
-                select.style.color = value ? "#1E40AF" : "#6B7280"
-                select.style.cursor = "pointer"
-                select.style.textAlign = "center"
-                select.style.fontSize = "11px"
-                select.style.appearance = "none"
-                select.style.webkitAppearance = "none"
-                select.style.transition = "all 0.2s ease"
-                select.style.fontWeight = value ? "500" : "normal"
-                select.style.pointerEvents = "auto" // Ensure select is clickable
-
-                // Add empty option first
-                const emptyOption = document.createElement("option")
-                emptyOption.value = ""
-                emptyOption.textContent = "---"
-                select.appendChild(emptyOption)
-
-                // Add team options
-                teamNames.forEach((team) => {
-                    const option = document.createElement("option")
-                    option.value = team
-                    option.textContent = team
-                    if (value === team) {
-                        option.selected = true
-                    }
-                    select.appendChild(option)
-                })
-
-                // Prevent direct input
-                select.addEventListener("keydown", (e) => {
-                    e.preventDefault()
-                })
-
-                select.addEventListener("change", (e) => {
-                    const newValue = (e.target as HTMLSelectElement).value
-                    instance.setDataAtCell(row, col, newValue)
-                })
-
-                select.addEventListener("mouseover", () => {
-                    select.style.backgroundColor = value ? "#DBEAFE" : "#F9FAFB"
-                    select.style.borderColor = "#93C5FD"
-                })
-
-                select.addEventListener("mouseout", () => {
-                    select.style.backgroundColor = value ? "#EFF6FF" : "white"
-                    select.style.borderColor = "#E5E7EB"
-                })
-
-                if (safeClearElement(td)) {
-                    td.style.padding = "0"
-                    try {
-                        td.appendChild(select)
-                        td.style.textAlign = "center"
-                        td.style.verticalAlign = "middle"
-                        // Prevent cell editing
-                        td.contentEditable = "false"
-                    } catch (error) {
-                        console.warn("Failed to append select element:", error)
-                    }
-                }
-            }
-        }
-
-        // Format Bán Hàng (nguoiCham) column
-        if (prop === "nguoiCham") {
-            cellProperties.renderer = (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: string,
-                cellProperties: Handsontable.CellProperties,
-            ) => {
-                const select = document.createElement("select")
-                select.style.width = "100%"
-                select.style.height = "100%"
-                select.style.padding = "4px 8px"
-                select.style.borderRadius = "4px"
-                select.style.border = "1px solid #E5E7EB"
-                select.style.backgroundColor = value ? "#F0FDF4" : "white"
-                select.style.color = value ? "#166534" : "#6B7280"
-                select.style.cursor = "pointer"
-                select.style.textAlign = "center"
-                select.style.fontSize = "11px"
-                select.style.appearance = "none"
-                select.style.webkitAppearance = "none"
-                select.style.transition = "all 0.2s ease"
-                select.style.fontWeight = value ? "500" : "normal"
-                select.style.pointerEvents = "auto" // Ensure select is clickable
-
-                // Add empty option first
-                const emptyOption = document.createElement("option")
-                emptyOption.value = ""
-                emptyOption.textContent = "---"
-                select.appendChild(emptyOption)
-
-                // Add staff options
-                staffNames.forEach((staff) => {
-                    const option = document.createElement("option")
-                    option.value = staff
-                    option.textContent = staff
-                    if (value === staff) {
-                        option.selected = true
-                    }
-                    select.appendChild(option)
-                })
-
-                // Prevent direct input
-                select.addEventListener("keydown", (e) => {
-                    e.preventDefault()
-                })
-
-                select.addEventListener("change", (e) => {
-                    const newValue = (e.target as HTMLSelectElement).value
-                    instance.setDataAtCell(row, col, newValue)
-                })
-
-                select.addEventListener("mouseover", () => {
-                    select.style.backgroundColor = value ? "#DCFCE7" : "#F9FAFB"
-                    select.style.borderColor = "#86EFAC"
-                })
-
-                select.addEventListener("mouseout", () => {
-                    select.style.backgroundColor = value ? "#F0FDF4" : "white"
-                    select.style.borderColor = "#E5E7EB"
-                })
-
-                if (safeClearElement(td)) {
-                    td.style.padding = "0"
-                    try {
-                        td.appendChild(select)
-                        td.style.textAlign = "center"
-                        td.style.verticalAlign = "middle"
-                        // Prevent cell editing
-                        td.contentEditable = "false"
-                    } catch (error) {
-                        console.warn("Failed to append select element:", error)
-                    }
-                }
-            }
         }
 
         // Format Tên column
@@ -784,41 +553,69 @@ export default function AccountTracker() {
                 value: string[],
                 cellProperties: Handsontable.CellProperties,
             ) => {
-                const count = Array.isArray(value) ? value.length : 0
-                const displayText = count > 0 ? `Xem (${count})` : "None"
+                if (Array.isArray(value) && value.length > 0) {
+                    const count = value.length
+                    const displayText = count === 1 ? `Xem (${count})` : `Xem (${count})`
 
-                // Use safe content setting
-                if (safeSetElementContent(td, displayText, true)) {
-                    td.style.color = count > 0 ? "#1E40AF" : "#6B7280"
-                    td.style.backgroundColor = count > 0 ? "#EFF6FF" : "#F3F4F6"
-                    td.style.cursor = "pointer"
-                    td.style.border = "1px solid #E5E7EB"
-                    td.style.borderRadius = "4px"
-                    td.style.padding = "4px 8px"
-                    td.style.fontWeight = count > 0 ? "500" : "normal"
-                    td.style.transition = "all 0.2s ease"
+                    // Use safe content setting
+                    if (safeSetElementContent(td, displayText, true)) {
+                        td.style.color = "#1E40AF"
+                        td.style.cursor = "pointer"
+                        td.style.backgroundColor = "transparent"
+                        td.style.border = "1px solid #E5E7EB"
 
-                    // Add hover effect
-                    td.onmouseover = () => {
-                        if (count > 0) {
-                            td.style.backgroundColor = "#DBEAFE"
-                            td.style.borderColor = "#93C5FD"
+                        td.onclick = () => {
+                            setArrayFieldModalData({
+                                field: "ten",
+                                rowIndex: row,
+                                data: value,
+                            })
+                            setShowArrayFieldModal(true)
                         }
                     }
-                    td.onmouseout = () => {
-                        if (count > 0) {
-                            td.style.backgroundColor = "#EFF6FF"
-                            td.style.borderColor = "#E5E7EB"
-                        }
-                    }
+                } else {
+                    if (safeClearElement(td)) {
+                        td.style.color = "#374151"
+                        td.style.cursor = "text"
+                        td.style.backgroundColor = "#F9FAFB"
+                        td.style.border = "1px dashed #D1D5DB"
 
-                    td.onclick = () => {
-                        setArrayFieldModalData({
-                            field: "ten",
-                            rowIndex: row,
-                            data: Array.isArray(value) ? value : [],
+                        const input = document.createElement("input")
+                        input.type = "text"
+                        input.placeholder = "None"
+                        input.style.width = "100%"
+                        input.style.height = "100%"
+                        input.style.border = "none"
+                        input.style.outline = "none"
+                        input.style.backgroundColor = "transparent"
+                        input.style.textAlign = "center"
+                        input.style.padding = "0"
+
+                        input.addEventListener("blur", (e) => {
+                            const newValue = input.value.trim()
+                            if (newValue) {
+                                instance.setDataAtCell(row, col, [newValue])
+                            }
                         })
-                        setShowArrayFieldModal(true)
+
+                        input.addEventListener("keydown", (e) => {
+                            if (e.key === "Enter") {
+                                const newValue = input.value.trim()
+                                if (newValue) {
+                                    instance.setDataAtCell(row, col, [newValue])
+                                    input.blur()
+                                }
+                            }
+                        })
+
+                        try {
+                            td.appendChild(input)
+                            td.onclick = () => {
+                                input.focus()
+                            }
+                        } catch (error) {
+                            console.warn("Failed to append input element:", error)
+                        }
                     }
                 }
             }
@@ -835,40 +632,67 @@ export default function AccountTracker() {
                 value: string[],
                 cellProperties: Handsontable.CellProperties,
             ) => {
-                const count = Array.isArray(value) ? value.length : 0
-                const displayText = count > 0 ? `Xem (${count})` : "None"
+                if (Array.isArray(value) && value.length > 0) {
+                    const count = value.length
+                    const displayText = `Xem (${count})`
 
-                if (safeSetElementContent(td, displayText, true)) {
-                    td.style.color = count > 0 ? "#16A34A" : "#6B7280"
-                    td.style.backgroundColor = count > 0 ? "#F0FDF4" : "#F3F4F6"
-                    td.style.cursor = "pointer"
-                    td.style.border = "1px solid #E5E7EB"
-                    td.style.borderRadius = "4px"
-                    td.style.padding = "4px 8px"
-                    td.style.fontWeight = count > 0 ? "500" : "normal"
-                    td.style.transition = "all 0.2s ease"
+                    if (safeSetElementContent(td, displayText, true)) {
+                        td.style.color = "#16A34A"
+                        td.style.cursor = "pointer"
+                        td.style.backgroundColor = "transparent"
 
-                    // Add hover effect
-                    td.onmouseover = () => {
-                        if (count > 0) {
-                            td.style.backgroundColor = "#DCFCE7"
-                            td.style.borderColor = "#86EFAC"
+                        td.onclick = () => {
+                            setArrayFieldModalData({
+                                field: "telegram",
+                                rowIndex: row,
+                                data: value,
+                            })
+                            setShowArrayFieldModal(true)
                         }
                     }
-                    td.onmouseout = () => {
-                        if (count > 0) {
-                            td.style.backgroundColor = "#F0FDF4"
-                            td.style.borderColor = "#E5E7EB"
-                        }
-                    }
+                } else {
+                    if (safeClearElement(td)) {
+                        td.style.color = "#374151"
+                        td.style.cursor = "text"
+                        td.style.backgroundColor = "#F9FAFB"
+                        td.style.border = "1px dashed #D1D5DB"
 
-                    td.onclick = () => {
-                        setArrayFieldModalData({
-                            field: "telegram",
-                            rowIndex: row,
-                            data: Array.isArray(value) ? value : [],
+                        const input = document.createElement("input")
+                        input.type = "text"
+                        input.placeholder = "None"
+                        input.style.width = "100%"
+                        input.style.height = "100%"
+                        input.style.border = "none"
+                        input.style.outline = "none"
+                        input.style.backgroundColor = "transparent"
+                        input.style.textAlign = "center"
+                        input.style.padding = "0"
+
+                        input.addEventListener("blur", (e) => {
+                            const newValue = input.value.trim()
+                            if (newValue) {
+                                instance.setDataAtCell(row, col, [newValue])
+                            }
                         })
-                        setShowArrayFieldModal(true)
+
+                        input.addEventListener("keydown", (e) => {
+                            if (e.key === "Enter") {
+                                const newValue = input.value.trim()
+                                if (newValue) {
+                                    instance.setDataAtCell(row, col, [newValue])
+                                    input.blur()
+                                }
+                            }
+                        })
+
+                        try {
+                            td.appendChild(input)
+                            td.onclick = () => {
+                                input.focus()
+                            }
+                        } catch (error) {
+                            console.warn("Failed to append input element:", error)
+                        }
                     }
                 }
             }
@@ -894,8 +718,7 @@ export default function AccountTracker() {
                 button.style.backgroundColor = value ? "#EFF6FF" : "#2563EB"
                 button.style.color = value ? "#1E40AF" : "white"
                 button.style.cursor = "pointer"
-                button.style.fontSize = "11px"
-                button.style.fontWeight = "500"
+                button.style.fontSize = "12px"
                 button.style.display = "flex"
                 button.style.alignItems = "center"
                 button.style.justifyContent = "center"
@@ -965,78 +788,36 @@ export default function AccountTracker() {
                 const select = document.createElement("select")
                 select.style.width = "100%"
                 select.style.height = "100%"
-                select.style.padding = "4px 8px"
-                select.style.borderRadius = "4px"
-                select.style.border = "1px solid #E5E7EB"
+                select.style.padding = "1px"
+                select.style.borderRadius = "0"
+                select.style.border = "none"
+                select.style.backgroundColor = "transparent"
                 select.style.cursor = "pointer"
                 select.style.textAlign = "center"
-                select.style.fontSize = "11px"
+                select.style.fontSize = "12px"
                 select.style.appearance = "none"
                 select.style.webkitAppearance = "none"
-                select.style.transition = "all 0.2s ease"
-                select.style.fontWeight = value ? "500" : "normal"
-                select.style.pointerEvents = "auto"
 
-                // Add empty option first
-                const emptyOption = document.createElement("option")
-                emptyOption.value = ""
-                emptyOption.textContent = "---"
-                select.appendChild(emptyOption)
-
-                // Add status options with their respective colors
-                Object.entries(STATUS_OPTIONS).forEach(([key, { label, color, bgColor }]) => {
+                Object.entries(STATUS_OPTIONS).forEach(([key, { label }]) => {
                     const option = document.createElement("option")
                     option.value = key
                     option.textContent = label
                     if (value === key) {
                         option.selected = true
-                        select.style.backgroundColor = bgColor
-                        select.style.color = color
                     }
                     select.appendChild(option)
                 })
 
-                // Prevent direct input
-                select.addEventListener("keydown", (e) => {
-                    e.preventDefault()
-                })
-
                 select.addEventListener("change", (e) => {
                     const newValue = (e.target as HTMLSelectElement).value as StatusType
-                    const selectedOption = STATUS_OPTIONS[newValue]
-                    if (selectedOption) {
-                        select.style.backgroundColor = selectedOption.bgColor
-                        select.style.color = selectedOption.color
-                    } else {
-                        select.style.backgroundColor = "white"
-                        select.style.color = "#6B7280"
-                    }
                     instance.setDataAtCell(row, col, newValue)
                 })
 
-                select.addEventListener("mouseover", () => {
-                    if (value && STATUS_OPTIONS[value]) {
-                        const { bgColor } = STATUS_OPTIONS[value]
-                        select.style.backgroundColor = bgColor === "#FEE2E2" ? "#FECACA" :
-                            bgColor === "#FEF3C7" ? "#FDE68A" :
-                                bgColor === "#DCFCE7" ? "#BBF7D0" :
-                                    bgColor === "#F3F4F6" ? "#E5E7EB" :
-                                        bgColor === "#EFF6FF" ? "#DBEAFE" : bgColor
-                    } else {
-                        select.style.backgroundColor = "#F9FAFB"
-                    }
-                    select.style.borderColor = value && STATUS_OPTIONS[value] ?
-                        STATUS_OPTIONS[value].color : "#93C5FD"
-                })
-
-                select.addEventListener("mouseout", () => {
-                    if (value && STATUS_OPTIONS[value]) {
-                        select.style.backgroundColor = STATUS_OPTIONS[value].bgColor
-                    } else {
-                        select.style.backgroundColor = "white"
-                    }
-                    select.style.borderColor = "#E5E7EB"
-                })
+                if (value && STATUS_OPTIONS[value]) {
+                    const { color, bgColor } = STATUS_OPTIONS[value]
+                    select.style.color = color
+                    select.style.backgroundColor = bgColor
+                }
 
                 if (safeClearElement(td)) {
                     td.style.padding = "0"
@@ -1044,12 +825,15 @@ export default function AccountTracker() {
                         td.appendChild(select)
                         td.style.textAlign = "center"
                         td.style.verticalAlign = "middle"
-                        td.contentEditable = "false"
                     } catch (error) {
                         console.warn("Failed to append select element:", error)
                     }
                 }
             }
+
+            cellProperties.type = "dropdown"
+            cellProperties.source = Object.keys(STATUS_OPTIONS)
+            cellProperties.strict = true
         }
 
         // Format Tab Đơn column
@@ -1091,148 +875,26 @@ export default function AccountTracker() {
             }
         }
 
-        // Format Công Nợ column
-        if (prop === "congNo") {
-            cellProperties.renderer = (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: string,
-                cellProperties: Handsontable.CellProperties,
-            ) => {
-                Handsontable.renderers.TextRenderer.apply(this, [instance, td, row, col, prop, value, cellProperties])
-
-                // Get Tín Dụng value from the same row
-                const tinDungValue = instance.getDataAtCell(row, instance.propToCol("tinDung")) as string
-
-                // Convert both values to numbers, handling empty or invalid values
-                const congNoNum = parseFloat(value?.replace(/[^0-9.-]+/g, "") || "0")
-                const tinDungNum = parseFloat(tinDungValue?.replace(/[^0-9.-]+/g, "") || "0")
-
-                // Compare values and set color
-                if (congNoNum - tinDungNum > 0) {
-                    td.style.color = "#DC2626" // Red for positive difference
-                    td.style.backgroundColor = "#FEE2E2" // Light red background
-                } else {
-                    td.style.color = "#16A34A" // Green for zero or negative difference
-                    td.style.backgroundColor = "#DCFCE7" // Light green background
-                }
-
-                td.style.fontWeight = "500"
-                td.style.textAlign = "center"
-                td.style.verticalAlign = "middle"
-                td.style.borderRadius = "4px"
-                td.style.padding = "4px 8px"
-            }
-        }
-
         return cellProperties
     }
 
-    // Update columns configuration to fix readOnly type
+    // Update columns configuration
     const columns = [
-        {
-            data: "maMoi",
-            width: 60,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: true // Make all columns readOnly for team headers
-        },
-        {
-            data: "phanLoai",
-            width: 70,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: true
-        },
-        {
-            data: "phienBan",
-            width: 70,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: true
-        },
-        {
-            data: "maCu",
-            width: 70,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: true
-        },
-        {
-            data: "cty",
-            width: 60,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: true
-        },
-        {
-            data: "ten",
-            width: 65,
-            className: "htMiddle htCenter",
-            readOnly: true
-        },
-        {
-            data: "telegram",
-            width: 70,
-            className: "htMiddle htCenter",
-            readOnly: true
-        },
-        {
-            data: "linkNhom",
-            width: 80,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: true
-        },
-        {
-            data: "idNhom",
-            width: 70,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: true
-        },
-        {
-            data: "nhom",
-            width: 80,
-            className: "htMiddle htCenter",
-            readOnly: true
-        },
-        {
-            data: "nguoiCham",
-            width: 100,
-            className: "htMiddle htCenter",
-            readOnly: true
-        },
-        {
-            data: "tabDon",
-            width: 80,
-            className: "htMiddle htCenter",
-            renderer: "html",
-            readOnly: true
-        },
-        {
-            data: "congNo",
-            width: 70,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: true
-        },
-        {
-            data: "tinDung",
-            width: 70,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: true
-        },
-        {
-            data: "ngayCheck",
-            width: 90,
-            className: "htMiddle htCenter",
-            readOnly: true
-        },
+        { data: "maMoi", width: 60, className: "htMiddle htCenter", renderer: "text" },
+        { data: "phanLoai", width: 70, className: "htMiddle htCenter", renderer: "text" },
+        { data: "phienBan", width: 70, className: "htMiddle htCenter", renderer: "text" },
+        { data: "maCu", width: 70, className: "htMiddle htCenter", renderer: "text" },
+        { data: "cty", width: 60, className: "htMiddle htCenter", renderer: "text" },
+        { data: "ten", width: 55, className: "htMiddle htCenter", renderer: "text" },
+        { data: "telegram", width: 70, className: "htMiddle htCenter", renderer: "text" },
+        { data: "linkNhom", width: 80, className: "htMiddle htCenter", renderer: "text" },
+        { data: "idNhom", width: 70, className: "htMiddle htCenter", renderer: "text" },
+        { data: "nhom", width: 50, className: "htMiddle htCenter", renderer: "text" },
+        { data: "nguoiCham", width: 100, className: "htMiddle htCenter", renderer: "text" },
+        { data: "tabDon", width: 80, className: "htMiddle htCenter", renderer: "html" },
+        { data: "congNo", width: 70, className: "htMiddle htCenter", renderer: "text" },
+        { data: "tinDung", width: 70, className: "htMiddle htCenter", renderer: "text" },
+        { data: "ngayCheck", width: 90, className: "htMiddle htCenter" },
         {
             data: "demNgay",
             width: 80,
@@ -1244,26 +906,9 @@ export default function AccountTracker() {
                 return calculateDaysDifference(checkDate)
             },
         },
-        {
-            data: "tinhTrang",
-            width: 90,
-            className: "htMiddle htCenter",
-            readOnly: true
-        },
-        {
-            data: "noteKT",
-            width: 80,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: true
-        },
-        {
-            data: "noteKhac",
-            width: 70,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: true
-        },
+        { data: "tinhTrang", width: 80, className: "htMiddle htCenter", renderer: "text" },
+        { data: "noteKT", width: 80, className: "htMiddle htCenter", renderer: "text" },
+        { data: "noteKhac", width: 70, className: "htMiddle htCenter", renderer: "text" },
     ]
     const RowHeader2 = [
         "Mã Mới",
@@ -1367,6 +1012,7 @@ export default function AccountTracker() {
                 if (customer.id) {
                     const updatedCustomer: CustomerData = { ...customer }
                     await customerApiRequest.update(transformToApiFormat(updatedCustomer))
+                    await fetchCustomers() // Fetch fresh data after update
                 }
             }
         } catch (error) {
@@ -1494,7 +1140,7 @@ export default function AccountTracker() {
                     >
                         <X className="h-5 w-5" />
                     </button>
-                    <h3 className="text-lg font-semibold mb-4">Thêm dòng</h3>
+                    <h3 className="text-lg font-semibold mb-4">Thêm dòng mới</h3>
                     <form onSubmit={handleSubmit}>
                         <div className="mb-4">
                             <label htmlFor="rows" className="block text-sm font-medium text-gray-700 mb-1">
@@ -1558,7 +1204,7 @@ export default function AccountTracker() {
     const contextMenuItems = {
         items: {
             row_above: {
-                name: "Thêm dòng",
+                name: "Thêm dòng mới",
                 callback: handleAddRow,
             },
             remove_row: {
@@ -1590,6 +1236,46 @@ export default function AccountTracker() {
             },
         },
     }
+
+    // Add custom CSS for the table
+    useEffect(() => {
+        const style = document.createElement("style")
+        style.textContent = `
+      .custom-table .htCore td {
+        max-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .custom-table .htCore td:hover {
+        overflow: visible;
+        white-space: normal;
+        word-break: break-word;
+        z-index: 1;
+        position: relative;
+      }
+      @keyframes fadeInModal {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      .animate-fadeIn {
+        animation: fadeInModal 0.2s ease-out;
+      }
+      [data-placeholder]::before {
+        content: attr(data-placeholder);
+        color: #9CA3AF;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+    `
+        document.head.appendChild(style)
+        return () => {
+            document.head.removeChild(style)
+        }
+    }, [])
 
     // Add handler for array field modal
     const handleArrayFieldSave = async (newData: string[]) => {
@@ -1635,28 +1321,6 @@ export default function AccountTracker() {
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <h2 className="text-2xl font-bold text-white">Quản Lý Khách Hàng</h2>
                             <div className="flex items-center gap-2">
-                                {/* Team Filter */}
-                                <div className="relative w-full sm:w-48">
-                                    <select
-                                        value={selectedTeam}
-                                        onChange={(e) => setSelectedTeam(e.target.value)}
-                                        className="w-full px-4 py-1 text-blue-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 bg-white appearance-none cursor-pointer"
-                                        style={{
-                                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-                                            backgroundRepeat: 'no-repeat',
-                                            backgroundPosition: 'right 0.75rem center',
-                                            backgroundSize: '1.25rem',
-                                            paddingRight: '2.5rem'
-                                        }}
-                                    >
-                                        <option value="">Tất cả Team</option>
-                                        {teamNames.map((team) => (
-                                            <option key={team} value={team}>
-                                                {team}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
                                 <button
                                     onClick={handleRefresh}
                                     className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 shadow-md"
@@ -1664,7 +1328,6 @@ export default function AccountTracker() {
                                 >
                                     <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
                                 </button>
-
                             </div>
                         </div>
                     </div>
@@ -1677,31 +1340,28 @@ export default function AccountTracker() {
                     )}
 
                     {/* Search and Add Section */}
-                    <div className="p-2 border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900">
-                        <div className="flex justify-between">
-                            <div></div>
-                            <div className="flex flex-col sm:flex-row gap-3">
-                                {/* Search */}
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Tìm kiếm..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10 pr-4 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 w-full"
-                                    />
-                                </div>
-
-                                {/* Add Button */}
-                                <button
-                                    onClick={handleAddRow}
-                                    className="flex items-center gap-2 px-4 py-1 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 shadow-md font-medium whitespace-nowrap"
-                                >
-                                    <Plus className="h-4 w-4" />
-                                    Thêm dòng
-                                </button>
+                    <div className="p-4 border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900">
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            {/* Search */}
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Tìm kiếm..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 w-full sm:w-64"
+                                />
                             </div>
+
+                            {/* Add Button */}
+                            <button
+                                onClick={handleAddRow}
+                                className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 shadow-md font-medium"
+                            >
+                                <Plus className="h-4 w-4" />
+                                Thêm dòng mới
+                            </button>
                         </div>
                     </div>
                 </div>

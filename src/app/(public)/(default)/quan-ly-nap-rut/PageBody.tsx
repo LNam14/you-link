@@ -115,6 +115,19 @@ export default function AttendanceTracker() {
                         amount: (currentData.amount || 0) + parseInt(transaction.amount),
                         deposit: (currentData.deposit || 0) + parseInt(transaction.amount)
                     });
+                } else if (newStatus === "Hoàn thành" && transaction.type === "withdraw") {
+                    const userRef = ref(database, `money/${transaction.name}`);
+
+                    // Get current user data
+                    const snapshot = await get(userRef);
+                    const currentData = snapshot.val() || { amount: 0, withdraw: 0 };
+
+                    // Update user's money and withdraw
+                    await update(userRef, {
+                        amount: (currentData.amount || 0) - parseInt(transaction.amount),
+                        pendingAmount: (currentData.pendingAmount || 0) - parseInt(transaction.amount),
+                        withdraw: (currentData.withdraw || 0) + parseInt(transaction.amount)
+                    });
                 }
 
                 toast.success(`Cập nhật trạng thái thành công`);

@@ -88,3 +88,118 @@
 .ht-theme-main-dark-auto {
     --ht-cell-horizontal-padding: 0px !important;
 }
+
+/* Table cell styles */
+.custom-table .htCore td {
+    max-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px !important;
+    text-align: center !important;
+    font-weight: 500 !important;
+    vertical-align: middle !important;
+}
+
+.custom-table .htCore td:hover {
+    overflow: visible;
+    white-space: normal;
+    word-break: break-word;
+    z-index: 1;
+    position: relative;
+}
+
+/* Modal animation */
+@keyframes fadeInModal {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.animate-fadeIn {
+    animation: fadeInModal 0.2s ease-out;
+}
+
+/* Placeholder styles */
+[data-placeholder]::before {
+    content: attr(data-placeholder);
+    color: #9CA3AF;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+/* Empty state styles */
+.custom-table .htCore td[data-empty="true"] {
+    color: #9CA3AF !important;
+    font-style: italic;
+    position: relative;
+}
+
+.custom-table .htCore td[data-empty="true"]::before {
+    content: "---";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #9CA3AF;
+    font-style: italic;
+}
+
+/* Empty array fields (ten, telegram) */
+.custom-table .htCore td[data-empty-array="true"] {
+    color: #9CA3AF !important;
+    background-color: #F3F4F6 !important;
+    font-style: italic;
+}
+
+.custom-table .htCore td[data-empty-array="true"]::before {
+    content: "None";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #9CA3AF;
+    font-style: italic;
+}
+
+/* Empty select fields (nhom, nguoiCham, tinhTrang) */
+.custom-table .htCore td[data-empty-select="true"] {
+    color: #9CA3AF !important;
+    background-color: #F9FAFB !important;
+    font-style: italic;
+}
+
+.custom-table .htCore td[data-empty-select="true"]::before {
+    content: "---";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #9CA3AF;
+    font-style: italic;
+}
+
+/* Empty link field (tabDon) */
+.custom-table .htCore td[data-empty-link="true"] {
+    color: #9CA3AF !important;
+    font-style: italic;
+}
+
+.custom-table .htCore td[data-empty-link="true"]::before {
+    content: "---";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #9CA3AF;
+    font-style: italic;
+}
