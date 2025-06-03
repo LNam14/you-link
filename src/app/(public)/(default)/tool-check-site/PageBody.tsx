@@ -263,7 +263,6 @@ export default function PageBody() {
 
             if (selectedSearchType === "Site") {
                 // For site search, only accept terms that could be valid domains
-                // This regex checks for basic domain-like patterns
                 const domainPattern = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$|^(?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+$/
                 validTerms = searchTerms.filter(term => {
                     const trimmed = term.trim().toLowerCase()
@@ -272,12 +271,13 @@ export default function PageBody() {
                     return domainPattern.test(cleanTerm)
                 })
             } else {
-                // For NCC search, only accept terms starting with "N" followed by numbers
-                const nccPattern = /^N\d+$/i
+                // For NCC search, accept terms starting with "N" followed by numbers
+                // Remove the case sensitivity requirement and make it more flexible
                 validTerms = searchTerms.filter(term => {
                     const trimmed = term.trim()
-                    return nccPattern.test(trimmed)
-                })
+                    // Allow both uppercase and lowercase N, and any number of digits
+                    return trimmed.length > 0; // Simply check if the trimmed term is not empty
+                }).map(term => term.toUpperCase()) // Convert all to uppercase for consistency
             }
 
             // If no valid terms after filtering, clear results
@@ -312,11 +312,12 @@ export default function PageBody() {
                         }
                     }
                 } else {
-                    // For NCC search
-                    const normalizedMaNCC = searchField.toLowerCase().trim()
+                    // For NCC search, normalize the MaNCC to uppercase for comparison
+                    const normalizedMaNCC = searchField.toUpperCase().trim()
                     for (const term of validTerms) {
-                        const normalizedTerm = term.toLowerCase()
-                        if (normalizedMaNCC === normalizedTerm || normalizedMaNCC.startsWith(normalizedTerm)) {
+                        // For NCC search, we want exact matches or starts with matches
+                        // Both normalizedMaNCC and term are already in uppercase
+                        if (normalizedMaNCC === term || normalizedMaNCC.startsWith(term)) {
                             matchedItems.push(item)
                             break
                         }
@@ -488,9 +489,9 @@ export default function PageBody() {
     // Update data when currency or brand changes
     useEffect(() => {
         if (hasSearched) { // Only re-apply conversion if a search has already been performed
-            handleSearch(searchTerm); // Re-run search logic to apply conversion
+            handleSearch(searchTerm) // Re-run search logic to apply conversion
         }
-    }, [selectedCurrency, selectedBrand, hasSearched, searchTerm, handleSearch]); // Added hasSearched, searchTerm, handleSearch to dependencies
+    }, [selectedCurrency, selectedBrand, hasSearched, searchTerm, handleSearch]) // Added hasSearched, searchTerm, handleSearch to dependencies
 
     const handlePriceTypeChange = (priceType: PriceType) => {
         setSelectedPriceType(priceType)
@@ -508,15 +509,31 @@ export default function PageBody() {
     const getPriceColumnData = (
         priceType: PriceType,
         brand: BrandType,
-        field: "giaBan" | "giaMua" | "giaCuoi" | "loiNhuan",
+        field: "giaBan" | "giaMua" | "giaCuoi" | "loiNhuan" | "hoaHong",
     ) => {
-        const suffix = brand === "X" ? "Lio" : ""
+        // For Giá Mua, always use F-ALL price (no Lio suffix)
+        if (field === "giaMua") {
+            const typeMap = {
+                GP: "GP",
+                Text: "Text",
+                TextHome: "TextHome",
+                TextHeader: "TextHeader",
+            }
+            return `giaMua${typeMap[priceType]}`
+        }
 
+        // For other fields, apply normal logic
+        const suffix = brand === "X" ? "Lio" : ""
         const typeMap = {
             GP: "GP",
             Text: "Text",
             TextHome: "TextHome",
             TextHeader: "TextHeader",
+        }
+
+        // Special handling for hoaHong which only has GP and Text variants
+        if (field === "hoaHong") {
+            return priceType === "GP" ? "hoaHongGP" : "hoaHongText"
         }
 
         return `${field}${typeMap[priceType]}${suffix}`
@@ -800,6 +817,7 @@ export default function PageBody() {
         const buyPriceColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaMua")
         const finalPriceColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaCuoi")
         const profitColumn = getPriceColumnData(selectedPriceType, selectedBrand, "loiNhuan")
+        const commissionColumn = getPriceColumnData(selectedPriceType, selectedBrand, "hoaHong")
 
         const additionalColumns = [
             {
@@ -811,10 +829,10 @@ export default function PageBody() {
             },
             {
                 title: `HH`,
-                data: selectedPriceType === "GP" ? "hoaHongGP" : "hoaHongText",
+                data: commissionColumn,
                 width: 40,
                 className: "htMiddle",
-                renderer: createPriceRenderer(selectedPriceType === "GP" ? "hoaHongGP" : "hoaHongText"),
+                renderer: createPriceRenderer(commissionColumn),
             },
             {
                 title: `Giá Cuối`,

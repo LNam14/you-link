@@ -48,6 +48,20 @@ const sendTelegramNotification = async (username: string, prize: string): Promis
   }
 }
 
+// Add lucky messages array before the SpinLucky component
+const luckyMessages = [
+  "Chúc bạn một ngày tràn đầy niềm vui và hạnh phúc! 🌟",
+  "May mắn sẽ đến với bạn trong thời gian sớm nhất! 🍀",
+  "Thành công và hạnh phúc luôn bên bạn! ✨",
+  "Chúc bạn gặp nhiều điều tốt lành trong cuộc sống! 🌈",
+  "Mọi ước mơ của bạn sẽ thành hiện thực! 🌠",
+  "Chúc bạn luôn mạnh khỏe và bình an! 💪",
+  "Công việc của bạn sẽ thuận lợi và suôn sẻ! 📈",
+  "Chúc bạn luôn tràn đầy năng lượng tích cực! ⚡",
+  "Mọi khó khăn sẽ qua đi, niềm vui sẽ đến! 🌅",
+  "Chúc bạn luôn được yêu thương và trân trọng! 💖"
+]
+
 export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   const [mustSpin, setMustSpin] = useState(false)
   const [prizeNumber, setPrizeNumber] = useState(0)
@@ -66,54 +80,13 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   const itemsPerPage = 10
   const windowSize = useWindowSize()
   const userInfo = getUserInfo()
+  const [luckyMessage, setLuckyMessage] = useState<string>("")
 
   // Enhanced prize data with money-themed colors
   const data = [
-
     {
-      option: "1.000 VND",
-      style: { backgroundColor: "#4CAF50", textColor: "white" },
-    },
-    {
-      option: "2.000 VND",
-      style: { backgroundColor: "#2E7D32", textColor: "white" },
-    },
-    {
-      option: "5.000 VND",
-      style: { backgroundColor: "#B71C1C", textColor: "white" },
-    },
-    {
-      option: "10.000 VND",
-      style: { backgroundColor: "#1976D2", textColor: "white" },
-    },
-    {
-      option: "20.000 VND",
-      style: { backgroundColor: "#0D47A1", textColor: "white" },
-    },
-    {
-      option: "100.000 VND",
-      style: { backgroundColor: "#FFD700", textColor: "black" },
-    },
-    {
-      option: "200.000 VND",
-      style: { backgroundColor: "#FFA000", textColor: "black" },
-    },
-    {
-      option: "500.000 VND",
-      style: { backgroundColor: "#FF6F00", textColor: "black" },
-    },
-    {
-      option: "50.000 VND",
-      style: { backgroundColor: "#F44336", textColor: "white" },
-    },
-    // {
-    //   option: "-200.000 VND",
-    //   style: { backgroundColor: "#D32F2F", textColor: "white" },
-    // },
-
-    {
-      option: "1 phân vàng",
-      style: { backgroundColor: "#FFD700", textColor: "black" },
+      option: "1 lời chúc may mắn",
+      style: { backgroundColor: "#FF9800", textColor: "white" },
     },
     {
       option: "Quay thêm 1 lượt",
@@ -122,6 +95,34 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     {
       option: "Quay thêm 2 lượt",
       style: { backgroundColor: "#673AB7", textColor: "white" },
+    },
+    {
+      option: "1 phân vàng",
+      style: { backgroundColor: "#FFD700", textColor: "black" },
+    },
+    {
+      option: "50.000 VND",
+      style: { backgroundColor: "#F44336", textColor: "white" },
+    },
+    {
+      option: "20.000 VND",
+      style: { backgroundColor: "#0D47A1", textColor: "white" },
+    },
+    {
+      option: "10.000 VND",
+      style: { backgroundColor: "#1976D2", textColor: "white" },
+    },
+    {
+      option: "5.000 VND",
+      style: { backgroundColor: "#B71C1C", textColor: "white" },
+    },
+    {
+      option: "2.000 VND",
+      style: { backgroundColor: "#2E7D32", textColor: "white" },
+    },
+    {
+      option: "1.000 VND",
+      style: { backgroundColor: "#4CAF50", textColor: "white" },
     },
     {
       option: "1 tràng vỗ tay",
@@ -227,6 +228,14 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     setMustSpin(false)
     const currentPrize = data[prizeNumber].option
     setPreviousPrize(currentPrize)
+
+    // Handle lucky message prize
+    if (currentPrize === "1 lời chúc may mắn") {
+      const randomMessage = luckyMessages[Math.floor(Math.random() * luckyMessages.length)]
+      setLuckyMessage(randomMessage)
+    } else {
+      setLuckyMessage("")
+    }
 
     // Save prize to localStorage
     localStorage.setItem("lastPrize", currentPrize)
@@ -473,7 +482,14 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                   <div className="absolute inset-0 z-20 flex items-center justify-center animate-fade-in">
                     <div className="bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-2xl border-2 border-emerald-500 transform transition-all duration-300 animate-scale-in">
                       <h3 className="text-xl font-bold text-gray-900 mb-2">Phần thưởng của bạn</h3>
-                      <p className="text-emerald-600 font-bold text-2xl">{previousPrize}</p>
+                      {luckyMessage ? (
+                        <>
+                          <p className="text-emerald-600 font-bold text-2xl mb-2">1 lời chúc may mắn</p>
+                          <p className="text-gray-700 text-lg italic">{luckyMessage}</p>
+                        </>
+                      ) : (
+                        <p className="text-emerald-600 font-bold text-2xl">{previousPrize}</p>
+                      )}
                       <div className="mt-2 flex justify-center">
                         <Coins className="h-8 w-8 text-yellow-500 animate-bounce" />
                       </div>

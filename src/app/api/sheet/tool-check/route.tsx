@@ -47,6 +47,11 @@ const sheetConfigs: Record<string, SheetConfig> = {
             const giaCuoiTextHome = formatNumber((parseNumber(row[20]) * (100 - hoaHongText)) / 100)
             const giaCuoiTextHeader = formatNumber((parseNumber(row[21]) * (100 - hoaHongText)) / 100)
 
+            const giaCuoiGPLio = formatNumber((parseNumber(row[39]) * (100 - hoaHongGP)) / 100)
+            const giaCuoiTextLio = formatNumber((parseNumber(row[40]) * (100 - hoaHongText)) / 100)
+            const giaCuoiTextHomeLio = formatNumber((parseNumber(row[41]) * (100 - hoaHongText)) / 100)
+            const giaCuoiTextHeaderLio = formatNumber((parseNumber(row[42]) * (100 - hoaHongText)) / 100)
+
             const maNCC = row[27]
             let fileNCC = ""
             let groupNCC = ""
@@ -82,8 +87,8 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 giaBanTextHeaderLio,
                 giaMuaGP,
                 giaMuaText,
-                hoaHongGP,
-                hoaHongText,
+                hoaHongGP: hoaHongGP || 0,
+                hoaHongText: hoaHongText || 0,
                 giaMuaTextHome,
                 giaMuaTextHeader,
                 NCC: row[26],
@@ -92,10 +97,14 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 GroupNCC: groupNCC,
                 IdGroup: idGroup,
                 GhiChuNCC: row[28],
-                giaCuoiGP,
-                giaCuoiText,
-                giaCuoiTextHome,
-                giaCuoiTextHeader,
+                giaCuoiGP: giaCuoiGP || 0,
+                giaCuoiText: giaCuoiText || 0,
+                giaCuoiTextHome: giaCuoiTextHome || 0,
+                giaCuoiTextHeader: giaCuoiTextHeader || 0,
+                giaCuoiGPLio: giaCuoiGPLio || 0,
+                giaCuoiTextLio: giaCuoiTextLio || 0,
+                giaCuoiTextHomeLio: giaCuoiTextHomeLio || 0,
+                giaCuoiTextHeaderLio: giaCuoiTextHeaderLio || 0,
                 loiNhuanGP: safeSubtract(parseNumber(row[13]), parseNumber(giaCuoiGP)),
                 loiNhuanText: safeSubtract(parseNumber(row[14]), parseNumber(giaCuoiText)),
                 loiNhuanTextHome: safeSubtract(parseNumber(row[15]), parseNumber(giaCuoiTextHome)),
