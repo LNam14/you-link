@@ -2,14 +2,10 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 
 // Remove edge runtime configuration
+// Add dynamic route configuration
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  if (!process.env.DATABASE_URL) {
-    return NextResponse.json(
-      { error: "Database configuration is missing" },
-      { status: 500 }
-    )
-  }
 
   try {
     const body = await request.json()
