@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { pool } from "@/lib/db"
+import { prisma } from "@/lib/db"
 
 export async function POST(request: Request) {
   try {
@@ -13,16 +13,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Username is required" }, { status: 400 })
     }
 
-    const result = await pool.query("INSERT INTO attendance (username, date) VALUES ($1, $2) RETURNING *", [
-      username,
-      currentDate,
-    ])
+    const attendance = await prisma.attendance.create({
+      data: {
+        username,
+        date: new Date(currentDate)
+      }
+    })
 
     // Format the response data with Vietnam timezone
     const formattedData = {
-      id: result.rows[0].id,
-      username: result.rows[0].username,
-      date: new Date(result.rows[0].date).toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }),
+      id: attendance.id,
+      username: attendance.username,
+      date: new Date(attendance.date).toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }),
     }
 
     return NextResponse.json(formattedData, { status: 201 })

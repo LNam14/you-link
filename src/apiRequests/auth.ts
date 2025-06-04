@@ -67,6 +67,11 @@ export interface CreateUserRequest {
   position?: string;
 }
 
+// Định nghĩa kiểu dữ liệu cho get request
+export interface GetRequest {
+  timestamp?: string;
+}
+
 // API endpoints
 const ENDPOINTS = {
   GET_COUNT: "/auth/get-count",
@@ -87,26 +92,18 @@ const ENDPOINTS = {
 const authApiRequest = {
   /**
    * Lấy danh sách tất cả người dùng
-   * @param forceRefresh Bỏ qua cache và lấy dữ liệu mới
    * @returns Promise với dữ liệu người dùng
    */
-  getCount: (timestamp?: number | null) => {
+  getCount: () => {
+    const timestamp = new Date().toISOString();
     return httpService.get<UsersResponse>(ENDPOINTS.GET_COUNT, {
-      params: { timestamp }, // nếu cần truyền timestamp vào query
+      params: { timestamp }
     });
   },
-  get: (timestamp?: number | null) => {
-    // Generate a unique cache-busting parameter
-    const cacheBuster = Math.random().toString(36).substring(7);
-    return httpService.get<UsersResponse>(`${ENDPOINTS.GET}?_=${cacheBuster}`, {
-      params: { timestamp }, // Add timestamp to query parameters
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-        'If-Modified-Since': '0',
-        'If-None-Match': cacheBuster
-      }
+  get: () => {
+    const timestamp = new Date().toISOString();
+    return httpService.get<UsersResponse>(ENDPOINTS.GET, { 
+      params: { timestamp } 
     });
   },
 
@@ -116,7 +113,22 @@ const authApiRequest = {
    * @returns Promise với dữ liệu người dùng
    */
   getById: (data: GetUserByIdRequest) => {
-    return httpService.post<ApiResponse<User>>(ENDPOINTS.GET_BY_ID, data);
+    const timestamp = new Date().toISOString();
+    return httpService.post<ApiResponse<User>>(ENDPOINTS.GET_BY_ID, {
+      ...data,
+      timestamp
+    });
+  },
+
+  /**
+   * Lấy danh sách nhân viên
+   * @returns Promise với dữ liệu nhân viên
+   */
+  getStaff: () => {
+    const timestamp = new Date().toISOString();
+    return httpService.get<UsersResponse>(ENDPOINTS.GET_STAFF, {
+      params: { timestamp }
+    });
   },
 
   /**

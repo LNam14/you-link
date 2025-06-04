@@ -1,23 +1,31 @@
 // File: app/api/customer/route.ts (trong cùng file hoặc tách riêng cũng được)
 
-import { pool } from "@/lib/db"
 import { NextResponse } from "next/server"
+import { prisma, connectDB } from "@/lib/db"
 
 export async function PUT(request: Request) {
-    const client = await pool.connect()
-
     try {
+        // Ensure database connection is established
+        try {
+            await connectDB();
+        } catch (dbError: any) {
+            console.error("Database connection error:", dbError);
+            return NextResponse.json(
+                { error: "Database connection failed", details: dbError?.message || 'Unknown database error' },
+                { status: 503 }
+            );
+        }
+
+        // Verify prisma client is available
+        if (!prisma) {
+            throw new Error("Database client not initialized");
+        }
+
         const data = await request.json()
-
-        // Chuyển đổi data thành mảng nếu là object đơn lẻ
-        const itemsToUpdate = Array.isArray(data) ? data : [data]
-
-        // Bắt đầu transaction
-        await client.query('BEGIN')
-
+        const customersToUpdate = Array.isArray(data) ? data : [data]
         const results = []
 
-        for (const item of itemsToUpdate) {
+        for (const customer of customersToUpdate) {
             const {
                 id,
                 ma_moi,
@@ -38,90 +46,80 @@ export async function PUT(request: Request) {
                 tinh_trang,
                 note_kt,
                 note_khac,
-            } = item
+            } = customer
 
             if (!id) {
-                await client.query('ROLLBACK')
-                return NextResponse.json({ error: "ID is required for update" }, { status: 400 })
+                return NextResponse.json(
+                    { error: "Customer ID is required for update" },
+                    { status: 400 }
+                )
             }
 
-            // Validate and process array fields
-            const processedTen = Array.isArray(ten) ? ten : [ten].filter(Boolean)
-            const processedTelegram = Array.isArray(telegram) ? telegram : [telegram].filter(Boolean)
-
-            // Chuyển ngày nếu có
-            const formattedDate = ngay_check
-                ? (() => {
-                    const [day, month, year] = ngay_check.split("/")
-                    return `${year}-${month}-${day}`
-                })()
-                : null
-
-            const result = await client.query(
-                `UPDATE customer_data SET
-                ma_moi = $1,
-                phan_loai = $2,
-                phien_ban = $3,
-                ma_cu = $4,
-                cty = $5,
-                ten = $6,
-                telegram = $7,
-                link_nhom = $8,
-                id_nhom = $9,
-                nhom = $10,
-                nguoi_cham = $11,
-                tab_don = $12,
-                cong_no = $13,
-                tin_dung = $14,
-                ngay_check = $15,
-                tinh_trang = $16,
-                note_kt = $17,
-                note_khac = $18
-                WHERE id = $19
-                RETURNING *`,
-                [
-                    ma_moi,
-                    phan_loai,
-                    phien_ban,
-                    ma_cu,
-                    cty,
-                    processedTen,
-                    processedTelegram,
-                    link_nhom,
-                    id_nhom,
-                    nhom,
-                    nguoi_cham,
-                    tab_don,
-                    cong_no,
-                    tin_dung,
-                    formattedDate,
-                    tinh_trang,
-                    note_kt,
-                    note_khac,
-                    id,
-                ]
-            )
-
-            if (result.rowCount === 0) {
-                await client.query('ROLLBACK')
-                return NextResponse.json({ error: `Customer with ID ${id} not found` }, { status: 404 })
+            // Convert date string to Date object if it's in DD/MM/YYYY format
+            let formattedDate: string | undefined
+            if (ngay_check) {
+                if (typeof ngay_check === 'string') {
+                    const [day, month, year] = ngay_check.split('/')
+                    if (day && month && year) {
+                        // Convert to YYYY-MM-DD format string
+                        formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+                    }
+                } else if (ngay_check instanceof Date) {
+                    // If it's already a Date object, format it as YYYY-MM-DD
+                    formattedDate = ngay_check.toISOString().split('T')[0]
+                }
             }
 
-            results.push(result.rows[0])
+            // Update customer using Prisma
+            try {
+                const updatedCustomer = await prisma.customer_data.update({
+                    where: { id },
+                    data: {
+                        ma_moi,
+                        phan_loai,
+                        phien_ban,
+                        ma_cu,
+                        cty,
+                        ten: Array.isArray(ten) ? ten : [],
+                        telegram: Array.isArray(telegram) ? telegram : [],
+                        link_nhom,
+                        id_nhom,
+                        nhom,
+                        nguoi_cham,
+                        tab_don,
+                        cong_no,
+                        tin_dung,
+                        ngay_check: formattedDate || null,
+                        tinh_trang,
+                        note_kt,
+                        note_khac,
+                    },
+                });
+                results.push(updatedCustomer);
+            } catch (updateError: any) {
+                console.error(`Error updating customer ${id}:`, updateError);
+                if (updateError.code === 'P2025') {
+                    return NextResponse.json(
+                        { error: `Customer with ID ${id} not found` },
+                        { status: 404 }
+                    );
+                }
+                throw updateError;
+            }
         }
 
-        // Commit transaction nếu tất cả đều thành công
-        await client.query('COMMIT')
-
-        // Trả về kết quả phù hợp với kiểu input
+        // Return results in the same format as input
         return NextResponse.json(Array.isArray(data) ? results : results[0], { status: 200 })
-    } catch (error) {
-        // Rollback nếu có lỗi
-        await client.query('ROLLBACK')
-        console.error("Error updating customer data:", error)
-        return NextResponse.json({ error: "Failed to update customer data" }, { status: 500 })
-    } finally {
-        // Giải phóng client
-        client.release()
+    } catch (error: any) {
+        console.error("Error updating customer data:", error);
+        const statusCode = error.code === 'P2025' ? 404 : 500;
+        return NextResponse.json(
+            {
+                error: "Failed to update customer data",
+                details: error.message,
+                code: error.code
+            },
+            { status: statusCode }
+        );
     }
 }

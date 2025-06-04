@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { prisma } from '@/lib/db';
 
 export async function PUT(request: Request) {
   try {
-    const { id, username, date, status } = await request.json();
+    const { id, username, reward, date } = await request.json();
     
     if (!id) {
       return NextResponse.json(
@@ -12,23 +12,29 @@ export async function PUT(request: Request) {
       );
     }
 
-    const result = await pool.query(
-      'UPDATE Attendance SET Username = $1, Date = $2, Status = $3 WHERE Id = $4 RETURNING *',
-      [username, date, status, id]
-    );
+    const updatedRecord = await prisma.wheel.update({
+      where: {
+        id: id
+      },
+      data: {
+        username,
+        reward,
+        date: date ? new Date(date) : undefined
+      }
+    });
 
-    if (result.rows.length === 0) {
+    if (!updatedRecord) {
       return NextResponse.json(
-        { error: 'Attendance record not found' },
+        { error: 'Wheel record not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ data: result.rows[0] });
+    return NextResponse.json({ data: updatedRecord });
   } catch (error) {
-    console.error('Error updating attendance record:', error);
+    console.error('Error updating wheel record:', error);
     return NextResponse.json(
-      { error: 'Failed to update attendance record' },
+      { error: 'Failed to update wheel record' },
       { status: 500 }
     );
   }

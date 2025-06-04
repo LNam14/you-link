@@ -1,6 +1,6 @@
-import executeQuery from "@/app/db/db"
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
+import { prisma } from "@/lib/db"
 
 // Mark the route as dynamic
 export const dynamic = "force-dynamic"
@@ -15,34 +15,24 @@ export async function GET() {
             userInfo = JSON.parse(userInfoCookie.value)
         }
 
-        let transactions: any
-        let queryResult: any
+        let transactions;
 
         if (userInfo?.role === "Khách hàng" || userInfo?.role === "Nhân viên") {
-            queryResult = await executeQuery(
-                `SELECT t.*, a.username 
-                 FROM transactions t
-                 JOIN account a ON t.customer_id = a.id
-                 WHERE t.customer_id = $1
-                 ORDER BY t.id DESC`,
-                [userInfo?.id],
-            )
+            transactions = await prisma.transactions.findMany({
+                where: {
+                    customer_id: userInfo?.id
+                },
+                orderBy: {
+                    id: 'desc'
+                }
+            });
         } else if (userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") {
-            queryResult = await executeQuery(
-                `SELECT t.*, a.username 
-                 FROM transactions t
-                 JOIN account a ON t.customer_id = a.id
-                 ORDER BY t.id DESC`,
-                [],
-            )
+            transactions = await prisma.transactions.findMany({
+                orderBy: {
+                    id: 'desc'
+                }
+            });
         }
-
-        if (queryResult && queryResult.status === false) {
-            console.error("Database error:", queryResult.error)
-            return NextResponse.json({ success: false, error: queryResult.error }, { status: 500 })
-        }
-
-        transactions = queryResult
 
         const currentTimestamp = new Date().toISOString()
         const formattedTime = new Date().toLocaleString("vi-VN")

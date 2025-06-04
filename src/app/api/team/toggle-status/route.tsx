@@ -1,4 +1,4 @@
-import executeQuery from "@/app/db/db"
+import { prisma } from "@/lib/db"
 import { NextResponse } from "next/server"
 
 export async function POST(request: Request) {
@@ -16,22 +16,12 @@ export async function POST(request: Request) {
             )
         }
 
-        // Toggle team active status
-        const query = `
-            UPDATE team 
-            SET active = CASE 
-                WHEN active = 'Hoạt động' THEN 'Ngưng hoạt động'
-                WHEN active = 'Ngưng hoạt động' THEN 'Hoạt động'
-                ELSE active
-            END,
-            updated_at = CURRENT_TIMESTAMP
-            WHERE id = $1 
-            RETURNING *
-        `
-        const result = await executeQuery(query, [id])
+        // Get current team status
+        const team = await prisma.team.findUnique({
+            where: { id: Number(id) }
+        })
 
-        // Check if any rows were affected
-        if (!Array.isArray(result) || result.length === 0) {
+        if (!team) {
             return NextResponse.json(
                 {
                     success: false,
@@ -41,7 +31,16 @@ export async function POST(request: Request) {
             )
         }
 
-        const updatedTeam = result[0]
+        // Toggle team active status
+        const newStatus = team.active === "Hoạt động" ? "Ngưng hoạt động" : "Hoạt động"
+        const updatedTeam = await prisma.team.update({
+            where: { id: Number(id) },
+            data: {
+                active: newStatus,
+                updated_at: new Date().toISOString()
+            }
+        })
+
         const statusMessage = updatedTeam.active === "Hoạt động" ? "kích hoạt" : "vô hiệu hóa"
 
         return NextResponse.json(

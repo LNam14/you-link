@@ -58,6 +58,11 @@ interface CustomerApiResponse {
     teamNames: string[]
 }
 
+// Add new type for create API response
+interface CreateCustomerResponse {
+    customers: ApiCustomerData[]
+}
+
 // Add utility functions before component
 const calculateDaysDifference = (checkDate: string) => {
     if (!checkDate) return ""
@@ -119,6 +124,7 @@ const safeClearElement = (element: HTMLElement) => {
     }
 }
 
+// Remove type definition for header
 type NestedColumnHeader = {
     label: string
     colspan: number
@@ -501,7 +507,7 @@ export default function AccountTracker() {
         note_khac: data.noteKhac,
     })
 
-    // Update filtered data to always include team headers
+    // Update filteredData to remove header logic
     const filteredData = (() => {
         // First filter by search term
         const searchFiltered = tableData.filter((row: CustomerData) => {
@@ -515,50 +521,13 @@ export default function AccountTracker() {
             })
         })
 
-        // Always group by teams and add headers
-        const groupedData: (CustomerData | { isTeamHeader: true; nhom: string })[] = []
-
-        // If a specific team is selected, only show that team
-        if (selectedTeam !== "") {
-            groupedData.push({ isTeamHeader: true, nhom: selectedTeam })
-            const teamData = searchFiltered.filter(row => row.nhom === selectedTeam)
-            groupedData.push(...teamData)
-        } else {
-            // For "Tất cả Team", show all teams
-            const teams = [...new Set(searchFiltered.map(row => row.nhom).filter(Boolean))].sort()
-
-            teams.forEach(team => {
-                // Add team header
-                groupedData.push({ isTeamHeader: true, nhom: team })
-                // Add team's data
-                const teamData = searchFiltered.filter(row => row.nhom === team)
-                groupedData.push(...teamData)
-            })
-
-            // Add ungrouped data (rows without team) at the end
-            const ungroupedData = searchFiltered.filter(row => !row.nhom)
-            if (ungroupedData.length > 0) {
-                groupedData.push({ isTeamHeader: true, nhom: "Chưa phân nhóm" })
-                groupedData.push(...ungroupedData)
-            }
-        }
-
-        return groupedData
+        // Filter by selected team
+        return selectedTeam === ""
+            ? searchFiltered
+            : searchFiltered.filter(row => row.nhom === selectedTeam)
     })()
 
-    // Copy text to clipboard
-    const copyToClipboard = (text: string) => {
-        navigator.clipboard.writeText(text).then(
-            () => {
-                toast.success("Đã sao chép vào clipboard")
-            },
-            (err) => {
-                toast.error("Không thể sao chép: " + err)
-            },
-        )
-    }
-
-    // Cells function for styling
+    // Cells function for stylingt
     const cells = function (
         this: Handsontable.CellProperties,
         row: number,
@@ -580,29 +549,6 @@ export default function AccountTracker() {
                 value: any,
                 cellProperties: Handsontable.CellProperties,
             ) {
-                // Check if this is a team header row
-                const rowData = instance.getSourceDataAtRow(row)
-                if (rowData && 'isTeamHeader' in rowData) {
-                    // Style for team header
-                    td.style.backgroundColor = "#EFF6FF"
-                    td.style.color = "#1E40AF"
-                    td.style.fontWeight = "600"
-                    td.style.padding = "2px"
-                    td.style.borderBottom = "2px solid #93C5FD"
-                    td.style.borderTop = "2px solid #93C5FD"
-                    td.style.textAlign = "center"
-                    td.style.verticalAlign = "middle"
-                    // Only show team name in the first column
-                    if (col === 0) {
-                        td.textContent = rowData.nhom
-                        td.setAttribute('style', td.getAttribute('style') + '; font-size: 14px !important;')
-                        td.colSpan = instance.countCols()
-                    } else {
-                        td.textContent = ""
-                    }
-                    return
-                }
-
                 // For regular rows, allow editing based on the column
                 cellProperties.readOnly = ['nhom', 'nguoiCham', 'tinhTrang', 'congNo'].includes(prop as string)
 
@@ -1158,114 +1104,114 @@ export default function AccountTracker() {
         return cellProperties
     }
 
-    // Update columns configuration to fix readOnly type
+    // Update columns configuration to make most columns editable
     const columns = [
         {
             data: "maMoi",
             width: 60,
             className: "htMiddle htCenter",
             renderer: "text",
-            readOnly: true // Make all columns readOnly for team headers
+            readOnly: true // ID fields should be read-only
         },
         {
             data: "phanLoai",
             width: 70,
             className: "htMiddle htCenter",
             renderer: "text",
-            readOnly: true
+            readOnly: false
         },
         {
             data: "phienBan",
             width: 70,
             className: "htMiddle htCenter",
             renderer: "text",
-            readOnly: true
+            readOnly: false
         },
         {
             data: "maCu",
             width: 70,
             className: "htMiddle htCenter",
             renderer: "text",
-            readOnly: true
+            readOnly: true // ID fields should be read-only
         },
         {
             data: "cty",
             width: 60,
             className: "htMiddle htCenter",
             renderer: "text",
-            readOnly: true
+            readOnly: false
         },
         {
             data: "ten",
             width: 65,
             className: "htMiddle htCenter",
-            readOnly: true
+            readOnly: true // Array field, edited through modal
         },
         {
             data: "telegram",
             width: 70,
             className: "htMiddle htCenter",
-            readOnly: true
+            readOnly: true // Array field, edited through modal
         },
         {
             data: "linkNhom",
             width: 80,
             className: "htMiddle htCenter",
             renderer: "text",
-            readOnly: true
+            readOnly: false
         },
         {
             data: "idNhom",
             width: 70,
             className: "htMiddle htCenter",
             renderer: "text",
-            readOnly: true
+            readOnly: true // ID fields should be read-only
         },
         {
             data: "nhom",
             width: 80,
             className: "htMiddle htCenter",
-            readOnly: true
+            readOnly: true // Edited through dropdown
         },
         {
             data: "nguoiCham",
             width: 100,
             className: "htMiddle htCenter",
-            readOnly: true
+            readOnly: true // Edited through dropdown
         },
         {
             data: "tabDon",
             width: 80,
             className: "htMiddle htCenter",
             renderer: "html",
-            readOnly: true
+            readOnly: false
         },
         {
             data: "congNo",
             width: 70,
             className: "htMiddle htCenter",
             renderer: "text",
-            readOnly: true
+            readOnly: true // Calculated field
         },
         {
             data: "tinDung",
             width: 70,
             className: "htMiddle htCenter",
             renderer: "text",
-            readOnly: true
+            readOnly: false
         },
         {
             data: "ngayCheck",
             width: 90,
             className: "htMiddle htCenter",
-            readOnly: true
+            readOnly: true // Edited through button
         },
         {
             data: "demNgay",
             width: 80,
             className: "htMiddle htCenter",
             renderer: "text",
-            readOnly: true,
+            readOnly: true, // Calculated field
             getData: (row: number, col: number, prop: string | number, value: any, instance: Handsontable.Core) => {
                 const checkDate = instance.getDataAtCell(row, instance.propToCol("ngayCheck")) as string
                 return calculateDaysDifference(checkDate)
@@ -1275,21 +1221,21 @@ export default function AccountTracker() {
             data: "tinhTrang",
             width: 90,
             className: "htMiddle htCenter",
-            readOnly: true
+            readOnly: true // Edited through dropdown
         },
         {
             data: "noteKT",
             width: 80,
             className: "htMiddle htCenter",
             renderer: "text",
-            readOnly: true
+            readOnly: false
         },
         {
             data: "noteKhac",
             width: 70,
             className: "htMiddle htCenter",
             renderer: "text",
-            readOnly: true
+            readOnly: false
         },
     ]
     const RowHeader2 = [
@@ -1330,7 +1276,7 @@ export default function AccountTracker() {
         return [...currentValue, newValue]
     }
 
-    // Helper function to find actual row index
+    // Update findActualRowIndex to remove header check
     const findActualRowIndex = (displayRowIndex: number): number => {
         // Get the actual data row from the table instance
         const hotInstance = hotTableRef.current?.hotInstance
@@ -1338,13 +1284,11 @@ export default function AccountTracker() {
 
         // Get the source data at the display row
         const rowData = hotInstance.getSourceDataAtRow(displayRowIndex)
-        if (!rowData || 'isTeamHeader' in rowData) return -1
+        if (!rowData) return -1
 
         // Find the index in filteredData that matches this customer's ID
         const customer = rowData as CustomerData
-        return filteredData.findIndex(item =>
-            !('isTeamHeader' in item) && (item as CustomerData).id === customer.id
-        )
+        return filteredData.findIndex(item => (item as CustomerData).id === customer.id)
     }
 
     // Helper function to update array fields (ten and telegram)
@@ -1375,7 +1319,16 @@ export default function AccountTracker() {
         return updatedCustomer
     }
 
-    // Handle single cell changes
+    // Add new helper function to update table data
+    const updateTableData = (updatedCustomer: CustomerData) => {
+        setTableData(prevData => {
+            return prevData.map(customer =>
+                customer.id === updatedCustomer.id ? updatedCustomer : customer
+            )
+        })
+    }
+
+    // Update handleAfterChange to remove header check
     const handleAfterChange = async (changes: any[] | null, source: string) => {
         if (!changes || source === "loadData") return
 
@@ -1384,15 +1337,18 @@ export default function AccountTracker() {
                 const actualRowIndex = findActualRowIndex(row)
                 if (actualRowIndex === -1) continue
 
-                const customer = filteredData[actualRowIndex] as CustomerData
-                if (!customer || !customer.id) continue
+                // Get the actual data object for the edited row
+                const hotInstance = hotTableRef.current?.hotInstance
+                if (!hotInstance) continue
 
-                // Special handling for ngayCheck column
-                if (prop === "ngayCheck") {
-                    const hotInstance = hotTableRef.current?.hotInstance
-                    if (hotInstance) {
-                        hotInstance.render()
-                    }
+                const rowData = hotInstance.getSourceDataAtRow(row)
+                if (!rowData) continue
+
+                // Now we know it's a customer data row
+                const customer = rowData as CustomerData
+                if (!customer || !customer.id) {
+                    console.warn("Attempted to update a row without a valid customer object or ID.", rowData);
+                    continue;
                 }
 
                 let updatedCustomer: CustomerData = { ...customer }
@@ -1407,45 +1363,40 @@ export default function AccountTracker() {
                             newValue,
                             Array.isArray(newValue)
                         )
-
-                        updateMessage = Array.isArray(newValue)
-                            ? `Đã cập nhật ${customer.id} ${prop === "ten" ? "Tên" : "Telegram"}`
-                            : `Đã thêm ${customer.id} ${newValue.trim()} vào ${prop === "ten" ? "Tên" : "Telegram"}`
                     } else {
                         // Handle other fields
                         (updatedCustomer as any)[prop] = newValue
-                        updateMessage = `Đã cập nhật ${customer.id}`
                     }
 
                     // Update API
                     await customerApiRequest.update(transformToApiFormat(updatedCustomer))
 
-                    // Show success message
-                    toast.success(updateMessage)
+                    // Update local state directly
+                    updateTableData(updatedCustomer)
 
-                    // Refresh data
-                    await fetchCustomers()
                 } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : "Không thể cập nhật dữ liệu"
                     toast.error(errorMessage)
                     console.error(`Error updating ${prop}:`, error)
-
-                    // Refresh to ensure consistency
-                    await fetchCustomers()
+                    // Revert the change in the table
+                    const hotInstance = hotTableRef.current?.hotInstance
+                    if (hotInstance) {
+                        hotInstance.setDataAtCell(row, prop, oldValue)
+                    }
                 }
             }
         } catch (error) {
             toast.error("Có lỗi xảy ra khi cập nhật dữ liệu")
             console.error("Error in handleAfterChange:", error)
-            await fetchCustomers()
         }
     }
 
-    // Handle paste operations
+    // Update handleAfterPaste
     const handleAfterPaste = async (data: any[][], coords: any[]) => {
         try {
             const updates = []
             const affectedRows = new Set<number>()
+            const updatedCustomers: CustomerData[] = []
 
             // Get all affected rows from the paste range
             if (coords.length > 0) {
@@ -1481,8 +1432,6 @@ export default function AccountTracker() {
                         const newValue = data[pasteRowIndex]?.[pasteColIndex]
 
                         if (typeof newValue === "string" && newValue.trim()) {
-                            // For empty arrays, replace with new single-item array
-                            // For existing arrays, add to the array
                             const currentArray = customer.ten
                             const isEmptyArray = !currentArray || currentArray.length === 0
 
@@ -1502,8 +1451,6 @@ export default function AccountTracker() {
                         const newValue = data[pasteRowIndex]?.[pasteColIndex]
 
                         if (typeof newValue === "string" && newValue.trim()) {
-                            // For empty arrays, replace with new single-item array
-                            // For existing arrays, add to the array
                             const currentArray = customer.telegram
                             const isEmptyArray = !currentArray || currentArray.length === 0
 
@@ -1520,17 +1467,25 @@ export default function AccountTracker() {
                 // Only update if customer has an ID and there are changes
                 if (customer.id && hasUpdates) {
                     updates.push(customerApiRequest.update(transformToApiFormat(updatedCustomer)))
+                    updatedCustomers.push(updatedCustomer)
                 }
             }
 
             // Wait for all updates to complete
             if (updates.length > 0) {
                 await Promise.all(updates)
-                await fetchCustomers() // Fetch fresh data after all updates
+
+                // Update local state directly
+                setTableData(prevData => {
+                    return prevData.map(customer => {
+                        const updatedCustomer = updatedCustomers.find(uc => uc.id === customer.id)
+                        return updatedCustomer || customer
+                    })
+                })
+
                 toast.success(`Đã cập nhật ${updates.length} dòng`)
             }
         } catch (error) {
-            toast.error("Không thể cập nhật dữ liệu đã dán")
             console.error("Error updating pasted data:", error)
         }
     }
@@ -1600,27 +1555,25 @@ export default function AccountTracker() {
         setShowAddModal(true)
     }
 
-    // Add new function to handle multiple rows
+    // Update handleAddMultipleRows
     const handleAddMultipleRows = async (numRows: number) => {
         try {
             setIsLoading(true)
             // Create new rows using the API
-            const response = await customerApiRequest.create({ numberOfRows: numRows })
-            // Refresh the table to get the new data
+            const createResponse = (await customerApiRequest.create({ numberOfRows: numRows }) as unknown) as CreateCustomerResponse
+
+            // Add new rows directly to state
             await fetchCustomers()
-            toast.success(`Đã thêm ${numRows} dòng mới thành công`)
         } catch (error) {
             console.error("Error creating customers:", error)
             const errorMessage = error instanceof Error ? error.message : "Không thể thêm dòng mới"
             toast.error(errorMessage)
-            // Refresh the table data to ensure consistency
-            await fetchCustomers()
         } finally {
             setIsLoading(false)
         }
     }
 
-    // Update context menu to use API for delete
+    // Update context menu items
     const contextMenuItems = {
         items: {
             row_above: {
@@ -1632,23 +1585,40 @@ export default function AccountTracker() {
                 callback: async () => {
                     const selected = hotTableRef.current?.hotInstance?.getSelected()
                     if (selected) {
-                        const rowIndex = selected[0][0]
-                        const customer = tableData[rowIndex]
+                        // Get the row index in the displayed table
+                        const displayRowIndex = selected[0][0]
+                        // Get the actual data object for the selected row
+                        const hotInstance = hotTableRef.current?.hotInstance
+                        if (!hotInstance) return
+
+                        const rowData = hotInstance.getSourceDataAtRow(displayRowIndex)
+                        if (!rowData) return
+
+                        const customer = rowData as CustomerData
 
                         if (customer.id) {
                             try {
+                                // Call API to delete by ID
                                 await customerApiRequest.delete(customer.id)
-                                await fetchCustomers() // Fetch fresh data after delete
+
+                                // Update local state by filtering out the customer with this ID
+                                setTableData(prevData => prevData.filter(c => c.id !== customer.id))
+
                                 toast.success("Xóa khách hàng thành công")
                             } catch (error) {
                                 toast.error("Không thể xóa khách hàng")
                                 console.error("Error deleting customer:", error)
                             }
                         } else {
-                            // If no ID, just remove from local state
-                            const newData = [...tableData]
-                            newData.splice(rowIndex, 1)
-                            setTableData(newData)
+                            // Handle case where a new row without an ID is deleted
+                            setTableData(prevData => {
+                                const newData = [...prevData]
+                                const actualIndex = newData.findIndex(c => c === customer);
+                                if (actualIndex !== -1) {
+                                    newData.splice(actualIndex, 1);
+                                }
+                                return newData;
+                            });
                             toast.success("Xóa dòng thành công")
                         }
                     }
@@ -1676,11 +1646,11 @@ export default function AccountTracker() {
             // Update API
             await customerApiRequest.update(transformToApiFormat(updatedCustomer))
 
+            // Update local state directly
+            updateTableData(updatedCustomer)
+
             // Show success message
             toast.success(`Đã cập nhật ${customer.id} ${field === "ten" ? "Tên" : "Telegram"}`)
-
-            // Refresh data
-            await fetchCustomers()
 
             // Close modal
             setShowArrayFieldModal(false)
@@ -1689,9 +1659,6 @@ export default function AccountTracker() {
             const errorMessage = error instanceof Error ? error.message : "Không thể cập nhật dữ liệu"
             toast.error(errorMessage)
             console.error(`Error updating ${field}:`, error)
-
-            // Refresh to ensure consistency
-            await fetchCustomers()
         }
     }
 
@@ -1750,7 +1717,10 @@ export default function AccountTracker() {
                     {/* Search and Add Section */}
                     <div className="p-2 border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900">
                         <div className="flex justify-between">
-                            <div></div>
+                            <div className="text-sm text-white flex items-center gap-4">
+                                <span>Team: {selectedTeam === "" ? "Tất cả Team" : selectedTeam}</span>
+                                <span>Số lượng khách hàng: {filteredData.length}</span>
+                            </div>
                             <div className="flex flex-col sm:flex-row gap-3">
                                 {/* Search */}
                                 <div className="relative flex-1">

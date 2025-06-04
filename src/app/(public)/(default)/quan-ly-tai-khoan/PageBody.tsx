@@ -308,8 +308,8 @@ export default function AccountTracker() {
         .sort((a, b) => {
             // Only sort if we're in the NV tab
             if (activeTab === "NV" || activeTab === "KH") {
-                const usernameA = a[0] // Username is in the first column
-                const usernameB = b[0]
+                const usernameA = a[0] || "" // Username is in the first column, default to empty string if null/undefined
+                const usernameB = b[0] || "" // Default to empty string if null/undefined
                 return usernameA.localeCompare(usernameB, undefined, { numeric: true })
             }
             return 0
@@ -457,7 +457,7 @@ export default function AccountTracker() {
             setIsAdding(true)
             const createData: any = {
                 count: numberOfRows,
-                role: activeTab === "NV" ? "Nhân viên" : activeTab,
+                role: activeTab === "NV" ? "Nhân viên" : activeTab === "KH" ? "Khách hàng" : activeTab,
             }
 
             // Add team if creating employees and team is selected
@@ -473,14 +473,11 @@ export default function AccountTracker() {
                 return
             }
 
+            await fetchAccountData()
             toast.success(`Đã thêm ${numberOfRows} tài khoản thành công`)
             setShowAddModal(false)
             setNumberOfRows(1)
             setSelectedTeamId("")
-
-            // Clear current data and reload
-            setTableData([])
-            await fetchAccountData()
 
             // Reset selection after adding
             if (hotTableRef.current?.hotInstance) {

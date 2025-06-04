@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server"
-import { pool } from "@/lib/db"
+import { prisma, connectDB } from "@/lib/db"
 
 export async function DELETE(request: Request) {
     try {
+        // Ensure database connection is established
+        await connectDB();
+
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
 
@@ -10,18 +13,31 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: "ID is required for delete" }, { status: 400 })
         }
 
-        const result = await pool.query(
-            "DELETE FROM customer_data WHERE id = $1 RETURNING *",
-            [id]
-        )
-
-        if (result.rowCount === 0) {
-            return NextResponse.json({ error: "Customer not found" }, { status: 404 })
+        const customerId = parseInt(id, 10)
+        if (isNaN(customerId)) {
+            return NextResponse.json({ error: "Invalid ID format" }, { status: 400 })
         }
 
-        return NextResponse.json({ message: "Customer deleted successfully", data: result.rows[0] }, { status: 200 })
-    } catch (error) {
+        const deletedCustomer = await prisma.customer_data.delete({
+            where: { id: customerId }
+        })
+
+        return NextResponse.json(
+            { message: "Customer deleted successfully", data: deletedCustomer },
+            { status: 200 }
+        )
+    } catch (error: any) {
         console.error("Error deleting customer data:", error)
-        return NextResponse.json({ error: "Failed to delete customer data" }, { status: 500 })
+        if (error.code === 'P2025') {
+            return NextResponse.json({ error: "Customer not found" }, { status: 404 })
+        }
+        return NextResponse.json(
+            {
+                error: "Failed to delete customer data",
+                details: error.message,
+                code: error.code
+            },
+            { status: 500 }
+        )
     }
 }

@@ -1,4 +1,4 @@
-import executeQuery from "@/app/db/db"
+import { prisma } from "@/lib/db"
 import { NextResponse } from "next/server"
 
 export async function POST(request: Request) {
@@ -17,32 +17,12 @@ export async function POST(request: Request) {
             )
         }
 
-        // Delete the account by id
-        const query = `DELETE FROM account WHERE id = $1 RETURNING *`
-        const result = await executeQuery(query, [id])
-
-        // Check if the result is an error
-        if ('status' in result && !result.status) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "Error deleting account",
-                    error: result.error
-                },
-                { status: 500 }
-            )
-        }
-
-        // Check if any rows were affected
-        if (!Array.isArray(result) || result.length === 0) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "Account not found"
-                },
-                { status: 404 }
-            )
-        }
+        // Delete the account using Prisma
+        const deletedAccount = await prisma.account.delete({
+            where: {
+                id: id
+            }
+        })
 
         return NextResponse.json(
             {
@@ -54,6 +34,18 @@ export async function POST(request: Request) {
 
     } catch (error: any) {
         console.error("Error deleting account:", error)
+
+        // Handle Prisma's specific error types
+        if (error.code === 'P2025') {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Account not found"
+                },
+                { status: 404 }
+            )
+        }
+
         return NextResponse.json(
             {
                 success: false,

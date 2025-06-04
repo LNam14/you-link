@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { prisma } from '@/lib/db';
 
 export async function DELETE(request: Request) {
   try {
@@ -12,12 +12,13 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const result = await pool.query(
-      'DELETE FROM Attendance WHERE Id = $1 RETURNING *',
-      [id]
-    );
+    const deletedAttendance = await prisma.attendance.delete({
+      where: {
+        id: Number(id)
+      }
+    });
 
-    if (result.rows.length === 0) {
+    if (!deletedAttendance) {
       return NextResponse.json(
         { error: 'Attendance record not found' },
         { status: 404 }

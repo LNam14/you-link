@@ -1,7 +1,21 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { PaymentService } from "@/lib/payment"
-import { prisma } from "@/lib/db"
+import executeQuery from "@/app/db/db"
+
+// Câu truy vấn PostgreSQL
+const INSERT_TRANSACTION = `
+  INSERT INTO transactions (type, amount, deposit_date, method, description, customer_id, name, wallet, status) 
+  VALUES ($1, $2, NOW(), $3, $4, $5, $6, $7, 'Đang chờ')
+  RETURNING id
+`
+
+const GET_NEW_TRANSACTION = `
+  SELECT id, type, amount, deposit_date, method, description, status, customer_id 
+  FROM transactions 
+  WHERE id = $1 
+  LIMIT 1
+`
 
 // Các phương thức thanh toán hợp lệ
 const VALID_PAYMENT_METHODS = ["Bank Transfer", "Cash", "Credit Card", "Momo", "Zalo Pay", "VNPay"]
@@ -58,37 +72,62 @@ export async function POST(request: Request) {
         }
 
         try {
-            // Tạo giao dịch mới sử dụng Prisma
-            const newTransaction = await prisma.transactions.create({
-                data: {
-                    type,
-                    amount: amount.toString(),
-                    deposit_date: new Date(),
-                    method: paymentMethod,
-                    description,
-                    customer_id,
-                    name: userInfo?.username || "unknown",
-                    wallet,
-                    status: "Đang chờ"
-                },
-                include: {
-                    account: {
-                        select: {
-                            username: true
-                        }
-                    }
-                }
-            })
+            // Bắt đầu transaction
+            await executeQuery("BEGIN", [])
+
+            // Thêm giao dịch vào cơ sở dữ liệu và lấy ID được trả về
+            const insertResult: any = await executeQuery(INSERT_TRANSACTION, [
+                type,
+                amount,
+                paymentMethod,
+                description,
+                customer_id,
+                userInfo?.username || "unknown",
+                wallet,
+            ])
+
+            if (!insertResult || insertResult.length === 0) {
+                // Rollback nếu không thể tạo giao dịch
+                await executeQuery("ROLLBACK", [])
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "Không thể tạo giao dịch. Vui lòng thử lại sau",
+                    },
+                    { status: 500 },
+                )
+            }
+
+            // Lấy ID từ kết quả RETURNING
+            const newTransactionId = insertResult[0].id
+
+            // Lấy thông tin giao dịch vừa tạo
+            const newTransaction: any = await executeQuery(GET_NEW_TRANSACTION, [newTransactionId])
+
+            // Commit transaction
+            await executeQuery("COMMIT", [])
+
+            if (!newTransaction || newTransaction.length === 0) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: `Không tìm thấy giao dịch sau khi tạo. ID: ${newTransactionId}`,
+                    },
+                    { status: 404 },
+                )
+            }
 
             return NextResponse.json(
                 {
                     success: true,
                     message: "Tạo giao dịch thành công! Giao dịch của bạn đang chờ xác nhận.",
-                    transaction: newTransaction,
+                    transaction: newTransaction[0],
                 },
                 { status: 201 },
             )
         } catch (error) {
+            // Rollback nếu có lỗi
+            await executeQuery("ROLLBACK", [])
             throw error
         }
     } catch (error: any) {

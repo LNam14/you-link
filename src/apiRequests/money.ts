@@ -22,13 +22,9 @@ const attendanceApiRequest = {
    */
 
   get: () => {
-    const timestamp = new Date().getTime();
-    return httpService.get<Attendance[]>(`${ENDPOINTS.GET}?_t=${timestamp}`, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
+    const timestamp = new Date().toISOString();
+    return httpService.get<Attendance>(ENDPOINTS.GET, { 
+      params: { timestamp } 
     });
   },
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { prisma } from '@/lib/db';
 
 export async function DELETE(request: Request) {
   try {
@@ -12,25 +12,26 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const result = await pool.query(
-      'DELETE FROM Attendance WHERE Id = $1 RETURNING *',
-      [id]
-    );
+    const deletedRecord = await prisma.wheel.delete({
+      where: {
+        id: id
+      }
+    });
 
-    if (result.rows.length === 0) {
+    if (!deletedRecord) {
       return NextResponse.json(
-        { error: 'Attendance record not found' },
+        { error: 'Wheel record not found' },
         { status: 404 }
       );
     }
 
     return NextResponse.json({
-      data: { message: 'Attendance record deleted successfully' }
+      data: { message: 'Wheel record deleted successfully' }
     });
   } catch (error) {
-    console.error('Error deleting attendance record:', error);
+    console.error('Error deleting wheel record:', error);
     return NextResponse.json(
-      { error: 'Failed to delete attendance record' },
+      { error: 'Failed to delete wheel record' },
       { status: 500 }
     );
   }

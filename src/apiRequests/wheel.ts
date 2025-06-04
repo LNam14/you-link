@@ -24,13 +24,9 @@ const wheelApiRequest = {
    * Lấy danh sách điểm danh
    */
   get: () => {
-    const timestamp = new Date().getTime();
-    return httpService.get<Wheel[]>(`${ENDPOINTS.GET}?_t=${timestamp}`, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
+    const timestamp = new Date().toISOString();
+    return httpService.get<Wheel>(ENDPOINTS.GET, { 
+      params: { timestamp } 
     });
   },
   /**

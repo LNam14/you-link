@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server"
-import { pool } from "@/lib/db"
+import { prisma } from "@/lib/db"
 import { cookies } from "next/headers"
 import moment from "moment"
+
+interface AttendanceRecord {
+  id: number
+  username: string
+  date: Date
+}
 
 export async function GET(request: Request) {
   try {
@@ -18,26 +24,32 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Username not found" }, { status: 400 })
     }
 
-    let query = ""
-    let params: string[] = []
+    let attendanceRecords: AttendanceRecord[]
 
     if (role === "Admin") {
-      query = "SELECT * FROM attendance ORDER BY date DESC"
+      attendanceRecords = await prisma.attendance.findMany({
+        orderBy: {
+          date: 'desc'
+        }
+      })
     } else {
-      query = "SELECT * FROM attendance WHERE username = $1 ORDER BY date DESC"
-      params = [username]
+      attendanceRecords = await prisma.attendance.findMany({
+        where: {
+          username: username
+        },
+        orderBy: {
+          date: 'desc'
+        }
+      })
     }
 
-    const result = await pool.query(query, params)
-
-    // Đảm bảo dữ liệu trả về có định dạng ISO chuẩn và trả về trực tiếp mảng dữ liệu
-    const formattedData = result.rows.map((row) => ({
-      id: row.id,
-      username: row.username,
-      date: moment(row.date).format("YYYY-MM-DD"),
+    // Format the data to ensure consistent date format
+    const formattedData = attendanceRecords.map((record) => ({
+      id: record.id,
+      username: record.username,
+      date: moment(record.date).format("YYYY-MM-DD"),
     }))
 
-    // Trả về trực tiếp mảng dữ liệu thay vì bọc trong object data
     return NextResponse.json(formattedData, { status: 200 })
   } catch (error) {
     console.error("Error fetching attendance records:", error)

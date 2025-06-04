@@ -1,49 +1,45 @@
-import { Pool } from 'pg';
+import { PrismaClient } from '@prisma/client';
 
-const pool = new Pool({
-    connectionString: 'postgres://neondb_owner:npg_tGLaeU2uWz4X@ep-white-grass-a1smnwlt-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require',
-    ssl: {
-        rejectUnauthorized: false
-    },
-    max: 20, // Increased max connections for better handling of concurrent requests
-    idleTimeoutMillis: 300000, // Increased to 5 minutes to keep connections alive longer
-    connectionTimeoutMillis: 10000, // Increased timeout for better reliability
-    maxUses: 10000, // Increased max uses per connection
-    keepAlive: true, // Enable keep-alive to maintain connection
-    application_name: 'world-seo-app', // Add application name for better monitoring
-});
+// PrismaClient is attached to the `global` object in development to prevent
+// exhausting your database connection limit.
+const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-// Test database connection with retry logic
-const testConnection = async (retries = 3) => {
-    for (let i = 0; i < retries; i++) {
-        try {
-            const res = await pool.query('SELECT NOW()');
-            console.log('Database connection test successful:', res.rows[0]);
-            return;
-        } catch (err) {
-            console.error(`Database connection test attempt ${i + 1} failed:`, err);
-            if (i === retries - 1) throw err;
-            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
-        }
-    }
+// Initialize Prisma client
+const prismaClientSingleton = () => {
+  return new PrismaClient({
+    log: ['query', 'error', 'warn'],
+  });
 };
 
-testConnection().catch(err => {
-    console.error('All database connection attempts failed:', err);
+// Ensure we only create one instance of PrismaClient
+const prisma = globalForPrisma.prisma ?? prismaClientSingleton();
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+
+// Add Prisma middleware for logging
+prisma.$use(async (params: any, next: any) => {
+  const before = Date.now();
+  const result = await next(params);
+  const after = Date.now();
+  console.log(`Query ${params.model}.${params.action} took ${after - before}ms`);
+  return result;
 });
 
-// Add error handler for the pool
-pool.on('error', (err, client) => {
-    console.error('Unexpected error on idle client', err);
-});
+// Initialize database connection
+let isConnected = false;
 
-// Add connection pool monitoring
-pool.on('connect', () => {
-    console.log('New client connected to the pool');
-});
+async function connectDB() {
+  if (isConnected) return;
 
-pool.on('acquire', () => {
-    console.log('Client acquired from the pool');
-});
+  try {
+    await prisma.$connect();
+    isConnected = true;
+    console.log('Database connection established successfully');
+  } catch (err) {
+    console.error('Database connection failed:', err);
+    throw err;
+  }
+}
 
-export { pool }; 
+// Export both prisma client and connection function
+export { prisma, connectDB, prisma as db }; 

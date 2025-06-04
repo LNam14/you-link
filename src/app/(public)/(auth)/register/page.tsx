@@ -53,8 +53,7 @@ export default function SignUp() {
       try {
         setIsUsernameLoading(true)
         // Add timestamp to prevent caching
-        const timestamp = Date.now()
-        const result: any = await authApiRequest.getCount(timestamp)
+        const result: any = await authApiRequest.getCount()
         if (result && result.success) {
           const customerCount = result.count || 0
           setCount(customerCount)
@@ -172,16 +171,13 @@ export default function SignUp() {
 
     try {
       setLoading(true)
-      const newId = moment().unix()
-
       const data: any = [
         {
-          id: newId,
           role: "Khách hàng",
           telegram: formData.telegram,
           username: formData.username,
           password: formData.password,
-          active: true,
+          active: "Hoạt động",
         },
       ]
 
@@ -201,10 +197,7 @@ export default function SignUp() {
           repassword: "",
         })
 
-        // Redirect to login page after successful registration
-        setTimeout(() => {
-          router.push("/login")
-        }, 1500)
+        router.push("/login")
       } else {
         message.error(result?.message || "Đăng ký không thành công. Vui lòng thử lại.")
       }

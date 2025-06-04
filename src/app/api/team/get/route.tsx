@@ -1,15 +1,19 @@
-import executeQuery from "@/app/db/db"
+import { prisma } from "@/lib/db"
 import { NextResponse } from "next/server"
 
 export async function GET(request: Request) {
     try {
-        // Query to get all teams
-        const result: any = await executeQuery("SELECT * FROM team ORDER BY name", [])
+        // Get all teams using Prisma
+        const teams = await prisma.team.findMany({
+            orderBy: {
+                name: 'asc'
+            }
+        })
 
         return NextResponse.json(
             {
                 success: true,
-                data: result || [],
+                data: teams || [],
                 message: "Successfully retrieved teams",
             },
             { status: 200 },

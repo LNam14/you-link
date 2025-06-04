@@ -1,27 +1,19 @@
 import { NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
-import executeQuery from "@/app/db/db"
+import { prisma } from "@/lib/db"
 
 // Sử dụng biến môi trường cho thông tin nhạy cảm
 const JWT_REFRESH_SECRET =
     process.env.JWT_REFRESH_SECRET || process.env.NEXT_PRIVATE_TOKEN || "your_refresh_token_secret"
 
-// Chuẩn bị các câu truy vấn SQL
-// PostgreSQL uses $1, $2, etc. for parameterized queries instead of ?
-const CHECK_USER_BY_ID = `SELECT id FROM account WHERE id = $1 LIMIT 1`
-const CHECK_USER_BY_USERNAME = `SELECT id FROM account WHERE username = $1 LIMIT 1`
-const UPDATE_USER = `UPDATE account SET name = $1, username = $2, password = $3, phone = $4, role = $5, active = $6 WHERE id = $7`
-const INSERT_USER = `INSERT INTO account (id, name, username, telegram, password, phone, role, refreshToken) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-
 // Interface cho dữ liệu người dùng
 interface UserData {
-    id: string | number
     name: string
     username?: string
     password: string
     phone?: string
     role: string
-    active?: boolean
+    active?: string
     telegram?: string
 }
 
@@ -78,43 +70,56 @@ export async function POST(request: Request) {
                 // Kiểm tra dữ liệu người dùng
                 const validationError = validateUserData(user)
                 if (validationError) {
-                    errors.push({ id: user.id, message: validationError })
+                    errors.push({ username: user.username, message: validationError })
                     continue
                 }
 
-                const { id, name, username, password, phone, role, active, telegram } = user
+                const { name, username, password, phone, role, active, telegram } = user
 
-                // Kiểm tra người dùng tồn tại bằng ID
-                const existingUsers = await executeQuery(CHECK_USER_BY_ID, [id])
-                const userExists = Array.isArray(existingUsers) && existingUsers.length > 0
+                // Kiểm tra username đã tồn tại chưa
+                if (username) {
+                    const existingUser = await prisma.account.findUnique({
+                        where: { username }
+                    })
 
-                if (userExists) {
-                    // Cập nhật người dùng hiện có
-                    await executeQuery(UPDATE_USER, [name, username, password, phone, role, active, id])
+                    if (existingUser) {
+                        // Cập nhật người dùng hiện có
+                        const updatedUser = await prisma.account.update({
+                            where: { username },
+                            data: {
+                                name,
+                                password,
+                                phone,
+                                role,
+                                active: active || "Hoạt động"
+                            }
+                        })
 
-                    results.push({ id, action: "updated" })
-                } else {
-                    // Kiểm tra username đã tồn tại chưa
-                    if (username) {
-                        const existingUsernames = await executeQuery(CHECK_USER_BY_USERNAME, [username])
-
-                        if (Array.isArray(existingUsernames) && existingUsernames.length > 0) {
-                            errors.push({ id, message: `Username ${username} đã tồn tại!` })
-                            continue
-                        }
+                        results.push({ id: updatedUser.id, username, action: "updated" })
+                        continue
                     }
-
-                    // Tạo refresh token cho người dùng mới
-                    const refreshToken = createRefreshToken(username || name, role)
-
-                    // Thêm người dùng mới
-                    const log = await executeQuery(INSERT_USER, [id, name, username, telegram, password, phone, role, refreshToken])
-                    console.log("log", log);
-
-                    results.push({ id, action: "created" })
                 }
+
+                // Tạo refresh token cho người dùng mới
+                const refreshToken = createRefreshToken(username || name, role)
+
+                // Thêm người dùng mới
+                const newUser = await prisma.account.create({
+                    data: {
+                        name,
+                        username,
+                        telegram,
+                        password,
+                        phone,
+                        role,
+                        refreshtoken: refreshToken,
+                        active: active || "Hoạt động"
+                    }
+                })
+
+                results.push({ id: newUser.id, username, action: "created" })
             } catch (userError: any) {
-                errors.push({ id: user.id, message: userError.message })
+                errors.push({ username: user.username, message: userError.message })
             }
         }
 
@@ -134,7 +139,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
             {
                 success: true,
-                message: "Xử lý thành công.",
+                message: "Đăng ký thành công.",
                 results,
             },
             { status: 200 },

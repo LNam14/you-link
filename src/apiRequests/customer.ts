@@ -49,11 +49,10 @@ const customerApiRequest = {
    * Lấy danh sách khách hàng với dữ liệu mới nhất
    */
   get: () => {
-    const timestamp = Date.now()
-    return httpService.get<CustomerApiResponse>(`${ENDPOINTS.GET}?timestamp=${timestamp}`).then(res => {
-      // Handle both direct array response and wrapped response
-      return Array.isArray(res) ? { customers: res, staffNames: [], teamNames: [] } : res
-    })
+    const timestamp = new Date().toISOString();
+    return httpService.get<CustomerData>(ENDPOINTS.GET, { 
+      params: { timestamp } 
+    });
   },
 
   /**

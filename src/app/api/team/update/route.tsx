@@ -1,4 +1,4 @@
-import executeQuery from "@/app/db/db"
+import { prisma } from "@/lib/db"
 import { NextResponse } from "next/server"
 
 export async function POST(request: Request) {
@@ -16,25 +16,12 @@ export async function POST(request: Request) {
             )
         }
 
-        // Update the team with description and active status
-        const query = `
-            WITH updated_team AS (
-                UPDATE team 
-                SET name = $1, description = $2, active = $3, updated_at = CURRENT_TIMESTAMP
-                WHERE id = $4 
-                RETURNING *
-            ),
-            updated_accounts AS (
-                UPDATE account
-                SET team = $1
-                WHERE team = (SELECT name FROM team WHERE id = $4)
-            )
-            SELECT * FROM updated_team;
-        `
-        const result = await executeQuery(query, [name, description || null, active !== undefined ? active : "Hoạt động", id])
+        // Get the old team name for updating accounts
+        const oldTeam = await prisma.team.findUnique({
+            where: { id: Number(id) }
+        })
 
-        // Check if any rows were affected
-        if (!Array.isArray(result) || result.length === 0) {
+        if (!oldTeam) {
             return NextResponse.json(
                 {
                     success: false,
@@ -44,49 +31,71 @@ export async function POST(request: Request) {
             )
         }
 
+        // Update team and accounts in a transaction
+        const [updatedTeam] = await prisma.$transaction([
+            // Update team
+            prisma.team.update({
+                where: { id: Number(id) },
+                data: {
+                    name,
+                    description,
+                    active: active !== undefined ? active : "Hoạt động",
+                    updated_at: new Date().toISOString()
+                }
+            }),
+            // Update accounts
+            prisma.account.updateMany({
+                where: { team: oldTeam.name },
+                data: { team: name }
+            })
+        ])
+
         // Get updated team with member details
-        const teamWithMembersQuery = `
-            SELECT 
-                t.*,
-                COUNT(a.id) as member_count,
-                COUNT(CASE WHEN a.active = true THEN 1 END) as active_member_count,
-                COALESCE(
-                    JSON_AGG(
-                        CASE 
-                            WHEN a.id IS NOT NULL THEN 
-                                JSON_BUILD_OBJECT(
-                                    'id', a.id,
-                                    'username', a.username,
-                                    'name', a.name,
-                                    'role', a.role,
-                                    'active', a.active,
-                                    'created_at', a.created_at
-                                )
-                            ELSE NULL
-                        END
-                    ) FILTER (WHERE a.id IS NOT NULL),
-                    '[]'::json
-                ) as members
-            FROM team t
-            LEFT JOIN account a ON t.id = a.team AND a.role = 'Nhân viên'
-            WHERE t.id = $1
-            GROUP BY t.id, t.name, t.description, t.active, t.created_at, t.updated_at
-        `
-        const teamWithMembers: any = await executeQuery(teamWithMembersQuery, [id])
+        const teamWithMembers = await prisma.team.findUnique({
+            where: { id: Number(id) },
+            include: {
+                _count: {
+                    select: {
+                        accounts: true
+                    }
+                },
+                accounts: {
+                    where: {
+                        role: 'Nhân viên'
+                    },
+                    select: {
+                        id: true,
+                        username: true,
+                        name: true,
+                        role: true,
+                        active: true,
+                        created_at: true
+                    }
+                }
+            }
+        })
+
+        // Transform the data to match the expected format
+        const transformedTeam = {
+            ...teamWithMembers,
+            member_count: teamWithMembers?._count.accounts || 0,
+            active_member_count: teamWithMembers?.accounts.filter(a => a.active === true).length || 0,
+            members: teamWithMembers?.accounts || []
+        }
 
         return NextResponse.json(
             {
                 success: true,
                 message: "Team updated successfully",
-                data: teamWithMembers[0],
+                data: transformedTeam,
             },
             { status: 200 },
         )
     } catch (error: any) {
         console.error("Error updating team:", error)
 
-        // Check for duplicate team name error
-        if (error.message && error.message.includes("team_name_key")) {
+        // Check for unique constraint violation
+        if (error.code === 'P2002') {
             return NextResponse.json(
                 {
                     success: false,

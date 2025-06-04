@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
-import executeQuery from "@/app/db/db"
+import { prisma } from "@/lib/db"
 import { cache } from "react"
 
 // Sử dụng biến môi trường cho thông tin nhạy cảm
@@ -10,10 +10,6 @@ const JWT_SECRET = process.env.NEXT_PRIVATE_TOKEN || "123"
 const createAccessToken = cache((payload: object) => {
     return jwt.sign(payload, JWT_SECRET, { expiresIn: "30d", algorithm: "HS256" })
 })
-
-// Chuẩn bị câu truy vấn SQL một lần
-// PostgreSQL uses $1, $2, etc. for parameterized queries instead of ?
-const USER_QUERY = `SELECT * FROM account WHERE username = $1 LIMIT 1`
 
 // Hàm xử lý request được tối ưu hóa
 export async function POST(request: Request) {
@@ -45,11 +41,13 @@ export async function POST(request: Request) {
             )
         }
 
-        // Thực hiện truy vấn với prepared statement
-        const users: any = await executeQuery(USER_QUERY, [username])
+        // Thực hiện truy vấn với Prisma
+        const userData = await prisma.account.findUnique({
+            where: { username }
+        })
 
         // Kiểm tra kết quả truy vấn
-        if (!users || users.length === 0) {
+        if (!userData) {
             return NextResponse.json(
                 {
                     success: false,
@@ -60,11 +58,8 @@ export async function POST(request: Request) {
             )
         }
 
-        // Lấy thông tin người dùng
-        const userData = users[0]
-
         // Kiểm tra trạng thái tài khoản
-        if (userData.active === 0 || userData.active === false) {
+        if (userData.active !== "Hoạt động") {
             return NextResponse.json(
                 {
                     success: false,

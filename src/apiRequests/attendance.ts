@@ -22,8 +22,10 @@ const attendanceApiRequest = {
    * Lấy danh sách điểm danh
    */
   get: () => {
-    // API trả về trực tiếp mảng Attendance[]
-    return httpService.get<Attendance[]>(ENDPOINTS.GET)
+    const timestamp = new Date().toISOString();
+    return httpService.get<Attendance>(ENDPOINTS.GET, { 
+      params: { timestamp } 
+    });
   },
 
   /**

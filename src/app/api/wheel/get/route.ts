@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { pool } from "@/lib/db"
+import { prisma } from "@/lib/db"
 import { cookies } from "next/headers"
 import moment from "moment"
 
@@ -18,27 +18,32 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Username not found" }, { status: 400 })
     }
 
-    let query = ""
-    let params: string[] = []
-
+    let wheelRecords;
     if (role === "Admin") {
-      query = "SELECT * FROM wheel ORDER BY date DESC"
+      wheelRecords = await prisma.wheel.findMany({
+        orderBy: {
+          date: 'desc'
+        }
+      });
     } else {
-      query = "SELECT * FROM wheel WHERE username = $1 ORDER BY date DESC"
-      params = [username]
+      wheelRecords = await prisma.wheel.findMany({
+        where: {
+          username: username
+        },
+        orderBy: {
+          date: 'desc'
+        }
+      });
     }
 
-    const result = await pool.query(query, params)
-
-    // Đảm bảo dữ liệu trả về có định dạng ISO chuẩn và trả về trực tiếp mảng dữ liệu
-    const formattedData = result.rows.map((row) => ({
-      id: row.id,
-      username: row.username,
-      reward: row.reward,
-      date: moment(row.date).format("YYYY-MM-DD"),
+    // Format the data
+    const formattedData = wheelRecords.map((record) => ({
+      id: record.id,
+      username: record.username,
+      reward: record.reward,
+      date: moment(record.date).format("YYYY-MM-DD"),
     }))
 
-    // Trả về trực tiếp mảng dữ liệu thay vì bọc trong object data
     return NextResponse.json({ data: formattedData }, { status: 200 })
   } catch (error) {
     console.error("Error fetching wheel records:", error)

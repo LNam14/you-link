@@ -1,4 +1,4 @@
-import executeQuery from "@/app/db/db"
+import { prisma } from "@/lib/db"
 import { NextResponse } from "next/server"
 
 export async function POST(request: Request) {
@@ -16,31 +16,12 @@ export async function POST(request: Request) {
             )
         }
 
-        // Check if team has members
-        const memberCheckQuery = `
-            SELECT COUNT(*) as member_count 
-            FROM account 
-            WHERE team = $1
-        `
-        const memberCheck: any = await executeQuery(memberCheckQuery, [name])
-        // Update accounts to remove team association
-        const updateAccountsQuery = `
-            UPDATE account 
-            SET team = NULL 
-            WHERE team = $1
-        `
-        await executeQuery(updateAccountsQuery, [name])
+        // First find the team to get its ID
+        const team = await prisma.team.findFirst({
+            where: { name }
+        })
 
-        // Delete the team
-        const deleteQuery = `
-            DELETE FROM team 
-            WHERE name = $1 
-            RETURNING *
-        `
-        const result = await executeQuery(deleteQuery, [name])
-
-        // Check if any rows were affected
-        if (!Array.isArray(result) || result.length === 0) {
+        if (!team) {
             return NextResponse.json(
                 {
                     success: false,
@@ -50,11 +31,22 @@ export async function POST(request: Request) {
             )
         }
 
+        // Update accounts to remove team association
+        await prisma.account.updateMany({
+            where: { team: name },
+            data: { team: null }
+        })
+
+        // Delete the team
+        const deletedTeam = await prisma.team.delete({
+            where: { id: team.id }
+        })
+
         return NextResponse.json(
             {
                 success: true,
                 message: "Team deleted successfully",
-                data: result[0],
+                data: deletedTeam,
             },
             { status: 200 },
         )

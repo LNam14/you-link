@@ -1,44 +1,110 @@
 import { google } from "googleapis";
 import keys from "../../../../../key.json";
 import { NextResponse } from "next/server";
-import { pool } from "@/lib/db";
+import { prisma, connectDB } from "@/lib/db";
 
 const SPREADSHEET_ID = "1SDvAA8pPWUl2Fi2ubFIFttS5D7rA1P-DHrHuJj9X4Z8";
 
 // Format ngày kiểu DD/MM/YYYY
-const formatDate = (dateString: string | null) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
+const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "";
+    try {
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr; // Return original string if invalid date
+
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    } catch (error) {
+        console.error("Error formatting date:", error);
+        return dateStr; // Return original string if there's an error
+    }
 };
 
+interface CustomerData {
+    id: number;
+    ma_moi: string;
+    phan_loai: string;
+    phien_ban: string;
+    ma_cu: string;
+    cty: string;
+    ten: string[];
+    telegram: string[];
+    link_nhom: string;
+    id_nhom: string;
+    nhom: string;
+    nguoi_cham: string;
+    tab_don: string;
+    cong_no: string;
+    tin_dung: string;
+    ngay_check: string | null;
+    tinh_trang: string;
+    note_kt: string;
+    note_khac: string;
+    created_at: Date;
+    updated_at: Date;
+}
+
+interface Account {
+    id: number;
+    username: string | null;
+    password: string | null;
+    name: string | null;
+    role: string;
+    team: string | null;
+    position: string | null;
+    created_at: Date;
+    updated_at: Date;
+}
+
+interface Team {
+    id: number;
+    name: string;
+    created_at: Date;
+    updated_at: Date;
+}
+
 export async function GET() {
-    const client = await pool.connect();
     try {
-        // Start a transaction
-        await client.query('BEGIN');
+        // Ensure database connection is established
+        await connectDB();
 
         // Execute all queries in parallel using Promise.all
         const [customerResult, accountResult, teamResult] = await Promise.all([
-            client.query("SELECT * FROM customer_data ORDER BY id DESC"),
-            client.query("SELECT name FROM account WHERE role = 'Nhân viên'"),
-            client.query("SELECT name FROM team")
+            prisma.customer_data.findMany({
+                orderBy: [
+                    {
+                        nhom: 'asc'
+                    },
+                    {
+                        id: 'desc'
+                    }
+                ]
+            }),
+            prisma.account.findMany({
+                where: {
+                    role: 'Nhân viên'
+                },
+                select: {
+                    name: true
+                }
+            }),
+            prisma.team.findMany({
+                select: {
+                    name: true
+                }
+            })
         ]);
 
         // Process customer data
-        const customerData = customerResult.rows.map(row => ({
+        const customerData = customerResult.map((row: CustomerData) => ({
             ...row,
             ngay_check: formatDate(row.ngay_check),
         }));
 
-        const staffNames = accountResult.rows.map(row => row.name);
-        const teamNames = teamResult.rows.map(row => row.name);
-
-        // Commit the transaction
-        await client.query('COMMIT');
+        const staffNames = accountResult.map((row: { name: string | null }) => row.name || '');
+        const teamNames = teamResult.map((row: { name: string }) => row.name);
 
         // Get Google Sheets data after database operations are complete
         try {
@@ -70,7 +136,7 @@ export async function GET() {
             }
 
             // Gắn giá trị công nợ vào từng customer
-            const updatedCustomerData = customerData.map(customer => ({
+            const updatedCustomerData = customerData.map((customer: CustomerData & { ngay_check: string }) => ({
                 ...customer,
                 cong_no: congNoMap.get(customer.ma_moi) || "", // Gắn nếu trùng
             }));
@@ -97,8 +163,6 @@ export async function GET() {
             );
         }
     } catch (error: any) {
-        // Rollback transaction on error
-        await client.query('ROLLBACK');
         console.error("Error in GET:", error);
         return NextResponse.json(
             {
@@ -108,8 +172,5 @@ export async function GET() {
             },
             { status: 500 }
         );
-    } finally {
-        // Always release the client back to the pool
-        client.release();
     }
 }
