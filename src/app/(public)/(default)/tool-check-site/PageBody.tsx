@@ -269,7 +269,7 @@ export default function PageBody() {
                     // Remove protocol and www if present for validation
                     const cleanTerm = trimmed.replace(/^(?:https?:\/\/)?(?:www\.)?/, '')
                     return domainPattern.test(cleanTerm)
-                })
+                }) as string[]; // Ensure validTerms is treated as string[]
             } else {
                 // For NCC search, accept terms starting with "N" followed by numbers
                 // Remove the case sensitivity requirement and make it more flexible
@@ -288,163 +288,93 @@ export default function PageBody() {
                 return
             }
 
-            // Continue with the existing search logic using only valid terms
-            const matchedItems: SiteData[] = []
-            const processedDomains = new Set<string>() // Track which domains we've processed
+            // Create a structure to hold search terms and their matched items
+            const searchResults: Array<{ searchTerm: string; items: SiteData[]; status: string }> = []
+            const processedDomains = new Set<string>() // Track which domains we've processed for the main list
 
-            // First, find all matching items from existing data
-            allData.forEach((item) => {
-                const searchField = selectedSearchType === "Site" ? item.site : item.MaNCC
-                if (!searchField) return
+            validTerms.forEach(term => {
+                const normalizedTerm = selectedSearchType === "Site" ? normalizeUrl(term) : term.toUpperCase().trim()
+                const matchingItems = allData.filter(item => {
+                    const searchField = selectedSearchType === "Site" ? item.site : item.MaNCC
+                    if (!searchField) return false
 
-                if (selectedSearchType === "Site") {
-                    const normalizedSite = normalizeUrl(searchField)
-                    if (!normalizedSite) return
-
-                    for (const term of validTerms) {
-                        const normalizedTerm = normalizeUrl(term)
-                        if (!normalizedTerm) continue
-
-                        if (normalizedSite === normalizedTerm) {
-                            matchedItems.push(item)
-                            processedDomains.add(normalizedTerm) // Mark this domain as processed
-                            break
-                        }
+                    if (selectedSearchType === "Site") {
+                        const normalizedSite = normalizeUrl(searchField)
+                        return normalizedSite === normalizedTerm
+                    } else {
+                        const normalizedMaNCC = searchField.toUpperCase().trim()
+                        return normalizedMaNCC === normalizedTerm || normalizedMaNCC.startsWith(normalizedTerm)
                     }
-                } else {
-                    // For NCC search, normalize the MaNCC to uppercase for comparison
-                    const normalizedMaNCC = searchField.toUpperCase().trim()
-                    for (const term of validTerms) {
-                        // For NCC search, we want exact matches or starts with matches
-                        // Both normalizedMaNCC and term are already in uppercase
-                        if (normalizedMaNCC === term || normalizedMaNCC.startsWith(term)) {
-                            matchedItems.push(item)
-                            break
-                        }
-                    }
-                }
-            })
-
-            // For site search, add non-existent domains as empty items
-            if (selectedSearchType === "Site") {
-                validTerms.forEach(term => {
-                    const normalizedTerm = normalizeUrl(term)
-                    if (!normalizedTerm || processedDomains.has(normalizedTerm)) return
-
-                    // Create an empty item with just the site field
-                    const emptyItem: SiteData = {
-                        cs: "",
-                        tinhTrang: "",
-                        site: term.trim(), // Use the original term to preserve format
-                        bong: "",
-                        bet: "",
-                        chuDe: "",
-                        DR: "",
-                        trafficTool: "",
-                        ghiChu: "",
-                        giaBanGP: "",
-                        giaBanText: "",
-                        giaBanTextHome: "",
-                        giaBanTextHeader: "",
-                        giaBanGPLio: "",
-                        giaBanTextLio: "",
-                        giaBanTextHomeLio: "",
-                        giaBanTextHeaderLio: "",
-                        giaMuaGP: "",
-                        giaMuaText: "",
-                        giaMuaTextHome: "",
-                        giaMuaTextHeader: "",
-                        hoaHongGP: "",
-                        hoaHongText: "",
-                        giaCuoiGP: "",
-                        giaCuoiText: "",
-                        giaCuoiTextHome: "",
-                        giaCuoiTextHeader: "",
-                        loiNhuanGP: "",
-                        loiNhuanText: "",
-                        loiNhuanTextHome: "",
-                        loiNhuanTextHeader: "",
-                        loiNhuanGPLio: "",
-                        loiNhuanTextLio: "",
-                        loiNhuanTextHomeLio: "",
-                        loiNhuanTextHeaderLio: "",
-                        NCC: "",
-                        MaNCC: "",
-                        FileNCC: "",
-                        GroupNCC: "",
-                        GhiChuNCC: "",
-                        timeText: "",
-                    }
-                    matchedItems.push(emptyItem)
                 })
-            }
 
-            // Then, group matched items by site domain for duplicate detection
-            const itemGroups: { [key: string]: SiteData[] } = {}
-            matchedItems.forEach((item) => {
-                const normalizedSite = normalizeUrl(item.site)
-                if (!normalizedSite) return
-
-                if (!itemGroups[normalizedSite]) {
-                    itemGroups[normalizedSite] = []
-                }
-                itemGroups[normalizedSite].push(item)
-            })
-
-            // Process duplicate items
-            const duplicates: { [key: string]: SiteData[] } = {}
-            const mainItems: SiteData[] = []
-
-            // Sort the normalized values based on search term order
-            const sortedNormalizedValues = Object.keys(itemGroups).sort((a, b) => {
-                const matchedTermIndexA = validTerms.findIndex(term => {
-                    const normalizedTerm = normalizeUrl(term)
-                    return a === normalizedTerm || a.includes(normalizedTerm) || normalizedTerm.includes(a)
-                })
-                const matchedTermIndexB = validTerms.findIndex(term => {
-                    const normalizedTerm = normalizeUrl(term)
-                    return b === normalizedTerm || b.includes(normalizedTerm) || normalizedTerm.includes(b)
-                })
-                return (matchedTermIndexA ?? Infinity) - (matchedTermIndexB ?? Infinity)
-            })
-
-            sortedNormalizedValues.forEach((normalizedValue) => {
-                const items = itemGroups[normalizedValue]
-                if (items.length > 1) {
-                    // Sort by purchase price (numeric values first, then non-numeric)
-                    items.sort((a, b) => {
+                if (matchingItems.length > 0) {
+                    // Sort matching items by purchase price (numeric first) for consistent 'main' item selection
+                    matchingItems.sort((a, b) => {
                         const priceA = Number.parseFloat(a.giaMuaGP)
                         const priceB = Number.parseFloat(b.giaMuaGP)
-
                         const isNumericA = !isNaN(priceA)
                         const isNumericB = !isNaN(priceB)
-
-                        // If both are numeric, compare values
-                        if (isNumericA && isNumericB) {
-                            return priceA - priceB
-                        }
-
-                        // Numeric values come before non-numeric
+                        if (isNumericA && isNumericB) return priceA - priceB
                         if (isNumericA) return -1
                         if (isNumericB) return 1
-
-                        // If both are non-numeric, keep original order
                         return 0
                     })
 
-                    // Add the item with lowest price to main table
-                    mainItems.push(items[0])
+                    // Add the best match to the main results list
+                    const mainItem = matchingItems[0]
+                    const mainItemNormalized = selectedSearchType === "Site" ? normalizeUrl(mainItem.site) : mainItem.MaNCC.toUpperCase().trim()
+                    const status = mainItemNormalized === normalizedTerm ? "Đúng" : "Khác"
+                    searchResults.push({ searchTerm: term, items: [mainItem], status: status })
+                    if (selectedSearchType === "Site") {
+                        processedDomains.add(mainItemNormalized)
+                    }
 
-                    // Add the rest to duplicates
-                    duplicates[normalizedValue] = items.slice(1)
+                    // Add remaining items as duplicates if any
+                    if (matchingItems.length > 1) {
+                        const duplicateItems = matchingItems.slice(1)
+                        // Group duplicates by their normalized value (domain or NCC code)
+                        const duplicateGroups: { [key: string]: SiteData[] } = {};
+                        duplicateItems.forEach(dupItem => {
+                            const dupNormalized = selectedSearchType === "Site" ? normalizeUrl(dupItem.site) : dupItem.MaNCC.toUpperCase().trim();
+                            if (!duplicateGroups[dupNormalized]) duplicateGroups[dupNormalized] = [];
+                            duplicateGroups[dupNormalized].push(dupItem);
+                        });
+                        // Add duplicates to the main duplicates state for the duplicates table
+                        setDuplicateSites(prev => ({
+                            ...prev,
+                            ...duplicateGroups
+                        }));
+                    } else {
+                        // Ensure no duplicates are listed for this term if only one item found
+                        if (selectedSearchType === "Site") {
+                            const currentNormalized = normalizeUrl(mainItem.site);
+                            setDuplicateSites(prev => {
+                                const newState = { ...prev };
+                                delete newState[currentNormalized];
+                                return newState;
+                            });
+                        }
+                    }
                 } else {
-                    // Non-duplicate items go to main table
-                    mainItems.push(items[0])
+                    // Add an empty entry for terms with no match
+                    const emptyItem: SiteData = {
+                        cs: "", tinhTrang: "", site: term.trim(), bong: "", bet: "", chuDe: "", DR: "", trafficTool: "", ghiChu: "",
+                        giaBanGP: "", giaBanText: "", giaBanTextHome: "", giaBanTextHeader: "",
+                        giaBanGPLio: "", giaBanTextLio: "", giaBanTextHomeLio: "", giaBanTextHeaderLio: "",
+                        giaMuaGP: "", giaMuaText: "", giaMuaTextHome: "", giaMuaTextHeader: "",
+                        hoaHongGP: "", hoaHongText: "", giaCuoiGP: "", giaCuoiText: "", giaCuoiTextHome: "", giaCuoiTextHeader: "",
+                        loiNhuanGP: "", loiNhuanText: "", loiNhuanTextHome: "", loiNhuanTextHeader: "",
+                        loiNhuanGPLio: "", loiNhuanTextLio: "", loiNhuanTextHomeLio: "", loiNhuanTextHeaderLio: "",
+                        NCC: "", MaNCC: "", FileNCC: "", GroupNCC: "", GhiChuNCC: "", timeText: "",
+                    }
+                    searchResults.push({ searchTerm: term, items: [emptyItem], status: "Không tìm thấy" })
                 }
             })
 
-            setFilteredData(mainItems)
-            setDuplicateSites(duplicates)
+            // Flatten searchResults to get the main items for the primary table
+            const mainDisplayItems = searchResults.map(result => result.items[0]); // We only display the first item for simplicity in the main table as per the image format idea
+
+            setFilteredData(mainDisplayItems)
             setHasSearched(true)
 
             // Add currency conversion AFTER filtering and splitting main/duplicates
@@ -469,11 +399,11 @@ export default function PageBody() {
             }
 
             // Apply conversion to both filteredData and duplicateSites
-            setFilteredData(applyCurrencyConversion(mainItems))
+            setFilteredData(applyCurrencyConversion(mainDisplayItems))
 
             // Convert duplicate sites
             const convertedDuplicates: { [key: string]: SiteData[] } = {}
-            Object.entries(duplicates).forEach(([key, items]) => {
+            Object.entries(duplicateSites).forEach(([key, items]) => {
                 convertedDuplicates[key] = applyCurrencyConversion(items)
             })
             setDuplicateSites(convertedDuplicates)
