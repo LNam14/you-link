@@ -16,63 +16,100 @@ const formatDate = (dateString: string | null) => {
 };
 
 export async function GET() {
+    const client = await pool.connect();
     try {
-        // Lấy dữ liệu từ database
-        const customerResult = await pool.query("SELECT * FROM customer_data ORDER BY id DESC");
+        // Start a transaction
+        await client.query('BEGIN');
+
+        // Execute all queries in parallel using Promise.all
+        const [customerResult, accountResult, teamResult] = await Promise.all([
+            client.query("SELECT * FROM customer_data ORDER BY id DESC"),
+            client.query("SELECT name FROM account WHERE role = 'Nhân viên'"),
+            client.query("SELECT name FROM team")
+        ]);
+
+        // Process customer data
         const customerData = customerResult.rows.map(row => ({
             ...row,
             ngay_check: formatDate(row.ngay_check),
         }));
 
-        const accountResult = await pool.query("SELECT name FROM account WHERE role = 'Nhân viên'");
         const staffNames = accountResult.rows.map(row => row.name);
-
-        const teamResult = await pool.query("SELECT name FROM team");
         const teamNames = teamResult.rows.map(row => row.name);
 
-        // Ủy quyền Google API
-        const client = new google.auth.JWT(
-            keys.client_email,
-            undefined,
-            keys.private_key,
-            ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-        );
-        await client.authorize();
+        // Commit the transaction
+        await client.query('COMMIT');
 
-        const gsapi = google.sheets({ version: "v4", auth: client });
+        // Get Google Sheets data after database operations are complete
+        try {
+            // Ủy quyền Google API
+            const auth = new google.auth.JWT(
+                keys.client_email,
+                undefined,
+                keys.private_key,
+                ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+            );
+            await auth.authorize();
 
-        // Đọc dữ liệu từ Sheet CongNo!B2:C
-        const sheetResponse = await gsapi.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
-            range: "CongNo!B2:C",
-        });
+            const gsapi = google.sheets({ version: "v4", auth });
 
-        const sheetData = sheetResponse.data.values || [];
+            // Đọc dữ liệu từ Sheet CongNo!B2:C
+            const sheetResponse = await gsapi.spreadsheets.values.get({
+                spreadsheetId: SPREADSHEET_ID,
+                range: "CongNo!B2:C",
+            });
 
-        // Map dữ liệu: ma_moi => cong_no
-        const congNoMap = new Map<string, string>();
-        for (const [maMoi, congNo] of sheetData) {
-            if (maMoi && congNo) {
-                congNoMap.set(maMoi.trim(), congNo.trim());
+            const sheetData = sheetResponse.data.values || [];
+
+            // Map dữ liệu: ma_moi => cong_no
+            const congNoMap = new Map<string, string>();
+            for (const [maMoi, congNo] of sheetData) {
+                if (maMoi && congNo) {
+                    congNoMap.set(maMoi.trim(), congNo.trim());
+                }
             }
+
+            // Gắn giá trị công nợ vào từng customer
+            const updatedCustomerData = customerData.map(customer => ({
+                ...customer,
+                cong_no: congNoMap.get(customer.ma_moi) || "", // Gắn nếu trùng
+            }));
+
+            return NextResponse.json(
+                {
+                    customers: updatedCustomerData,
+                    staffNames,
+                    teamNames,
+                },
+                { status: 200 }
+            );
+        } catch (sheetsError) {
+            console.error("Error fetching Google Sheets data:", sheetsError);
+            // If Google Sheets fails, still return the database data
+            return NextResponse.json(
+                {
+                    customers: customerData,
+                    staffNames,
+                    teamNames,
+                    sheetsError: "Failed to fetch Google Sheets data"
+                },
+                { status: 200 }
+            );
         }
-
-        // Gắn giá trị công nợ vào từng customer
-        const updatedCustomerData = customerData.map(customer => ({
-            ...customer,
-            cong_no: congNoMap.get(customer.ma_moi) || "", // Gắn nếu trùng
-        }));
-
+    } catch (error: any) {
+        // Rollback transaction on error
+        await client.query('ROLLBACK');
+        console.error("Error in GET:", error);
         return NextResponse.json(
             {
-                customers: updatedCustomerData,
-                staffNames,
-                teamNames,
+                error: true,
+                message: error.message,
+                code: error.code // Include error code for better debugging
             },
-            { status: 200 }
+            { status: 500 }
         );
-    } catch (error: any) {
-        console.error("Error in GET:", error);
-        return NextResponse.json({ error: true, message: error.message }, { status: 500 });
+    } finally {
+        // Always release the client back to the pool
+        client.release();
     }
 }

@@ -787,7 +787,6 @@ export default function AccountTracker() {
                 const count = Array.isArray(value) ? value.length : 0
                 const displayText = count > 0 ? `Xem (${count})` : "None"
 
-                // Use safe content setting
                 if (safeSetElementContent(td, displayText, true)) {
                     td.style.color = count > 0 ? "#1E40AF" : "#6B7280"
                     td.style.backgroundColor = count > 0 ? "#EFF6FF" : "#F3F4F6"
@@ -813,12 +812,26 @@ export default function AccountTracker() {
                     }
 
                     td.onclick = () => {
-                        setArrayFieldModalData({
-                            field: "ten",
-                            rowIndex: row,
-                            data: Array.isArray(value) ? value : [],
-                        })
-                        setShowArrayFieldModal(true)
+                        // Get the actual customer data from the table instance
+                        const rowData = instance.getSourceDataAtRow(row)
+                        if (!rowData || 'isTeamHeader' in rowData) return
+
+                        const customer = rowData as CustomerData
+                        if (!customer || !customer.id) return
+
+                        // Find the exact index in filteredData
+                        const actualRowIndex = filteredData.findIndex(item =>
+                            !('isTeamHeader' in item) && (item as CustomerData).id === customer.id
+                        )
+
+                        if (actualRowIndex !== -1) {
+                            setArrayFieldModalData({
+                                field: "ten",
+                                rowIndex: actualRowIndex,
+                                data: Array.isArray(value) ? value : [],
+                            })
+                            setShowArrayFieldModal(true)
+                        }
                     }
                 }
             }
@@ -863,12 +876,26 @@ export default function AccountTracker() {
                     }
 
                     td.onclick = () => {
-                        setArrayFieldModalData({
-                            field: "telegram",
-                            rowIndex: row,
-                            data: Array.isArray(value) ? value : [],
-                        })
-                        setShowArrayFieldModal(true)
+                        // Get the actual customer data from the table instance
+                        const rowData = instance.getSourceDataAtRow(row)
+                        if (!rowData || 'isTeamHeader' in rowData) return
+
+                        const customer = rowData as CustomerData
+                        if (!customer || !customer.id) return
+
+                        // Find the exact index in filteredData
+                        const actualRowIndex = filteredData.findIndex(item =>
+                            !('isTeamHeader' in item) && (item as CustomerData).id === customer.id
+                        )
+
+                        if (actualRowIndex !== -1) {
+                            setArrayFieldModalData({
+                                field: "telegram",
+                                rowIndex: actualRowIndex,
+                                data: Array.isArray(value) ? value : [],
+                            })
+                            setShowArrayFieldModal(true)
+                        }
                     }
                 }
             }
@@ -1303,14 +1330,62 @@ export default function AccountTracker() {
         return [...currentValue, newValue]
     }
 
+    // Helper function to find actual row index
+    const findActualRowIndex = (displayRowIndex: number): number => {
+        // Get the actual data row from the table instance
+        const hotInstance = hotTableRef.current?.hotInstance
+        if (!hotInstance) return -1
+
+        // Get the source data at the display row
+        const rowData = hotInstance.getSourceDataAtRow(displayRowIndex)
+        if (!rowData || 'isTeamHeader' in rowData) return -1
+
+        // Find the index in filteredData that matches this customer's ID
+        const customer = rowData as CustomerData
+        return filteredData.findIndex(item =>
+            !('isTeamHeader' in item) && (item as CustomerData).id === customer.id
+        )
+    }
+
+    // Helper function to update array fields (ten and telegram)
+    const updateArrayField = async (
+        customer: CustomerData,
+        field: "ten" | "telegram",
+        newValue: string | string[],
+        isDirectUpdate: boolean = false
+    ): Promise<CustomerData> => {
+        const updatedCustomer: CustomerData = { ...customer }
+
+        if (isDirectUpdate && Array.isArray(newValue)) {
+            // Direct update from modal
+            updatedCustomer[field] = newValue
+        } else if (typeof newValue === "string" && newValue.trim()) {
+            // Adding new value to existing array
+            const currentArray = customer[field] || []
+            const trimmedValue = newValue.trim()
+
+            // Check if value already exists
+            if (currentArray.includes(trimmedValue)) {
+                throw new Error(`Giá trị "${trimmedValue}" đã tồn tại`)
+            }
+
+            updatedCustomer[field] = [...currentArray, trimmedValue]
+        }
+
+        return updatedCustomer
+    }
+
     // Handle single cell changes
     const handleAfterChange = async (changes: any[] | null, source: string) => {
-        if (!changes) return
+        if (!changes || source === "loadData") return
 
         try {
             for (const [row, prop, oldValue, newValue] of changes) {
-                const customer = tableData[row]
-                if (!customer) continue
+                const actualRowIndex = findActualRowIndex(row)
+                if (actualRowIndex === -1) continue
+
+                const customer = filteredData[actualRowIndex] as CustomerData
+                if (!customer || !customer.id) continue
 
                 // Special handling for ngayCheck column
                 if (prop === "ngayCheck") {
@@ -1320,58 +1395,49 @@ export default function AccountTracker() {
                     }
                 }
 
-                // Special handling for Ten and Telegram arrays
-                if (prop === "ten" || prop === "telegram") {
-                    // Handle direct input for empty arrays (when newValue is already an array with one item)
-                    if (Array.isArray(newValue) && newValue.length > 0) {
-                        const updatedCustomer: CustomerData = {
-                            ...customer,
-                            [prop]: newValue,
-                        }
+                let updatedCustomer: CustomerData = { ...customer }
+                let updateMessage = ""
 
-                        // Only update if customer has an ID
-                        if (customer.id) {
-                            await customerApiRequest.update(transformToApiFormat(updatedCustomer))
-                            await fetchCustomers() // Fetch fresh data after update
-                            toast.success(`Đã thêm ${newValue[0]} vào ${prop === "ten" ? "Tên" : "Telegram"}`)
-                        }
-                        continue
+                try {
+                    // Handle array fields (ten and telegram)
+                    if (prop === "ten" || prop === "telegram") {
+                        updatedCustomer = await updateArrayField(
+                            customer,
+                            prop as "ten" | "telegram",
+                            newValue,
+                            Array.isArray(newValue)
+                        )
+
+                        updateMessage = Array.isArray(newValue)
+                            ? `Đã cập nhật ${customer.id} ${prop === "ten" ? "Tên" : "Telegram"}`
+                            : `Đã thêm ${customer.id} ${newValue.trim()} vào ${prop === "ten" ? "Tên" : "Telegram"}`
+                    } else {
+                        // Handle other fields
+                        (updatedCustomer as any)[prop] = newValue
+                        updateMessage = `Đã cập nhật ${customer.id}`
                     }
 
-                    // Handle adding to existing arrays (when newValue is a string)
-                    if (typeof newValue === "string" && newValue.trim()) {
-                        // For empty arrays, create new array with the input value
-                        const currentArray = customer[prop as keyof CustomerData] as string[]
-                        const isEmptyArray = !currentArray || currentArray.length === 0
-
-                        const updatedCustomer: CustomerData = {
-                            ...customer,
-                            [prop]: isEmptyArray ? [newValue.trim()] : processArrayField(currentArray, newValue.trim()),
-                        }
-
-                        // Only update if customer has an ID
-                        if (customer.id) {
-                            await customerApiRequest.update(transformToApiFormat(updatedCustomer))
-                            await fetchCustomers() // Fetch fresh data after update
-
-                            const message = isEmptyArray
-                                ? `Đã thêm ${newValue.trim()} vào ${prop === "ten" ? "Tên" : "Telegram"}`
-                                : `Đã thêm ${newValue.trim()} vào danh sách ${prop === "ten" ? "Tên" : "Telegram"}`
-                            toast.success(message)
-                        }
-                        continue
-                    }
-                }
-
-                // Update the customer data for other fields
-                if (customer.id) {
-                    const updatedCustomer: CustomerData = { ...customer }
+                    // Update API
                     await customerApiRequest.update(transformToApiFormat(updatedCustomer))
+
+                    // Show success message
+                    toast.success(updateMessage)
+
+                    // Refresh data
+                    await fetchCustomers()
+                } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : "Không thể cập nhật dữ liệu"
+                    toast.error(errorMessage)
+                    console.error(`Error updating ${prop}:`, error)
+
+                    // Refresh to ensure consistency
+                    await fetchCustomers()
                 }
             }
         } catch (error) {
-            toast.error("Không thể cập nhật dữ liệu")
-            console.error("Error updating customer:", error)
+            toast.error("Có lỗi xảy ra khi cập nhật dữ liệu")
+            console.error("Error in handleAfterChange:", error)
+            await fetchCustomers()
         }
     }
 
@@ -1591,36 +1657,41 @@ export default function AccountTracker() {
         },
     }
 
-    // Add handler for array field modal
+    // Handle array field modal save
     const handleArrayFieldSave = async (newData: string[]) => {
         if (!arrayFieldModalData) return
 
         const { field, rowIndex } = arrayFieldModalData
-        const customer = tableData[rowIndex]
+        const customer = filteredData[rowIndex] as CustomerData
         if (!customer || !customer.id) return
 
         try {
-            const updatedCustomer = {
-                ...customer,
-                [field]: newData,
-            }
+            const updatedCustomer = await updateArrayField(
+                customer,
+                field,
+                newData,
+                true // isDirectUpdate
+            )
 
-            // Update API first
+            // Update API
             await customerApiRequest.update(transformToApiFormat(updatedCustomer))
-            await fetchCustomers() // Fetch fresh data after update
 
-            // Update the modal data to reflect the latest changes
-            setArrayFieldModalData({
-                ...arrayFieldModalData,
-                data: newData,
-            })
+            // Show success message
+            toast.success(`Đã cập nhật ${customer.id} ${field === "ten" ? "Tên" : "Telegram"}`)
 
-            // Close the modal
+            // Refresh data
+            await fetchCustomers()
+
+            // Close modal
             setShowArrayFieldModal(false)
             setArrayFieldModalData(null)
         } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Không thể cập nhật dữ liệu"
+            toast.error(errorMessage)
             console.error(`Error updating ${field}:`, error)
-            toast.error(`Không thể cập nhật ${field === "ten" ? "Tên" : "Telegram"}`)
+
+            // Refresh to ensure consistency
+            await fetchCustomers()
         }
     }
 
