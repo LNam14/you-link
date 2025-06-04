@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { cookies } from "next/headers"
 
 // Remove edge runtime configuration
 // Add dynamic route configuration
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-
   try {
+    // Verify user authentication
+    const cookieStore = cookies()
+    const userInfo = cookieStore.get("userInfo")
+
+    if (!userInfo) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const body = await request.json()
     const { username } = body
     
@@ -17,10 +25,37 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    // Verify user exists
+    const user = await prisma.account.findUnique({
+      where: { username }
+    })
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      )
+    }
     
     // Get current date in Vietnam timezone (UTC+7)
     const vietnamDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }))
     const currentDate = vietnamDate.toISOString().split("T")[0]
+
+    // Check if attendance already exists for today
+    const existingAttendance = await prisma.attendance.findFirst({
+      where: {
+        username,
+        date: new Date(currentDate)
+      }
+    })
+
+    if (existingAttendance) {
+      return NextResponse.json(
+        { error: "Attendance already recorded for today" },
+        { status: 400 }
+      )
+    }
 
     const attendance = await prisma.attendance.create({
       data: {
