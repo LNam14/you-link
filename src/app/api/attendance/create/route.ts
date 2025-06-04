@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 
-// Add runtime configuration
-export const runtime = 'edge'
+// Remove edge runtime configuration
 
 export async function POST(request: Request) {
   if (!process.env.DATABASE_URL) {
