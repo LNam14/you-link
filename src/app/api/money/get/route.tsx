@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db"
 import { cookies } from "next/headers"
 import moment from "moment"
 const momentTz = require("moment-timezone")
+// Add dynamic route configuration
+export const dynamic = 'force-dynamic';
 
 // Set default timezone to Vietnam
 momentTz.tz.setDefault("Asia/Ho_Chi_Minh")

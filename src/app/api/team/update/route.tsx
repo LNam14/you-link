@@ -1,5 +1,28 @@
 import { prisma } from "@/lib/db"
 import { NextResponse } from "next/server"
+import { account, team } from "@prisma/client"
+import { Prisma } from "@prisma/client"
+
+type TeamWithMembers = {
+    id: number;
+    name: string | null;
+    description: string | null;
+    active: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+    _count: { accounts: number };
+    accounts: Array<{
+        id: number;
+        username: string | null;
+        name: string | null;
+        role: string;
+        active: string;
+        created_at: Date | null;
+    }>;
+}
+
+// Add dynamic route configuration
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
     try {
@@ -53,6 +76,7 @@ export async function POST(request: Request) {
         // Get updated team with member details
         const teamWithMembers = await prisma.team.findUnique({
             where: { id: Number(id) },
+            // @ts-expect-error - Prisma types are not properly inferred
             include: {
                 _count: {
                     select: {
@@ -73,15 +97,25 @@ export async function POST(request: Request) {
                     }
                 }
             }
-        })
+        }) as TeamWithMembers | null;
+
+        if (!teamWithMembers) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Team members not found",
+                },
+                { status: 404 },
+            )
+        }
 
         // Transform the data to match the expected format
         const transformedTeam = {
             ...teamWithMembers,
-            member_count: teamWithMembers?._count.accounts || 0,
-            active_member_count: teamWithMembers?.accounts.filter(a => a.active === true).length || 0,
-            members: teamWithMembers?.accounts || []
-        }
+            member_count: teamWithMembers._count.accounts,
+            active_member_count: teamWithMembers.accounts.filter(a => a.active === "Hoạt động").length,
+            members: teamWithMembers.accounts
+        } as TeamWithMembers;
 
         return NextResponse.json(
             {

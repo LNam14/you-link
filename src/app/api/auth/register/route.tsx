@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
 import { prisma } from "@/lib/db"
+// Add dynamic route configuration
+export const dynamic = 'force-dynamic';
 
 // Sử dụng biến môi trường cho thông tin nhạy cảm
 const JWT_REFRESH_SECRET =

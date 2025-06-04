@@ -3,9 +3,8 @@ import { cookies } from "next/headers"
 import { PaymentService } from "@/lib/payment"
 import { prisma } from "@/lib/db"
 
-// Các phương thức thanh toán hợp lệ
-const VALID_PAYMENT_METHODS = ["Bank Transfer", "Cash", "Credit Card", "Momo", "Zalo Pay", "VNPay"]
-
+// Add dynamic route configuration
+export const dynamic = 'force-dynamic';
 /**
  * API tạo giao dịch mới
  */
@@ -71,6 +70,7 @@ export async function POST(request: Request) {
                     wallet,
                     status: "Đang chờ"
                 },
+                // @ts-expect-error - Prisma types are not properly inferred
                 include: {
                     account: {
                         select: {
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
                         }
                     }
                 }
-            })
+            }) as any;
 
             return NextResponse.json(
                 {

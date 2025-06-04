@@ -7,7 +7,8 @@ const VALID_STATUSES = ["Đang chờ", "Hoàn thành", "Lỗi"]
 
 // Định nghĩa các vai trò có quyền cập nhật giao dịch
 const AUTHORIZED_ROLES = ["Admin", "Nhân viên"]
-
+// Add dynamic route configuration
+export const dynamic = 'force-dynamic';
 /**
  * API cập nhật trạng thái giao dịch
  */

@@ -2,6 +2,9 @@ import { google } from "googleapis";
 import keys from "../../../../../key.json";
 import { NextResponse } from "next/server";
 import { prisma, connectDB } from "@/lib/db";
+import { AnyCnameRecord } from "dns";
+// Add dynamic route configuration
+export const dynamic = 'force-dynamic';
 
 const SPREADSHEET_ID = "1SDvAA8pPWUl2Fi2ubFIFttS5D7rA1P-DHrHuJj9X4Z8";
 
@@ -98,13 +101,13 @@ export async function GET() {
         ]);
 
         // Process customer data
-        const customerData = customerResult.map((row: CustomerData) => ({
+        const customerData = customerResult.map((row: any) => ({
             ...row,
             ngay_check: formatDate(row.ngay_check),
         }));
 
         const staffNames = accountResult.map((row: { name: string | null }) => row.name || '');
-        const teamNames = teamResult.map((row: { name: string }) => row.name);
+        const teamNames = teamResult.map((row: { name: any }) => row.name);
 
         // Get Google Sheets data after database operations are complete
         try {

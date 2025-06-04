@@ -2,6 +2,8 @@
 
 import { NextResponse } from "next/server"
 import { prisma, connectDB } from "@/lib/db"
+// Add dynamic route configuration
+export const dynamic = 'force-dynamic';
 
 export async function PUT(request: Request) {
     try {

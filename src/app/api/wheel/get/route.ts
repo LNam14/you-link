@@ -2,7 +2,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { cookies } from "next/headers"
 import moment from "moment"
-
+// Add dynamic route configuration
+export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const cookieStore = cookies()
