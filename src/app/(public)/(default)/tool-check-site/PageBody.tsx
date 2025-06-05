@@ -308,52 +308,49 @@ export default function PageBody() {
                 })
 
                 if (matchingItems.length > 0) {
-                    // Sort matching items by purchase price (numeric first) for consistent 'main' item selection
-                    matchingItems.sort((a, b) => {
-                        const priceA = Number.parseFloat(a.giaMuaGP)
-                        const priceB = Number.parseFloat(b.giaMuaGP)
-                        const isNumericA = !isNaN(priceA)
-                        const isNumericB = !isNaN(priceB)
-                        if (isNumericA && isNumericB) return priceA - priceB
-                        if (isNumericA) return -1
-                        if (isNumericB) return 1
-                        return 0
-                    })
-
-                    // Add the best match to the main results list
-                    const mainItem = matchingItems[0]
-                    const mainItemNormalized = selectedSearchType === "Site" ? normalizeUrl(mainItem.site) : mainItem.MaNCC.toUpperCase().trim()
-                    const status = mainItemNormalized === normalizedTerm ? "Đúng" : "Khác"
-                    searchResults.push({ searchTerm: term, items: [mainItem], status: status })
                     if (selectedSearchType === "Site") {
-                        processedDomains.add(mainItemNormalized)
-                    }
+                        // For site search, keep the existing logic of showing one main item and duplicates
+                        matchingItems.sort((a, b) => {
+                            const priceA = Number.parseFloat(a.giaMuaGP)
+                            const priceB = Number.parseFloat(b.giaMuaGP)
+                            const isNumericA = !isNaN(priceA)
+                            const isNumericB = !isNaN(priceB)
+                            if (isNumericA && isNumericB) return priceA - priceB
+                            if (isNumericA) return -1
+                            if (isNumericB) return 1
+                            return 0
+                        })
 
-                    // Add remaining items as duplicates if any
-                    if (matchingItems.length > 1) {
-                        const duplicateItems = matchingItems.slice(1)
-                        // Group duplicates by their normalized value (domain or NCC code)
-                        const duplicateGroups: { [key: string]: SiteData[] } = {};
-                        duplicateItems.forEach(dupItem => {
-                            const dupNormalized = selectedSearchType === "Site" ? normalizeUrl(dupItem.site) : dupItem.MaNCC.toUpperCase().trim();
-                            if (!duplicateGroups[dupNormalized]) duplicateGroups[dupNormalized] = [];
-                            duplicateGroups[dupNormalized].push(dupItem);
-                        });
-                        // Add duplicates to the main duplicates state for the duplicates table
-                        setDuplicateSites(prev => ({
-                            ...prev,
-                            ...duplicateGroups
-                        }));
-                    } else {
-                        // Ensure no duplicates are listed for this term if only one item found
-                        if (selectedSearchType === "Site") {
-                            const currentNormalized = normalizeUrl(mainItem.site);
+                        const mainItem = matchingItems[0]
+                        const mainItemNormalized = normalizeUrl(mainItem.site)
+                        const status = mainItemNormalized === normalizedTerm ? "Đúng" : "Khác"
+                        searchResults.push({ searchTerm: term, items: [mainItem], status: status })
+                        processedDomains.add(mainItemNormalized)
+
+                        if (matchingItems.length > 1) {
+                            const duplicateItems = matchingItems.slice(1)
+                            const duplicateGroups: { [key: string]: SiteData[] } = {}
+                            duplicateItems.forEach(dupItem => {
+                                const dupNormalized = normalizeUrl(dupItem.site)
+                                if (!duplicateGroups[dupNormalized]) duplicateGroups[dupNormalized] = []
+                                duplicateGroups[dupNormalized].push(dupItem)
+                            })
+                            setDuplicateSites(prev => ({
+                                ...prev,
+                                ...duplicateGroups
+                            }))
+                        } else {
+                            const currentNormalized = normalizeUrl(mainItem.site)
                             setDuplicateSites(prev => {
-                                const newState = { ...prev };
-                                delete newState[currentNormalized];
-                                return newState;
-                            });
+                                const newState = { ...prev }
+                                delete newState[currentNormalized]
+                                return newState
+                            })
                         }
+                    } else {
+                        // For NCC search, show all matching items in the main results
+                        const status = matchingItems[0].MaNCC.toUpperCase().trim() === normalizedTerm ? "Đúng" : "Khác"
+                        searchResults.push({ searchTerm: term, items: matchingItems, status: status })
                     }
                 } else {
                     // Add an empty entry for terms with no match
@@ -372,7 +369,7 @@ export default function PageBody() {
             })
 
             // Flatten searchResults to get the main items for the primary table
-            const mainDisplayItems = searchResults.map(result => result.items[0]); // We only display the first item for simplicity in the main table as per the image format idea
+            const mainDisplayItems = searchResults.flatMap(result => result.items)
 
             setFilteredData(mainDisplayItems)
             setHasSearched(true)
