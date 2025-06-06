@@ -299,16 +299,16 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     const fetchRewards = async () => {
       try {
         const response = await wheelApiRequest.get()
-        const rewardsData = response.data || []
+        const rewardsData: any = response.data || []
 
         // Filter rewards based on role and selected employee
-        let filteredRewards: WheelType[] = rewardsData
+        let filteredRewards: any = rewardsData
         if (userInfo?.role === "Admin" && selectedEmployee) {
-          filteredRewards = rewardsData.filter((reward) => reward.username === selectedEmployee)
+          filteredRewards = rewardsData.filter((reward: any) => reward.username === selectedEmployee)
         } else if (userInfo?.role === "Nhân viên") {
           filteredRewards = rewardsData
         } else {
-          filteredRewards = rewardsData.filter((reward) => reward.username === userInfo?.username)
+          filteredRewards = rewardsData.filter((reward: any) => reward.username === userInfo?.username)
         }
 
         setRewards(filteredRewards)
@@ -317,8 +317,8 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
         // Extract unique usernames for the select dropdown
         if (userInfo?.role === "Admin") {
-          const uniqueUsernames = Array.from(new Set(rewardsData.map((reward) => reward.username)))
-          setEmployees(uniqueUsernames)
+          const uniqueUsernames = Array.from(new Set(rewardsData.map((reward: any) => reward.username)))
+          setEmployees(uniqueUsernames as unknown as string[])
         }
       } catch (error) {
         console.error("Error fetching rewards:", error)
