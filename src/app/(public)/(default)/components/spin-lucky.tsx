@@ -22,9 +22,12 @@ import getUserInfo from "@/components/userInfo"
 import wheelApiRequest, { type Wheel as WheelType } from "@/apiRequests/wheel"
 
 // Add Telegram notification function
-const sendTelegramNotification = async (username: string, prize: string): Promise<boolean> => {
+const sendTelegramNotification = async (username: string, prize: string, luckyMessage?: string): Promise<boolean> => {
   try {
-    const messageText = `🎲 ${username} vừa quay trúng: ${prize} trong vòng quay may mắn!`
+    let messageText = `🎲 ${username} vừa quay trúng: ${prize}`
+    if (prize === "1 lời chúc may mắn" && luckyMessage) {
+      messageText += `\n\n${luckyMessage}`
+    }
 
     const url = `https://api.telegram.org/bot7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U/sendMessage`
     const params = new URLSearchParams({
@@ -230,8 +233,9 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     setPreviousPrize(currentPrize)
 
     // Handle lucky message prize
+    let randomMessage = ""
     if (currentPrize === "1 lời chúc may mắn") {
-      const randomMessage = luckyMessages[Math.floor(Math.random() * luckyMessages.length)]
+      randomMessage = luckyMessages[Math.floor(Math.random() * luckyMessages.length)]
       setLuckyMessage(randomMessage)
     } else {
       setLuckyMessage("")
@@ -242,7 +246,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
     // Send Telegram notification
     if (userInfo?.username) {
-      sendTelegramNotification(`${userInfo.username}-${userInfo.name || "No Name"}`, currentPrize)
+      sendTelegramNotification(`${userInfo.username}-${userInfo.name || "No Name"}`, currentPrize, randomMessage)
 
       // Save prize to database
       try {
