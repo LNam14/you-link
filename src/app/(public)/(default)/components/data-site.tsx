@@ -696,17 +696,33 @@ export default function DataSite({
                                     onChange={(e) => handleFilterChange("Chủ đề", e.target.value)}
                                 >
                                     <option value="">Chọn chủ đề</option>
+                                    <option value="18+">18+</option>
+                                    <option value="Agency">Agency</option>
+                                    <option value="Ẩm Thực">Ẩm Thực</option>
+                                    <option value="Bất Động Sản">Bất Động Sản</option>
+                                    <option value="Công Nghệ">Công Nghệ</option>
+                                    <option value="Công Nghiệp">Công Nghiệp</option>
+                                    <option value="Du Lịch">Du Lịch</option>
+                                    <option value="Động Vật">Động Vật</option>
+                                    <option value="Đời Sống">Đời Sống</option>
+                                    <option value="Edu">Edu</option>
+                                    <option value="Game">Game</option>
+                                    <option value="Game Làm Giàu">Game Làm Giàu</option>
+                                    <option value="GOV">GOV</option>
+                                    <option value="Luật">Luật</option>
+                                    <option value="Nông nghiệp">Nông nghiệp</option>
+                                    <option value="Nước ngoài">Nước ngoài</option>
+                                    <option value="Phim">Phim</option>
+                                    <option value="Tài Chính">Tài Chính</option>
                                     <option value="Thể thao">Thể thao</option>
-                                    <option value="Giải trí">Giải trí</option>
-                                    <option value="Công nghệ">Công nghệ</option>
-                                    <option value="Kinh doanh">Kinh doanh</option>
-                                    <option value="Giáo dục">Giáo dục</option>
-                                    <option value="Sức khỏe">Sức khỏe</option>
-                                    <option value="Du lịch">Du lịch</option>
-                                    <option value="Ẩm thực">Ẩm thực</option>
                                     <option value="Thời trang">Thời trang</option>
-                                    <option value="Làm đẹp">Làm đẹp</option>
-                                    <option value="Khác">Khác</option>
+                                    <option value="Tổng Hợp">Tổng Hợp</option>
+                                    <option value="Truyện">Truyện</option>
+                                    <option value="Việc Làm">Việc Làm</option>
+                                    <option value="Xây Dựng">Xây Dựng</option>
+                                    <option value="Xe">Xe</option>
+                                    <option value="Xổ Số">Xổ Số</option>
+                                    <option value="Y tế">Y tế</option>
                                 </select>
                             </div>
                             <div className="filter-group">
