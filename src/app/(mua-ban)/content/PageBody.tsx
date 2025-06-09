@@ -680,6 +680,13 @@ export default function PageBody() {
                         // If anchors exist, set status to "Đã nhập" only if it was empty or "Chưa nhập"
                         if (!currentTTKH || currentTTKH === "Chưa nhập") {
                             newTTKH = "Đã nhập";
+                            const MaNCC = currentData[18]; // Get MaNCC from the current row
+                            if (MaNCC) {
+                                sheetApiRequest.getIDNCC(
+                                    MaNCC,
+                                    `Đơn ${currentData[0]} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`
+                                );
+                            }
                         }
                     } else {
                         // If no anchors exist, set status to "Chưa nhập" only if it was "Đã nhập"
@@ -716,21 +723,11 @@ export default function PageBody() {
                         setTableData(updatedTableData)
 
                         const MaKH = order[1].split("-")[0]
-                        const MaNCC = order[19]
-                        const giaMua = parseNumberWithComma(order[15])
-
-                        // Add money to NCC's account via API
-                        try {
-                            // await contentApiRequest.updateBalance({
-                            //     user_id: MaNCC,
-                            //     amount: giaMua,
-                            //     type: "add",
-                            // })
-                        } catch (error) {
-                            console.error("Error updating NCC balance:", error)
-                            // Revert UI changes if balance update fails
-                            setTableData(tableData)
-                            return
+                        if (MaKH) {
+                            sheetApiRequest.getIDKH(
+                                MaKH,
+                                `Đơn ${order[0]} đã xong, kiểm tra tại http://ylink.shop/content`
+                            )
                         }
                     }
                 }
@@ -849,7 +846,7 @@ export default function PageBody() {
 
                     sheetApiRequest.getIDKH(
                         MaKHBeforeDash,
-                        `Đơn hàng ${orderId} đã bị hủy, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
+                        `Đơn hàng ${orderId} đã bị hủy, kiểm tra tại http://ylink.shop/content`,
                     )
                 } else {
                     await contentApiRequest.update(updateData)
@@ -860,10 +857,12 @@ export default function PageBody() {
                     // updatedTableData[row][21] remains unchanged for tt_ncc
                     setTableData(updatedTableData)
 
-                    sheetApiRequest.getIDNCC(
-                        MaNCC,
-                        `Khách hàng đã yêu cầu hủy đơn ${orderId}, xử lý tại http://ylink.shop/content`,
-                    )
+                    if (MaNCC) {
+                        sheetApiRequest.getIDNCC(
+                            MaNCC,
+                            `Khách hàng đã yêu cầu hủy đơn ${orderId}, xử lý tại http://ylink.shop/content`,
+                        )
+                    }
                 }
             } else if (action === "approveRefund") {
                 await Promise.all([
@@ -871,36 +870,25 @@ export default function PageBody() {
                         id: tableData[row][0],
                         tt_ncc: "Đồng ý hoàn",
                     }),
-                    // contentApiRequest.updateBalance({
-                    //     user_id: MaKHBeforeDash,
-                    //     amount: giaBan,
-                    //     type: "add",
-                    // }),
-                    // contentApiRequest.updateBalance({
-                    //     user_id: MaKHBeforeDash,
-                    //     amount: giaBan,
-                    //     type: "subtract_spend",
-                    // }),
-                    // contentApiRequest.updateBalance({
-                    //     user_id: MaNCC,
-                    //     amount: giaMua,
-                    //     type: "subtract",
-                    // }),
                 ])
 
-                sheetApiRequest.getIDKH(
-                    MaKHBeforeDash,
-                    `NCC đã đồng ý hoàn tiền cho đơn ${orderId}, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
-                )
+                if (MaKHBeforeDash) {
+                    sheetApiRequest.getIDKH(
+                        MaKHBeforeDash,
+                        `NCC đã đồng ý hoàn cho đơn ${orderId}, kiểm tra tại http://ylink.shop/content`,
+                    )
+                }
             } else if (action === "rejectRefund") {
                 await contentApiRequest.update({
                     id: tableData[row][0],
                     tt_ncc: "Từ chối hoàn",
                 })
-                sheetApiRequest.getIDKH(
-                    MaKHBeforeDash,
-                    `NCC đã từ chối hoàn tiền cho đơn ${orderId}, kiểm tra tại http://ylink.shop/content`,
-                )
+                if (MaKHBeforeDash) {
+                    sheetApiRequest.getIDKH(
+                        MaKHBeforeDash,
+                        `NCC đã từ chối hoàn cho đơn ${orderId}, kiểm tra tại http://ylink.shop/content`,
+                    )
+                }
             } else if (action === "okOrder") {
                 await contentApiRequest.update({
                     id: tableData[row][0],
