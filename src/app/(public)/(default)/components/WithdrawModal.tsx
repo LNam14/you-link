@@ -6,8 +6,6 @@ import { Modal, message } from "antd"
 import { AlertCircle, Wallet, ArrowRight } from "lucide-react"
 import { z } from "zod"
 import transactionApiRequest from "@/apiRequests/transactions"
-import { database, ref, update } from "@/app/firebase/firebase"
-import { get } from "firebase/database"
 
 // Define Zod schema for withdraw form validation
 const withdrawSchema = z.object({
@@ -87,34 +85,10 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
         try {
             const parsedAmount = Number.parseFloat(withdrawAmount.replace(/,/g, "."))
 
-            const validatedData: any = withdrawSchema.parse({
-                amount: Math.round(parsedAmount),
-                binanceAddress,
-                network,
-            })
-
-            if (parsedAmount > currentBalance) {
-                setWithdrawErrors({ amount: "Số dư không đủ để rút" })
-                return
-            }
-
             if (!username) {
                 setWithdrawErrors({ amount: "Không tìm thấy thông tin người dùng" })
                 return
             }
-
-            const userBalanceRef = ref(database, `money/${username}`)
-            const snapshot = await get(userBalanceRef)
-            const currentData = snapshot.val() || {}
-            const currentPendingAmount = currentData.pendingAmount || 0
-
-            if (currentPendingAmount + parsedAmount > currentBalance) {
-                setWithdrawErrors({
-                    amount: `Số tiền rút vượt quá số dư khả dụng. Đang có ${currentPendingAmount} USDT đang chờ xử lý.`,
-                })
-                return
-            }
-
             console.log(
                 "ok", {
                 type: "withdraw",
@@ -137,12 +111,7 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
             })
 
             if (res.success) {
-                await update(userBalanceRef, {
-                    pendingAmount: currentPendingAmount + parsedAmount,
-                })
-
-                // await handleMessageNCC(parsedAmount, network, week?.toString() || "")
-
+                handleMessageNCC(parsedAmount, network, week?.toString() || "")
                 Modal.success({
                     title: "Yêu cầu rút tiền thành công",
                     content: `Yêu cầu rút ${parsedAmount} USDT đã được gửi. Vui lòng chờ xác nhận.`,
@@ -171,7 +140,7 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
         } finally {
             setIsWithdrawSubmitting(false)
         }
-    }, [withdrawAmount, binanceAddress, network, currentBalance, username, handleMessageNCC, pendingAmount, week])
+    }, [withdrawAmount, binanceAddress, network, currentBalance, username, week])
 
     const handleClose = useCallback(() => {
         setWithdrawAmount("")
