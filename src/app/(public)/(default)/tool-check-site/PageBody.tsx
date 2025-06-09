@@ -262,14 +262,11 @@ export default function PageBody() {
             let validTerms: string[] = []
 
             if (selectedSearchType === "Site") {
-                // For site search, only accept terms that could be valid domains
-                const domainPattern = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$|^(?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+$/
-                validTerms = searchTerms.filter(term => {
-                    const trimmed = term.trim().toLowerCase()
-                    // Remove protocol and www if present for validation
-                    const cleanTerm = trimmed.replace(/^(?:https?:\/\/)?(?:www\.)?/, '')
-                    return domainPattern.test(cleanTerm)
-                }) as string[]; // Ensure validTerms is treated as string[]
+                // For site search, chấp nhận mọi định dạng (domain, URL có path, ...)
+                validTerms = searchTerms.map(term => {
+                    // Chuẩn hóa về domain (bỏ http, www, path, ...)
+                    return normalizeUrl(term.trim())
+                }).filter(term => term !== "") as string[]; // Đảm bảo không rỗng
             } else {
                 // For NCC search, accept terms starting with "N" followed by numbers
                 // Remove the case sensitivity requirement and make it more flexible
