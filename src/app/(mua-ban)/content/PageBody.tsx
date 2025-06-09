@@ -549,16 +549,16 @@ export default function PageBody() {
 
             if (userInfo?.role === "NCC") {
                 // If NCC sends message, notify customer
-                // sheetApiRequest.getIDKH(
-                //     MaKH,
-                //     `NCC ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
-                // )
+                sheetApiRequest.getIDKH(
+                    MaKH,
+                    `NCC ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
+                )
             } else if (userInfo?.role === "Khách hàng") {
                 // If customer sends message, notify NCC
-                // sheetApiRequest.getIDNCC(
-                //     MaNCC,
-                //     `Khách hàng ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
-                // )
+                sheetApiRequest.getIDNCC(
+                    MaNCC,
+                    `Khách hàng ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
+                )
             }
         } catch (error) {
             console.error("Error sending chat message:", error)
@@ -847,10 +847,10 @@ export default function PageBody() {
                     // updatedTableData[row][21] remains unchanged for tt_ncc
                     setTableData(updatedTableData)
 
-                    // sheetApiRequest.getIDKH(
-                    //     MaKHBeforeDash,
-                    //     `Đơn hàng ${orderId} đã bị hủy, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
-                    // )
+                    sheetApiRequest.getIDKH(
+                        MaKHBeforeDash,
+                        `Đơn hàng ${orderId} đã bị hủy, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
+                    )
                 } else {
                     await contentApiRequest.update(updateData)
 
@@ -860,10 +860,10 @@ export default function PageBody() {
                     // updatedTableData[row][21] remains unchanged for tt_ncc
                     setTableData(updatedTableData)
 
-                    // sheetApiRequest.getIDNCC(
-                    //     MaNCC,
-                    //     `Khách hàng đã yêu cầu hủy đơn ${orderId}, xử lý tại http://ylink.shop/content`,
-                    // )
+                    sheetApiRequest.getIDNCC(
+                        MaNCC,
+                        `Khách hàng đã yêu cầu hủy đơn ${orderId}, xử lý tại http://ylink.shop/content`,
+                    )
                 }
             } else if (action === "approveRefund") {
                 await Promise.all([
@@ -888,19 +888,19 @@ export default function PageBody() {
                     // }),
                 ])
 
-                // sheetApiRequest.getIDKH(
-                //     MaKHBeforeDash,
-                //     `NCC đã đồng ý hoàn tiền cho đơn ${orderId}, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
-                // )
+                sheetApiRequest.getIDKH(
+                    MaKHBeforeDash,
+                    `NCC đã đồng ý hoàn tiền cho đơn ${orderId}, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
+                )
             } else if (action === "rejectRefund") {
                 await contentApiRequest.update({
                     id: tableData[row][0],
                     tt_ncc: "Từ chối hoàn",
                 })
-                // sheetApiRequest.getIDKH(
-                //     MaKHBeforeDash,
-                //     `NCC đã từ chối hoàn tiền cho đơn ${orderId}, kiểm tra tại http://ylink.shop/content`,
-                // )
+                sheetApiRequest.getIDKH(
+                    MaKHBeforeDash,
+                    `NCC đã từ chối hoàn tiền cho đơn ${orderId}, kiểm tra tại http://ylink.shop/content`,
+                )
             } else if (action === "okOrder") {
                 await contentApiRequest.update({
                     id: tableData[row][0],
