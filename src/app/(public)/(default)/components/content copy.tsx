@@ -6,7 +6,8 @@ import { useState, useEffect } from "react"
 import { ShoppingCart, Package, Loader2, Plus, Minus } from "lucide-react"
 import { toast, Toaster } from "sonner"
 import getUserInfo from "@/components/userInfo"
-import contentApiRequest from "@/apiRequests/content"
+import { getDatabase, ref, push, set, get } from "firebase/database"
+import { database } from "@/lib/firebase"
 
 interface ContentItem {
     TenSP: string
@@ -27,7 +28,30 @@ export default function Content({
     loading: boolean
 }): React.JSX.Element {
     const [quantities, setQuantities] = useState<{ [key: string]: number }>({})
+    const [orderCounts, setOrderCounts] = useState<{ [key: string]: number }>({})
     const userInfo = getUserInfo()
+
+    useEffect(() => {
+        const countOrdersByTenKH = async () => {
+            try {
+                const ordersRef = ref(database, 'content')
+                const snapshot = await get(ordersRef)
+                const orders = snapshot.val() || {}
+
+                const counts: { [key: string]: number } = {}
+                Object.values(orders).forEach((order: any) => {
+                    const tenKH = order.TenKH
+                    counts[tenKH] = (counts[tenKH] || 0) + 1
+                })
+
+                setOrderCounts(counts)
+            } catch (error) {
+                console.error("Error counting orders:", error)
+            }
+        }
+
+        countOrdersByTenKH()
+    }, [])
 
     const handleQuantityChange = (itemId: string, value: string) => {
         const numValue = Number.parseInt(value)
@@ -68,41 +92,104 @@ export default function Content({
                 throw new Error("Thiếu thông tin sản phẩm bắt buộc")
             }
 
-            // Calculate total price
-            const giaBan = parseFloat(item.GiaBan.toString().replace(',', '.'))
+            // Get user's current balance from Firebase
+            const userBalanceRef = ref(database, `money/${userInfo?.username}`)
+            const balanceSnapshot = await get(userBalanceRef)
 
-            // Create orders based on quantity
-            for (let i = 0; i < quantity; i++) {
-                const orderData = {
-                    loai: item.TenSP,
-                    note_kh1: "",
-                    note_kh2: "",
-                    chu_de: "",
-                    anchor1: "",
-                    url1: "",
-                    anchor2: "",
-                    url2: "",
-                    link_kq: "",
-                    deadline: "",
-                    gia_ban: giaBan,
-                    gia_mua: parseFloat(item.GiaMua.toString().replace(',', '.')),
-                    ten_ncc: item.TenSP,
-                    ma_ncc: item.MaNCC,
-                    tt_kh: "Chưa nhập",
-                    tt_ncc: "Chưa nhận",
-                    chat: [],
-                    note: item.Note || ""
+            let currentAmount = 0
+            if (balanceSnapshot.exists()) {
+                const balanceData = balanceSnapshot.val()
+                // Convert balance from string with comma to number
+                currentAmount = parseFloat(balanceData.amount?.toString().replace(',', '.') || '0')
+                if (isNaN(currentAmount)) {
+                    currentAmount = 0
                 }
-
-                await contentApiRequest.create(orderData)
             }
 
-            toast.success("Đặt hàng thành công", {
-                description: `Đã đặt ${quantity} ${item.TenSP}`,
+            // Calculate total price for new orders, convert from comma to dot format
+            const giaBan = parseFloat(item.GiaBan.toString().replace(',', '.'))
+            const totalPrice = giaBan * quantity
+
+            // Get existing orders
+            const ordersRef = ref(database, 'content')
+            const snapshot = await get(ordersRef)
+            const orders = snapshot.val() || {}
+
+            // Find the highest order number for current user
+            let maxOrderNumber = 0
+            Object.keys(orders).forEach((orderId) => {
+                if (orderId.startsWith(`${userInfo?.username}-`)) {
+                    const orderNumber = parseInt(orderId.split('-')[1])
+                    if (!isNaN(orderNumber) && orderNumber > maxOrderNumber) {
+                        maxOrderNumber = orderNumber
+                    }
+                }
             })
 
-            // Refresh data after successful order
-            fetchData()
+            // Check if remaining balance is sufficient for new orders
+            if (currentAmount < totalPrice) {
+                toast.error("Số dư không đủ", {
+                    description: `Số dư hiện tại: ${currentAmount.toLocaleString("vi-VN")} USDT, Cần: ${totalPrice.toLocaleString("vi-VN")} USDT`,
+                })
+                return
+            }
+
+            // Create multiple orders based on quantity
+            for (let i = 0; i < quantity; i++) {
+                // Increment order number for each new order
+                maxOrderNumber++
+                const newOrderId = `${userInfo?.username}-${maxOrderNumber}`
+
+                const orderData = {
+                    TenSP: item.TenSP || "",
+                    KHNote1: "",
+                    KHNote2: "",
+                    ChuDe: "",
+                    Anchor1: "",
+                    URL1: "",
+                    Anchor2: "",
+                    URL2: "",
+                    LinkKQ: "",
+                    Deadline: "",
+                    TTNCC: "",
+                    TinhTrangKH: "Chưa nhập",
+                    TinhTrangNCC: "Chưa nhận",
+                    GiaBan: giaBan,
+                    GiaMua: parseFloat(item.GiaMua.toString().replace(',', '.')),
+                    IDNhom: item.IDNhom || "",
+                    MaNCC: item.MaNCC || "",
+                    Note: item.Note || "",
+                    TenKH: userInfo?.username || "",
+                    NgayOrder: new Date().toLocaleDateString('en-GB')
+                }
+
+                // Add new order with the generated ID
+                await set(ref(database, `content/${newOrderId}`), orderData)
+            }
+
+            // Update balance in Firebase
+            const userMoneyRef = ref(database, `money/${userInfo?.username}`)
+            const moneySnapshot = await get(userMoneyRef)
+            const existingData = moneySnapshot.val() || {}
+
+            // Calculate new values for amount and spend
+            const currentSpend = parseFloat(existingData.spend?.toString().replace(',', '.') || '0')
+            const newAmount = currentAmount - totalPrice
+            const newSpend = currentSpend + totalPrice
+
+            if (isNaN(newAmount) || isNaN(newSpend)) {
+                throw new Error("Invalid balance calculation")
+            }
+
+            await set(userMoneyRef, {
+                ...existingData,
+                amount: newAmount.toFixed(2),
+                spend: newSpend.toFixed(2)
+            })
+
+            toast.success("Đặt hàng thành công", {
+                description: `Đã đặt ${quantity} ${item.TenSP}. Số dư còn lại: ${newAmount.toLocaleString("vi-VN")} USDT`,
+            })
         } catch (error) {
             toast.error("Đặt hàng thất bại", {
                 description: error instanceof Error ? error.message : "Vui lòng thử lại sau",

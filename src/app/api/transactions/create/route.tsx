@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
         // Lấy và kiểm tra dữ liệu đầu vào
         const body = await request.json().catch(() => ({}))
-        const { type, amount, paymentMethod, wallet, customer_id = userInfo?.id } = body
+        const { type, amount, paymentMethod, wallet, customer_id = userInfo?.id, week } = body
 
         // Tạo description theo format: username + timestamp
         const timestamp = Date.now()
@@ -68,16 +68,9 @@ export async function POST(request: Request) {
                     customer_id,
                     name: userInfo?.username || "unknown",
                     wallet,
-                    status: "Đang chờ"
-                },
-                // @ts-expect-error - Prisma types are not properly inferred
-                include: {
-                    account: {
-                        select: {
-                            username: true
-                        }
-                    }
-                }
+                    status: "Đang chờ",
+                    week: week || "1"
+                } as any
             }) as any;
 
             return NextResponse.json(

@@ -7,11 +7,15 @@ import "handsontable/styles/handsontable.css"
 import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
 import { useEffect, useState, useCallback } from "react"
-import { ref, onValue, update, get, set } from "firebase/database"
-import { database } from "@/lib/firebase"
+import contentApiRequest from "@/apiRequests/content"
+import sheetApiRequest from "@/apiRequests/sheet"
 import getUserInfo from "@/components/userInfo"
 import ChatDialog from "./components/ChatDialog"
-import sheetApiRequest from "@/apiRequests/sheet"
+import WithdrawModal from "@/app/(public)/(default)/components/WithdrawModal"
+import { useBatchUpdate } from "@/hook/use-batch-update"
+import { formatDateTime } from "@/hook/date-utils"
+import type { CellChange } from "handsontable/common"
+import { toast, Toaster } from "sonner"
 
 registerAllModules()
 
@@ -20,29 +24,71 @@ type NestedColumnHeader = {
     colspan: number
 }
 
-interface ChatMessage {
-    text: string
-    sender: string
-    senderRole: string
-    timestamp: number
-    ngayChat: string
-    name?: string
-    supplierName?: string
+interface ContentApiResponse {
+    success: boolean
+    data: Array<{
+        id: number
+        ma_don: string
+        loai: string
+        ngay_order: string | null
+        note_kh1: string | null
+        note_kh2: string | null
+        chu_de: string | null
+        anchor1: string | null
+        url1: string | null
+        anchor2: string | null
+        url2: string | null
+        link_kq: string | null
+        deadline: string | null
+        note: string | null
+        gia_ban: number
+        gia_mua: number
+        loi_nhuan: number
+        tt_ncc: string | null
+        ten_ncc: string | null
+        ma_ncc: string | null
+        tt_kh: string | null
+        chat: Array<{
+            role: string
+            name?: string
+            time: string
+            message: string
+        }> | null
+    }>
+    transaction?: Array<{
+        week: number
+        name: string
+        status: string
+    }>
 }
+
+interface ChatMessage {
+    role: string
+    name: string
+    message: string
+    time: string
+}
+
+type TableChange = CellChange
 
 export default function PageBody() {
     const [tableData, setTableData] = useState<any[]>([])
+    const [allData, setAllData] = useState<any[]>([]) // Store all unfiltered data
     const [isMerged, setIsMerged] = useState(true)
     const [viewOptions, setViewOptions] = useState({
         total: true,
         pending: true,
-        cancelled: true
-    });
+        cancelled: true,
+    })
     const [selectedWeek, setSelectedWeek] = useState("")
     const [selectedUser, setSelectedUser] = useState("")
     const [selectedNCC, setSelectedNCC] = useState("")
     const [users, setUsers] = useState<string[]>([])
     const [nccs, setNCCs] = useState<string[]>([])
+    const [nccFilterCustomer, setNccFilterCustomer] = useState("") // Add state for NCC customer filter
+    const [nccFilterNCC, setNccFilterNCC] = useState("") // Add state for NCC supplier filter
+    const [customerFilter, setCustomerFilter] = useState("")
+    const [supplierFilter, setSupplierFilter] = useState("")
     const userInfo = getUserInfo()
     const [chatDialogOpen, setChatDialogOpen] = useState(false)
     const [currentChatOrderId, setCurrentChatOrderId] = useState<string | null>(null)
@@ -50,37 +96,66 @@ export default function PageBody() {
     const [newChatMessage, setNewChatMessage] = useState("")
     const [blinkingChatOrders, setBlinkingChatOrders] = useState<Set<string>>(new Set())
     const [isFullscreen, setIsFullscreen] = useState(false)
+    const [isUpdating, setIsUpdating] = useState(false)
+    const [withdrawModalOpen, setWithdrawModalOpen] = useState(false)
+    const [completedOrdersAmount, setCompletedOrdersAmount] = useState(0)
+    const [transactions, setTransactions] = useState<any[]>([])
+
+    // Batch update hook for smooth updates
+    const { queueUpdate, isUpdating: isBatchUpdating } = useBatchUpdate(
+        contentApiRequest.update,
+        1000, // 1 second debounce
+    )
 
     const parseNumberWithComma = (value: any): number => {
-        if (typeof value === "number") return value
+        if (typeof value === 'number') return value
         if (!value) return 0
-        // Thay thế dấu phẩy bằng dấu chấm và chuyển đổi thành số
-        return Number.parseFloat(value.toString().replace(/,/g, "")) || 0
+
+        const strValue = value.toString()
+
+        // If the value contains both dot and comma
+        if (strValue.includes('.') && strValue.includes(',')) {
+            // Remove dots (thousand separators) and replace comma with dot
+            return Number(strValue.replace(/\./g, '').replace(',', '.')) || 0
+        }
+
+        // If the value contains only comma
+        if (strValue.includes(',')) {
+            return Number(strValue.replace(',', '.')) || 0
+        }
+
+        // If the value contains only dot, treat it as decimal point
+        return Number(strValue) || 0
     }
 
     // Add function to get current week number
     const getCurrentWeek = () => {
         const now = new Date()
         const firstDayOfYear = new Date(now.getFullYear(), 0, 1)
-        // Adjust first day to be Monday (1) instead of Sunday (0)
-        const firstDayOfWeek = firstDayOfYear.getDay() || 7 // Convert Sunday (0) to 7
+        const firstDayOfWeek = firstDayOfYear.getDay() || 7
         const pastDaysOfYear = (now.getTime() - firstDayOfYear.getTime()) / 86400000
-        // Adjust calculation to start from Monday
         return Math.ceil((pastDaysOfYear + firstDayOfWeek) / 7)
     }
 
     // Add function to get week number from date
     const getWeekNumber = (dateStr: string) => {
         if (!dateStr) return ""
-        // Parse date from DD/MM/YYYY format
-        const [day, month, year] = dateStr.split("/")
-        const date = new Date(Number.parseInt(year), Number.parseInt(month) - 1, Number.parseInt(day))
-        const firstDayOfYear = new Date(date.getFullYear(), 0, 1)
-        // Adjust first day to be Monday (1) instead of Sunday (0)
-        const firstDayOfWeek = firstDayOfYear.getDay() || 7 // Convert Sunday (0) to 7
-        const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000
-        // Adjust calculation to start from Monday
-        return Math.ceil((pastDaysOfYear + firstDayOfWeek) / 7)
+        if (dateStr.includes("/")) {
+            const [day, month, year] = dateStr.split("/")
+            const date = new Date(Number.parseInt(year), Number.parseInt(month) - 1, Number.parseInt(day))
+            const firstDayOfYear = new Date(date.getFullYear(), 0, 1)
+            const firstDayOfWeek = firstDayOfYear.getDay() || 7
+            const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000
+            return Math.ceil((pastDaysOfYear + firstDayOfWeek) / 7)
+        } else if (dateStr.includes("-")) {
+            const [year, month, day] = dateStr.split("-")
+            const date = new Date(Number.parseInt(year), Number.parseInt(month) - 1, Number.parseInt(day))
+            const firstDayOfYear = new Date(date.getFullYear(), 0, 1)
+            const firstDayOfWeek = firstDayOfYear.getDay() || 7
+            const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000
+            return Math.ceil((pastDaysOfYear + firstDayOfWeek) / 7)
+        }
+        return ""
     }
 
     // Set current week as default when component mounts
@@ -90,6 +165,9 @@ export default function PageBody() {
 
     // Add function to get statistics
     const getStatistics = (data: any[]) => {
+
+
+
         const stats = {
             totalOrders: 0,
             totalAmount: 0,
@@ -100,27 +178,36 @@ export default function PageBody() {
         }
 
         data.forEach((row) => {
-            if (row[0] && !row[0].includes("Tổng")) {
-                const giaBan = parseNumberWithComma(row[13]) || 0
+            if (row[0] && !row[0].toString().includes("Tổng")) {
+                const giaBan = parseNumberWithComma(row[14]) || 0
                 const tinhTrangKH = row[19]
                 const tinhTrangNCC = row[20]
 
                 // Filter by week if selected
                 if (selectedWeek) {
-                    const orderDate = row[2]
+                    const orderDate = row[3]
                     const weekNumber = getWeekNumber(orderDate)
-                    if (weekNumber.toString() !== selectedWeek) return
+                    if (weekNumber.toString() !== selectedWeek) {
+
+                        return
+                    }
                 }
 
                 // Filter by user if selected
                 if (selectedUser) {
-                    const MaKH = row[0]
+                    const MaKH = row[1]
                     const MaKHBeforeDash = MaKH.split("-")[0]
-                    if (MaKHBeforeDash !== selectedUser) return
+                    if (MaKHBeforeDash !== selectedUser) {
+
+                        return
+                    }
                 }
 
                 // Filter by NCC if selected
-                if (selectedNCC && row[18] !== selectedNCC) return
+                if (selectedNCC && row[19] !== selectedNCC) {
+
+                    return
+                }
 
                 // Count total orders
                 if (
@@ -132,7 +219,7 @@ export default function PageBody() {
                 }
 
                 // Count pending orders
-                if ((tinhTrangKH === "Chưa nhập" || tinhTrangKH === "Đã nhập") && tinhTrangNCC === "Chưa nhận") {
+                if ((tinhTrangKH === "" || tinhTrangKH === "Chưa nhập") && (tinhTrangNCC === "" || tinhTrangNCC === "Chưa nhận")) {
                     stats.pendingOrders++
                     stats.pendingAmount += giaBan
                 }
@@ -145,58 +232,11 @@ export default function PageBody() {
             }
         })
 
+
+
+
         return stats
     }
-
-    // Add useEffect to fetch users and NCCs
-    useEffect(() => {
-        if (userInfo?.role === "Admin") {
-            const ordersRef = ref(database, "content")
-
-            // Fetch orders to get unique MaKH and MaNCC
-            onValue(ordersRef, (snapshot) => {
-                const data = snapshot.val()
-                if (data) {
-                    const uniqueMaKH = new Set<string>()
-                    const uniqueMaNCC = new Set<string>()
-
-                    Object.entries(data).forEach(([orderId, order]: [string, any]) => {
-                        // Extract MaKH from order ID (e.g., "BH5-4" -> "BH5" or "KH1-2" -> "KH1")
-                        if (orderId) {
-                            const maKH = orderId.split("-")[0]
-                            if (maKH) {
-                                // Only add if it starts with BH or KH
-                                if (maKH.startsWith("BH") || maKH.startsWith("KH")) {
-                                    uniqueMaKH.add(maKH)
-                                }
-                            }
-                        }
-
-                        // Add MaNCC if exists
-                        if (order.MaNCC) uniqueMaNCC.add(order.MaNCC)
-                    })
-
-                    // Sort users by type (BH first, then KH) and then by number
-                    const sortedUsers = Array.from(uniqueMaKH).sort((a, b) => {
-                        const aType = a.startsWith("BH") ? 0 : 1
-                        const bType = b.startsWith("BH") ? 0 : 1
-                        if (aType !== bType) return aType - bType
-
-                        const aNum = Number.parseInt(a.replace(/[^0-9]/g, "")) || 0
-                        const bNum = Number.parseInt(b.replace(/[^0-9]/g, "")) || 0
-                        return aNum - bNum
-                    })
-
-                    // Update users and NCCs lists with unique value
-                    setUsers(sortedUsers)
-                    setNCCs(Array.from(uniqueMaNCC))
-                }
-            })
-        }
-    }, [userInfo?.role])
-
-    // Get current statistics
-    const stats = getStatistics(tableData)
 
     // Add summary calculation function
     const calculateSummary = (data: any[]) => {
@@ -204,40 +244,48 @@ export default function PageBody() {
             totalGiaBan: 0,
             totalGiaMua: 0,
             totalLN: 0,
-            totalTTNCC: 0,
             count: 0,
             cancelledGiaBan: 0,
             cancelledGiaMua: 0,
             cancelledLN: 0,
-            cancelledTTNCC: 0,
             cancelledCount: 0,
             pendingGiaBan: 0,
             pendingGiaMua: 0,
             pendingLN: 0,
-            pendingTTNCC: 0,
             pendingCount: 0,
         }
 
         data.forEach((row) => {
-            if (row[0] && !row[0].includes("Tổng")) {
-                // Skip summary rows
-                const giaBan = parseNumberWithComma(row[13]) || 0
-                const giaMua = parseNumberWithComma(row[14]) || 0
-                const ln = parseNumberWithComma(row[15]) || 0
-                const ttncc = parseNumberWithComma(row[16]) || 0
+            if (row[0] && !row[0].toString().includes("Tổng")) {
+                const giaBan = parseNumberWithComma(row[14]) || 0
+                const giaMua = parseNumberWithComma(row[15]) || 0
+                const ln = parseNumberWithComma(row[16]) || 0
                 const tinhTrangKH = row[19]
                 const tinhTrangNCC = row[20]
 
-                // Calculate totals for all orders
-                if (
-                    (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
-                    (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
-                ) {
-                    summary.totalGiaBan += giaBan
-                    summary.totalGiaMua += giaMua
-                    summary.totalLN += ln
-                    summary.totalTTNCC += ttncc
-                    summary.count++
+                // Calculate totals for all orders (including pending when merged)
+                if (isMerged) {
+                    if (
+                        ((tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
+                            (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")) ||
+                        ((tinhTrangKH === "Chưa nhập" || tinhTrangKH === "Đã nhập") && tinhTrangNCC === "Chưa nhận")
+                    ) {
+                        summary.totalGiaBan += giaBan
+                        summary.totalGiaMua += giaMua
+                        summary.totalLN += ln
+                        summary.count++
+                    }
+                } else {
+                    // Original logic for unmerged view
+                    if (
+                        (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
+                        (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
+                    ) {
+                        summary.totalGiaBan += giaBan
+                        summary.totalGiaMua += giaMua
+                        summary.totalLN += ln
+                        summary.count++
+                    }
                 }
 
                 // Calculate totals for cancelled orders
@@ -245,935 +293,625 @@ export default function PageBody() {
                     summary.cancelledGiaBan += giaBan
                     summary.cancelledGiaMua += giaMua
                     summary.cancelledLN += ln
-                    summary.cancelledTTNCC += ttncc
                     summary.cancelledCount++
                 }
 
-                // Calculate totals for pending orders
-                if (
-                    (tinhTrangKH === "Chưa nhập" && tinhTrangNCC === "Đã nhận") ||
-                    ((tinhTrangKH === "Chưa nhập" || tinhTrangKH === "Đã nhập") &&
-                        (tinhTrangNCC === "Chưa nhận" || !tinhTrangNCC))
-                ) {
-                    summary.pendingGiaBan += giaBan
-                    summary.pendingGiaMua += giaMua
-                    summary.pendingLN += ln
-                    summary.pendingTTNCC += ttncc
-                    summary.pendingCount++
+                // Calculate totals for pending orders (only for unmerged view)
+                if (!isMerged) {
+                    if (
+                        (tinhTrangKH === "Chưa nhập" || tinhTrangKH === "Đã nhập") &&
+                        tinhTrangNCC === "Chưa nhận"
+                    ) {
+                        summary.pendingGiaBan += giaBan
+                        summary.pendingGiaMua += giaMua
+                        summary.pendingLN += ln
+                        summary.pendingCount++
+                    }
                 }
             }
         })
 
         // Format numbers to 2 decimal places
-        summary.totalGiaBan = Number(summary.totalGiaBan.toFixed(2))
-        summary.totalGiaMua = Number(summary.totalGiaMua.toFixed(2))
-        summary.totalLN = Number(summary.totalLN.toFixed(2))
-        summary.totalTTNCC = Number(summary.totalTTNCC.toFixed(2))
-        summary.cancelledGiaBan = Number(summary.cancelledGiaBan.toFixed(2))
-        summary.cancelledGiaMua = Number(summary.cancelledGiaMua.toFixed(2))
-        summary.cancelledLN = Number(summary.cancelledLN.toFixed(2))
-        summary.cancelledTTNCC = Number(summary.cancelledTTNCC.toFixed(2))
-        summary.pendingGiaBan = Number(summary.pendingGiaBan.toFixed(2))
-        summary.pendingGiaMua = Number(summary.pendingGiaMua.toFixed(2))
-        summary.pendingLN = Number(summary.pendingLN.toFixed(2))
-        summary.pendingTTNCC = Number(summary.pendingTTNCC.toFixed(2))
+        Object.keys(summary).forEach((key) => {
+            if (typeof summary[key as keyof typeof summary] === "number" && !key.includes("Count")) {
+                ; (summary as any)[key] = Number(summary[key as keyof typeof summary].toFixed(2))
+            }
+        })
 
         return summary
     }
 
     // Add filter function
     const filterTableData = (data: any[]) => {
-        // First filter by week
-        const weekFilteredData = data.filter((row) => {
-            if (!row[0] || row[0].includes("Tổng")) return false // Remove all summary rows
-            const orderDate = row[2]
-            const weekNumber = getWeekNumber(orderDate)
-            return weekNumber.toString() === selectedWeek
-        })
 
-        // Then filter by user (MaKH) if selected
-        const userFilteredData = selectedUser
-            ? weekFilteredData.filter((row) => {
-                const orderId = row[0]
-                if (!orderId) return false
-                const maKH = orderId.split("-")[0]
-                console.log("Filtering by user:", { orderId, maKH, selectedUser }) // Debug log
-                return maKH === selectedUser
-            })
-            : weekFilteredData
 
-        // Then filter by NCC if selected
-        const nccFilteredData = selectedNCC
-            ? userFilteredData.filter((row) => {
-                const maNCC = row[18] // MaNCC is at index 18
-                return maNCC === selectedNCC
-            })
-            : userFilteredData
+
+
+
+        // Apply filters: week, user, NCC
+        const appliedFiltersData = data.filter(row => {
+            if (!row || !row[0] || row[0].toString().includes("Tổng")) return false;
+
+            // Filter by week if selected
+            if (selectedWeek) {
+                const orderDate = row[3]
+                if (!orderDate) return false;
+                const weekNumber = getWeekNumber(orderDate)
+                if (weekNumber.toString() !== selectedWeek) return false;
+            }
+
+            // Filter by customer if selected (based on order ID prefix)
+            if (customerFilter) {
+                const orderMaKH = row[1] ? row[1].toString().split("-")[0] : ""
+                if (orderMaKH !== customerFilter) return false
+            }
+
+            // Filter by supplier if selected
+            if (supplierFilter && row[19] !== supplierFilter) {
+                return false
+            }
+
+
+            return true;
+        });
+
+
 
         // Calculate summary for filtered data
-        const summary = calculateSummary(nccFilteredData)
+        const summary = calculateSummary(appliedFiltersData)
+
 
         // Create summary rows
         const totalRow = [
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "Tổng",
-            summary.totalGiaBan.toFixed(2),
-            summary.totalGiaMua.toFixed(2),
-            summary.totalLN.toFixed(2),
-            summary.totalTTNCC.toFixed(2),
-            "",
-            "",
-            "",
-            "",
-            "",
+            "", "", "", "", "", "", "", "", "", "", "", "", "",
+            "Tổng", summary.totalGiaBan.toFixed(2), summary.totalGiaMua.toFixed(2), summary.totalLN.toFixed(2),
+            "", "", "", "", "",
         ]
 
         const pendingRow = [
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "Chưa nhập",
-            summary.pendingGiaBan.toFixed(2),
-            summary.pendingGiaMua.toFixed(2),
-            summary.pendingLN.toFixed(2),
-            summary.pendingTTNCC.toFixed(2),
-            "",
-            "",
-            "",
-            "",
-            "",
+            "", "", "", "", "", "", "", "", "", "", "", "", "",
+            "Chưa nhập", summary.pendingGiaBan.toFixed(2), summary.pendingGiaMua.toFixed(2), summary.pendingLN.toFixed(2),
+            "", "", "", "", "",
         ]
 
         const cancelledRow = [
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "Đơn hủy",
-            summary.cancelledGiaBan.toFixed(2),
-            summary.cancelledGiaMua.toFixed(2),
-            summary.cancelledLN.toFixed(2),
-            summary.cancelledTTNCC.toFixed(2),
-            "",
-            "",
-            "",
-            "",
-            "",
+            "", "", "", "", "", "", "", "", "", "", "", "", "",
+            "Đơn hủy", summary.cancelledGiaBan.toFixed(2), summary.cancelledGiaMua.toFixed(2), summary.cancelledLN.toFixed(2),
+            "", "", "", "", "",
         ]
 
-        // Create filtered data based on selected view options
-        const filteredData = [];
+        // Filter data based on view options and classify into groups
+        const totalOrdersFiltered: typeof appliedFiltersData = [];
+        const pendingOrdersFiltered: typeof appliedFiltersData = [];
+        const cancelledOrdersFiltered: typeof appliedFiltersData = [];
 
-        if (viewOptions.total) {
-            filteredData.push(
-                totalRow,
-                ...nccFilteredData.filter(
-                    (row) =>
-                        (row[19] === "Đã nhập" || row[19] === "Đơn OK" || row[19] === "Y/C Hủy đơn") &&
-                        (row[20] === "Đã lên bài" || row[20] === "Từ chối hoàn"),
-                )
-            );
-        }
+        appliedFiltersData.forEach(row => {
+            const ttKH = row[19] || "Chưa nhập";
+            const ttNCC = row[20] || "Chưa nhận";
 
-        if (viewOptions.pending) {
-            filteredData.push(
-                pendingRow,
-                ...nccFilteredData.filter(
-                    (row) => (row[19] === "Chưa nhập" || row[19] === "Đã nhập") && row[20] === "Chưa nhận",
-                )
-            );
-        }
-
-        if (viewOptions.cancelled) {
-            filteredData.push(
-                cancelledRow,
-                ...nccFilteredData.filter(
-                    (row) => row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"),
-                )
-            );
-        }
-
-        return filteredData;
-    };
-
-    // Modify useEffect to store all data and apply filters
-    useEffect(() => {
-        const ordersRef = ref(database, "content")
-        console.log(ordersRef, "ordersRef")
-        const unsubscribe = onValue(ordersRef, (snapshot) => {
-            const data = snapshot.val()
-            console.log(data, "data")
-            if (data) {
-                // Transform the data into table format
-                const formattedData = Object.entries(data)
-                    .map(([orderId, order]: [string, any]) => {
-                        const giaBan = parseNumberWithComma(order.GiaBan)
-                        const giaMua = parseNumberWithComma(order.GiaMua)
-                        const ln = giaBan - giaMua
-
-                        return [
-                            orderId,
-                            order.TenSP || "",
-                            order.NgayOrder || "",
-                            order.KHNote1 || "",
-                            order.KHNote2 || "",
-                            order.ChuDe || "",
-                            order.Anchor1 || "",
-                            order.URL1 || "",
-                            order.Anchor2 || "",
-                            order.URL2 || "",
-                            order.LinkKQ || "",
-                            order.Deadline || "",
-                            order.Note || "",
-                            giaBan,
-                            giaMua,
-                            ln,
-                            order.TTNCC || "",
-                            order.TenNCC || "",
-                            order.MaNCC || "",
-                            order.TinhTrangKH || "",
-                            order.TinhTrangNCC || "",
-                        ]
-                    })
-                    .filter((row) => {
-                        if (userInfo?.role === "NCC") {
-                            return row[18] === userInfo?.username
-                        } else if (userInfo?.role === "Khách hàng" || userInfo?.role === "Nhân viên") {
-                            const MaKH = row[0]
-                            const MaKHBeforeDash = MaKH.split("-")[0]
-                            return MaKHBeforeDash === userInfo?.username
-                        }
-                        return true
-                    })
-
-                // Sort the formatted data
-                formattedData.sort((a: any[], b: any[]) => {
-                    const orderIdA = a[0]
-                    const orderIdB = b[0]
-                    const partsA = orderIdA.split("-")
-                    const partsB = orderIdB.split("-")
-                    for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
-                        const numA = Number.parseInt(partsA[i].replace(/[^0-9]/g, ""))
-                        const numB = Number.parseInt(partsB[i].replace(/[^0-9]/g, ""))
-                        if (numA !== numB) {
-                            return numA - numB
-                        }
-                        if (partsA[i] !== partsB[i]) {
-                            return partsA[i].localeCompare(partsB[i])
-                        }
-                    }
-                    return partsA.length - partsB.length
-                })
-
-                // Calculate summary
-                const summary = calculateSummary(formattedData)
-
-                // Create summary rows
-                const totalRow = [
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "Tổng",
-                    summary.totalGiaBan,
-                    summary.totalGiaMua,
-                    summary.totalLN,
-                    summary.totalTTNCC,
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                ]
-
-                const cancelledRow = [
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "Đơn hủy",
-                    summary.cancelledGiaBan,
-                    summary.cancelledGiaMua,
-                    summary.cancelledLN,
-                    summary.cancelledTTNCC,
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                ]
-
-                const pendingRow = [
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "Chưa nhập",
-                    summary.pendingGiaBan,
-                    summary.pendingGiaMua,
-                    summary.pendingLN,
-                    summary.pendingTTNCC,
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                ]
-
-                // Combine all data with summary rows
-                const finalData = [
-                    totalRow,
-                    ...formattedData.filter(
-                        (row) =>
-                            (row[19] === "Đã nhập" || row[19] === "Đơn OK" || row[19] === "Y/C Hủy đơn") &&
-                            (row[20] === "Đã lên bài" || row[20] === "Từ chối hoàn"),
-                    ),
-                    pendingRow,
-                    ...formattedData.filter(
-                        (row) => (row[19] === "Chưa nhập" || row[19] === "Đã nhập") && row[20] === "Chưa nhận",
-                    ),
-                    cancelledRow,
-                    ...formattedData.filter(
-                        (row) => row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"),
-                    ),
-                ]
-
-                // Apply filters
-                const filteredData = filterTableData(finalData)
-
-                // If isMerged is true, merge the data
-                if (isMerged) {
-                    // Get the cancelled orders section
-                    const cancelledSection = filteredData.filter(row => row[12] === "Đơn hủy" ||
-                        (row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn")));
-
-                    // Get the total row
-                    const totalRow = filteredData.find(row => row[12] === "Tổng");
-
-                    // Get all non-cancelled orders
-                    const nonCancelledOrders = filteredData.filter(row =>
-                        row[12] !== "Tổng" &&
-                        row[12] !== "Đơn hủy" &&
-                        row[12] !== "Chưa nhập" &&
-                        !(row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"))
-                    );
-
-                    // Sort non-cancelled orders by order ID
-                    nonCancelledOrders.sort((a, b) => {
-                        const orderIdA = a[0];
-                        const orderIdB = b[0];
-                        const partsA = orderIdA.split("-");
-                        const partsB = orderIdB.split("-");
-                        for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
-                            const numA = Number.parseInt(partsA[i].replace(/[^0-9]/g, ""));
-                            const numB = Number.parseInt(partsB[i].replace(/[^0-9]/g, ""));
-                            if (numA !== numB) {
-                                return numA - numB;
-                            }
-                            if (partsA[i] !== partsB[i]) {
-                                return partsA[i].localeCompare(partsB[i]);
-                            }
-                        }
-                        return partsA.length - partsB.length;
-                    });
-
-                    // Create merged data array
-                    const mergedData = [
-                        totalRow,
-                        ...nonCancelledOrders,
-                        ...cancelledSection
-                    ];
-
-                    setTableData(mergedData);
-                } else {
-                    setTableData(filteredData);
+            // Classify cancelled orders first
+            if (ttKH === "Hủy đơn" || (ttKH === "Y/C Hủy đơn" && ttNCC === "Đồng ý hoàn")) {
+                if (viewOptions.cancelled) {
+                    cancelledOrdersFiltered.push(row);
                 }
-            } else {
-                setTableData([])
-            }
-        })
-
-        return () => unsubscribe()
-    }, [userInfo?.role, userInfo?.username, selectedWeek, viewOptions, selectedUser, selectedNCC, isMerged])
-
-    // Load chat messages when currentChatOrderId changes
-    useEffect(() => {
-        if (!currentChatOrderId) return
-
-        const ordersRef = ref(database, "content")
-
-        const onOrdersChange = (snapshot: any) => {
-            if (snapshot.exists()) {
-                const data = snapshot.val()
-                const order = data[currentChatOrderId]
-
-                if (order && order.chat) {
-                    const messages = Array.isArray(order.chat) ? order.chat : Object.values(order.chat)
-                    messages.sort((a: any, b: any) => a.timestamp - b.timestamp)
-                    setCurrentChatMessages(messages)
-                } else {
-                    setCurrentChatMessages([])
+                // Classify total/completed orders
+            } else if (
+                (ttKH === "Đã nhập" || ttKH === "Đơn OK" || ttKH === "Y/C Hủy đơn") &&
+                (ttNCC === "Đã lên bài" || ttNCC === "Từ chối hoàn")
+            ) {
+                if (viewOptions.total) {
+                    totalOrdersFiltered.push(row);
                 }
-            } else {
-                setCurrentChatMessages([])
+                // Classify pending orders
+            } else if (
+                (ttKH === "Chưa nhập" || ttKH === "Đã nhập") && ttNCC === "Chưa nhận"
+            ) {
+                if (viewOptions.pending) {
+                    pendingOrdersFiltered.push(row);
+                }
             }
+        });
+
+
+
+        // Sort orders by order ID
+        const sortOrders = (orders: any[]) => {
+            return orders.sort((a, b) => {
+                const orderIdA = a[1]?.toString() || ""
+                const orderIdB = b[1]?.toString() || ""
+                const partsA = orderIdA.split("-")
+                const partsB = orderIdB.split("-")
+                for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
+                    const numA = Number.parseInt(partsA[i].replace(/[^0-9]/g, "")) || 0
+                    const numB = Number.parseInt(partsB[i].replace(/[^0-9]/g, "")) || 0
+                    if (numA !== numB) {
+                        return numA - numB
+                    }
+                    if (partsA[i] !== partsB[i]) {
+                        return partsA[i].localeCompare(partsB[i])
+                    }
+                }
+                return partsA.length - partsB.length
+            })
         }
 
-        const unsubscribe = onValue(ordersRef, onOrdersChange)
+        // Combine data based on view options and merge state
+        const finalData = []
 
-        return () => {
-            unsubscribe()
-        }
-    }, [currentChatOrderId])
+        if (isMerged) {
+            if (viewOptions.total) {
+                // In merged mode, total includes both completed and pending orders
+                const totalOrders = [...totalOrdersFiltered, ...pendingOrdersFiltered];
 
-    // Add useEffect to check for new messages
-    useEffect(() => {
-        if (!userInfo?.role) return
-
-        const ordersRef = ref(database, "content")
-        const unsubscribe = onValue(ordersRef, (snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.val()
-                const newBlinkingOrders = new Set<string>()
-
-                Object.entries(data).forEach(([orderId, order]: [string, any]) => {
-                    if (order.chat && Array.isArray(order.chat)) {
-                        const lastMessage = order.chat[order.chat.length - 1]
-                        if (lastMessage) {
-                            // Check if the last message is from the other party
-                            const isFromOtherParty =
-                                (userInfo.role === "NCC" && lastMessage.senderRole === "Khách hàng") ||
-                                (userInfo.role === "Khách hàng" && lastMessage.senderRole === "NCC")
-
-                            if (isFromOtherParty) {
-                                newBlinkingOrders.add(orderId)
-                            }
-                        }
-                    }
-                })
-
-                setBlinkingChatOrders(newBlinkingOrders)
-            }
-        })
-
-        return () => unsubscribe()
-    }, [userInfo?.role])
-
-    const handleAfterChange = async (changes: any, source: any) => {
-        // Chỉ xử lý khi thay đổi từ người dùng
-        if (source !== "edit" && source !== "paste") return
-        if (!changes) return
-
-        const ordersRef = ref(database, "content")
-
-        changes.forEach(async ([row, prop, oldValue, newValue]: [number, string, any, any]) => {
-            const orderId = tableData[row][0] // Get the order ID from the first column
-            const updates: any = {}
-
-            // Map table columns to Firebase fields
-            const fieldMap: { [key: number]: string } = {
-                1: "TenSP",
-                2: "NgayOrder",
-                3: "KHNote1",
-                4: "KHNote2",
-                5: "ChuDe",
-                6: "Anchor1",
-                7: "URL1",
-                8: "Anchor2",
-                9: "URL2",
-                10: "LinkKQ",
-                11: "Deadline",
-                12: "Note",
-                13: "GiaBan",
-                14: "GiaMua",
-                16: "TTNCC",
-                17: "TenNCC",
-                18: "MaNCC",
-                19: "TinhTrangKH",
-                20: "TinhTrangNCC",
-                21: "Chat",
-            }
-
-            const fieldName = fieldMap[prop as unknown as number]
-            if (fieldName) {
-                // Convert values to appropriate types
-                let valueToUpdate = newValue
-                if (fieldName === "GiaBan" || fieldName === "GiaMua") {
-                    valueToUpdate = parseNumberWithComma(newValue)
-                } else if (fieldName === "NgayOrder" || fieldName === "Deadline") {
-                    // Xử lý ngày tháng
-                    if (typeof newValue === "string" && newValue.includes("/")) {
-                        const [day, month, year] = newValue.split("/")
-                        valueToUpdate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-                    }
-                } else if (fieldName === "Chat") {
-                    // Xử lý trường chat
-                    valueToUpdate = newValue || ""
-                }
-
-                updates[`${orderId}/${fieldName}`] = valueToUpdate
-
-                // Update TinhTrangNCC when LinkKQ is entered
-                if (fieldName === "LinkKQ" && newValue && newValue.trim() !== "") {
-                    const currentTinhTrangNCC = tableData[row][20] // Get current TinhTrangNCC
-                    if (currentTinhTrangNCC === "Chưa nhận") {
-                        updates[`${orderId}/TinhTrangNCC`] = "Đã lên bài"
-                        const MaKH = tableData[row][0]
-                        const MaKHBeforeDash = MaKH.split("-")[0]
-                        const MaNCC = tableData[row][18]
-                        const giaMua = parseNumberWithComma(tableData[row][14]) // Get GiaMua value
-
-                        // Add money to NCC's account
-                        const nccBalanceRef = ref(database, `money/${MaNCC}`)
-                        get(nccBalanceRef).then(async (nccBalanceSnapshot) => {
-                            let currentNccBalance = 0
-                            let currentData = {}
-                            if (nccBalanceSnapshot.exists()) {
-                                const balanceData = nccBalanceSnapshot.val()
-                                currentNccBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
-                                currentData = balanceData
-                            }
-
-                            // Calculate new balance for NCC
-                            const newNccBalance = currentNccBalance + giaMua
-
-                            // Update NCC's balance while preserving other fields
-                            await set(ref(database, `money/${MaNCC}`), {
-                                ...currentData,
-                                amount: newNccBalance.toFixed(2),
-                            })
-                        })
-
-                        sheetApiRequest.getIDKH(MaKHBeforeDash, `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`)
-                    }
-
-                }
-
-                // Kiểm tra và cập nhật TinhTrangKH khi thay đổi các trường liên quan
-                if (["Anchor1", "URL1", "Anchor2", "URL2"].includes(fieldName)) {
-                    const currentData = tableData[row]
-                    const currentStatus = currentData[19] // Get current TinhTrangKH
-                    console.log(currentStatus)
-
-                    // Chỉ cập nhật TinhTrangKH nếu chưa ở trạng thái hủy
-                    const hasAnchor1 = currentData[6] && currentData[6].trim() !== ""
-                    const hasURL1 = currentData[7] && currentData[7].trim() !== ""
-                    const hasAnchor2 = currentData[8] && currentData[8].trim() !== ""
-                    const hasURL2 = currentData[9] && currentData[9].trim() !== ""
-
-                    if ((hasAnchor1 && hasURL1) || (hasAnchor2 && hasURL2)) {
-                        if (currentStatus === "Chưa nhập") {
-                            updates[`${orderId}/TinhTrangKH`] = "Đã nhập"
-                            const MaNCC = tableData[row][18]
-                            sheetApiRequest.getIDNCC(
-                                MaNCC,
-                                `Đơn ${orderId} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`,
-                            )
-                        }
-                    } else {
-                        if (currentStatus === "Đã nhập") {
-                            updates[`${orderId}/TinhTrangKH`] = "Chưa nhập"
-                        }
-                    }
+                if (totalOrders.length > 0 || summary.count > 0) {
+                    finalData.push(totalRow, ...sortOrders(totalOrders));
                 }
             }
 
-            if (Object.keys(updates).length > 0) {
-                update(ordersRef, updates)
-                    .then(() => {
-                        console.log("Data updated successfully")
-                    })
-                    .catch((error) => {
-                        console.error("Error updating data:", error)
-                    })
+            if (viewOptions.cancelled) { // Keep filtering by viewOptions.cancelled even in merged mode
+                const cancelledOrders = cancelledOrdersFiltered; // Use the already classified array
+                if (cancelledOrders.length > 0 || summary.cancelledCount > 0) { // Only show cancelled section if there are cancelled orders
+                    finalData.push(cancelledRow, ...sortOrders(cancelledOrders))
+                }
             }
-        })
+
+        } else {
+            // In unmerged view, show separate sections based on view options
+            if (viewOptions.total) {
+                const totalOrders = totalOrdersFiltered; // Use the already classified array
+                if (totalOrders.length > 0 || summary.count > 0) { // Only show total section if there are total orders
+                    finalData.push(totalRow, ...sortOrders(totalOrders))
+                }
+            }
+            if (viewOptions.pending) {
+                const pendingOrders = pendingOrdersFiltered; // Use the already classified array
+                if (pendingOrders.length > 0 || summary.pendingCount > 0) { // Only show pending section if there are pending orders
+                    finalData.push(pendingRow, ...sortOrders(pendingOrders))
+                }
+            }
+            if (viewOptions.cancelled) {
+                const cancelledOrders = cancelledOrdersFiltered; // Use the already classified array
+                if (cancelledOrders.length > 0 || summary.cancelledCount > 0) { // Only show cancelled section if there are cancelled orders
+                    finalData.push(cancelledRow, ...sortOrders(cancelledOrders))
+                }
+            }
+        }
+
+
+
+
+        return finalData.filter(Boolean) // Remove any potential undefined entries
     }
 
-    const handleAfterPaste = async (data: any[][], coords: any[]) => {
-        if (!data || !coords) return
+    // Apply filters whenever dependencies change
+    useEffect(() => {
 
-        const ordersRef = ref(database, "content")
-        const updates: any = {}
-        const nccUpdates: { [key: string]: number } = {} // Track NCC balance updates
-        const linkKQUpdates: { [key: string]: { orderId: string, MaKH: string, MaNCC: string, giaMua: number } } = {} // Track LinkKQ updates
 
-        coords.forEach(async (coord, index) => {
-            const startRow = coord.startRow
-            const startCol = coord.startCol
-            const endRow = coord.endRow
-            const endCol = coord.endCol
 
-            // Map table columns to Firebase fields
-            const fieldMap: { [key: number]: string } = {
-                1: "TenSP",
-                2: "NgayOrder",
-                3: "KHNote1",
-                4: "KHNote2",
-                5: "ChuDe",
-                6: "Anchor1",
-                7: "URL1",
-                8: "Anchor2",
-                9: "URL2",
-                10: "LinkKQ",
-                11: "Deadline",
-                12: "Note",
-                13: "GiaBan",
-                14: "GiaMua",
-                16: "TTNCC",
-                17: "TenNCC",
-                18: "MaNCC",
-                19: "TinhTrangKH",
-                20: "TinhTrangNCC",
-                21: "Chat",
-            }
 
-            // Xử lý từng ô trong vùng dán
-            for (let row = startRow; row <= endRow; row++) {
-                const orderId = tableData[row][0] // Get the order ID from the first column
-                if (!updates[orderId]) {
-                    updates[orderId] = {}
-                }
 
-                // Lấy dữ liệu hiện tại từ Firebase cho đơn hàng này
-                const currentOrderData = tableData[row]
-                const currentFirebaseData: { [key: string]: any } = {
-                    TenSP: currentOrderData[1] || "",
-                    NgayOrder: currentOrderData[2] || "",
-                    KHNote1: currentOrderData[3] || "",
-                    KHNote2: currentOrderData[4] || "",
-                    ChuDe: currentOrderData[5] || "",
-                    Anchor1: currentOrderData[6] || "",
-                    URL1: currentOrderData[7] || "",
-                    Anchor2: currentOrderData[8] || "",
-                    URL2: currentOrderData[9] || "",
-                    LinkKQ: currentOrderData[10] || "",
-                    Deadline: currentOrderData[11] || "",
-                    Note: currentOrderData[12] || "",
-                    GiaBan: parseNumberWithComma(currentOrderData[13]),
-                    GiaMua: parseNumberWithComma(currentOrderData[14]),
-                    TTNCC: currentOrderData[16] || "",
-                    TenNCC: currentOrderData[17] || "",
-                    MaNCC: currentOrderData[18] || "",
-                    TinhTrangKH: currentOrderData[19] || "",
-                    TinhTrangNCC: currentOrderData[20] || "",
-                    Chat: currentOrderData[21] || "",
-                }
 
-                // Sao chép dữ liệu hiện tại vào updates
-                updates[orderId] = { ...currentFirebaseData }
 
-                for (let col = startCol; col <= endCol; col++) {
-                    const fieldName = fieldMap[col]
-                    if (fieldName) {
-                        const dataRow = row - startRow
-                        const dataCol = col - startCol
-                        const newValue = data[dataRow]?.[dataCol]
 
-                        if (newValue !== undefined && newValue !== null && newValue !== "") {
-                            let valueToUpdate = newValue
+        if (allData.length === 0) {
 
-                            // Xử lý các trường đặc biệt
-                            if (fieldName === "GiaBan" || fieldName === "GiaMua") {
-                                valueToUpdate = parseNumberWithComma(newValue)
-                            } else if (fieldName === "NgayOrder" || fieldName === "Deadline") {
-                                // Xử lý ngày tháng
-                                if (typeof newValue === "string" && newValue.includes("/")) {
-                                    const [day, month, year] = newValue.split("/")
-                                    valueToUpdate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-                                }
-                            } else if (fieldName === "Chat") {
-                                // Xử lý trường chat
-                                valueToUpdate = newValue || ""
-                            }
+            setTableData([])
+            return
+        }
 
-                            updates[orderId][fieldName] = valueToUpdate
+        // Apply filters
+        const filteredData = filterTableData(allData)
 
-                            // Xử lý LinkKQ tương tự handleAfterChange
-                            if (fieldName === "LinkKQ" && newValue && newValue.trim() !== "") {
-                                const currentTinhTrangNCC = tableData[row][20] // Get current TinhTrangNCC
-                                if (currentTinhTrangNCC === "Chưa nhận") {
-                                    updates[orderId].TinhTrangNCC = "Đã lên bài"
-                                    const MaKH = tableData[row][0]
-                                    const MaKHBeforeDash = MaKH.split("-")[0]
-                                    const MaNCC = tableData[row][18]
-                                    const giaMua = parseNumberWithComma(tableData[row][14]) // Get GiaMua value
 
-                                    // Add money to NCC's account
-                                    const nccBalanceRef = ref(database, `money/${MaNCC}`)
-                                    get(nccBalanceRef).then(async (nccBalanceSnapshot) => {
-                                        let currentNccBalance = 0
-                                        let currentData = {}
-                                        if (nccBalanceSnapshot.exists()) {
-                                            const balanceData = nccBalanceSnapshot.val()
-                                            currentNccBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
-                                            currentData = balanceData
-                                        }
+        setTableData(filteredData)
 
-                                        // Calculate new balance for NCC
-                                        const newNccBalance = currentNccBalance + giaMua
+    }, [allData, selectedWeek, viewOptions, selectedUser, selectedNCC, isMerged, customerFilter, supplierFilter])
 
-                                        // Update NCC's balance while preserving other fields
-                                        await set(ref(database, `money/${MaNCC}`), {
-                                            ...currentData,
-                                            amount: newNccBalance.toFixed(2),
-                                        })
-                                    })
-
-                                    sheetApiRequest.getIDKH(MaKHBeforeDash, `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`)
-                                }
-
-                            }
-                        }
-                    }
-                }
-
-                // Kiểm tra và cập nhật Tình trạng sau khi dán
-                const hasAnchor1 = updates[orderId].Anchor1 && updates[orderId].Anchor1.trim() !== ""
-                const hasURL1 = updates[orderId].URL1 && updates[orderId].URL1.trim() !== ""
-                const hasAnchor2 = updates[orderId].Anchor2 && updates[orderId].Anchor2.trim() !== ""
-                const hasURL2 = updates[orderId].URL2 && updates[orderId].URL2.trim() !== ""
-
-                if ((hasAnchor1 && hasURL1) || (hasAnchor2 && hasURL2)) {
-                    if (updates[orderId].TinhTrangKH === "Chưa nhập") {
-                        updates[orderId].TinhTrangKH = "Đã nhập"
-                        const MaNCC = updates[orderId].MaNCC
-                        if (MaNCC) {
-                            sheetApiRequest.getIDNCC(
-                                MaNCC,
-                                `Đơn ${orderId} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`,
-                            )
-                        }
-                    }
-                } else {
-                    if (updates[orderId].TinhTrangKH === "Đã nhập") {
-                        updates[orderId].TinhTrangKH = "Chưa nhập"
-                    }
-                }
-            }
-        })
-
-        // Kiểm tra và loại bỏ các giá trị undefined
-        Object.keys(updates).forEach((orderId) => {
-            Object.keys(updates[orderId]).forEach((field) => {
-                if (updates[orderId][field] === undefined) {
-                    updates[orderId][field] = ""
-                }
-            })
-        })
+    const handleSendChatMessage = useCallback(async () => {
+        if (!newChatMessage.trim() || !currentChatOrderId) return
 
         try {
-            // Update all NCC balances
-            for (const [MaNCC, amountToAdd] of Object.entries(nccUpdates)) {
-                const nccBalanceRef = ref(database, `money/${MaNCC}`)
-                const nccBalanceSnapshot = await get(nccBalanceRef)
-                let currentNccBalance = 0
-                let currentData = {}
-                if (nccBalanceSnapshot.exists()) {
-                    const balanceData = nccBalanceSnapshot.val()
-                    currentNccBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
-                    currentData = balanceData
-                }
+            setIsUpdating(true)
 
-                // Calculate new balance for NCC
-                const newNccBalance = currentNccBalance + amountToAdd
+            // Find the order in tableData
+            const orderIndex = tableData.findIndex((row) => row[1] === currentChatOrderId)
+            if (orderIndex === -1) return
 
-                // Update NCC's balance while preserving other fields
-                await set(ref(database, `money/${MaNCC}`), {
-                    ...currentData,
-                    amount: newNccBalance.toFixed(2),
-                })
+            // Create new chat message with proper format
+            const newMessage: ChatMessage = {
+                role: userInfo?.role || "",
+                name: userInfo?.username || userInfo?.name || "",
+                message: newChatMessage.trim(),
+                time: formatDateTime(),
             }
 
-            // Send notifications for LinkKQ updates
-            for (const { orderId, MaKH, MaNCC } of Object.values(linkKQUpdates)) {
-                sheetApiRequest.getIDKH(
-                    MaKH,
-                    `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`
-                )
+            // Get current chat messages
+            const currentChat = tableData[orderIndex][21] || []
+            const updatedChat = [...currentChat, newMessage]
+
+            // Update the order's chat messages locally first for immediate UI response
+            const updatedTableData = [...tableData]
+            updatedTableData[orderIndex][21] = updatedChat
+            setTableData(updatedTableData)
+
+            // Update current chat messages in dialog
+            setCurrentChatMessages(updatedChat)
+
+            // Clear input immediately for better UX
+            setNewChatMessage("")
+
+            // Send update to server using batch update - only send changed fields
+            const order = tableData[orderIndex]
+            const updateData = {
+                id: order[0],
+                chat: updatedChat,
             }
 
-            // Update all order data
-            if (Object.keys(updates).length > 0) {
-                await update(ordersRef, updates)
-                console.log("Data updated successfully after paste")
+            // Use batch update for smoother performance
+            queueUpdate(`chat_${order[0]}`, updateData)
+
+            // Send notification based on sender role
+            const MaKH = currentChatOrderId.split("-")[0]
+            const MaNCC = order[19]
+
+            if (userInfo?.role === "NCC") {
+                // If NCC sends message, notify customer
+                // sheetApiRequest.getIDKH(
+                //     MaKH,
+                //     `NCC ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
+                // )
+            } else if (userInfo?.role === "Khách hàng") {
+                // If customer sends message, notify NCC
+                // sheetApiRequest.getIDNCC(
+                //     MaNCC,
+                //     `Khách hàng ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
+                // )
             }
         } catch (error) {
-            console.error("Error updating data after paste:", error)
+            console.error("Error sending chat message:", error)
+            // Revert the UI change if there's an error
+            const orderIndex = tableData.findIndex((row) => row[1] === currentChatOrderId)
+            if (orderIndex !== -1) {
+                const revertedTableData = [...tableData]
+                revertedTableData[orderIndex][21] = currentChatMessages
+                setTableData(revertedTableData)
+                setCurrentChatMessages(currentChatMessages)
+            }
+        } finally {
+            setIsUpdating(false)
         }
-    }
+    }, [newChatMessage, currentChatOrderId, tableData, userInfo, currentChatMessages, queueUpdate])
+
+    const handleAfterChange = useCallback(
+        (changes: TableChange[] | null, source: string) => {
+            if (source === "loadData" || !changes) return
+
+            // Group changes by row to handle multiple field updates efficiently
+            const changesByRow: { [key: number]: TableChange[] } = {}
+
+            changes.forEach((change) => {
+                const rowIndex = change[0]
+                if (!changesByRow[rowIndex]) {
+                    changesByRow[rowIndex] = []
+                }
+                changesByRow[rowIndex].push(change)
+            })
+
+            // Process each row's changes
+            for (const rowIndex in changesByRow) {
+                const rowChanges = changesByRow[rowIndex]
+                const order = tableData[Number(rowIndex)]
+
+                if (!order || !order[0]) continue
+
+                // Map column indices to field names
+                const columnToField: { [key: string]: string } = {
+                    "2": "loai",
+                    "3": "ngay_order",
+                    "4": "note_kh1",
+                    "5": "note_kh2",
+                    "6": "chu_de",
+                    "7": "anchor1",
+                    "8": "url1",
+                    "9": "anchor2",
+                    "10": "url2",
+                    "11": "link_kq",
+                    "12": "deadline",
+                    "13": "note",
+                    "14": "gia_ban",
+                    "15": "gia_mua",
+                    "17": "ten_ncc",
+                    "18": "ma_ncc",
+                    "19": "tt_kh",
+                    "20": "tt_ncc",
+                }
+
+                // Create update object with only id and changed fields
+                const updateData: any = {
+                    id: order[0],
+                }
+
+                // Track if Link KQ was updated
+                let linkKQUpdated = false
+                let newLinkKQ: string | null = null
+
+                // Add only changed fields to update object
+                rowChanges.forEach(([row, col, oldValue, newValue]) => {
+                    const fieldName = columnToField[col.toString()]
+                    if (fieldName) {
+                        // Skip if value hasn't actually changed
+                        if (oldValue === newValue) return
+
+                        // Handle special cases for numeric fields
+                        if (fieldName === "gia_ban" || fieldName === "gia_mua") {
+                            const parsedNewValue = parseNumberWithComma(newValue)
+                            const parsedOldValue = parseNumberWithComma(oldValue)
+                            if (parsedNewValue !== parsedOldValue) {
+                                updateData[fieldName] = parsedNewValue
+                            }
+                        } else if (fieldName === "deadline") {
+                            // Convert date string to ISO format if it's a valid date
+                            const newDate = new Date(newValue)
+                            const oldDate = new Date(oldValue)
+                            if (!isNaN(newDate.getTime()) && newDate.getTime() !== oldDate.getTime()) {
+                                updateData[fieldName] = newDate.toISOString()
+                            }
+                        } else {
+                            updateData[fieldName] = newValue
+                        }
+
+                        // Track Link KQ updates
+                        if (fieldName === "link_kq") {
+                            linkKQUpdated = true
+                            newLinkKQ = newValue as string
+                        }
+                    }
+                })
+
+                // Handle Anchor/URL updates for status changes
+                if (
+                    ["anchor1", "url1", "anchor2", "url2"].includes(Object.keys(updateData).find((key) => key !== "id") || "")
+                ) {
+                    const currentData = order;
+                    // Use the potentially updated values from updateData first, then fallback to currentData
+                    const anchor1 = updateData.anchor1 !== undefined ? updateData.anchor1 : currentData[7] || "";
+                    const anchor2 = updateData.anchor2 !== undefined ? updateData.anchor2 : currentData[9] || "";
+                    const hasAnchor1 = typeof anchor1 === 'string' && anchor1.trim() !== "";
+                    const hasAnchor2 = typeof anchor2 === 'string' && anchor2.trim() !== "";
+                    const currentTTKH = currentData[20] || "";
+
+                    // Determine the new status based on the presence of anchors
+                    let newTTKH = currentTTKH; // Default to current status
+
+                    if (hasAnchor1 || hasAnchor2) {
+                        // If anchors exist, set status to "Đã nhập" only if it was empty or "Chưa nhập"
+                        if (!currentTTKH || currentTTKH === "Chưa nhập") {
+                            newTTKH = "Đã nhập";
+                        }
+                    } else {
+                        // If no anchors exist, set status to "Chưa nhập" only if it was "Đã nhập"
+                        if (currentTTKH === "Đã nhập") {
+                            newTTKH = "Chưa nhập";
+                        }
+                    }
+
+                    // Update UI and updateData if status changed
+                    if (newTTKH !== currentTTKH) {
+                        // Update UI immediately
+                        const updatedTableData = [...tableData];
+                        updatedTableData[Number(rowIndex)][20] = newTTKH;
+                        setTableData(updatedTableData);
+
+                        // Include the change in updateData for the backend
+                        updateData.tt_kh = newTTKH;
+                    }
+                }
+
+                // Handle Link KQ updates
+                if (linkKQUpdated) {
+                    const currentData = order
+                    const linkKQ = newLinkKQ || currentData[11] || ""
+                    const hasLinkKQ = typeof linkKQ === 'string' && linkKQ.trim() !== ""
+                    const currentTTNCC = currentData[20] || ""
+
+                    // Only update tt_ncc if current status is empty or "Chưa nhận"
+                    if (hasLinkKQ && (!currentTTNCC || currentTTNCC === "Chưa nhận")) {
+                        // Update UI immediately
+                        const updatedTableData = [...tableData]
+                        updatedTableData[Number(rowIndex)][20] = "Đã lên bài"
+                        updateData.tt_ncc = "Đã lên bài"
+                        setTableData(updatedTableData)
+
+                        const MaKH = order[1].split("-")[0]
+                        const MaNCC = order[19]
+                        const giaMua = parseNumberWithComma(order[15])
+
+                        // Add money to NCC's account via API
+                        try {
+                            // await contentApiRequest.updateBalance({
+                            //     user_id: MaNCC,
+                            //     amount: giaMua,
+                            //     type: "add",
+                            // })
+                        } catch (error) {
+                            console.error("Error updating NCC balance:", error)
+                            // Revert UI changes if balance update fails
+                            setTableData(tableData)
+                            return
+                        }
+                    }
+                }
+
+                // Handle initial empty states
+                if (!updateData.tt_kh && !updateData.tt_ncc) {
+                    const currentData = order
+                    const anchor1 = currentData[7] || ""
+                    const anchor2 = currentData[9] || ""
+                    const linkKQ = currentData[11] || ""
+                    const currentTTKH = currentData[19] || ""
+                    const currentTTNCC = currentData[20] || ""
+
+                    const hasAnchor1 = typeof anchor1 === 'string' && anchor1.trim() !== ""
+                    const hasAnchor2 = typeof anchor2 === 'string' && anchor2.trim() !== ""
+                    const hasLinkKQ = typeof linkKQ === 'string' && linkKQ.trim() !== ""
+
+                    // Update UI immediately
+                    const updatedTableData = [...tableData]
+
+                    // Set tt_kh based on Anchor values only if current status is empty or "Chưa nhập"
+                    if ((hasAnchor1 || hasAnchor2) && (!currentTTKH || currentTTKH === "Chưa nhập")) {
+                        updatedTableData[Number(rowIndex)][19] = "Đã nhập"
+                        updateData.tt_kh = "Đã nhập"
+                    }
+
+                    // Set tt_ncc based on LinkKQ value only if current status is empty or "Chưa nhận"
+                    if (hasLinkKQ && (!currentTTNCC || currentTTNCC === "Chưa nhận")) {
+                        updatedTableData[Number(rowIndex)][20] = "Đã lên bài"
+                        updateData.tt_ncc = "Đã lên bài"
+                    }
+
+                    setTableData(updatedTableData)
+                }
+
+                // Only send update if there are actual changes
+                if (Object.keys(updateData).length > 1) {
+                    queueUpdate(`table_${order[0]}_${Date.now()}`, updateData)
+                }
+            }
+
+            // Update local state immediately for responsiveness
+            const newTableData = [...tableData]
+            changes.forEach(([row, col, oldValue, newValue]) => {
+                if (oldValue === newValue) return
+
+                newTableData[row][Number(col)] = newValue
+
+                // Update profit calculation if price fields changed
+                if (col === 14 || col === 15) {
+                    const giaBan = parseNumberWithComma(newTableData[row][14])
+                    const giaMua = parseNumberWithComma(newTableData[row][15])
+                    newTableData[row][16] = giaBan - giaMua
+                }
+            })
+            setTableData(newTableData)
+        },
+        [tableData, queueUpdate],
+    )
+
+    const handleAfterPaste = useCallback(
+        (data: any[], coords: any[]) => {
+            if (!data || !coords) return
+
+            const changes: TableChange[] = data.flatMap((row, rowIndex) => {
+                return row.map((value: any, colIndex: number) => {
+                    return [coords[0].startRow + rowIndex, coords[0].startCol + colIndex, null, value] as TableChange
+                })
+            })
+
+            handleAfterChange(changes, "paste")
+        },
+        [handleAfterChange],
+    )
 
     const handleContextMenuAction = async (row: number, action: string) => {
-        const orderId = tableData[row][0]
-        const ordersRef = ref(database, `content/${orderId}`)
-        const linkKQ = tableData[row][10] // Get LinkKQ value
-        const MaNCC = tableData[row][18]
-        const MaKH = tableData[row][0]
+        const orderId = tableData[row][1]
+        const linkKQ = tableData[row][11]
+        const MaNCC = tableData[row][19]
+        const MaKH = tableData[row][1]
         const MaKHBeforeDash = MaKH.split("-")[0]
-        const giaBan = parseNumberWithComma(tableData[row][13]) // Get GiaBan value
-        const giaMua = parseNumberWithComma(tableData[row][14]) // Get GiaMua value
+        const giaBan = parseNumberWithComma(tableData[row][14])
+        const giaMua = parseNumberWithComma(tableData[row][15])
 
         try {
             if (action === "cancelOrder") {
                 const newStatus = linkKQ && linkKQ.trim() !== "" ? "Y/C Hủy đơn" : "Hủy đơn"
 
+                // Update only tt_kh, tt_ncc remains unchanged by this action
+                const updateData: any = {
+                    id: tableData[row][0],
+                    tt_kh: newStatus,
+                }
+
                 if (newStatus === "Hủy đơn") {
-                    // Get current balance for customer only
-                    const userBalanceRef = ref(database, `money/${MaKHBeforeDash}`)
-                    const balanceSnapshot = await get(userBalanceRef)
-                    let currentBalance = 0
-                    let currentUserData = {}
-                    if (balanceSnapshot.exists()) {
-                        const balanceData = balanceSnapshot.val()
-                        currentBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
-                        currentUserData = balanceData
-                    }
-
-                    // Calculate new balance after refund for customer
-                    const newBalance = currentBalance + giaBan
-                    const currentSpend = Number.parseFloat((currentUserData as any).spend?.toString().replace(",", ".") || "0")
-                    const newSpend = currentSpend - giaBan
-
-                    // Update order status and refund money to customer only
+                    // Refund money to customer and update spend
                     await Promise.all([
-                        update(ordersRef, {
-                            TinhTrangKH: newStatus,
-                        }),
-                        set(ref(database, `money/${MaKHBeforeDash}`), {
-                            ...currentUserData,
-                            amount: newBalance.toFixed(2),
-                            spend: newSpend.toFixed(2)
-                        })
+                        contentApiRequest.update(updateData),
+                        // contentApiRequest.updateBalance({
+                        //     user_id: MaKHBeforeDash,
+                        //     amount: giaBan,
+                        //     type: "add",
+                        // }),
+                        // contentApiRequest.updateBalance({
+                        //     user_id: MaKHBeforeDash,
+                        //     amount: giaBan,
+                        //     type: "subtract_spend",
+                        // }),
                     ])
 
-                    sheetApiRequest.getIDKH(
-                        MaKHBeforeDash,
-                        `Đơn hàng ${orderId} đã bị hủy, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
-                    )
+                    // Update UI immediately for tt_kh only
+                    const updatedTableData = [...tableData]
+                    updatedTableData[row][20] = newStatus // Update tt_kh
+                    // updatedTableData[row][21] remains unchanged for tt_ncc
+                    setTableData(updatedTableData)
+
+                    // sheetApiRequest.getIDKH(
+                    //     MaKHBeforeDash,
+                    //     `Đơn hàng ${orderId} đã bị hủy, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
+                    // )
                 } else {
-                    // Just update status for cancellation request
-                    await update(ordersRef, {
-                        TinhTrangKH: newStatus,
-                    })
-                    sheetApiRequest.getIDNCC(
-                        MaNCC,
-                        `Khách hàng đã yêu cầu hủy đơn ${orderId}, xử lý tại http://ylink.shop/content`,
-                    )
+                    await contentApiRequest.update(updateData)
+
+                    // Update UI immediately for tt_kh only
+                    const updatedTableData = [...tableData]
+                    updatedTableData[row][20] = newStatus // Update tt_kh
+                    // updatedTableData[row][21] remains unchanged for tt_ncc
+                    setTableData(updatedTableData)
+
+                    // sheetApiRequest.getIDNCC(
+                    //     MaNCC,
+                    //     `Khách hàng đã yêu cầu hủy đơn ${orderId}, xử lý tại http://ylink.shop/content`,
+                    // )
                 }
             } else if (action === "approveRefund") {
-                // Get current balance for customer
-                const userBalanceRef = ref(database, `money/${MaKHBeforeDash}`)
-                const balanceSnapshot = await get(userBalanceRef)
-                let currentBalance = 0
-                let currentUserData = {}
-                if (balanceSnapshot.exists()) {
-                    const balanceData = balanceSnapshot.val()
-                    currentBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
-                    currentUserData = balanceData
-                }
-
-                // Get NCC's current balance
-                const nccBalanceRef = ref(database, `money/${MaNCC}`)
-                const nccBalanceSnapshot = await get(nccBalanceRef)
-                let currentNccBalance = 0
-                let currentNccData = {}
-                if (nccBalanceSnapshot.exists()) {
-                    const balanceData = nccBalanceSnapshot.val()
-                    currentNccBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
-                    currentNccData = balanceData
-                }
-
-                // Calculate new balance for NCC (subtract giaMua)
-                const newNccBalance = currentNccBalance - giaMua
-
-                // Calculate new balance after refund for customer
-                const newBalance = currentBalance + giaBan
-                const currentSpend = Number.parseFloat((currentUserData as any).spend?.toString().replace(",", ".") || "0")
-                const newSpend = currentSpend - giaBan
-
-                // Update order status, refund money to customer, and subtract money from NCC
                 await Promise.all([
-                    update(ordersRef, {
-                        TinhTrangNCC: "Đồng ý hoàn",
+                    contentApiRequest.update({
+                        id: tableData[row][0],
+                        tt_ncc: "Đồng ý hoàn",
                     }),
-                    set(ref(database, `money/${MaKHBeforeDash}`), {
-                        ...currentUserData,
-                        amount: newBalance.toFixed(2),
-                        spend: newSpend.toFixed(2)
-                    }),
-                    set(ref(database, `money/${MaNCC}`), {
-                        ...currentNccData,
-                        amount: newNccBalance.toFixed(2),
-                    }),
+                    // contentApiRequest.updateBalance({
+                    //     user_id: MaKHBeforeDash,
+                    //     amount: giaBan,
+                    //     type: "add",
+                    // }),
+                    // contentApiRequest.updateBalance({
+                    //     user_id: MaKHBeforeDash,
+                    //     amount: giaBan,
+                    //     type: "subtract_spend",
+                    // }),
+                    // contentApiRequest.updateBalance({
+                    //     user_id: MaNCC,
+                    //     amount: giaMua,
+                    //     type: "subtract",
+                    // }),
                 ])
 
-                sheetApiRequest.getIDKH(
-                    MaKHBeforeDash,
-                    `NCC đã đồng ý hoàn tiền cho đơn ${orderId}, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
-                )
+                // sheetApiRequest.getIDKH(
+                //     MaKHBeforeDash,
+                //     `NCC đã đồng ý hoàn tiền cho đơn ${orderId}, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
+                // )
             } else if (action === "rejectRefund") {
-                await update(ordersRef, {
-                    TinhTrangNCC: "Từ chối hoàn",
+                await contentApiRequest.update({
+                    id: tableData[row][0],
+                    tt_ncc: "Từ chối hoàn",
                 })
-                sheetApiRequest.getIDKH(
-                    MaKHBeforeDash,
-                    `NCC đã từ chối hoàn tiền cho đơn ${orderId}, kiểm tra tại http://ylink.shop/content`,
-                )
+                // sheetApiRequest.getIDKH(
+                //     MaKHBeforeDash,
+                //     `NCC đã từ chối hoàn tiền cho đơn ${orderId}, kiểm tra tại http://ylink.shop/content`,
+                // )
             } else if (action === "okOrder") {
-                await update(ordersRef, {
-                    TinhTrangKH: "Đơn OK",
+                await contentApiRequest.update({
+                    id: tableData[row][0],
+                    tt_kh: "Đơn OK",
                 })
             }
         } catch (error) {
@@ -1181,18 +919,154 @@ export default function PageBody() {
         }
     }
 
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = (await contentApiRequest.get()) as ContentApiResponse
+
+
+
+
+                if (response.success && response.data) {
+                    // Log raw data before transformation
+
+                    response.data.slice(0, 3).forEach((order, index) => {
+
+                    })
+
+                    // Filter data based on user role and username
+                    let filteredData = response.data
+                    if (userInfo?.role === "Nhân viên" || userInfo?.role === "Khách hàng") {
+                        const userPrefix = userInfo?.username || ""
+                        filteredData = response.data.filter(order => {
+                            if (!order.ma_don) return false
+                            const maDonPrefix = order.ma_don.split("-")[0]
+                            return maDonPrefix === userPrefix
+                        })
+
+                    } else if (userInfo?.role === "NCC") {
+                        const nccUsername = userInfo?.username || ""
+                        filteredData = response.data.filter(order => {
+                            return order.ma_ncc === nccUsername
+                        })
+
+                    }
+
+                    // Extract unique customers and NCCs for all roles
+                    const uniqueCustomers = getUniqueCustomers(response.data)
+                    const uniqueNCCs = Array.from(new Set(response.data
+                        .map(order => order.ma_ncc)
+                        .filter((ncc): ncc is string => ncc !== null && ncc !== undefined)))
+                        .sort()
+
+                    setUsers(uniqueCustomers)
+                    setNCCs(uniqueNCCs)
+
+
+
+
+                    // Transform the filtered data into the desired format
+                    const formattedData = filteredData.map((order) => {
+                        const giaBan = parseNumberWithComma(order.gia_ban)
+                        const giaMua = parseNumberWithComma(order.gia_mua)
+                        const ln = giaBan - giaMua
+
+                        const anchor1 = order.anchor1 || ""
+                        const anchor2 = order.anchor2 || ""
+                        const linkKq = order.link_kq || ""
+
+                        // Determine tt_kh_status for initial display based on API value and Anchor presence
+                        let tt_kh_status = order.tt_kh || "Chưa nhập"
+                        if ((anchor1.trim() !== "" || anchor2.trim() !== "") && (tt_kh_status === "Chưa nhập")) {
+                            tt_kh_status = "Đã nhập"
+                        }
+
+                        // Determine tt_ncc for initial display based on API value and LinkKQ presence
+                        let tt_ncc = order.tt_ncc || "Chưa nhận"
+                        if (linkKq.trim() !== "" && (tt_ncc === "Chưa nhận")) {
+                            tt_ncc = "Đã lên bài"
+                        }
+
+                        return [
+                            order.id,
+                            order.ma_don || "",
+                            order.loai || "",
+                            order.ngay_order || "",
+                            order.note_kh1 || "",
+                            order.note_kh2 || "",
+                            order.chu_de || "",
+                            anchor1,
+                            order.url1 || "",
+                            anchor2,
+                            order.url2 || "",
+                            linkKq,
+                            order.deadline || "",
+                            order.note || "",
+                            giaBan,
+                            giaMua,
+                            ln,
+                            order.ten_ncc || "",
+                            order.ma_ncc || "",
+                            tt_kh_status,
+                            tt_ncc,
+                            order.chat || [],
+                        ]
+                    })
+
+                    // Store all data for filtering
+                    setAllData(formattedData)
+
+                    // Check for new chat messages to set blinking
+                    const newBlinkingOrders = new Set<string>()
+                    formattedData.forEach((row) => {
+                        const chat = row[21]
+                        if (chat && Array.isArray(chat) && chat.length > 0) {
+                            const lastMessage = chat[chat.length - 1]
+                            if (lastMessage) {
+                                const isFromOtherParty =
+                                    (userInfo?.role === "NCC" && lastMessage.role === "Khách hàng") ||
+                                    (userInfo?.role === "Khách hàng" && lastMessage.role === "NCC")
+
+                                if (isFromOtherParty) {
+                                    newBlinkingOrders.add(row[1].toString())
+                                }
+                            }
+                        }
+                    })
+                    setBlinkingChatOrders(newBlinkingOrders)
+                } else {
+
+                    setAllData([])
+                }
+            } catch (error) {
+                console.error("Error fetching data:", error)
+                setAllData([])
+            }
+        }
+
+        fetchData()
+        // Set up polling every 30 seconds
+        const intervalId = setInterval(fetchData, 30000)
+
+        return () => clearInterval(intervalId)
+    }, [userInfo?.role, userInfo?.username])
+
+    // Get current statistics
+    const stats = getStatistics(tableData)
+
     const RowHeader1: NestedColumnHeader[] = [
-        { label: `Đơn Hàng`, colspan: 3 },
+        { label: `Đơn Hàng`, colspan: 4 },
         { label: "INFO Bài", colspan: 7 },
         { label: "Kểt Quả", colspan: 2 },
         { label: "", colspan: 1 },
-        { label: "TIỀN NÈ", colspan: 4 },
+        { label: "TIỀN NÈ", colspan: 3 }, // Changed from 4 to 3
         { label: "", colspan: 2 },
         { label: "Trạng Thái", colspan: 2 },
         { label: "Trao đổi", colspan: 1 },
     ]
 
     const RowHeader2 = [
+        "ID",
         "Mã ĐH",
         "Loại",
         "Ngày order",
@@ -1209,7 +1083,6 @@ export default function PageBody() {
         "Giá Bán",
         "Giá Mua",
         "LN",
-        "TT NCC",
         "Tên NCC",
         "Mã NCC",
         "Khách Hàng",
@@ -1219,27 +1092,22 @@ export default function PageBody() {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            // Khách hàng statuses
             case "Chưa nhập":
-                return { bg: "#FFA500", text: "#FFF7ED" } // Orange bg, orange-50 text
+                return { bg: "#FFA500", text: "#FFF7ED" }
             case "Đơn OK":
-                return { bg: "#16A34A", text: "#F0FDF4" } // Green-600 bg, green-50 text
+                return { bg: "#16A34A", text: "#F0FDF4" }
             case "Hủy đơn":
             case "Y/C Hủy đơn":
-                return { bg: "#DC2626", text: "#FEF2F2" } // Red-600 bg, red-50 text
+                return { bg: "#DC2626", text: "#FEF2F2" }
             case "Đã nhập":
-                return { bg: "#9333EA", text: "#FAF5FF" } // Purple-600 bg, purple-50 text
-
-            // NCC statuses
+                return { bg: "#9333EA", text: "#FAF5FF" }
             case "Chưa nhận":
-                return { bg: "#FFA500", text: "#FFF7ED" } // Orange bg, orange-50 text
+                return { bg: "#FFA500", text: "#FFF7ED" }
             case "Đã lên bài":
-                return { bg: "#16A34A", text: "#F0FDF4" } // Green-600 bg, green-50 text
+                return { bg: "#16A34A", text: "#F0FDF4" }
             case "Từ chối hoàn":
-                return { bg: "#DC2626", text: "#FEF2F2" } // Red-600 bg, red-50 text
             case "Đồng ý hoàn":
-                return { bg: "#DC2626", text: "#FEF2F2" } // Red-600 bg, red-50 text
-
+                return { bg: "#DC2626", text: "#FEF2F2" }
             default:
                 return { bg: "", text: "" }
         }
@@ -1248,34 +1116,33 @@ export default function PageBody() {
     const getHiddenColumns = () => {
         if (userInfo?.role === "NCC") {
             return {
-                columns: [13, 15], // Giá Bán (13), LN (14)
+                columns: [0, 14, 16],
                 indicators: true,
             }
         } else if (userInfo?.role === "Khách hàng") {
             return {
-                columns: [14, 15, 16, 17, 18], // Giá Mua (14), LN (15), TT NCC (16), Tên NCC (17)
+                columns: [0, 15, 16, 17, 18, 19],
                 indicators: true,
             }
         }
         return {
+            columns: [0],
             indicators: true,
         }
     }
 
     const isEditable = (col: number, row: number) => {
-        // First check role-based permissions
         if (userInfo?.role === "NCC") {
             const tinhTrangKH = tableData[row]?.[19]
             const tinhTrangNCC = tableData[row]?.[20]
 
-            // Check if the order is in a completed state
             const isCompletedOrder =
                 (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
                 (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
             if (isCompletedOrder) {
                 return null
             }
-            return col === 10 // Only LinkKQ is editable for NCC
+            return col === 11 // Only LinkKQ is editable for NCC
         } else if (userInfo?.role === "Khách hàng") {
             const tinhTrangKH = tableData[row]?.[19]
             const tinhTrangNCC = tableData[row]?.[20]
@@ -1285,165 +1152,119 @@ export default function PageBody() {
             if (isCompletedOrder) {
                 return null
             }
-            const editableColumns = [2, 3, 4, 5, 6, 7, 8, 9, 11] // Ngày order, KH Note 1, KH Note 2, Chủ Đề, Anchor 1, URL 1, Anchor 2, URL 2, Deadline
+            const editableColumns = [3, 4, 5, 6, 7, 8, 9, 10, 12] // Ngày order, KH Note 1, KH Note 2, Chủ Đề, Anchor 1, URL 1, Anchor 2, URL 2, Deadline
             return editableColumns.includes(col)
         }
 
-        return true // All columns editable for other roles and non-completed orders
+        return true
     }
 
-    // Function to send a new chat message
-    const sendChatMessage = useCallback(async () => {
-        if (!currentChatOrderId || !newChatMessage.trim()) return
+    const handleChatOpen = useCallback(
+        (orderId: string) => {
+            setCurrentChatOrderId(orderId)
+            setChatDialogOpen(true)
+            setBlinkingChatOrders((prev) => {
+                const newSet = new Set(prev)
+                newSet.delete(orderId)
+                return newSet
+            })
 
-        // Get current date in DD/MM/YYYY format
-        const now = new Date()
-        const day = String(now.getDate()).padStart(2, "0")
-        const month = String(now.getMonth() + 1).padStart(2, "0")
-        const year = now.getFullYear()
-        const ngayChat = `${day}/${month}/${year}`
-
-        // Create the message object with the appropriate name fields
-        const message: ChatMessage = {
-            text: newChatMessage.trim(),
-            sender: userInfo?.displayName || userInfo?.username || "Unknown User",
-            senderRole: userInfo?.role || "NCC",
-            timestamp: Date.now(),
-            ngayChat: ngayChat,
-        }
-
-        // Add the appropriate name field based on role
-        if (userInfo?.role === "NCC") {
-            message.supplierName = userInfo?.name || userInfo?.displayName || ""
-        } else if (userInfo?.role === "Khách hàng") {
-            message.name = userInfo?.username || userInfo?.name || userInfo?.displayName || ""
-        }
-
-        try {
-            const ordersRef = ref(database, `content/${currentChatOrderId}`)
-            const snapshot = await get(ordersRef)
-
-            if (snapshot.exists()) {
-                const order = snapshot.val()
-                const updatedOrder = {
-                    ...order,
-                    chat: [...(order.chat || []), message],
-                }
-
-                await set(ordersRef, updatedOrder)
-                setNewChatMessage("")
-
-                // Send notification based on sender role
-                const MaKH = currentChatOrderId.split("-")[0]
-                const MaNCC = order.MaNCC
-
-                if (userInfo?.role === "NCC") {
-                    // If NCC sends message, notify customer
-                    sheetApiRequest.getIDKH(
-                        MaKH,
-                        `NCC ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
-                    )
-                } else if (userInfo?.role === "Khách hàng") {
-                    // If customer sends message, notify NCC
-                    sheetApiRequest.getIDNCC(
-                        MaNCC,
-                        `Khách hàng ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
-                    )
-                }
+            // Find the order and get its chat messages
+            const order = tableData.find((row) => row[1] === orderId)
+            if (order && order[21]) {
+                const chatMessages = order[21].map((msg: any) => ({
+                    role: msg.role,
+                    name: msg.name || msg.role,
+                    message: msg.message,
+                    time: msg.time,
+                }))
+                setCurrentChatMessages(chatMessages)
+            } else {
+                setCurrentChatMessages([])
             }
-        } catch (error) {
-            console.error("Error sending message:", error)
-        }
-    }, [currentChatOrderId, newChatMessage, userInfo])
-
-    // Add function to stop blinking when chat is opened
-    const handleChatOpen = (orderId: string) => {
-        setCurrentChatOrderId(orderId)
-        setChatDialogOpen(true)
-        setBlinkingChatOrders((prev) => {
-            const newSet = new Set(prev)
-            newSet.delete(orderId)
-            return newSet
-        })
-    }
+        },
+        [tableData],
+    )
 
     const formatDate = (dateStr: string) => {
-        if (!dateStr) return "";
-        // Handle both DD/MM/YYYY and YYYY-MM-DD formats
+        if (!dateStr) return ""
         if (dateStr.includes("/")) {
-            const [day, month] = dateStr.split("/");
-            return `${day}/${month}`;
+            const [day, month] = dateStr.split("/")
+            return `${day}/${month}`
         } else if (dateStr.includes("-")) {
-            const [year, month, day] = dateStr.split("-");
-            return `${day}/${month}`;
+            const [year, month, day] = dateStr.split("-")
+            return `${day}/${month}`
         }
-        return dateStr;
-    };
+        return dateStr
+    }
 
-    // Add helper function to determine cell styling and editability
-    const getCellStyle = (col: number, row: number, isCompletedOrder: boolean, tableData: any[]): { backgroundColor: string; color: string; isReadOnly: boolean } => {
+    const getCellStyle = (
+        col: number,
+        row: number,
+        isCompletedOrder: boolean,
+        tableData: any[],
+    ): { backgroundColor: string; color: string; isReadOnly: boolean } => {
         const style: { backgroundColor: string; color: string; isReadOnly: boolean } = {
             backgroundColor: "",
             color: "#000000",
-            isReadOnly: false
-        };
-
-        // Mã ĐH column (col 0) is always gray and read-only
-        if (col === 0) {
-            style.backgroundColor = "#d3d3d3";
-            style.isReadOnly = true;
-            return style;
+            isReadOnly: false,
         }
 
-        // LinkKQ column (col 10) - Check for duplicates
-        if (col === 10) {
-            const currentLinkKQ = tableData[row]?.[10];
-            if (currentLinkKQ && currentLinkKQ.trim() !== "") {
-                // Count how many times this LinkKQ appears
-                const duplicateCount = tableData.filter(row =>
-                    row[10] && row[10].trim() !== "" && row[10] === currentLinkKQ
-                ).length;
+        // ID column (col 0) is always gray and read-only
+        if (col === 0) {
+            style.backgroundColor = "#d3d3d3"
+            style.isReadOnly = true
+            return style
+        }
 
-                // If there are duplicates, apply a background color
+        // LinkKQ column (col 11) - Check for duplicates
+        if (col === 11) {
+            const currentLinkKQ = tableData[row]?.[11]
+            if (currentLinkKQ && currentLinkKQ.trim() !== "") {
+                const duplicateCount = tableData.filter(
+                    (row) => row[11] && row[11].trim() !== "" && row[11] === currentLinkKQ,
+                ).length
+
                 if (duplicateCount > 1) {
-                    style.backgroundColor = "#FFE4E1"; // Light pink color for duplicates
+                    style.backgroundColor = "#FFE4E1"
                 }
             }
         }
 
-        // Status columns (19, 20) have their own colors
+        // Status columns (20, 21) have their own colors
         if (col === 19 || col === 20) {
-            const status = tableData[row]?.[col];
-            const colors = getStatusColor(status);
-            style.backgroundColor = colors.bg;
-            style.color = colors.text;
-            style.isReadOnly = true;
-            return style;
+            const status = tableData[row]?.[col]
+            const colors = getStatusColor(status)
+            style.backgroundColor = colors.bg
+            style.color = colors.text
+            style.isReadOnly = true
+            return style
         }
 
         // Chat column (21) is always read-only
         if (col === 21) {
-            style.isReadOnly = true;
-            return style;
+            style.isReadOnly = true
+            return style
         }
 
         // For completed orders, certain columns are gray and read-only
-        if (isCompletedOrder && [6, 7, 8, 9].includes(col)) { // Anchor1, URL1, Anchor2, URL2
-            style.backgroundColor = "#d3d3d3";
-            style.isReadOnly = true;
-            return style;
+        if (isCompletedOrder && [7, 8, 9, 10].includes(col)) {
+            // Anchor1, URL1, Anchor2, URL2
+            style.backgroundColor = "#d3d3d3"
+            style.isReadOnly = true
+            return style
         }
 
         // Check if cell should be editable based on role and permissions
-        const isEditableCell = isEditable(col, row);
+        const isEditableCell = isEditable(col, row)
         if (!isEditableCell) {
-            style.backgroundColor = "#d3d3d3";
-            style.isReadOnly = true;
-            return style;
+            style.backgroundColor = "#d3d3d3"
+            style.isReadOnly = true
+            return style
         }
 
-        return style;
-    };
+        return style
+    }
 
     const cells = function (
         this: Handsontable.CellProperties,
@@ -1456,7 +1277,7 @@ export default function PageBody() {
         // Check if this is a summary row
         const isSummaryRow =
             row < tableData.length &&
-            (tableData[row][12] === "Tổng" || tableData[row][12] === "Đơn hủy" || tableData[row][12] === "Chưa nhập")
+            (tableData[row][13] === "Tổng" || tableData[row][13] === "Đơn hủy" || tableData[row][13] === "Chưa nhập")
 
         if (isSummaryRow) {
             cellProperties.renderer = function (
@@ -1470,12 +1291,10 @@ export default function PageBody() {
             ) {
                 Handsontable.renderers.TextRenderer.apply(this, [instance, td, row, col, prop, value, cellProperties])
                 td.style.backgroundColor = "#ffb3b3"
-                td.style.color = "#991b1b" // red-800
+                td.style.color = "#991b1b"
                 td.style.fontWeight = "600"
-                if (col >= 13 && col <= 16) {
-                    // Giá Bán, Giá Mua, LN, TT NCC
+                if (col >= 14 && col <= 17) {
                     td.style.textAlign = "right"
-                    // Format number to 2 decimal places
                     if (value !== undefined && value !== null && value !== "") {
                         td.textContent = Number(value).toFixed(2)
                     }
@@ -1483,6 +1302,11 @@ export default function PageBody() {
             }
             cellProperties.readOnly = true
             return cellProperties
+        }
+
+        // Make 'Mã ĐH' column (index 1) read-only
+        if (col === 1) {
+            cellProperties.readOnly = true;
         }
 
         // Get the current row's status
@@ -1495,11 +1319,11 @@ export default function PageBody() {
             (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
 
         // Get cell style and editability
-        const cellStyle = getCellStyle(col, row, isCompletedOrder, tableData);
+        const cellStyle = getCellStyle(col, row, isCompletedOrder, tableData)
 
         // Apply cell styling and editability
         if (cellStyle) {
-            cellProperties.readOnly = cellStyle.isReadOnly;
+            cellProperties.readOnly = cellStyle.isReadOnly || cellProperties.readOnly; // Combine with existing readOnly
         }
 
         if (col === 21) {
@@ -1513,14 +1337,12 @@ export default function PageBody() {
                 value: any,
                 cellProperties: Handsontable.CellProperties,
             ) => {
-                // Clear existing content and set styles for td
                 td.innerHTML = ""
                 td.style.padding = "0"
                 td.style.textAlign = "center"
 
-                // Add chat button
                 const button = document.createElement("button")
-                const orderId = instance.getDataAtCell(row, 0)
+                const orderId = instance.getDataAtCell(row, 1)
                 button.textContent = "Chat"
                 button.className = `w-full px-4 py-2 text-xs font-semibold rounded transition-colors duration-200 ${blinkingChatOrders.has(orderId)
                     ? "bg-green-500 hover:bg-green-600 text-white animate-pulse"
@@ -1548,37 +1370,42 @@ export default function PageBody() {
 
                 // Apply cell style
                 if (cellStyle) {
-                    td.style.backgroundColor = cellStyle.backgroundColor;
-                    td.style.color = cellStyle.color;
+                    td.style.backgroundColor = cellStyle.backgroundColor
+                    td.style.color = cellStyle.color
                 }
 
-                // Format date for NgayOrder column (col 2)
-                if (col === 2) {
+                // Format date for NgayOrder column (col 3)
+                if (col === 3) {
                     td.textContent = formatDate(value)
                 }
 
-                // Apply fixed width styling
-                const fixedWidthColumns = [10, 12] // LinkKQ, Note
-                if (fixedWidthColumns.includes(col)) {
-                    td.style.width = "150px"
-                    td.style.maxWidth = "150px"
-                    td.style.whiteSpace = "nowrap"
-                    td.style.overflow = "hidden"
-                    td.style.textOverflow = "ellipsis"
-                    td.title = value || "" // Add tooltip with full text
-                } else if (col === 0) {
+                if (col === 0 || col === 1) {
                     td.style.width = "70px"
                     td.style.maxWidth = "70px"
                     td.style.whiteSpace = "nowrap"
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
+                } else if (col === 13) {
+                    td.style.width = "90px"
+                    td.style.maxWidth = "90px"
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.title = value || ""
                 } else {
                     td.style.width = "80px"
                     td.style.maxWidth = "80px"
                     td.style.whiteSpace = "nowrap"
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
-                    td.title = value || "" // Add tooltip with full text
+                    td.title = value || ""
+                }
+
+                // Add loading indicator for cells being updated
+                if (isBatchUpdating) {
+                    td.style.opacity = "0.7"
+                } else {
+                    td.style.opacity = "1"
                 }
             }
         }
@@ -1589,249 +1416,264 @@ export default function PageBody() {
     // Add merge function
     const handleMergeData = () => {
         setIsMerged(!isMerged)
-        if (!isMerged) {
-            // Get the cancelled orders section
-            const cancelledSection = tableData.filter(row => row[12] === "Đơn hủy" ||
-                (row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn")));
-
-            // Get the total row
-            const totalRow = tableData.find(row => row[12] === "Tổng");
-
-            // Get all non-cancelled orders
-            const nonCancelledOrders = tableData.filter(row =>
-                row[12] !== "Tổng" &&
-                row[12] !== "Đơn hủy" &&
-                row[12] !== "Chưa nhập" &&
-                !(row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"))
-            );
-
-            // Sort non-cancelled orders by order ID
-            nonCancelledOrders.sort((a, b) => {
-                const orderIdA = a[0];
-                const orderIdB = b[0];
-                const partsA = orderIdA.split("-");
-                const partsB = orderIdB.split("-");
-                for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
-                    const numA = Number.parseInt(partsA[i].replace(/[^0-9]/g, ""));
-                    const numB = Number.parseInt(partsB[i].replace(/[^0-9]/g, ""));
-                    if (numA !== numB) {
-                        return numA - numB;
-                    }
-                    if (partsA[i] !== partsB[i]) {
-                        return partsA[i].localeCompare(partsB[i]);
-                    }
-                }
-                return partsA.length - partsB.length;
-            });
-
-            // Create merged data array
-            const mergedData = [
-                totalRow,
-                ...nonCancelledOrders,
-                ...cancelledSection
-            ];
-
-            setTableData(mergedData);
-        } else {
-            // Reset to original data
-            const ordersRef = ref(database, "content");
-            onValue(ordersRef, (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    // Transform the data into table format
-                    const formattedData = Object.entries(data)
-                        .map(([orderId, order]: [string, any]) => {
-                            const giaBan = parseNumberWithComma(order.GiaBan);
-                            const giaMua = parseNumberWithComma(order.GiaMua);
-                            const ln = giaBan - giaMua;
-
-                            return [
-                                orderId,
-                                order.TenSP || "",
-                                order.NgayOrder || "",
-                                order.KHNote1 || "",
-                                order.KHNote2 || "",
-                                order.ChuDe || "",
-                                order.Anchor1 || "",
-                                order.URL1 || "",
-                                order.Anchor2 || "",
-                                order.URL2 || "",
-                                order.LinkKQ || "",
-                                order.Deadline || "",
-                                order.Note || "",
-                                giaBan,
-                                giaMua,
-                                ln,
-                                order.TTNCC || "",
-                                order.TenNCC || "",
-                                order.MaNCC || "",
-                                order.TinhTrangKH || "",
-                                order.TinhTrangNCC || "",
-                            ];
-                        })
-                        .filter((row) => {
-                            if (userInfo?.role === "NCC") {
-                                return row[18] === userInfo?.username;
-                            } else if (userInfo?.role === "Khách hàng" || userInfo?.role === "Nhân viên") {
-                                const MaKH = row[0];
-                                const MaKHBeforeDash = MaKH.split("-")[0];
-                                return MaKHBeforeDash === userInfo?.username;
-                            }
-                            return true;
-                        });
-
-                    // Sort the formatted data
-                    formattedData.sort((a: any[], b: any[]) => {
-                        const orderIdA = a[0];
-                        const orderIdB = b[0];
-                        const partsA = orderIdA.split("-");
-                        const partsB = orderIdB.split("-");
-                        for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
-                            const numA = Number.parseInt(partsA[i].replace(/[^0-9]/g, ""));
-                            const numB = Number.parseInt(partsB[i].replace(/[^0-9]/g, ""));
-                            if (numA !== numB) {
-                                return numA - numB;
-                            }
-                            if (partsA[i] !== partsB[i]) {
-                                return partsA[i].localeCompare(partsB[i]);
-                            }
-                        }
-                        return partsA.length - partsB.length;
-                    });
-
-                    // Calculate summary
-                    const summary = calculateSummary(formattedData);
-
-                    // Create summary rows
-                    const totalRow = [
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "Tổng",
-                        summary.totalGiaBan,
-                        summary.totalGiaMua,
-                        summary.totalLN,
-                        summary.totalTTNCC,
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                    ];
-
-                    const cancelledRow = [
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "Đơn hủy",
-                        summary.cancelledGiaBan,
-                        summary.cancelledGiaMua,
-                        summary.cancelledLN,
-                        summary.cancelledTTNCC,
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                    ];
-
-                    const pendingRow = [
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "Chưa nhập",
-                        summary.pendingGiaBan,
-                        summary.pendingGiaMua,
-                        summary.pendingLN,
-                        summary.pendingTTNCC,
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                    ];
-
-                    // Combine all data with summary rows
-                    const finalData = [
-                        totalRow,
-                        ...formattedData.filter(
-                            (row) =>
-                                (row[19] === "Đã nhập" || row[19] === "Đơn OK" || row[19] === "Y/C Hủy đơn") &&
-                                (row[20] === "Đã lên bài" || row[20] === "Từ chối hoàn"),
-                        ),
-                        pendingRow,
-                        ...formattedData.filter(
-                            (row) => (row[19] === "Chưa nhập" || row[19] === "Đã nhập") && row[20] === "Chưa nhận",
-                        ),
-                        cancelledRow,
-                        ...formattedData.filter(
-                            (row) => row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"),
-                        ),
-                    ];
-
-                    // Apply filters
-                    const filteredData = filterTableData(finalData);
-                    setTableData(filteredData);
-                } else {
-                    setTableData([]);
-                }
-            });
-        }
-    };
+    }
 
     // Add this function to handle checkbox changes
     const handleViewOptionChange = (option: string) => {
-        // If data is merged, don't allow disabling total or pending
-        if (isMerged && (option === 'total' || option === 'pending')) {
-            return;
+        if (isMerged && (option === "total" || option === "pending")) {
+            return
         }
 
-        setViewOptions(prev => ({
+        setViewOptions((prev) => ({
             ...prev,
-            [option]: !prev[option as keyof typeof prev]
-        }));
-    };
+            [option]: !prev[option as keyof typeof prev],
+        }))
+    }
 
     // Add useEffect to ensure total and pending are enabled when data is merged
     useEffect(() => {
         if (isMerged) {
-            setViewOptions(prev => ({
+            setViewOptions((prev) => ({
                 ...prev,
                 total: true,
-                pending: true
-            }));
+                pending: true,
+            }))
         }
-    }, [isMerged]);
+    }, [isMerged])
+
+    // Add this function to extract unique customers from order IDs
+    const getUniqueCustomers = (data: any[]) => {
+        const uniqueCustomers = new Set<string>()
+        data.forEach((order) => {
+            if (order.ma_don) {
+                const maDon = order.ma_don.toString()
+                const maKH = maDon.split("-")[0] // Only take the part before the dash
+                if (maKH && (maKH.startsWith("BH") || maKH.startsWith("KH"))) {
+                    uniqueCustomers.add(maKH)
+                }
+            }
+        })
+        return Array.from(uniqueCustomers).sort((a, b) => {
+            const aType = a.startsWith("BH") ? 0 : 1
+            const bType = b.startsWith("BH") ? 0 : 1
+            if (aType !== bType) return aType - bType
+            const aNum = Number.parseInt(a.replace(/[^0-9]/g, "")) || 0
+            const bNum = Number.parseInt(b.replace(/[^0-9]/g, "")) || 0
+            return aNum - bNum
+        })
+    }
+
+    // Add function to calculate completed orders amount
+    const calculateCompletedOrdersAmount = useCallback((data: any[]) => {
+        let total = 0
+        data.forEach((row) => {
+            if (row[0] && !row[0].toString().includes("Tổng")) {
+                const tinhTrangKH = row[19]
+                const tinhTrangNCC = row[20]
+                const giaMua = parseNumberWithComma(row[15]) || 0
+
+                // Count completed orders
+                if (
+                    (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
+                    (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
+                ) {
+                    total += giaMua
+                }
+            }
+        })
+        return total
+    }, [])
+
+    // Update completed orders amount when table data changes
+    useEffect(() => {
+        if (userInfo?.role === "NCC") {
+            const amount = calculateCompletedOrdersAmount(tableData)
+            setCompletedOrdersAmount(amount)
+        }
+    }, [tableData, userInfo?.role, calculateCompletedOrdersAmount])
+
+    // Add function to handle withdrawal request
+    const handleWithdrawRequest = () => {
+        // Chuyển selectedWeek về dạng số để so sánh
+        const selectedWeekNum = parseInt(selectedWeek);
+
+        // Nếu đã có transaction cho tuần đang chọn thì hiển thị trạng thái và thoát
+        const selectedWeekTransaction = transactions.find(t => String(t.week) === String(selectedWeekNum));
+        if (selectedWeekTransaction) {
+            toast.info(
+                <>
+                    <div className="font-semibold">Yêu cầu thanh toán tuần {selectedWeek} đã được gửi</div>
+                    <div>Trạng thái: {selectedWeekTransaction.status}</div>
+                </>
+            );
+            return;
+        }
+
+        const currentWeek = getCurrentWeek();
+
+        // Không cho phép rút tiền cho tuần hiện tại
+        if (selectedWeekNum === currentWeek) {
+            toast.error(
+                <>
+                    <div className="font-semibold">Không thể yêu cầu thanh toán cho tuần hiện tại</div>
+                    <div>Vui lòng chỉ yêu cầu thanh toán cho các đơn hàng đã hoàn tất của tuần trước.</div>
+                </>
+            );
+            return;
+        }
+
+        // Đếm số đơn hoàn thành của tuần đang chọn
+        const completedOrders = allData.filter(row => {
+            const weekNumber = getWeekNumber(row[3]);
+            const tinhTrangKH = row[19];
+            const tinhTrangNCC = row[20];
+            return (
+                String(weekNumber) === String(selectedWeekNum) &&
+                (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
+                (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
+            );
+        });
+
+        if (completedOrders.length === 0) {
+            toast.error(
+                <>
+                    <div className="font-semibold">Không có đơn hàng hoàn tất trong tuần {selectedWeek}</div>
+                    <div>Tuần này không có đơn hàng đủ điều kiện để thanh toán.</div>
+                </>
+            );
+            return;
+        }
+
+        setWithdrawModalOpen(true);
+    };
+
+    // Modify useEffect to fetch transactions
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = (await contentApiRequest.get()) as ContentApiResponse
+
+                if (response.success && response.data) {
+                    // Store transactions
+                    if (response.transaction) {
+                        setTransactions(response.transaction)
+                    }
+
+                    // Filter data based on user role and username
+                    let filteredData = response.data
+                    if (userInfo?.role === "Nhân viên" || userInfo?.role === "Khách hàng") {
+                        const userPrefix = userInfo?.username || ""
+                        filteredData = response.data.filter(order => {
+                            if (!order.ma_don) return false
+                            const maDonPrefix = order.ma_don.split("-")[0]
+                            return maDonPrefix === userPrefix
+                        })
+                    } else if (userInfo?.role === "NCC") {
+                        const nccUsername = userInfo?.username || ""
+                        filteredData = response.data.filter(order => {
+                            return order.ma_ncc === nccUsername
+                        })
+                    }
+
+                    // Extract unique customers and NCCs for all roles
+                    const uniqueCustomers = getUniqueCustomers(response.data)
+                    const uniqueNCCs = Array.from(new Set(response.data
+                        .map(order => order.ma_ncc)
+                        .filter((ncc): ncc is string => ncc !== null && ncc !== undefined)))
+                        .sort()
+
+                    setUsers(uniqueCustomers)
+                    setNCCs(uniqueNCCs)
+
+                    // Transform the filtered data into the desired format
+                    const formattedData = filteredData.map((order) => {
+                        const giaBan = parseNumberWithComma(order.gia_ban)
+                        const giaMua = parseNumberWithComma(order.gia_mua)
+                        const ln = giaBan - giaMua
+
+                        const anchor1 = order.anchor1 || ""
+                        const anchor2 = order.anchor2 || ""
+                        const linkKq = order.link_kq || ""
+
+                        // Determine tt_kh_status for initial display based on API value and Anchor presence
+                        let tt_kh_status = order.tt_kh || "Chưa nhập"
+                        if ((anchor1.trim() !== "" || anchor2.trim() !== "") && (tt_kh_status === "Chưa nhập")) {
+                            tt_kh_status = "Đã nhập"
+                        }
+
+                        // Determine tt_ncc for initial display based on API value and LinkKQ presence
+                        let tt_ncc = order.tt_ncc || "Chưa nhận"
+                        if (linkKq.trim() !== "" && (tt_ncc === "Chưa nhận")) {
+                            tt_ncc = "Đã lên bài"
+                        }
+
+                        return [
+                            order.id,
+                            order.ma_don || "",
+                            order.loai || "",
+                            order.ngay_order || "",
+                            order.note_kh1 || "",
+                            order.note_kh2 || "",
+                            order.chu_de || "",
+                            anchor1,
+                            order.url1 || "",
+                            anchor2,
+                            order.url2 || "",
+                            linkKq,
+                            order.deadline || "",
+                            order.note || "",
+                            giaBan,
+                            giaMua,
+                            ln,
+                            order.ten_ncc || "",
+                            order.ma_ncc || "",
+                            tt_kh_status,
+                            tt_ncc,
+                            order.chat || [],
+                            order.note || "",
+                        ]
+                    })
+
+                    // Store all data for filtering
+                    setAllData(formattedData)
+
+                    // Check for new chat messages to set blinking
+                    const newBlinkingOrders = new Set<string>()
+                    formattedData.forEach((row) => {
+                        const chat = row[21]
+                        if (chat && Array.isArray(chat) && chat.length > 0) {
+                            const lastMessage = chat[chat.length - 1]
+                            if (lastMessage) {
+                                const isFromOtherParty =
+                                    (userInfo?.role === "NCC" && lastMessage.role === "Khách hàng") ||
+                                    (userInfo?.role === "Khách hàng" && lastMessage.role === "NCC")
+
+                                if (isFromOtherParty) {
+                                    newBlinkingOrders.add(row[1].toString())
+                                }
+                            }
+                        }
+                    })
+                    setBlinkingChatOrders(newBlinkingOrders)
+                } else {
+                    setAllData([])
+                }
+            } catch (error) {
+                console.error("Error fetching data:", error)
+                setAllData([])
+            }
+        }
+
+        fetchData()
+        // Set up polling every 30 seconds
+        const intervalId = setInterval(fetchData, 30000)
+
+        return () => clearInterval(intervalId)
+    }, [userInfo?.role, userInfo?.username])
 
     return (
         <>
+            <Toaster position="top-right" expand={true} richColors />
             <div className="mb-4 bg-white rounded-lg shadow-md p-4">
                 <div className="flex flex-col space-y-4">
                     {/* Filter Controls Row */}
@@ -1843,27 +1685,27 @@ export default function PageBody() {
                                     <input
                                         type="checkbox"
                                         checked={viewOptions.total}
-                                        onChange={() => handleViewOptionChange('total')}
+                                        onChange={() => handleViewOptionChange("total")}
                                         disabled={isMerged}
-                                        className={`form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500 ${isMerged ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        className={`form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500 ${isMerged ? "opacity-50 cursor-not-allowed" : ""}`}
                                     />
-                                    <span className={`ml-2 text-sm ${isMerged ? 'text-gray-500' : 'text-gray-700'}`}>Tổng</span>
+                                    <span className={`ml-2 text-sm ${isMerged ? "text-gray-500" : "text-gray-700"}`}>Tổng</span>
                                 </label>
                                 <label className="inline-flex items-center">
                                     <input
                                         type="checkbox"
                                         checked={viewOptions.pending}
-                                        onChange={() => handleViewOptionChange('pending')}
+                                        onChange={() => handleViewOptionChange("pending")}
                                         disabled={isMerged}
-                                        className={`form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500 ${isMerged ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        className={`form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500 ${isMerged ? "opacity-50 cursor-not-allowed" : ""}`}
                                     />
-                                    <span className={`ml-2 text-sm ${isMerged ? 'text-gray-500' : 'text-gray-700'}`}>Chưa nhập</span>
+                                    <span className={`ml-2 text-sm ${isMerged ? "text-gray-500" : "text-gray-700"}`}>Chưa nhập</span>
                                 </label>
                                 <label className="inline-flex items-center">
                                     <input
                                         type="checkbox"
                                         checked={viewOptions.cancelled}
-                                        onChange={() => handleViewOptionChange('cancelled')}
+                                        onChange={() => handleViewOptionChange("cancelled")}
                                         className="form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
                                     />
                                     <span className="ml-2 text-sm text-gray-700">Đơn hủy</span>
@@ -1879,52 +1721,52 @@ export default function PageBody() {
                                 className="px-3 py-2 rounded-md border border-gray-300 bg-white text-gray-700 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                             >
                                 {Array.from({ length: getCurrentWeek() }, (_, i) => {
-                                    const weekNumber = getCurrentWeek() - i;
+                                    const weekNumber = getCurrentWeek() - i
                                     return (
                                         <option key={weekNumber} value={weekNumber}>
                                             Tuần {weekNumber}
                                         </option>
-                                    );
+                                    )
                                 })}
                             </select>
                         </div>
-
-                        {userInfo?.role === "Admin" && (
-                            <>
-                                <div className="flex items-center">
-                                    <label className="text-sm font-medium text-gray-700 mr-2">Khách hàng:</label>
-                                    <select
-                                        value={selectedUser}
-                                        onChange={(e) => setSelectedUser(e.target.value)}
-                                        className="px-3 py-2 rounded-md border border-gray-300 bg-white text-gray-700 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                                    >
-                                        <option value="">Tất cả</option>
-                                        {users.map((user) => (
-                                            <option key={user} value={user}>
-                                                {user}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="flex items-center">
-                                    <label className="text-sm font-medium text-gray-700 mr-2">NCC:</label>
-                                    <select
-                                        value={selectedNCC}
-                                        onChange={(e) => setSelectedNCC(e.target.value)}
-                                        className="px-3 py-2 rounded-md border border-gray-300 bg-white text-gray-700 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                                    >
-                                        <option value="">Tất cả</option>
-                                        {nccs.map((ncc) => (
-                                            <option key={ncc} value={ncc}>
-                                                {ncc}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </>
+                        {/* Customer Filter - Hidden for Khách hàng and Nhân viên roles */}
+                        {userInfo?.role !== "Khách hàng" && userInfo?.role !== "Nhân viên" && (
+                            <div className="flex items-center">
+                                <label className="text-sm font-medium text-gray-700 mr-2">Khách hàng:</label>
+                                <select
+                                    value={customerFilter}
+                                    onChange={(e) => setCustomerFilter(e.target.value)}
+                                    className="px-3 py-2 rounded-md border border-gray-300 bg-white text-gray-700 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                >
+                                    <option value="">Tất cả</option>
+                                    {users.map((customer) => (
+                                        <option key={customer} value={customer}>
+                                            {customer}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         )}
 
+                        {/* Supplier Filter - Hidden for NCC role */}
+                        {userInfo?.role !== "NCC" && (
+                            <div className="flex items-center">
+                                <label className="text-sm font-medium text-gray-700 mr-2">NCC:</label>
+                                <select
+                                    value={supplierFilter}
+                                    onChange={(e) => setSupplierFilter(e.target.value)}
+                                    className="px-3 py-2 rounded-md border border-gray-300 bg-white text-gray-700 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                >
+                                    <option value="">Tất cả</option>
+                                    {nccs.map((ncc) => (
+                                        <option key={ncc} value={ncc}>
+                                            {ncc}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                         <button
                             onClick={handleMergeData}
                             disabled={!viewOptions.total || !viewOptions.pending}
@@ -1938,14 +1780,23 @@ export default function PageBody() {
                             {isMerged ? "Tách dữ liệu" : "Gộp dữ liệu"}
                         </button>
 
+                        {/* Add Withdraw button for NCC role */}
+                        {userInfo?.role === "NCC" && (
+                            <button
+                                onClick={handleWithdrawRequest}
+                                className="px-4 py-2 rounded-md text-sm font-medium bg-green-500 hover:bg-green-600 text-white transition-colors"
+                            >
+                                Y/C Thanh toán
+                            </button>
+                        )}
+
                         <div className="ml-auto">
                             <button
                                 onClick={() => setIsFullscreen(!isFullscreen)}
                                 className="fixed flex items-center top-4 right-4 z-[9999] p-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
                             >
                                 {isFullscreen ? (
-                                    <div className="hidden">
-                                    </div>
+                                    <div className="hidden"></div>
                                 ) : (
                                     <>
                                         <svg
@@ -2055,6 +1906,13 @@ export default function PageBody() {
                 </div>
             </div>
             <div className={`${isFullscreen ? "fixed inset-0 z-50 bg-white" : "relative"}`}>
+                {/* Loading indicator */}
+                {(isUpdating || isBatchUpdating) && (
+                    <div className="absolute top-2 right-2 z-10 bg-blue-500 text-white px-3 py-1 rounded-full text-xs">
+                        Đang cập nhật...
+                    </div>
+                )}
+
                 <HotTable
                     themeName="ht-theme-main"
                     nestedHeaders={[RowHeader1, RowHeader2]}
@@ -2087,8 +1945,8 @@ export default function PageBody() {
                                     if (!selected || !Array.isArray(selected) || selected.length < 4) return true
                                     const selectedRow = selected[0]
                                     if (selectedRow < 0 || selectedRow >= tableData.length) return true
-                                    if (!tableData[selectedRow] || !tableData[selectedRow][19]) return true
-                                    const tinhTrang = tableData[selectedRow][19]
+                                    if (!tableData[selectedRow] || !tableData[selectedRow][20]) return true
+                                    const tinhTrang = tableData[selectedRow][20]
                                     return tinhTrang === "Y/C Hủy đơn" || tinhTrang === "Hủy đơn" || tinhTrang === "Đơn OK"
                                 },
                             },
@@ -2164,7 +2022,6 @@ export default function PageBody() {
                     afterChange={handleAfterChange}
                     afterPaste={handleAfterPaste}
                 />
-                {/* Nút thu nhỏ màn hình luôn nổi trên cùng khi fullscreen */}
             </div>
             {isFullscreen && (
                 <button
@@ -2190,12 +2047,24 @@ export default function PageBody() {
                     currentChatMessages={currentChatMessages}
                     newChatMessage={newChatMessage}
                     setNewChatMessage={setNewChatMessage}
-                    sendChatMessage={sendChatMessage}
+                    sendChatMessage={handleSendChatMessage}
                     role={userInfo?.role}
                     supplierName={userInfo?.name}
                     user={userInfo}
+                    isUpdating={isUpdating}
                 />
             </div>
+
+            {/* Add WithdrawModal */}
+            <WithdrawModal
+                isVisible={withdrawModalOpen}
+                onClose={() => setWithdrawModalOpen(false)}
+                username={userInfo?.username}
+                currentBalance={completedOrdersAmount}
+                pendingAmount={0}
+                completedOrdersAmount={completedOrdersAmount}
+                week={selectedWeek}
+            />
         </>
     )
 }

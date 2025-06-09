@@ -12,6 +12,9 @@ export interface Transaction {
   status?: "Đang chờ" | "Hoàn thành" | "Lỗi";
   customer_id?: string;
   paymentMethod?: string;
+  address?: string;
+  week?: string | number;
+  wallet?: string;
 }
 
 // Định nghĩa kiểu dữ liệu cho response

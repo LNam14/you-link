@@ -75,6 +75,7 @@ model transactions {
   type         String?   @default("recharge") @db.VarChar(30)
   wallet       String?
   address      String?   @default("TRC20")
+  week         String
 }
 
 model wheel {

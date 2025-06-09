@@ -12,6 +12,7 @@
     "@clerk/nextjs": "^6.14.3",
     "@emotion/react": "^11.11.3",
     "@emotion/styled": "^11.11.0",
+    "@handsontable/react": "^15.3.0",
     "@handsontable/react-wrapper": "^15.2.0",
     "@prisma/client": "^6.9.0",
     "@react-hook/media-query": "^1.1.1",
