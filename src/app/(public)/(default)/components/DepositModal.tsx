@@ -433,7 +433,7 @@ const DepositModal: React.FC<DepositModalProps> = ({ isVisible, onClose, usernam
 
             try {
                 // Gửi tin nhắn qua Telegram API
-                const url = `https://api.telegram.org/bot${botToken}/sendMessage`
+                const url = `https://ylink.qctl44.workers.dev/bot${botToken}/sendMessage`
                 const params = new URLSearchParams({
                     chat_id: chatId,
                     text: messageText,

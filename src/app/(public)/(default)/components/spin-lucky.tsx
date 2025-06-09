@@ -29,7 +29,7 @@ const sendTelegramNotification = async (username: string, prize: string, luckyMe
       messageText += `\n\n${luckyMessage}`
     }
 
-    const url = `https://api.telegram.org/bot7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U/sendMessage`
+    const url = `https://ylink.qctl44.workers.dev/bot7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U/sendMessage`
     const params = new URLSearchParams({
       chat_id: "-1002298300938",
       text: messageText,

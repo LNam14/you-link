@@ -1007,7 +1007,7 @@ export default function PageBody() {
             for (const chatId of selectedChatIds) {
                 try {
                     // Using fetch with proper URL encoding for the message text
-                    const url = `https://api.telegram.org/bot${botToken}/sendMessage`
+                    const url = `https://ylink.qctl44.workers.dev/bot${botToken}/sendMessage`
                     const params = new URLSearchParams({
                         chat_id: chatId.value,
                         text: randomMessage,
@@ -1100,7 +1100,7 @@ export default function PageBody() {
                 for (const chatId of uniqueNCCs) {
                     try {
                         // Using fetch with proper URL encoding for the message text
-                        const url = `https://api.telegram.org/bot${botToken}/sendMessage`
+                        const url = `https://ylink.qctl44.workers.dev/bot${botToken}/sendMessage`
                         const params = new URLSearchParams({
                             chat_id: chatId.value,
                             text: randomMessage,
@@ -1206,7 +1206,7 @@ export default function PageBody() {
                     // Send message to Telegram
                     for (const chatId of uniqueIdGroups) {
                         try {
-                            const url = `https://api.telegram.org/bot${botToken}/sendMessage`
+                            const url = `https://ylink.qctl44.workers.dev/bot${botToken}/sendMessage`
                             const params = new URLSearchParams({
                                 chat_id: chatId,
                                 text: directMessage,
