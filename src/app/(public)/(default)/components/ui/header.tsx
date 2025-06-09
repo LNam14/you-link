@@ -181,12 +181,6 @@ export default function Header() {
   // Admin tools configuration
   let adminTools = [
     {
-      name: "Nạp tiền",
-      icon: <Wallet className="w-4 h-4" />,
-      href: "/deposit",
-      color: "bg-gradient-to-r from-green-500 to-emerald-600",
-    },
-    {
       name: "Quản Lý Sites",
       icon: <Database className="w-4 h-4" />,
       href: "/quan-ly-site",
@@ -227,12 +221,12 @@ export default function Header() {
   // Filter tools for NCC and Khách hàng
   if (userInfo?.role === "NCC") {
     adminTools = [
-      {
-        name: "Rút tiền",
-        icon: <Wallet className="w-4 h-4" />,
-        href: "/withdraw",
-        color: "bg-gradient-to-r from-green-500 to-emerald-600",
-      },
+      // {
+      //   name: "Rút tiền",
+      //   icon: <Wallet className="w-4 h-4" />,
+      //   href: "/withdraw",
+      //   color: "bg-gradient-to-r from-green-500 to-emerald-600",
+      // },
       {
         name: "Tool Check Site",
         icon: <CheckCircle className="w-4 h-4" />,
@@ -254,18 +248,18 @@ export default function Header() {
     ]
   } else if (userInfo?.role === "Khách hàng") {
     adminTools = [
-      {
-        name: "Nạp tiền",
-        icon: <Wallet className="w-4 h-4" />,
-        href: "/deposit",
-        color: "bg-gradient-to-r from-green-500 to-emerald-600",
-      },
-      {
-        name: "Rút tiền",
-        icon: <Wallet className="w-4 h-4" />,
-        href: "/withdraw",
-        color: "bg-gradient-to-r from-pink-500 to-red-500",
-      },
+      // {
+      //   name: "Nạp tiền",
+      //   icon: <Wallet className="w-4 h-4" />,
+      //   href: "/deposit",
+      //   color: "bg-gradient-to-r from-green-500 to-emerald-600",
+      // },
+      // {
+      //   name: "Rút tiền",
+      //   icon: <Wallet className="w-4 h-4" />,
+      //   href: "/withdraw",
+      //   color: "bg-gradient-to-r from-pink-500 to-red-500",
+      // },
       {
         name: "Tool Check Site",
         icon: <CheckCircle className="w-4 h-4" />,
@@ -549,7 +543,7 @@ export default function Header() {
                     </div>
                   </div>
 
-                  {/* Balance Information */}
+                  {/* Balance Information
                   {(userInfo?.role === "Khách hàng" || userInfo?.role === "NCC" || userInfo?.role === "Nhân viên") && (
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <h4 className="text-sm font-medium text-gray-600 mb-3">Thông tin tài khoản</h4>
@@ -586,7 +580,7 @@ export default function Header() {
                         </div>
                       </div>
                     </div>
-                  )}
+                  )} */}
                 </div>
               )}
 

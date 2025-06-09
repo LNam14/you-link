@@ -496,7 +496,7 @@ export default function HeroHome() {
           )}
 
           {/* Admin and Staff tools - REDESIGNED */}
-          {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên" || userInfo?.role === "NCC") && (
+          {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
             <div className="mb-16 bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
               <h3 className="text-xl font-bold text-gray-900 mb-8 text-center">
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">

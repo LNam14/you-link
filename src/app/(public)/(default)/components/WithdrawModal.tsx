@@ -103,7 +103,7 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
 
             const res: any = await transactionApiRequest.create({
                 type: "withdraw",
-                amount: parsedAmount,
+                amount: Number(parsedAmount.toFixed(2)),
                 paymentMethod: network,
                 wallet: binanceAddress?.toString(),
                 week: week,
@@ -111,10 +111,10 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
             })
 
             if (res.success) {
-                handleMessageNCC(parsedAmount, network, week?.toString() || "")
+                handleMessageNCC(Number(parsedAmount.toFixed(2)), network, week?.toString() || "")
                 Modal.success({
                     title: "Yêu cầu rút tiền thành công",
-                    content: `Yêu cầu rút ${parsedAmount} USDT đã được gửi. Vui lòng chờ xác nhận.`,
+                    content: `Yêu cầu rút ${parsedAmount.toFixed(2)} USDT đã được gửi. Vui lòng chờ xác nhận.`,
                     onOk: () => {
                         handleClose()
                     },
