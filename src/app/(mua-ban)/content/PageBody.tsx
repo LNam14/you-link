@@ -85,8 +85,6 @@ export default function PageBody() {
     const [selectedNCC, setSelectedNCC] = useState("")
     const [users, setUsers] = useState<string[]>([])
     const [nccs, setNCCs] = useState<string[]>([])
-    const [nccFilterCustomer, setNccFilterCustomer] = useState("") // Add state for NCC customer filter
-    const [nccFilterNCC, setNccFilterNCC] = useState("") // Add state for NCC supplier filter
     const [customerFilter, setCustomerFilter] = useState("")
     const [supplierFilter, setSupplierFilter] = useState("")
     const userInfo = getUserInfo()
@@ -347,19 +345,14 @@ export default function PageBody() {
             }
 
             // Filter by supplier if selected
-            if (supplierFilter && row[19] !== supplierFilter) {
+            if (supplierFilter && row[18] !== supplierFilter) {
                 return false
             }
 
-
             return true;
         });
-
-
-
         // Calculate summary for filtered data
         const summary = calculateSummary(appliedFiltersData)
-
 
         // Create summary rows
         const totalRow = [
