@@ -27,6 +27,7 @@ export default function Content({
     loading: boolean
 }): React.JSX.Element {
     const [quantities, setQuantities] = useState<{ [key: string]: number }>({})
+    const [orderLoading, setOrderLoading] = useState<{ [key: string]: boolean }>({})
     const userInfo = getUserInfo()
 
     const handleQuantityChange = (itemId: string, value: string) => {
@@ -63,6 +64,7 @@ export default function Content({
         }
 
         try {
+            setOrderLoading(prev => ({ ...prev, [item.MaNCC]: true }))
             // Validate required fields
             if (!item.TenSP || !item.GiaBan || !item.MaNCC) {
                 throw new Error("Thiếu thông tin sản phẩm bắt buộc")
@@ -100,14 +102,13 @@ export default function Content({
             toast.success("Đặt hàng thành công", {
                 description: `Đã đặt ${quantity} ${item.TenSP}`,
             })
-
-            // Refresh data after successful order
-            fetchData()
         } catch (error) {
             toast.error("Đặt hàng thất bại", {
                 description: error instanceof Error ? error.message : "Vui lòng thử lại sau",
             })
             console.error("Error placing order:", error)
+        } finally {
+            setOrderLoading(prev => ({ ...prev, [item.MaNCC]: false }))
         }
     }
 
@@ -187,10 +188,20 @@ export default function Content({
 
                                     <button
                                         onClick={() => handleOrder(item)}
-                                        className="flex-1 h-10 bg-gradient-to-r from-[#ff6807] to-orange-500 hover:from-[#ff6807]/90 hover:to-orange-500/90 text-white rounded-xl px-4 py-2 flex items-center justify-center gap-2 transition-all duration-200 font-medium shadow-lg hover:shadow-xl hover:-translate-y-0.5 animate-pulse"
+                                        disabled={orderLoading[item.MaNCC]}
+                                        className="flex-1 h-10 bg-gradient-to-r from-[#ff6807] to-orange-500 hover:from-[#ff6807]/90 hover:to-orange-500/90 text-white rounded-xl px-4 py-2 flex items-center justify-center gap-2 transition-all duration-200 font-medium shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
-                                        <ShoppingCart className="h-4 w-4" />
-                                        <span>Order</span>
+                                        {orderLoading[item.MaNCC] ? (
+                                            <>
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                <span>Đang xử lý...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ShoppingCart className="h-4 w-4" />
+                                                <span>Order</span>
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             </div>

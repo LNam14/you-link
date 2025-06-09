@@ -6,8 +6,7 @@ const GET_LAST_ORDER_NUMBER = `
   SELECT ma_don 
   FROM content 
   WHERE ma_don LIKE $1 
-  ORDER BY ma_don DESC 
-  LIMIT 1
+  ORDER BY ma_don DESC
 `;
 
 const INSERT_CONTENT = `
@@ -30,9 +29,19 @@ async function getNextOrderNumber(username: string): Promise<string> {
         return `${username}-1`;
     }
 
-    const lastOrder = result[0].ma_don;
-    const lastNumber = parseInt(lastOrder.split('-')[1]);
-    return `${username}-${lastNumber + 1}`;
+    // Find the highest number among all ma_don
+    let highestNumber = 0;
+    for (const row of result) {
+        const match = row.ma_don.match(/\d+$/);
+        if (match) {
+            const currentNumber = parseInt(match[0]);
+            if (currentNumber > highestNumber) {
+                highestNumber = currentNumber;
+            }
+        }
+    }
+
+    return `${username}-${highestNumber + 1}`;
 }
 
 function formatDate(date: Date): string {
