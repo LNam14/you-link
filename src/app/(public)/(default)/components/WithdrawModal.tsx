@@ -167,7 +167,7 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
                 {/* Amount Display */}
                 <div className="rounded-lg bg-emerald-50 p-4 text-center">
                     <p className="text-sm text-gray-600 mb-2">Số tiền thanh toán</p>
-                    <p className="text-3xl font-bold text-emerald-600">{completedOrdersAmount.toLocaleString()} USDT</p>
+                    <p className="text-3xl font-bold text-emerald-600">{completedOrdersAmount.toFixed(2)} USDT</p>
                 </div>
 
                 {/* Form */}
