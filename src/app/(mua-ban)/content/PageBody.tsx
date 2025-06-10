@@ -684,7 +684,7 @@ export default function PageBody() {
                             if (MaNCC) {
                                 sheetApiRequest.getIDNCC(
                                     MaNCC,
-                                    `Đơn ${currentData[0]} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`
+                                    `Đơn ${currentData[1]} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`
                                 );
                             }
                         }
@@ -726,7 +726,7 @@ export default function PageBody() {
                         if (MaKH) {
                             sheetApiRequest.getIDKH(
                                 MaKH,
-                                `Đơn ${order[0]} đã xong, kiểm tra tại http://ylink.shop/content`
+                                `Đơn ${order[1]} đã xong, kiểm tra tại http://ylink.shop/content`
                             )
                         }
                     }
