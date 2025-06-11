@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { cookies } from "next/headers"
+import moment from "moment"
 
 // Remove edge runtime configuration
 // Add dynamic route configuration
@@ -39,14 +40,13 @@ export async function POST(request: Request) {
     }
     
     // Get current date in Vietnam timezone (UTC+7)
-    const vietnamDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }))
-    const currentDate = vietnamDate.toISOString().split("T")[0]
+    const currentDate = moment().tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD")
 
     // Check if attendance already exists for today
     const existingAttendance = await prisma.attendance.findFirst({
       where: {
         username,
-        date: new Date(currentDate)
+        date: currentDate
       }
     })
 
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     const attendance = await prisma.attendance.create({
       data: {
         username,
-        date: new Date(currentDate)
+        date: currentDate
       }
     })
 
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     const formattedData = {
       id: attendance.id,
       username: attendance.username,
-      date: new Date(attendance.date).toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }),
+      date: moment(attendance.date).tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD HH:mm:ss"),
     }
 
     return NextResponse.json(formattedData, { status: 201 })
