@@ -1,47 +1,40 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import executeQuery from "@/app/db/db";
-
-const GET_LAST_ORDER_NUMBER = `
-  SELECT ma_don 
-  FROM content 
-  WHERE ma_don LIKE $1 
-  ORDER BY ma_don DESC
-`;
-
-const INSERT_CONTENT = `
-  INSERT INTO content (
-    ma_don, loai, ngay_order, note_kh1, note_kh2, chu_de,
-    anchor1, url1, anchor2, url2, link_kq, deadline,
-    gia_ban, gia_mua, ten_ncc, ma_ncc, tt_kh, tt_ncc, chat, note
-  ) VALUES (
-    $1, $2, $3, $4, $5, $6,
-    $7, $8, $9, $10, $11, $12,
-    $13, $14, $15, $16, $17, $18, $19, $20
-  ) RETURNING *
-`;
+import { prisma } from "@/lib/db";
 
 async function getNextOrderNumber(username: string): Promise<string> {
-    const pattern = `${username}-%`;
-    const result: any = await executeQuery(GET_LAST_ORDER_NUMBER, [pattern]);
-
-    if (!result || result.length === 0) {
-        return `${username}-1`;
-    }
-
-    // Find the highest number among all ma_don
-    let highestNumber = 0;
-    for (const row of result) {
-        const match = row.ma_don.match(/\d+$/);
-        if (match) {
-            const currentNumber = parseInt(match[0]);
-            if (currentNumber > highestNumber) {
-                highestNumber = currentNumber;
+    try {
+        // Find all content entries for this username
+        const allContent = await prisma.content.findMany({
+            where: {
+                ma_don: {
+                    startsWith: username + '-'
+                }
+            },
+            select: {
+                ma_don: true
             }
-        }
-    }
+        });
 
-    return `${username}-${highestNumber + 1}`;
+        // Find the highest number
+        let maxNumber = 0;
+        allContent.forEach(content => {
+            const match = content.ma_don.match(/-(\d+)$/);
+            if (match) {
+                const number = parseInt(match[1]);
+                if (number > maxNumber) {
+                    maxNumber = number;
+                }
+            }
+        });
+
+        // Generate next number
+        const nextNumber = maxNumber + 1;
+        return `${username}-${nextNumber}`;
+    } catch (error) {
+        console.error('Error in getNextOrderNumber:', error);
+        throw error;
+    }
 }
 
 function formatDate(date: Date): string {
@@ -63,7 +56,17 @@ export async function POST(request: Request) {
         } = body;
 
         // Get user info from cookie
-        const userInfo = await getUserInfoFromCookie();
+        const cookieStore = cookies();
+        const userInfoCookie = cookieStore.get("userInfo");
+
+        if (!userInfoCookie) {
+            return NextResponse.json(
+                { success: false, message: "Không tìm thấy thông tin người dùng" },
+                { status: 401 }
+            );
+        }
+
+        const userInfo = JSON.parse(userInfoCookie.value);
         if (!userInfo || !userInfo.username) {
             return NextResponse.json(
                 { success: false, message: "Không tìm thấy thông tin người dùng" },
@@ -77,21 +80,33 @@ export async function POST(request: Request) {
         // Format ngay_order to DD/MM/YYYY
         const validNgayOrder = formatDate(new Date(ngay_order));
 
-        const insertResult: any = await executeQuery(INSERT_CONTENT, [
-            ma_don, loai, validNgayOrder, note_kh1, note_kh2, chu_de,
-            anchor1, url1, anchor2, url2, link_kq, deadline,
-            gia_ban, gia_mua, ten_ncc, ma_ncc, tt_kh, tt_ncc, JSON.stringify(chat), note,
-        ]);
-
-        if (!insertResult || insertResult.length === 0) {
-            return NextResponse.json(
-                { success: false, message: "Không thể tạo nội dung" },
-                { status: 500 }
-            );
-        }
+        const content = await prisma.content.create({
+            data: {
+                ma_don,
+                loai,
+                ngay_order: validNgayOrder,
+                note_kh1,
+                note_kh2,
+                chu_de,
+                anchor1,
+                url1,
+                anchor2,
+                url2,
+                link_kq,
+                deadline,
+                gia_ban,
+                gia_mua,
+                ten_ncc,
+                ma_ncc,
+                tt_kh,
+                tt_ncc,
+                chat: JSON.stringify(chat),
+                note,
+            }
+        });
 
         return NextResponse.json(
-            { success: true, message: "Tạo nội dung thành công!", content: insertResult[0] },
+            { success: true, message: "Tạo nội dung thành công!", content },
             { status: 201 }
         );
     } catch (error: any) {
@@ -104,19 +119,5 @@ export async function POST(request: Request) {
             },
             { status: 500 }
         );
-    }
-}
-
-async function getUserInfoFromCookie() {
-    try {
-        const cookieStore = cookies();
-        const userInfoCookie = cookieStore.get("userInfo");
-
-        if (!userInfoCookie) return null;
-
-        return JSON.parse(userInfoCookie.value);
-    } catch (error) {
-        console.error("Error parsing user info cookie:", error);
-        return null;
     }
 }

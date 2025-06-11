@@ -1,7 +1,7 @@
 // File: /app/api/content/route.ts
-import executeQuery from "@/app/db/db";
 import { NextResponse } from "next/server";
 import { cookies } from 'next/headers';
+import { prisma } from "@/lib/db";
 
 export async function GET() {
     try {
@@ -17,16 +17,52 @@ export async function GET() {
 
         const userData = JSON.parse(userInfo.value);
 
-        // Query 1: Get all content
-        const contentResult = await executeQuery("SELECT * FROM content ORDER BY id DESC", []);
+        // Get all content
+        const contentResult = await prisma.content.findMany({
+            orderBy: {
+                id: 'desc'
+            },
+            select: {
+                id: true,
+                ma_don: true,
+                loai: true,
+                ngay_order: true,
+                note_kh1: true,
+                note_kh2: true,
+                chu_de: true,
+                anchor1: true,
+                url1: true,
+                anchor2: true,
+                url2: true,
+                link_kq: true,
+                deadline: true,
+                gia_ban: true,
+                gia_mua: true,
+                ten_ncc: true,
+                ma_ncc: true,
+                tt_kh: true,
+                tt_ncc: true,
+                chat: true,
+                note: true
+            }
+        });
 
-        // Query 2: Get transaction data for specific user
+        // Get transaction data for specific user
         let transactionResult = null;
         try {
-            transactionResult = await executeQuery(
-                `SELECT week, name, status FROM transactions WHERE name = '${userData.username}' ORDER BY id DESC`,
-                []
-            );
+            transactionResult = await prisma.transactions.findMany({
+                where: {
+                    name: userData.username
+                },
+                orderBy: {
+                    id: 'desc'
+                },
+                select: {
+                    week: true,
+                    name: true,
+                    status: true
+                }
+            });
         } catch (error) {
             console.log("No transactions found for user:", userData.username);
             transactionResult = null;

@@ -1,6 +1,6 @@
 // File: /app/api/content/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import executeQuery from "@/app/db/db";
+import { prisma } from "@/lib/db";
 
 export async function PUT(req: NextRequest) {
     try {
@@ -50,7 +50,7 @@ export async function PUT(req: NextRequest) {
         }
 
         const {
-            id, // Use id instead of ma_don
+            id,
             loai, ngay_order, note_kh1, note_kh2, chu_de,
             anchor1, url1, anchor2, url2, link_kq, deadline,
             gia_ban, gia_mua, ten_ncc, ma_ncc,
@@ -58,72 +58,47 @@ export async function PUT(req: NextRequest) {
             note,
         } = body;
 
-        if (!id) {
-            return NextResponse.json({ success: false, message: "Thiếu id trong request body" }, { status: 400 });
-        }
-
-        // Build dynamic update query based on provided fields
-        const updateFields: string[] = [];
-        const values: any[] = [];
-        let paramIndex = 1;
-
-        // Helper function to add field to update if it exists in body
-        const addFieldToUpdate = (fieldName: string, value: any) => {
-            if (value !== undefined) {
-                updateFields.push(`${fieldName} = $${paramIndex}`);
-                values.push(value);
-                paramIndex++;
-            }
-        };
-
-        // Add each field to update if it exists in the request
-        addFieldToUpdate('loai', loai);
-        addFieldToUpdate('ngay_order', ngay_order);
-        addFieldToUpdate('note_kh1', note_kh1);
-        addFieldToUpdate('note_kh2', note_kh2);
-        addFieldToUpdate('chu_de', chu_de);
-        addFieldToUpdate('anchor1', anchor1);
-        addFieldToUpdate('url1', url1);
-        addFieldToUpdate('anchor2', anchor2);
-        addFieldToUpdate('url2', url2);
-        addFieldToUpdate('link_kq', link_kq);
-        addFieldToUpdate('deadline', deadline);
-        addFieldToUpdate('gia_ban', gia_ban);
-        addFieldToUpdate('gia_mua', gia_mua);
-        addFieldToUpdate('ten_ncc', ten_ncc);
-        addFieldToUpdate('ma_ncc', ma_ncc);
-        addFieldToUpdate('tt_kh', tt_kh);
-        addFieldToUpdate('tt_ncc', tt_ncc);
-        addFieldToUpdate('chat', chat ? JSON.stringify(chat) : undefined);
-        addFieldToUpdate('note', note);
+        // Create update data object with only provided fields
+        const updateData: any = {};
+        if (loai !== undefined) updateData.loai = loai;
+        if (ngay_order !== undefined) updateData.ngay_order = ngay_order;
+        if (note_kh1 !== undefined) updateData.note_kh1 = note_kh1;
+        if (note_kh2 !== undefined) updateData.note_kh2 = note_kh2;
+        if (chu_de !== undefined) updateData.chu_de = chu_de;
+        if (anchor1 !== undefined) updateData.anchor1 = anchor1;
+        if (url1 !== undefined) updateData.url1 = url1;
+        if (anchor2 !== undefined) updateData.anchor2 = anchor2;
+        if (url2 !== undefined) updateData.url2 = url2;
+        if (link_kq !== undefined) updateData.link_kq = link_kq;
+        if (deadline !== undefined) updateData.deadline = deadline;
+        if (gia_ban !== undefined) updateData.gia_ban = gia_ban;
+        if (gia_mua !== undefined) updateData.gia_mua = gia_mua;
+        if (ten_ncc !== undefined) updateData.ten_ncc = ten_ncc;
+        if (ma_ncc !== undefined) updateData.ma_ncc = ma_ncc;
+        if (tt_kh !== undefined) updateData.tt_kh = tt_kh;
+        if (tt_ncc !== undefined) updateData.tt_ncc = tt_ncc;
+        if (chat !== undefined) updateData.chat = JSON.stringify(chat);
+        if (note !== undefined) updateData.note = note;
 
         // If no fields to update, return error
-        if (updateFields.length === 0) {
+        if (Object.keys(updateData).length === 0) {
             return NextResponse.json(
                 { success: false, message: "Không có trường nào để cập nhật" },
                 { status: 400 }
             );
         }
 
-        // Add id as the last parameter
-        values.push(id);
+        const result = await prisma.content.update({
+            where: { id },
+            data: updateData
+        });
 
-        const query = `
-            UPDATE content 
-            SET ${updateFields.join(', ')}
-            WHERE id = $${paramIndex}
-            RETURNING *
-        `;
-
-        const result: any = await executeQuery(query, values);
-
-        if (!result || result.length === 0) {
-            return NextResponse.json({ success: false, message: "Không tìm thấy bản ghi để cập nhật" }, { status: 404 });
-        }
-
-        return NextResponse.json({ success: true, message: "Cập nhật thành công", content: result[0] });
+        return NextResponse.json({ success: true, message: "Cập nhật thành công", content: result });
     } catch (error: any) {
         console.error("Lỗi PUT content:", error);
-        return NextResponse.json({ success: false, message: "Lỗi cập nhật", error: error.message }, { status: 500 });
+        return NextResponse.json(
+            { success: false, message: "Lỗi cập nhật", error: error.message },
+            { status: 500 }
+        );
     }
 }

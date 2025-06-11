@@ -1,6 +1,6 @@
 // File: /app/api/content/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import executeQuery from "@/app/db/db";
+import { prisma } from "@/lib/db";
 
 export async function DELETE(req: NextRequest) {
     try {
@@ -14,19 +14,14 @@ export async function DELETE(req: NextRequest) {
             );
         }
 
-        const result: any = await executeQuery("DELETE FROM content WHERE id = $1 RETURNING *", [id]);
-
-        if (!result || result.length === 0) {
-            return NextResponse.json(
-                { success: false, message: "Không tìm thấy bản ghi để xóa" },
-                { status: 404 }
-            );
-        }
+        const result = await prisma.content.delete({
+            where: { id }
+        });
 
         return NextResponse.json({
             success: true,
             message: "Xóa bản ghi thành công",
-            deleted: result[0],
+            deleted: result,
         });
     } catch (error: any) {
         console.error("Lỗi khi xóa content:", error);

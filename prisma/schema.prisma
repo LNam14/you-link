@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = "postgres://neondb_owner:npg_tGLaeU2uWz4X@ep-white-grass-a1smnwlt-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+  provider = "mysql"
+  url      = "mysql://ylink:C4t5CpHykw8h8ERn@66.29.155.71:3306/ylink"
 }
 
 model account {
@@ -15,9 +15,9 @@ model account {
   phone        String?   @db.VarChar(20)
   role         String    @default("Khách hàng") @db.VarChar(50)
   active       String    @default("Hoạt động") @db.VarChar(50)
-  created_at   DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at   DateTime? @default(now()) @db.Timestamptz(6)
-  refreshtoken String?   @db.VarChar
+  created_at   String 
+  updated_at   String 
+  refreshtoken String?   @db.VarChar(255)
   telegram     String?   @db.VarChar(20)
   amount       Int?      @default(0)
   team         String?
@@ -29,7 +29,7 @@ model account {
 model attendance {
   id       Int      @id @default(autoincrement())
   username String   @db.VarChar(255)
-  date     DateTime @db.Date
+  date     String 
 }
 
 model customer_data {
@@ -39,8 +39,8 @@ model customer_data {
   phien_ban  String?  @db.VarChar(100)
   ma_cu      String?
   cty        String?  @db.VarChar(50)
-  ten        String[]
-  telegram   String[]
+  ten        String   @db.Text
+  telegram   String   @db.Text
   link_nhom  String?
   id_nhom    String?  @db.VarChar(100)
   nhom       String?  @db.VarChar(100)
@@ -66,7 +66,7 @@ model team {
 model transactions {
   id           Int       @id @default(autoincrement())
   amount       String?
-  deposit_date DateTime? @db.Date
+  deposit_date String 
   method       String?   @db.VarChar(50)
   description  String?   @db.VarChar(50)
   status       String?   @default("Đang chờ")
@@ -82,5 +82,32 @@ model wheel {
   id       Int       @id @default(autoincrement())
   reward   String
   username String    @db.VarChar(255)
-  date     DateTime? @default(now()) @db.Timestamp(6)
+  date     String 
+}
+
+model content {
+  id        Int      @id @default(autoincrement())
+  ma_don    String   @unique @db.VarChar(100)
+  loai      String?  @db.VarChar(100)
+  ngay_order String? @db.VarChar(20)
+  note_kh1  String?  @db.Text
+  note_kh2  String?  @db.Text
+  chu_de    String?  @db.Text
+  anchor1   String?  @db.Text
+  url1      String?  @db.Text
+  anchor2   String?  @db.Text
+  url2      String?  @db.Text
+  link_kq   String?  @db.Text
+  deadline  String?  @db.VarChar(100)
+  gia_ban   Float?   @default(0)
+  gia_mua   Float?   @default(0)
+  loi_nhuan Float?   @default(0)
+  ten_ncc   String?  @db.VarChar(255)
+  ma_ncc    String?  @db.VarChar(100)
+  tt_kh     String?  @default("Chưa nhập") @db.VarChar(50)
+  tt_ncc    String?  @default("Chưa nhận") @db.VarChar(50)
+  chat      String?  @db.Text
+  note      String?  @db.Text
+
+  @@index([ma_don])
 }
