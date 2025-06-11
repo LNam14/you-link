@@ -102,7 +102,7 @@ export default function PageBody() {
     // Batch update hook for smooth updates
     const { queueUpdate, isUpdating: isBatchUpdating } = useBatchUpdate(
         contentApiRequest.update,
-        1000, // 1 second debounce
+        100000, // 1 second debounce
     )
 
     const parseNumberWithComma = (value: any): number => {
