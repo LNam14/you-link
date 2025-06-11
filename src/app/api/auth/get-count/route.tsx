@@ -17,8 +17,7 @@ export async function GET(request: Request) {
         const count = await prisma.account.count({
             where: {
                 role: {
-                    equals: "Khách hàng",
-                    mode: 'insensitive' // This is equivalent to LOWER() in PostgreSQL
+                    equals: "Khách hàng"
                 }
             }
         })
