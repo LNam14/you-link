@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import moment from 'moment';
 
 // Add dynamic route configuration
 export const dynamic = 'force-dynamic';
@@ -22,7 +23,7 @@ export async function PUT(request: Request) {
       },
       data: {
         username,
-        date: new Date(date)
+        date: moment(date).add(7, 'hours').format("YYYY-MM-DD HH:mm:ss")
       }
     });
 

@@ -19,28 +19,8 @@ export async function POST(request: Request) {
 
     const body = await request.json()
     const { username } = body
-    
-    if (!username || typeof username !== 'string') {
-      return NextResponse.json(
-        { error: "Username is required and must be a string" },
-        { status: 400 }
-      )
-    }
-
-    // Verify user exists
-    const user = await prisma.account.findUnique({
-      where: { username }
-    })
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      )
-    }
-    
     // Get current date in Vietnam timezone (UTC+7)
-    const currentDate = moment().tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD")
+    const currentDate = moment().add(7, 'hours').format("YYYY-MM-DD")
 
     // Check if attendance already exists for today
     const existingAttendance = await prisma.attendance.findFirst({
@@ -68,7 +48,7 @@ export async function POST(request: Request) {
     const formattedData = {
       id: attendance.id,
       username: attendance.username,
-      date: moment(attendance.date).tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD HH:mm:ss"),
+      date: moment(attendance.date).add(7, 'hours').format("YYYY-MM-DD HH:mm:ss"),
     }
 
     return NextResponse.json(formattedData, { status: 201 })

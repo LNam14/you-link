@@ -6,7 +6,7 @@ import moment from "moment"
 interface AttendanceRecord {
   id: number
   username: string
-  date: Date
+  date: string
 }
 // Add dynamic route configuration
 export const dynamic = 'force-dynamic';

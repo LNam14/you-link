@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
 import { prisma } from "@/lib/db"
+import moment from "moment"
 // Add dynamic route configuration
 export const dynamic = 'force-dynamic';
 
@@ -115,7 +116,9 @@ export async function POST(request: Request) {
                         phone,
                         role,
                         refreshtoken: refreshToken,
-                        active: active || "Hoạt động"
+                        active: active || "Hoạt động",
+                        created_at: moment().format("YYYY-MM-DD HH:mm:ss"),
+                        updated_at: moment().format("YYYY-MM-DD HH:mm:ss")
                     }
                 })
 
