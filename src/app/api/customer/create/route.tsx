@@ -20,29 +20,34 @@ export async function POST(request: Request) {
         const day = String(today.getDate()).padStart(2, '0')
         const month = String(today.getMonth() + 1).padStart(2, '0')
         const year = today.getFullYear()
-        const formattedDate = `${day}-${month}-${year}`
+        const formattedDate = `${day}/${month}/${year}`
 
         // Create multiple customers using Prisma's createMany
         const customers = await prisma.customer_data.createMany({
             data: Array(numberOfRows).fill({
                 ma_moi: "",
+                ma_cu: "",
                 phan_loai: "",
                 phien_ban: "",
-                ma_cu: "",
+                oder: "",
                 cty: "",
-                ten: [],
-                telegram: [],
+                team: "",
+                chuc_vu: "",
+                telegram: "",
+                username: "",
+                khac: "",
                 link_nhom: "",
                 id_nhom: "",
+                info: "",
                 nhom: "",
-                nguoi_cham: "",
+                nguoi_cham1: "",
+                nguoi_cham2: "",
                 tab_don: "",
                 cong_no: "",
                 tin_dung: "",
-                ngay_check: formattedDate,
                 tinh_trang: "binh_thuong",
-                note_kt: "",
-                note_khac: "",
+                ngay_check: formattedDate,
+                note_kt: ""
             }),
         })
 

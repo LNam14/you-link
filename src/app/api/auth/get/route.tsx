@@ -1,15 +1,15 @@
-import executeQuery from "@/app/db/db"
+import { prisma } from "@/lib/db"
 import { NextResponse } from "next/server"
 // Add dynamic route configuration
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
     try {
-        // Query to get all accounts
-        const result: any = await executeQuery("SELECT * FROM account", [])
+        // Query to get all accounts using Prisma
+        const accounts = await prisma.account.findMany()
 
         // Group accounts by role
-        const groupedAccounts = result.reduce((acc: any, account: any) => {
+        const groupedAccounts = accounts.reduce((acc: any, account: any) => {
             const role = account.role || 'Nhân viên' // Default to Nhân viên if role is not specified
             if (!acc[role]) {
                 acc[role] = []
@@ -18,13 +18,17 @@ export async function GET(request: Request) {
             return acc
         }, {})
 
-        // Get all teams
-        const teams: any = await executeQuery("SELECT * FROM team ORDER BY name", [])
+        // Get all teams using Prisma
+        const teams = await prisma.team.findMany({
+            orderBy: {
+                name: 'asc'
+            }
+        })
 
         // Map teams to include their members
         const teamsWithMembers = teams.map((team: any) => ({
             ...team,
-            members: result
+            members: accounts
                 .filter((account: any) => account.team === team.name)
                 .map((account: any) => ({
                     username: account.username,

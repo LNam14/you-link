@@ -25,90 +25,97 @@ export async function PUT(request: Request) {
 
         const data = await request.json()
         const customersToUpdate = Array.isArray(data) ? data : [data]
-        const results = []
+        const results: any = []
 
-        for (const customer of customersToUpdate) {
-            const {
-                id,
-                ma_moi,
-                phan_loai,
-                phien_ban,
-                ma_cu,
-                cty,
-                ten,
-                telegram,
-                link_nhom,
-                id_nhom,
-                nhom,
-                nguoi_cham,
-                tab_don,
-                cong_no,
-                tin_dung,
-                ngay_check,
-                tinh_trang,
-                note_kt,
-                note_khac,
-            } = customer
+        // Process all updates in a transaction
+        await prisma.$transaction(async (tx) => {
+            for (const customer of customersToUpdate) {
+                const {
+                    id,
+                    ma_moi,
+                    phan_loai,
+                    phien_ban,
+                    ma_cu,
+                    oder,
+                    cty,
+                    team,
+                    chuc_vu,
+                    telegram,
+                    username,
+                    khac,
+                    link_nhom,
+                    id_nhom,
+                    info,
+                    nhom,
+                    nguoi_cham1,
+                    nguoi_cham2,
+                    tab_don,
+                    cong_no,
+                    tin_dung,
+                    ngay_check,
+                    tinh_trang,
+                    note_kt,
+                } = customer
 
-            if (!id) {
-                return NextResponse.json(
-                    { error: "Customer ID is required for update" },
-                    { status: 400 }
-                )
-            }
+                if (!id) {
+                    throw new Error("Customer ID is required for update")
+                }
 
-            // Convert date string to Date object if it's in DD/MM/YYYY format
-            let formattedDate: string | undefined
-            if (ngay_check) {
-                if (typeof ngay_check === 'string') {
-                    const [day, month, year] = ngay_check.split('/')
-                    if (day && month && year) {
-                        // Convert to YYYY-MM-DD format string
-                        formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+                // Convert date string to Date object if it's in DD/MM/YYYY format
+                let formattedDate: string | undefined
+                if (ngay_check) {
+                    if (typeof ngay_check === 'string') {
+                        const [day, month, year] = ngay_check.split('/')
+                        if (day && month && year) {
+                            // Convert to YYYY-MM-DD format string
+                            formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+                        }
+                    } else if (ngay_check instanceof Date) {
+                        // If it's already a Date object, format it as YYYY-MM-DD
+                        formattedDate = ngay_check.toISOString().split('T')[0]
                     }
-                } else if (ngay_check instanceof Date) {
-                    // If it's already a Date object, format it as YYYY-MM-DD
-                    formattedDate = ngay_check.toISOString().split('T')[0]
                 }
-            }
 
-            // Update customer using Prisma
-            try {
-                const updatedCustomer = await prisma.customer_data.update({
-                    where: { id },
-                    data: {
-                        ma_moi,
-                        phan_loai,
-                        phien_ban,
-                        ma_cu,
-                        cty,
-                        ten: Array.isArray(ten) ? ten : [],
-                        telegram: Array.isArray(telegram) ? telegram : [],
-                        link_nhom,
-                        id_nhom,
-                        nhom,
-                        nguoi_cham,
-                        tab_don,
-                        cong_no,
-                        tin_dung,
-                        ngay_check: formattedDate || null,
-                        tinh_trang,
-                        note_kt,
-                        note_khac,
-                    },
-                });
-                results.push(updatedCustomer);
-            } catch (updateError: any) {
-                console.error(`Error updating customer ${id}:`, updateError);
-                if (updateError.code === 'P2025') {
-                    return NextResponse.json(
-                        { error: `Customer with ID ${id} not found` },
-                        { status: 404 }
-                    );
+                // Update customer using Prisma
+                try {
+                    const updatedCustomer = await tx.customer_data.update({
+                        where: { id },
+                        data: {
+                            ma_moi,
+                            phan_loai,
+                            phien_ban,
+                            ma_cu,
+                            oder,
+                            cty,
+                            team,
+                            chuc_vu,
+                            telegram,
+                            username,
+                            khac,
+                            link_nhom,
+                            id_nhom,
+                            info,
+                            nhom,
+                            nguoi_cham1,
+                            nguoi_cham2,
+                            tab_don,
+                            cong_no,
+                            tin_dung,
+                            ngay_check: formattedDate || null,
+                            tinh_trang,
+                            note_kt,
+                        },
+                    });
+                    results.push(updatedCustomer);
+                } catch (updateError: any) {
+                    console.error(`Error updating customer ${id}:`, updateError);
+                    if (updateError.code === 'P2025') {
+                        throw new Error(`Customer with ID ${id} not found`);
+                    }
+                    throw updateError;
                 }
-                throw updateError;
             }
-        }
+        });
 
         // Return results in the same format as input
         return NextResponse.json(Array.isArray(data) ? results : results[0], { status: 200 })

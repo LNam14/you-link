@@ -1,37 +1,12 @@
 import httpService from "@/lib/http"
 
-// Định nghĩa kiểu dữ liệu cho customer
-export interface CustomerData {
-  id?: number
-  ma_moi: string
-  phan_loai: string
-  phien_ban: string
-  ma_cu: string
-  cty: string
-  ten: string[]
-  telegram: string[]
-  link_nhom: string
-  id_nhom: string
-  nhom: string
-  nguoi_cham: string
-  tab_don: string
-  cong_no: string
-  tin_dung: string
-  ngay_check: string // dạng dd/mm/yyyy
-  tinh_trang: string
-  note_kt: string
-  note_khac: string
-  created_at?: string
-  updated_at?: string
-}
-
 export interface BulkCreateRequest {
   numberOfRows: number
 }
 
 // Add new interface for API response
 export interface CustomerApiResponse {
-    customers: CustomerData[]
+    customers: any[]
     staffNames: string[]
     teamNames: string[]
 }
@@ -50,7 +25,7 @@ const customerApiRequest = {
    */
   get: () => {
     const timestamp = new Date().toISOString();
-    return httpService.get<CustomerData>(ENDPOINTS.GET, { 
+    return httpService.get<any>(ENDPOINTS.GET, { 
       params: { timestamp } 
     });
   },
@@ -60,15 +35,15 @@ const customerApiRequest = {
    * @param data dữ liệu khách hàng hoặc mảng khách hàng
    */
   create: (data: any) => {
-    return httpService.post<CustomerData | CustomerData[]>(ENDPOINTS.CREATE, data).then(res => res.data)
+    return httpService.post<any | any[]>(ENDPOINTS.CREATE, data).then(res => res.data)
   },
 
   /**
    * Cập nhật khách hàng (hỗ trợ cập nhật nhiều)
    * @param data dữ liệu khách hàng hoặc mảng khách hàng bao gồm `id`
    */
-  update: (data: CustomerData | CustomerData[]) => {
-    return httpService.put<CustomerData | CustomerData[]>(ENDPOINTS.UPDATE, data).then(res => res.data)
+  update: (data: any | any[]) => {
+    return httpService.put<any | any[]>(ENDPOINTS.UPDATE, data).then(res => res.data)
   },
 
   /**
@@ -76,7 +51,7 @@ const customerApiRequest = {
    * @param id ID của khách hàng cần xóa
    */
   delete: (id: number) => {
-    return httpService.delete<{ message: string; data: CustomerData }>(`${ENDPOINTS.DELETE}?id=${id}`).then(res => res.data)
+    return httpService.delete<{ message: string; data: any }>(`${ENDPOINTS.DELETE}?id=${id}`).then(res => res.data)
   },
 
   /**

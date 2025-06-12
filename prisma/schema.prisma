@@ -33,25 +33,30 @@ model attendance {
 }
 
 model customer_data {
-  id         Int      @id @default(autoincrement())
-  ma_moi     String?  @db.VarChar(100)
-  phan_loai  String?  @db.VarChar(100)
-  phien_ban  String?  @db.VarChar(100)
-  ma_cu      String?
-  cty        String?  @db.VarChar(50)
-  ten        String   @db.Text
-  telegram   String   @db.Text
-  link_nhom  String?
-  id_nhom    String?  @db.VarChar(100)
-  nhom       String?  @db.VarChar(100)
-  nguoi_cham String?  @db.VarChar(100)
-  tab_don    String?
-  cong_no    String?
-  tin_dung   String?
-  ngay_check String?
-  tinh_trang String?  @db.VarChar(50)
-  note_kt    String?
-  note_khac  String?
+  id           Int      @id @default(autoincrement())
+  ma_moi       String?  @db.VarChar(100)
+  ma_cu        String?  @db.VarChar(100)
+  phan_loai    String?  @db.VarChar(100)
+  phien_ban    String?  @db.VarChar(100)
+  oder         String?  @db.VarChar(100)
+  cty          String?  @db.VarChar(50)
+  team         String?  @db.VarChar(100)
+  chuc_vu      String?  @db.VarChar(100)
+  telegram     String   @db.Text
+  username     String?  @db.VarChar(100)
+  khac         String?  @db.Text
+  link_nhom    String?  @db.VarChar(255)
+  id_nhom      String?  @db.VarChar(100)
+  info         String?  @db.Text
+  nhom         String?  @db.VarChar(100)
+  nguoi_cham1  String?  @db.VarChar(100)
+  nguoi_cham2  String?  @db.VarChar(100)
+  tab_don      String?  @db.VarChar(255)
+  cong_no      String?  @db.VarChar(100)
+  tin_dung     String?  @db.VarChar(100)
+  tinh_trang   String?  @db.VarChar(50)
+  ngay_check   String?  @db.VarChar(20)
+  note_kt      String?  @db.Text
 }
 
 model team {

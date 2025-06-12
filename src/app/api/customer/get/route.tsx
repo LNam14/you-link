@@ -32,8 +32,8 @@ interface CustomerData {
     phien_ban: string;
     ma_cu: string;
     cty: string;
-    ten: string[];
-    telegram: string[];
+    ten: string;
+    telegram: string;
     link_nhom: string;
     id_nhom: string;
     nhom: string;
@@ -77,11 +77,11 @@ export async function GET() {
         const [customerResult, accountResult, teamResult] = await Promise.all([
             prisma.customer_data.findMany({
                 orderBy: [
+                    // {
+                    //     nhom: 'asc'
+                    // },
                     {
-                        nhom: 'asc'
-                    },
-                    {
-                        id: 'desc'
+                        id: 'asc'
                     }
                 ]
             }),
@@ -125,7 +125,7 @@ export async function GET() {
             // Đọc dữ liệu từ Sheet CongNo!B2:C
             const sheetResponse = await gsapi.spreadsheets.values.get({
                 spreadsheetId: SPREADSHEET_ID,
-                range: "CongNo!B2:C",
+                range: "2C!B2:C",
             });
 
             const sheetData = sheetResponse.data.values || [];
