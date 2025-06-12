@@ -26,6 +26,7 @@ const STATUS_OPTIONS = {
 } as const
 
 // Add phan loai options and colors
+const PHAN_LOAI_OPTIONS = {
     vip: { label: "VIP", color: "#7C3AED", bgColor: "#EDE9FE" }, // purple
     mua_nhieu: { label: "Mua nhiều", color: "#2563EB", bgColor: "#DBEAFE" }, // blue
     binh_thuong: { label: "Bình thường", color: "#6B7280", bgColor: "#F3F4F6" }, // gray
