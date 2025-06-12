@@ -11,7 +11,7 @@ import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
 import Handsontable from "handsontable"
 import { toast, Toaster } from "sonner"
-import { RefreshCw, Search, Plus, X } from "lucide-react"
+import { RefreshCw, Search, Plus, X } from 'lucide-react'
 import { debounce } from "lodash"
 import customerApiRequest from "@/apiRequests/customer"
 
@@ -124,25 +124,36 @@ interface ApiCustomerData {
 const calculateDaysDifference = (checkDate: string) => {
     if (!checkDate) return ""
 
-    const [day, month, year] = checkDate.split("/").map(Number)
-    const checkDateObj = new Date(year, month - 1, day)
-    const today = new Date()
+    try {
+        const [day, month, year] = checkDate.split("/").map(Number)
+        if (!day || !month || !year) return ""
 
-    // Reset time part for accurate day calculation
-    checkDateObj.setHours(0, 0, 0, 0)
-    today.setHours(0, 0, 0, 0)
+        const checkDateObj = new Date(year, month - 1, day)
 
-    const diffTime = Math.abs(today.getTime() - checkDateObj.getTime())
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        // Sử dụng múi giờ Việt Nam
+        const today = new Date()
+        const vietnamTime = new Date(today.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }))
 
-    return diffDays.toString()
+        // Reset time part for accurate day calculation
+        checkDateObj.setHours(0, 0, 0, 0)
+        vietnamTime.setHours(0, 0, 0, 0)
+
+        const diffTime = vietnamTime.getTime() - checkDateObj.getTime()
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+
+        return diffDays.toString()
+    } catch (error) {
+        console.error("Error calculating days difference:", error)
+        return ""
+    }
 }
 
 const getCurrentDateFormatted = () => {
     const today = new Date()
-    const day = String(today.getDate()).padStart(2, "0")
-    const month = String(today.getMonth() + 1).padStart(2, "0")
-    const year = today.getFullYear()
+    const vietnamTime = new Date(today.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }))
+    const day = String(vietnamTime.getDate()).padStart(2, "0")
+    const month = String(vietnamTime.getMonth() + 1).padStart(2, "0")
+    const year = vietnamTime.getFullYear()
     return `${day}/${month}/${year}`
 }
 
@@ -832,6 +843,95 @@ export default function AccountTracker() {
             }
         }
 
+        if (prop === "ngayCheck") {
+            cellProperties.renderer = (
+                instance: Handsontable.Core,
+                td: HTMLTableCellElement,
+                row: number,
+                col: number,
+                prop: string | number,
+                value: string,
+                cellProperties: Handsontable.CellProperties,
+            ) => {
+                const displayValue = value ? value.substring(0, 5) : "Check"
+
+                const button = document.createElement("button")
+                button.textContent = `${displayValue} 📅`
+                button.style.borderRadius = "0"
+                button.style.border = "none"
+                button.style.backgroundColor = value ? "#EFF6FF" : "#2563EB"
+                button.style.color = value ? "#1E40AF" : "white"
+                button.style.cursor = "pointer"
+                button.style.fontSize = "12px"
+                button.style.display = "flex"
+                button.style.alignItems = "center"
+                button.style.justifyContent = "center"
+                button.style.gap = "4px"
+                button.style.width = "100%"
+                button.style.height = "100%"
+                button.style.padding = "0"
+
+                button.addEventListener("click", (e) => {
+                    e.stopPropagation()
+                    const currentDate = getCurrentDateFormatted()
+                    instance.setDataAtCell(row, col, currentDate)
+                    instance.render()
+                    toast.success("Đã cập nhật ngày check")
+                })
+
+                if (safeClearElement(td)) {
+                    td.style.padding = "0"
+                    try {
+                        td.appendChild(button)
+                        td.style.textAlign = "center"
+                        td.style.verticalAlign = "middle"
+                    } catch (error) {
+                        console.warn("Failed to append button element:", error)
+                    }
+                }
+            }
+        }
+
+        if (prop === "demNgay") {
+            cellProperties.renderer = (
+                instance: Handsontable.Core,
+                td: HTMLTableCellElement,
+                row: number,
+                col: number,
+                prop: string | number,
+                value: any,
+                cellProperties: Handsontable.CellProperties,
+            ) => {
+                const checkDate = instance.getDataAtCell(row, instance.propToCol("ngayCheck")) as string
+                const daysDiff = calculateDaysDifference(checkDate)
+
+                // Hiển thị số ngày với màu sắc tùy theo giá trị
+                const daysNum = parseInt(daysDiff) || 0
+
+                if (daysNum > 30) {
+                    td.style.backgroundColor = "#FEE2E2" // Light red
+                    td.style.color = "#DC2626" // Red
+                } else if (daysNum > 14) {
+                    td.style.backgroundColor = "#FEF3C7" // Light amber
+                    td.style.color = "#D97706" // Amber
+                } else if (daysNum > 7) {
+                    td.style.backgroundColor = "#DBEAFE" // Light blue
+                    td.style.color = "#2563EB" // Blue
+                } else {
+                    td.style.backgroundColor = "#DCFCE7" // Light green
+                    td.style.color = "#16A34A" // Green
+                }
+
+                td.style.fontWeight = "500"
+                td.style.textAlign = "center"
+                td.style.verticalAlign = "middle"
+                td.style.borderRadius = "4px"
+                td.style.padding = "4px 8px"
+
+                safeSetElementContent(td, daysDiff ? `${daysDiff} ngày` : "")
+            }
+        }
+
         return cellProperties
     }
 
@@ -991,10 +1091,6 @@ export default function AccountTracker() {
             className: "htMiddle htCenter",
             renderer: "text",
             readOnly: true,
-            getData: (row: number, col: number, prop: string | number, value: any, instance: Handsontable.Core) => {
-                const checkDate = instance.getDataAtCell(row, instance.propToCol("ngayCheck")) as string
-                return calculateDaysDifference(checkDate)
-            },
         },
         {
             data: "noteKT",
@@ -1014,9 +1110,9 @@ export default function AccountTracker() {
         "CTY",
         "Team",
         "Chức Vụ",
-        "Telegram",
-        "Username",
-        "Khác",
+        "Tên",
+        "ID Tele",
+        "Liên hệ 2",
         "Link Nhóm",
         "ID nhóm",
         "Info",
