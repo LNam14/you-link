@@ -6,7 +6,8 @@ import { useState, useEffect } from "react"
 import { ShoppingCart, Package, Loader2, Plus, Minus } from "lucide-react"
 import { toast, Toaster } from "sonner"
 import getUserInfo from "@/components/userInfo"
-import contentApiRequest from "@/apiRequests/content"
+import { getDatabase, ref, push, set, get } from "firebase/database"
+import { database } from "@/lib/firebase"
 
 interface ContentItem {
     TenSP: string
@@ -27,8 +28,30 @@ export default function Content({
     loading: boolean
 }): React.JSX.Element {
     const [quantities, setQuantities] = useState<{ [key: string]: number }>({})
-    const [orderLoading, setOrderLoading] = useState<{ [key: string]: boolean }>({})
+    const [orderCounts, setOrderCounts] = useState<{ [key: string]: number }>({})
     const userInfo = getUserInfo()
+
+    useEffect(() => {
+        const countOrdersByTenKH = async () => {
+            try {
+                const ordersRef = ref(database, 'content')
+                const snapshot = await get(ordersRef)
+                const orders = snapshot.val() || {}
+
+                const counts: { [key: string]: number } = {}
+                Object.values(orders).forEach((order: any) => {
+                    const tenKH = order.TenKH
+                    counts[tenKH] = (counts[tenKH] || 0) + 1
+                })
+
+                setOrderCounts(counts)
+            } catch (error) {
+                console.error("Error counting orders:", error)
+            }
+        }
+
+        countOrdersByTenKH()
+    }, [])
 
     const handleQuantityChange = (itemId: string, value: string) => {
         const numValue = Number.parseInt(value)
@@ -64,39 +87,62 @@ export default function Content({
         }
 
         try {
-            setOrderLoading(prev => ({ ...prev, [item.MaNCC]: true }))
             // Validate required fields
             if (!item.TenSP || !item.GiaBan || !item.MaNCC) {
                 throw new Error("Thiếu thông tin sản phẩm bắt buộc")
             }
 
-            // Calculate total price
+            // Calculate total price for new orders, convert from comma to dot format
             const giaBan = parseFloat(item.GiaBan.toString().replace(',', '.'))
+            const totalPrice = giaBan * quantity
 
-            // Create orders based on quantity
+            // Get existing orders
+            const ordersRef = ref(database, 'content')
+            const snapshot = await get(ordersRef)
+            const orders = snapshot.val() || {}
+
+            // Find the highest order number for current user
+            let maxOrderNumber = 0
+            Object.keys(orders).forEach((orderId) => {
+                if (orderId.startsWith(`${userInfo?.username}-`)) {
+                    const orderNumber = parseInt(orderId.split('-')[1])
+                    if (!isNaN(orderNumber) && orderNumber > maxOrderNumber) {
+                        maxOrderNumber = orderNumber
+                    }
+                }
+            })
+
+            // Create multiple orders based on quantity
             for (let i = 0; i < quantity; i++) {
+                // Increment order number for each new order
+                maxOrderNumber++
+                const newOrderId = `${userInfo?.username}-${maxOrderNumber}`
+
                 const orderData = {
-                    loai: item.TenSP,
-                    note_kh1: "",
-                    note_kh2: "",
-                    chu_de: "",
-                    anchor1: "",
-                    url1: "",
-                    anchor2: "",
-                    url2: "",
-                    link_kq: "",
-                    deadline: "",
-                    gia_ban: giaBan,
-                    gia_mua: parseFloat(item.GiaMua.toString().replace(',', '.')),
-                    ten_ncc: item.TenSP,
-                    ma_ncc: item.MaNCC,
-                    tt_kh: "Chưa nhập",
-                    tt_ncc: "Chưa nhận",
-                    chat: [],
-                    note: item.Note || ""
+                    TenSP: item.TenSP || "",
+                    KHNote1: "",
+                    KHNote2: "",
+                    ChuDe: "",
+                    Anchor1: "",
+                    URL1: "",
+                    Anchor2: "",
+                    URL2: "",
+                    LinkKQ: "",
+                    Deadline: "",
+                    TTNCC: "",
+                    TinhTrangKH: "Chưa nhập",
+                    TinhTrangNCC: "Chưa nhận",
+                    GiaBan: giaBan,
+                    GiaMua: parseFloat(item.GiaMua.toString().replace(',', '.')),
+                    IDNhom: item.IDNhom || "",
+                    MaNCC: item.MaNCC || "",
+                    Note: item.Note || "",
+                    TenKH: userInfo?.username || "",
+                    NgayOrder: new Date().toLocaleDateString('en-GB')
                 }
 
-                await contentApiRequest.create(orderData)
+                // Add new order with the generated ID
+                await set(ref(database, `content/${newOrderId}`), orderData)
             }
 
             toast.success("Đặt hàng thành công", {
@@ -107,8 +153,6 @@ export default function Content({
                 description: error instanceof Error ? error.message : "Vui lòng thử lại sau",
             })
             console.error("Error placing order:", error)
-        } finally {
-            setOrderLoading(prev => ({ ...prev, [item.MaNCC]: false }))
         }
     }
 
@@ -188,20 +232,10 @@ export default function Content({
 
                                     <button
                                         onClick={() => handleOrder(item)}
-                                        disabled={orderLoading[item.MaNCC]}
-                                        className="flex-1 h-10 bg-gradient-to-r from-[#ff6807] to-orange-500 hover:from-[#ff6807]/90 hover:to-orange-500/90 text-white rounded-xl px-4 py-2 flex items-center justify-center gap-2 transition-all duration-200 font-medium shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed"
+                                        className="flex-1 h-10 bg-gradient-to-r from-[#ff6807] to-orange-500 hover:from-[#ff6807]/90 hover:to-orange-500/90 text-white rounded-xl px-4 py-2 flex items-center justify-center gap-2 transition-all duration-200 font-medium shadow-lg hover:shadow-xl hover:-translate-y-0.5 animate-pulse"
                                     >
-                                        {orderLoading[item.MaNCC] ? (
-                                            <>
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                                <span>Đang xử lý...</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <ShoppingCart className="h-4 w-4" />
-                                                <span>Order</span>
-                                            </>
-                                        )}
+                                        <ShoppingCart className="h-4 w-4" />
+                                        <span>Order</span>
                                     </button>
                                 </div>
                             </div>

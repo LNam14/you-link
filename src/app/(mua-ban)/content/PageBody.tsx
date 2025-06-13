@@ -772,30 +772,6 @@ export default function PageBody() {
                         updates[`${orderId}/TinhTrangNCC`] = "Đã lên bài"
                         const MaKH = tableData[row][0]
                         const MaKHBeforeDash = MaKH.split("-")[0]
-                        const MaNCC = tableData[row][18]
-                        const giaMua = parseNumberWithComma(tableData[row][14]) // Get GiaMua value
-
-                        // Add money to NCC's account
-                        const nccBalanceRef = ref(database, `money/${MaNCC}`)
-                        get(nccBalanceRef).then(async (nccBalanceSnapshot) => {
-                            let currentNccBalance = 0
-                            let currentData = {}
-                            if (nccBalanceSnapshot.exists()) {
-                                const balanceData = nccBalanceSnapshot.val()
-                                currentNccBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
-                                currentData = balanceData
-                            }
-
-                            // Calculate new balance for NCC
-                            const newNccBalance = currentNccBalance + giaMua
-
-                            // Update NCC's balance while preserving other fields
-                            await set(ref(database, `money/${MaNCC}`), {
-                                ...currentData,
-                                amount: newNccBalance.toFixed(2),
-                            })
-                        })
-
                         sheetApiRequest.getIDKH(MaKHBeforeDash, `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`)
                     }
 
@@ -951,27 +927,6 @@ export default function PageBody() {
                                     const MaNCC = tableData[row][18]
                                     const giaMua = parseNumberWithComma(tableData[row][14]) // Get GiaMua value
 
-                                    // Add money to NCC's account
-                                    const nccBalanceRef = ref(database, `money/${MaNCC}`)
-                                    get(nccBalanceRef).then(async (nccBalanceSnapshot) => {
-                                        let currentNccBalance = 0
-                                        let currentData = {}
-                                        if (nccBalanceSnapshot.exists()) {
-                                            const balanceData = nccBalanceSnapshot.val()
-                                            currentNccBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
-                                            currentData = balanceData
-                                        }
-
-                                        // Calculate new balance for NCC
-                                        const newNccBalance = currentNccBalance + giaMua
-
-                                        // Update NCC's balance while preserving other fields
-                                        await set(ref(database, `money/${MaNCC}`), {
-                                            ...currentData,
-                                            amount: newNccBalance.toFixed(2),
-                                        })
-                                    })
-
                                     sheetApiRequest.getIDKH(MaKHBeforeDash, `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`)
                                 }
 
@@ -1015,28 +970,6 @@ export default function PageBody() {
         })
 
         try {
-            // Update all NCC balances
-            for (const [MaNCC, amountToAdd] of Object.entries(nccUpdates)) {
-                const nccBalanceRef = ref(database, `money/${MaNCC}`)
-                const nccBalanceSnapshot = await get(nccBalanceRef)
-                let currentNccBalance = 0
-                let currentData = {}
-                if (nccBalanceSnapshot.exists()) {
-                    const balanceData = nccBalanceSnapshot.val()
-                    currentNccBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
-                    currentData = balanceData
-                }
-
-                // Calculate new balance for NCC
-                const newNccBalance = currentNccBalance + amountToAdd
-
-                // Update NCC's balance while preserving other fields
-                await set(ref(database, `money/${MaNCC}`), {
-                    ...currentData,
-                    amount: newNccBalance.toFixed(2),
-                })
-            }
-
             // Send notifications for LinkKQ updates
             for (const { orderId, MaKH, MaNCC } of Object.values(linkKQUpdates)) {
                 sheetApiRequest.getIDKH(
@@ -1070,37 +1003,10 @@ export default function PageBody() {
                 const newStatus = linkKQ && linkKQ.trim() !== "" ? "Y/C Hủy đơn" : "Hủy đơn"
 
                 if (newStatus === "Hủy đơn") {
-                    // Get current balance for customer only
-                    const userBalanceRef = ref(database, `money/${MaKHBeforeDash}`)
-                    const balanceSnapshot = await get(userBalanceRef)
-                    let currentBalance = 0
-                    let currentUserData = {}
-                    if (balanceSnapshot.exists()) {
-                        const balanceData = balanceSnapshot.val()
-                        currentBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
-                        currentUserData = balanceData
-                    }
-
-                    // Calculate new balance after refund for customer
-                    const newBalance = currentBalance + giaBan
-                    const currentSpend = Number.parseFloat((currentUserData as any).spend?.toString().replace(",", ".") || "0")
-                    const newSpend = currentSpend - giaBan
-
-                    // Update order status and refund money to customer only
-                    await Promise.all([
-                        update(ordersRef, {
-                            TinhTrangKH: newStatus,
-                        }),
-                        set(ref(database, `money/${MaKHBeforeDash}`), {
-                            ...currentUserData,
-                            amount: newBalance.toFixed(2),
-                            spend: newSpend.toFixed(2)
-                        })
-                    ])
-
+                    // Get crrent balance for customer only
                     sheetApiRequest.getIDKH(
                         MaKHBeforeDash,
-                        `Đơn hàng ${orderId} đã bị hủy, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
+                        `Đơn hàng ${orderId} đã bị hủy, kiểm tra tại http://ylink.shop/content`,
                     )
                 } else {
                     // Just update status for cancellation request
@@ -1113,55 +1019,15 @@ export default function PageBody() {
                     )
                 }
             } else if (action === "approveRefund") {
-                // Get current balance for customer
-                const userBalanceRef = ref(database, `money/${MaKHBeforeDash}`)
-                const balanceSnapshot = await get(userBalanceRef)
-                let currentBalance = 0
-                let currentUserData = {}
-                if (balanceSnapshot.exists()) {
-                    const balanceData = balanceSnapshot.val()
-                    currentBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
-                    currentUserData = balanceData
-                }
-
-                // Get NCC's current balance
-                const nccBalanceRef = ref(database, `money/${MaNCC}`)
-                const nccBalanceSnapshot = await get(nccBalanceRef)
-                let currentNccBalance = 0
-                let currentNccData = {}
-                if (nccBalanceSnapshot.exists()) {
-                    const balanceData = nccBalanceSnapshot.val()
-                    currentNccBalance = Number.parseFloat(balanceData.amount.toString().replace(",", "."))
-                    currentNccData = balanceData
-                }
-
-                // Calculate new balance for NCC (subtract giaMua)
-                const newNccBalance = currentNccBalance - giaMua
-
-                // Calculate new balance after refund for customer
-                const newBalance = currentBalance + giaBan
-                const currentSpend = Number.parseFloat((currentUserData as any).spend?.toString().replace(",", ".") || "0")
-                const newSpend = currentSpend - giaBan
-
-                // Update order status, refund money to customer, and subtract money from NCC
                 await Promise.all([
                     update(ordersRef, {
                         TinhTrangNCC: "Đồng ý hoàn",
-                    }),
-                    set(ref(database, `money/${MaKHBeforeDash}`), {
-                        ...currentUserData,
-                        amount: newBalance.toFixed(2),
-                        spend: newSpend.toFixed(2)
-                    }),
-                    set(ref(database, `money/${MaNCC}`), {
-                        ...currentNccData,
-                        amount: newNccBalance.toFixed(2),
-                    }),
+                    })
                 ])
 
                 sheetApiRequest.getIDKH(
                     MaKHBeforeDash,
-                    `NCC đã đồng ý hoàn tiền cho đơn ${orderId}, số tiền ${giaBan.toLocaleString("vi-VN")} USDT đã được hoàn vào tài khoản của bạn. Kiểm tra tại http://ylink.shop/content`,
+                    `NCC đã đồng ý hoàn tiền cho đơn ${orderId}, kiểm tra tại http://ylink.shop/content`,
                 )
             } else if (action === "rejectRefund") {
                 await update(ordersRef, {
