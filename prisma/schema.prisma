@@ -57,6 +57,7 @@ model customer_data {
   tinh_trang   String?  @db.VarChar(50)
   ngay_check   String?  @db.VarChar(20)
   note_kt      String?  @db.Text
+  nguoi_xem    String?  @db.VarChar(100)
 }
 
 model team {

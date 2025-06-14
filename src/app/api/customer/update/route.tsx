@@ -55,6 +55,7 @@ export async function PUT(request: Request) {
                     ngay_check,
                     tinh_trang,
                     note_kt,
+                    nguoi_xem,
                 } = customer
 
                 if (!id) {
@@ -104,6 +105,7 @@ export async function PUT(request: Request) {
                             ngay_check: formattedDate || null,
                             tinh_trang,
                             note_kt,
+                            nguoi_xem,
                         },
                     });
                     results.push(updatedCustomer);

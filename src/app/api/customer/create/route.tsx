@@ -47,7 +47,8 @@ export async function POST(request: Request) {
                 tin_dung: "",
                 tinh_trang: "binh_thuong",
                 ngay_check: formattedDate,
-                note_kt: ""
+                note_kt: "",
+                nguoi_xem: ""
             }),
         })
 

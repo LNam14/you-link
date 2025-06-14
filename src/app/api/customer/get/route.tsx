@@ -45,6 +45,7 @@ interface CustomerData {
     tinh_trang: string;
     note_kt: string;
     note_khac: string;
+    nguoi_xem: string;
     created_at: Date;
     updated_at: Date;
 }

@@ -14,6 +14,7 @@ import { toast, Toaster } from "sonner"
 import { RefreshCw, Search, Plus, X } from 'lucide-react'
 import { debounce } from "lodash"
 import customerApiRequest from "@/apiRequests/customer"
+import getUserInfo from "@/components/userInfo"
 
 registerAllModules()
 
@@ -78,6 +79,7 @@ interface CustomerData {
     tinhTrang: StatusType
     ngayCheck: string
     noteKT: string
+    nguoiXem: string
 }
 
 // Add new type for API response
@@ -118,6 +120,7 @@ interface ApiCustomerData {
     tinh_trang: StatusType
     ngay_check: string
     note_kt: string
+    nguoi_xem: string
 }
 
 // Add utility functions before component
@@ -207,10 +210,13 @@ export default function AccountTracker() {
     const [numberOfRows, setNumberOfRows] = useState("")
     const [staffNames, setStaffNames] = useState<string[]>([])
     const [teamNames, setTeamNames] = useState<string[]>([])
+    const [hiddenColumns, setHiddenColumns] = useState<number[]>([])
+    const [hiddenRows, setHiddenRows] = useState<number[]>([])
+    const [didInitHidden, setDidInitHidden] = useState(false)
     const hotTableRef = useRef<any>(null)
     const [isPasting, setIsPasting] = useState(false)
     const pasteTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
+    const userInfo = getUserInfo()
     const fetchCustomers = async () => {
         // Prevent multiple simultaneous fetches
         if (isLoading) return
@@ -258,6 +264,7 @@ export default function AccountTracker() {
                 tinhTrang: customer.tinh_trang as StatusType,
                 ngayCheck: customer.ngay_check,
                 noteKT: customer.note_kt,
+                nguoiXem: customer.nguoi_xem,
             })) as CustomerData[]
 
             setTableData(transformedData)
@@ -317,6 +324,7 @@ export default function AccountTracker() {
         tinh_trang: data.tinhTrang,
         ngay_check: data.ngayCheck,
         note_kt: data.noteKT,
+        nguoi_xem: data.nguoiXem,
     })
 
     // Update filteredData to remove header logic
@@ -337,8 +345,58 @@ export default function AccountTracker() {
         })
 
         // Filter by selected team
-        return selectedTeam === "" ? searchFiltered : searchFiltered.filter((row) => row.nhom === selectedTeam)
+        const teamFiltered = selectedTeam === "" ? searchFiltered : searchFiltered.filter((row) => row.nhom === selectedTeam)
+
+        // Filter by user role and username
+        if (userInfo.role === "Nhân viên") {
+            return teamFiltered.filter((row) => {
+                // Check if nguoiXem contains the username
+                if (!row.nguoiXem) return false
+
+                // Split nguoiXem by space to handle multiple viewers
+                const viewers = row.nguoiXem.split(" ")
+
+                // Check if any viewer matches the username
+                return viewers.some(viewer => viewer === userInfo.username)
+            })
+        }
+
+        return teamFiltered
     })()
+
+    // Tính tổng Công Nợ và Tín Dụng
+    const sumCongNo = filteredData.reduce((acc, row) => acc + (parseFloat((row.congNo || '0').toString().replace(/[^0-9.-]+/g, '')) || 0), 0);
+    const sumTinDung = filteredData.reduce((acc, row) => acc + (parseFloat((row.tinDung || '0').toString().replace(/[^0-9.-]+/g, '')) || 0), 0);
+    // Tạo hàng tổng
+    const totalRow: CustomerData = {
+        maMoi: '',
+        maCu: '',
+        phanLoai: '',
+        phienBan: '',
+        oder: '',
+        cty: '',
+        team: '',
+        chucVu: '',
+        telegram: '',
+        username: '',
+        khac: '',
+        linkNhom: '',
+        idNhom: '',
+        info: '',
+        nhom: '',
+        nguoiCham1: '',
+        nguoiCham2: '',
+        tabDon: '',
+        congNo: sumCongNo.toLocaleString('vi-VN'),
+        tinDung: sumTinDung.toLocaleString('vi-VN'),
+        tinhTrang: '' as any,
+        ngayCheck: '',
+        noteKT: '',
+        nguoiXem: '',
+        id: -1,
+    };
+    // Data truyền vào HotTable: hàng tổng + filteredData
+    const tableDataWithTotal = [totalRow, ...filteredData];
 
     // Fix cells function
     const cells = function (
@@ -370,6 +428,41 @@ export default function AccountTracker() {
                 td.style.textAlign = "center"
                 td.style.verticalAlign = "middle"
             },
+        }
+
+        if (prop === "maMoi") {
+            cellProperties.renderer = (
+                instance: Handsontable.Core,
+                td: HTMLTableCellElement,
+                row: number,
+                col: number,
+                prop: string | number,
+                value: string,
+                cellProperties: Handsontable.CellProperties,
+            ) => {
+                if (value) {
+                    const link = document.createElement("a")
+                    link.href = value
+                    link.style.color = "red"
+                    link.style.display = "block"
+                    link.style.overflow = "hidden"
+                    link.style.textOverflow = "ellipsis"
+                    link.style.whiteSpace = "nowrap"
+                    link.title = value
+                    link.textContent = value
+
+                    try {
+                        if (safeClearElement(td)) {
+                            td.appendChild(link)
+                        }
+                    } catch (error) {
+                        console.warn("Failed to append link element:", error)
+                        safeSetElementContent(td, value)
+                    }
+                } else {
+                    safeSetElementContent(td, "")
+                }
+            }
         }
 
         // Format Order column
@@ -1099,6 +1192,13 @@ export default function AccountTracker() {
             renderer: "text",
             readOnly: false,
         },
+        {
+            data: "nguoiXem",
+            width: 100,
+            className: "htMiddle htCenter",
+            renderer: "text",
+            readOnly: false,
+        },
     ]
 
     const RowHeader2 = [
@@ -1126,6 +1226,7 @@ export default function AccountTracker() {
         "Ngày check",
         "Đếm ngày",
         "Note KT",
+        "Người xem",
     ]
 
     // Update handleAfterChange
@@ -1405,7 +1506,7 @@ export default function AccountTracker() {
         }
     }
 
-    // Update context menu items
+    // Update context menu items to use 'hidden' property for dynamic show/hide
     const contextMenuItems = {
         items: {
             row_above: {
@@ -1417,32 +1518,22 @@ export default function AccountTracker() {
                 callback: async () => {
                     const selected = hotTableRef.current?.hotInstance?.getSelected()
                     if (selected) {
-                        // Get the row index in the displayed table
                         const displayRowIndex = selected[0][0]
-                        // Get the actual data object for the selected row
                         const hotInstance = hotTableRef.current?.hotInstance
                         if (!hotInstance) return
-
                         const rowData = hotInstance.getSourceDataAtRow(displayRowIndex)
                         if (!rowData) return
-
                         const customer = rowData as CustomerData
-
                         if (customer.id) {
                             try {
-                                // Call API to delete by ID
                                 await customerApiRequest.delete(customer.id)
-
-                                // Update local state by filtering out the customer with this ID
                                 setTableData((prevData) => prevData.filter((c) => c.id !== customer.id))
-
                                 toast.success("Xóa khách hàng thành công")
                             } catch (error) {
                                 toast.error("Không thể xóa khách hàng")
                                 console.error("Error deleting customer:", error)
                             }
                         } else {
-                            // Handle case where a new row without an ID is deleted
                             setTableData((prevData) => {
                                 const newData = [...prevData]
                                 const actualIndex = newData.findIndex((c) => c === customer)
@@ -1456,7 +1547,50 @@ export default function AccountTracker() {
                     }
                 },
             },
-        },
+            hide_column: {
+                name: "Ẩn cột",
+                callback: function () {
+                    const selected = hotTableRef.current?.hotInstance?.getSelected()
+                    if (selected) {
+                        const columnIndex = selected[0][1]
+                        setHiddenColumns(prev => [...prev, columnIndex])
+                    }
+                }
+            },
+            show_all_columns: {
+                name: "Hiện tất cả cột",
+                callback: function () {
+                    setHiddenColumns([])
+                },
+                hidden: () => hiddenColumns.length === 0
+            },
+            hide_row: {
+                name: "Ẩn hàng",
+                callback: function () {
+                    const selected = hotTableRef.current?.hotInstance?.getSelected();
+                    if (selected) {
+                        // selected là mảng các vùng chọn, mỗi vùng: [rowStart, colStart, rowEnd, colEnd]
+                        let rowsToHide: number[] = [];
+                        selected.forEach((sel: any) => {
+                            const from = Math.min(sel[0], sel[2]);
+                            const to = Math.max(sel[0], sel[2]);
+                            for (let i = from; i <= to; i++) {
+                                rowsToHide.push(i);
+                            }
+                        });
+                        // Loại bỏ trùng lặp và cập nhật state
+                        setHiddenRows(prev => Array.from(new Set([...prev, ...rowsToHide])));
+                    }
+                }
+            },
+            show_all_rows: {
+                name: "Hiện tất cả hàng",
+                callback: function () {
+                    setHiddenRows([])
+                },
+                hidden: () => hiddenRows.length === 0
+            }
+        }
     }
 
     // Update findActualRowIndex to remove header check
@@ -1481,6 +1615,23 @@ export default function AccountTracker() {
         })
     }
 
+    // Add useEffect to handle hidden columns and rows changes
+    useEffect(() => {
+        const hotInstance = hotTableRef.current?.hotInstance
+        if (hotInstance) {
+            hotInstance.updateSettings({
+                hiddenColumns: {
+                    columns: hiddenColumns,
+                    indicators: true
+                },
+                hiddenRows: {
+                    rows: hiddenRows,
+                    indicators: true
+                }
+            })
+        }
+    }, [hiddenColumns, hiddenRows])
+
     // Thêm useEffect để cleanup
     useEffect(() => {
         return () => {
@@ -1489,6 +1640,29 @@ export default function AccountTracker() {
             }
         }
     }, [])
+
+    // Lấy trạng thái ẩn từ localStorage khi mount
+    useEffect(() => {
+        try {
+            const cols = localStorage.getItem('hiddenColumns');
+            const rows = localStorage.getItem('hiddenRows');
+            if (cols) setHiddenColumns(JSON.parse(cols));
+            if (rows) setHiddenRows(JSON.parse(rows));
+        } catch (e) {
+            setHiddenColumns([]);
+            setHiddenRows([]);
+        }
+        setDidInitHidden(true);
+    }, []);
+
+    // Lưu trạng thái ẩn vào localStorage khi thay đổi, chỉ khi đã init xong
+    useEffect(() => {
+        if (!didInitHidden) return;
+        try {
+            localStorage.setItem('hiddenColumns', JSON.stringify(hiddenColumns));
+            localStorage.setItem('hiddenRows', JSON.stringify(hiddenRows));
+        } catch (e) { }
+    }, [hiddenColumns, hiddenRows, didInitHidden]);
 
     return (
         <div className="min-h-screen py-6 px-4 relative">
@@ -1544,10 +1718,18 @@ export default function AccountTracker() {
                     {/* Search and Add Section */}
                     <div className="p-2 border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900">
                         <div className="flex justify-between">
-                            {/* Trong phần hiển thị status, thêm indicator cho paste */}
+                            {/* Thay thế phần hiển thị Team và số lượng khách hàng bằng thông tin ẩn cột/hàng */}
                             <div className="text-sm text-white flex items-center gap-4">
-                                <span>Team: {selectedTeam === "" ? "Tất cả Team" : selectedTeam}</span>
-                                <span>Số lượng khách hàng: {filteredData.length}</span>
+                                <span>
+                                    <b>Ẩn cột:</b> {hiddenColumns.length > 0 ? hiddenColumns.map(idx => RowHeader2[idx]).join(", ") : "Không có"}
+                                </span>
+                                <span>
+                                    <b>Ẩn hàng:</b> {hiddenRows.length > 0
+                                        ? hiddenColumns.includes(0)
+                                            ? "Đã ẩn cột Mã Mới"
+                                            : hiddenRows.map(idx => filteredData[idx]?.maMoi || idx + 1).join(", ")
+                                        : "Không có"}
+                                </span>
                                 {isPasting && (
                                     <span className="bg-yellow-500 text-yellow-900 px-2 py-1 rounded text-xs font-medium">
                                         Đang xử lý paste...
@@ -1586,7 +1768,7 @@ export default function AccountTracker() {
                         ref={hotTableRef}
                         themeName="ht-theme-main"
                         colHeaders={RowHeader2}
-                        data={filteredData}
+                        data={tableDataWithTotal}
                         width="100%"
                         autoColumnSize={true}
                         manualColumnResize={true}
@@ -1598,7 +1780,38 @@ export default function AccountTracker() {
                         className="custom-table"
                         licenseKey="non-commercial-and-evaluation"
                         rowHeaders={false}
-                        cells={cells}
+                        cells={function (this: Handsontable.CellProperties, row, col, prop) {
+                            // Hàng tổng (row === 0)
+                            if (row === 0) {
+                                return {
+                                    readOnly: true,
+                                    className: 'htMiddle htCenter bg-blue-100 font-bold',
+                                    renderer: (instance, td, row, col, prop, value, cellProperties) => {
+                                        if (prop === 'congNo') {
+                                            td.textContent = sumCongNo.toString();
+                                            td.style.background = '#FFDEDE';
+                                            td.style.fontWeight = 'bold';
+                                            td.style.color = 'red';
+                                        } else if (prop === 'tinDung') {
+                                            td.textContent = sumTinDung.toString();
+                                            td.style.background = '#FFDEDE';
+                                            td.style.fontWeight = 'bold';
+                                            td.style.color = 'red';
+                                        } else if (col === 17) {
+                                            td.textContent = 'TỔNG';
+                                            td.style.background = '#FFDEDE';
+                                            td.style.fontWeight = 'bold';
+                                            td.style.color = 'red';
+                                        } else {
+                                            td.textContent = '';
+                                            td.style.background = '#FFDEDE';
+                                        }
+                                    }
+                                }
+                            }
+                            // ... giữ nguyên cells cũ cho các hàng khác ...
+                            return cells.call(this, row - 1, col, prop);
+                        }}
                         dropdownMenu={false}
                         columnSorting={true}
                         columnHeaderHeight={30}
@@ -1606,6 +1819,16 @@ export default function AccountTracker() {
                         afterPaste={handleAfterPaste}
                         contextMenu={contextMenuItems}
                         columns={columns}
+                        hiddenColumns={{
+                            columns: hiddenColumns,
+                            indicators: true
+                        }}
+                        hiddenRows={{
+                            rows: hiddenRows,
+                            indicators: true
+                        }}
+                        fixedColumnsLeft={1}
+                        fixedRowsTop={1}
                     />
                 </div>
             </div>
