@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { PaymentService } from "@/lib/payment"
 import { prisma } from "@/lib/db"
 
 // Add dynamic route configuration
@@ -27,14 +26,6 @@ export async function POST(request: Request) {
         const body = await request.json().catch(() => ({}))
         const { type, amount, paymentMethod, wallet, customer_id = userInfo?.id, week } = body
 
-        // Tạo description theo format: username + timestamp
-        const timestamp = Date.now()
-        const description = `${userInfo?.username}-${timestamp}`
-
-        // Sử dụng PaymentService để xử lý thanh toán
-        const paymentService = PaymentService.getInstance()
-        const result = await paymentService.processPayment(userInfo?.id, amount, paymentMethod)
-
         // Kiểm tra số tiền
         if (!amount) {
             return NextResponse.json(
@@ -56,34 +47,34 @@ export async function POST(request: Request) {
             )
         }
 
-        try {
-            // Tạo giao dịch mới sử dụng Prisma
-            const newTransaction = await prisma.transactions.create({
-                data: {
-                    type,
-                    amount: amount.toString(),
-                    deposit_date: new Date(),
-                    method: paymentMethod,
-                    description,
-                    customer_id,
-                    name: userInfo?.username || "unknown",
-                    wallet,
-                    status: "Đang chờ",
-                    week: week || "1"
-                } as any
-            }) as any;
+        // Tạo description theo format: username + timestamp
+        const timestamp = Date.now()
+        const description = `${userInfo?.username}-${timestamp}`
 
-            return NextResponse.json(
-                {
-                    success: true,
-                    message: "Tạo giao dịch thành công! Giao dịch của bạn đang chờ xác nhận.",
-                    transaction: newTransaction,
-                },
-                { status: 201 },
-            )
-        } catch (error) {
-            throw error
-        }
+        // Tạo giao dịch mới sử dụng Prisma
+        const newTransaction = await prisma.transactions.create({
+            data: {
+                type,
+                amount: amount.toString(),
+                deposit_date: new Date(),
+                method: paymentMethod,
+                description,
+                customer_id,
+                name: userInfo?.username || "unknown",
+                wallet,
+                status: "Đang chờ",
+                week: week || "1"
+            } as any
+        }) as any;
+
+        return NextResponse.json(
+            {
+                success: true,
+                message: "Tạo giao dịch thành công! Giao dịch của bạn đang chờ xác nhận.",
+                transaction: newTransaction,
+            },
+            { status: 201 },
+        )
     } catch (error: any) {
         // Xử lý lỗi
         console.error("Error creating transaction:", error)
