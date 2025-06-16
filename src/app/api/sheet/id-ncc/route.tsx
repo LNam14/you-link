@@ -53,7 +53,7 @@ export async function POST(req: Request) {
 
         if (MaNCC === "NoNCC") {
             chatId = DEFAULT_CHAT_ID;
-            messageText = "Có đơn hàng nhưng thiếu NCC, vui lòng check tại https://ylink.shop/mua-ban";
+            messageText = "Có đơn hàng nhưng thiếu NCC, vui lòng check tại https://ylink.shop/gp-text";
         } else {
             const client = new google.auth.JWT(
                 keys.client_email,

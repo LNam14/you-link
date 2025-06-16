@@ -1,7 +1,6 @@
 import { google } from "googleapis";
 import keys from "../../../../../key.json";
 import { NextResponse } from "next/server";
-import { log } from "console";
 
 const SPREADSHEET_ID = "1SDvAA8pPWUl2Fi2ubFIFttS5D7rA1P-DHrHuJj9X4Z8";
 const BOT_TOKEN = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U";
@@ -54,7 +53,7 @@ export async function POST(req: Request) {
 
         if (MaKH === "NoNCC") {
             chatId = FALLBACK_CHAT_ID;
-            messageText = "Có đơn hàng nhưng thiếu KH, vui lòng check tại https://ylink.shop/mua-ban";
+            messageText = "Có đơn hàng nhưng thiếu KH, vui lòng check tại https://ylink.shop/gp-text";
         } else {
             const client = new google.auth.JWT(keys.client_email, undefined, keys.private_key, [
                 "https://www.googleapis.com/auth/spreadsheets",
@@ -74,7 +73,7 @@ export async function POST(req: Request) {
                 messageText = `Thiếu ID Group của KH ${MaKH}`;
             } else {
                 chatId = matchedKH.IdGroup;
-                messageText = message || `Bài đã được đăng, vui lòng check tại https://ylink.shop/mua-ban`;
+                messageText = message || `Bài đã được đăng, vui lòng check tại https://ylink.shop/gp-text`;
             }
         }
 

@@ -1,4 +1,4 @@
-import executeQuery from "@/app/db/db"
+import { prisma } from "@/lib/db"
 import { NextResponse } from "next/server"
 // Add dynamic route configuration
 export const dynamic = 'force-dynamic';
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
             4: "position",
             5: "created_at",
             6: "updated_at",
-            7: "status",
+            7: "active",
             8: "team",
         }
 
@@ -42,26 +42,21 @@ export async function POST(request: Request) {
             )
         }
 
-        // Update the account
-        const query = `UPDATE account SET ${columnName} = $1 WHERE id = $2 RETURNING *`
-        const result = await executeQuery(query, [value, id])
+        // Build update data object
+        const updateData: any = {}
+        updateData[columnName] = value
 
-        // Check if any rows were affected
-        if (!Array.isArray(result) || result.length === 0) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "Username đã tồn tại!",
-                },
-                { status: 404 },
-            )
-        }
+        // Update the account using Prisma
+        const updatedAccount = await prisma.account.update({
+            where: { id },
+            data: updateData,
+        })
 
         return NextResponse.json(
             {
                 success: true,
                 message: "Account updated successfully",
-                data: result[0],
+                data: updatedAccount,
             },
             { status: 200 },
         )
@@ -69,7 +64,7 @@ export async function POST(request: Request) {
         console.error("Error updating account:", error)
 
         // Check for duplicate username error
-        if (error.message && error.message.includes("account_username_key")) {
+        if (error.code === 'P2002' && error.meta?.target?.includes('username')) {
             return NextResponse.json(
                 {
                     success: false,

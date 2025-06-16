@@ -137,9 +137,13 @@ export default function AccountTracker() {
         }
     }
 
+    const fetchedRef = useRef(false);
+
     useEffect(() => {
-        fetchAccountData()
-    }, [])
+        if (fetchedRef.current) return;
+        fetchedRef.current = true;
+        fetchAccountData();
+    }, []);
 
     // Dynamic headers based on role
     const getHeaders = () => {

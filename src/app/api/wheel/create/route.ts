@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import moment from "moment-timezone"
 // Add dynamic route configuration
 export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
   try {
     const { username, reward } = await request.json()
     
-    // Get current date in Vietnam timezone (UTC+7)
-    const vietnamDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }))
+    // Get current date in Vietnam timezone (Asia/Ho_Chi_Minh) and format as string
+    const formattedDate = moment().tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD")
 
     if (!username || !reward) {
       return NextResponse.json({ error: "Username and reward are required" }, { status: 400 })
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
       data: {
         username,
         reward,
-        date: vietnamDate
+        date: formattedDate
       }
     })
 
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
       id: result.id,
       username: result.username,
       reward: result.reward,
-      date: new Date(result.date!).toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }),
+      date: formattedDate
     }
 
     return NextResponse.json(formattedData, { status: 201 })

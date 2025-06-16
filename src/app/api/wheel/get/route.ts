@@ -13,29 +13,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { username, role } = JSON.parse(userInfo.value)
+    const { username } = JSON.parse(userInfo.value)
 
     if (!username) {
       return NextResponse.json({ error: "Username not found" }, { status: 400 })
     }
 
-    let wheelRecords;
-    if (role === "Admin") {
-      wheelRecords = await prisma.wheel.findMany({
-        orderBy: {
-          date: 'desc'
-        }
-      });
-    } else {
-      wheelRecords = await prisma.wheel.findMany({
-        where: {
-          username: username
-        },
-        orderBy: {
-          date: 'desc'
-        }
-      });
-    }
+    // Get all wheel records regardless of role
+    const wheelRecords = await prisma.wheel.findMany({
+      orderBy: {
+        date: 'desc'
+      }
+    });
 
     // Format the data
     const formattedData = wheelRecords.map((record) => ({

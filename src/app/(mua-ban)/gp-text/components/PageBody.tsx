@@ -12,15 +12,14 @@ import getUserInfo from "@/components/userInfo"
 import { database } from "@/app/firebase/firebase"
 import { Modal, Button, message as antdMessage } from "antd"
 import HelpButton from "./HelpButton"
-import { updateUserBalance } from "@/app/firebase/firebase"
-import { FilterX, SearchX } from "lucide-react"
-import { CheckCircle } from "lucide-react"
-import { FileClock } from "lucide-react"
-import { XCircle } from "lucide-react"
+import { toast } from "sonner"
 // import sheetApiRequest from "@/apiRequests/sheet"
 
 type PageBodyProps = {
-    supplierName: string | null
+    supplierName: string | null,
+    orderIndex?: number,
+    onOrderUpdate?: () => void, // Add callback prop
+    order?: any[] // Add order prop
 }
 // register Handsontable's modules
 registerAllModules()
@@ -58,17 +57,6 @@ const RowHeader2: ColumnHeader[] = [
     "NCC",
     "Trao đổi",
 ]
-
-// Add type definitions for renderer function
-type RendererFunction = (
-    instance: Handsontable,
-    td: HTMLTableCellElement,
-    row: number,
-    col: number,
-    prop: string | number,
-    value: string,
-    cellProperties: Handsontable.CellProperties,
-) => void
 
 // Add column settings
 const columnSettings: Record<string, any> = {
@@ -244,6 +232,7 @@ const ChatDialog = memo(
         role,
         supplierName,
         user,
+        orderIndex,
     }: {
         chatDialogOpen: boolean
         setChatDialogOpen: (open: boolean) => void
@@ -255,6 +244,7 @@ const ChatDialog = memo(
         role: string
         supplierName: string | null
         user: any
+        orderIndex: number | undefined
     }) => {
         const [isReported, setIsReported] = useState(false)
         const [isComplaintOpen, setIsComplaintOpen] = useState(false)
@@ -275,7 +265,7 @@ const ChatDialog = memo(
         // Load order data when chat dialog opens
         useEffect(() => {
             if (currentChatOrderId) {
-                const ordersRef = ref(database, "orders")
+                const ordersRef = ref(database, `orders/${orderIndex}/ChiTietDonHang`)
                 onValue(ordersRef, (snapshot) => {
                     if (snapshot.exists()) {
                         const ordersData = snapshot.val()
@@ -329,7 +319,7 @@ const ChatDialog = memo(
             if (!currentChatOrderId) return
 
             try {
-                const ordersRef = ref(database, "orders")
+                const ordersRef = ref(database, `orders/${orderIndex}/ChiTietDonHang`)
                 const snapshot = await get(ordersRef)
 
                 if (snapshot.exists()) {
@@ -402,10 +392,9 @@ const ChatDialog = memo(
                                 updatedOrder.paymentStatus === "paid" &&
                                 updatedOrder.paymentStatus1 !== "refunded"
                             ) {
-                                await updateUserBalance(updatedOrder.KHMua, refundAmount, updatedOrder.TenNCC)
                                 updatedOrder.paymentStatus1 = "refunded"
                                 // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã đồng ý hoàn ${refundAmount}$ cho đơn hàng ${updatedOrder.MaDon}, số tiền trên đã được trừ khỏi ví của bạn`)
-                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được hoàn tiền, số tiền ${refundAmount}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
+                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được hoàn tiền, số tiền ${refundAmount}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text `)
                             }
                         } else {
                             updatedOrder.TinhTrangNCC = "Từ chối hoàn"
@@ -454,7 +443,7 @@ const ChatDialog = memo(
                 isComplaint: true,
                 complaintStatus: "pending",
             }
-            // sheetApiRequest.getIDNCC(currentOrder.TenNCC, `Khách hàng yêu cầu hoàn tiền đối với trường hợp ${option} cho đơn hàng ${currentChatOrderId}, kiểm tra tại https://www.ylink.shop/mua-ban`)
+            // sheetApiRequest.getIDNCC(currentOrder.TenNCC, `Khách hàng yêu cầu hoàn tiền đối với trường hợp ${option} cho đơn hàng ${currentChatOrderId}, kiểm tra tại https://www.ylink.shop/gp-text`)
             // sheetApiRequest.getIDKH(currentOrder.TenKH, `Yêu cầu hoàn tiền đối với trường hợp ${option} cho đơn hàng ${currentChatOrderId} đã được gửi`)
             if (role === "NCC") {
                 message.supplierName = supplierName || user?.name || user?.displayName || ""
@@ -462,7 +451,7 @@ const ChatDialog = memo(
                 message.name = user?.username || user?.name || user?.displayName || ""
             }
             try {
-                const ordersRef = ref(database, "orders")
+                const ordersRef = ref(database, `orders/${orderIndex}/ChiTietDonHang`)
                 const snapshot = await get(ordersRef)
 
                 if (snapshot.exists()) {
@@ -649,7 +638,7 @@ const ChatDialog = memo(
 
 ChatDialog.displayName = "ChatDialog"
 
-export default function PageBody({ supplierName }: PageBodyProps) {
+export default function PageBody({ supplierName, orderIndex, onOrderUpdate, order }: PageBodyProps) {
     const [orders, setOrders] = useState<any[]>([])
     const [orderKeys, setOrderKeys] = useState<string[]>([])
     const userInfo = getUserInfo()
@@ -657,17 +646,80 @@ export default function PageBody({ supplierName }: PageBodyProps) {
     const [currentChatOrderId, setCurrentChatOrderId] = useState<string | null>(null)
     const [currentChatMessages, setCurrentChatMessages] = useState<ChatMessage[]>([])
     const [newChatMessage, setNewChatMessage] = useState("")
-    const [khMuaIB, setKhMuaIB] = useState<string>("")
-    const [tenNBIB, setTenNBIB] = useState<string>("")
     const [selectedOrder, setSelectedOrder] = useState<any>(null)
     const [maKHFilter, setMaKHFilter] = useState<string>("")
     const [tenNCCFilter, setTenNCCFilter] = useState<string>("")
     const [uniqueMaKHList, setUniqueMaKHList] = useState<string[]>([])
     const [uniqueTenNCCList, setUniqueTenNCCList] = useState<string[]>([])
-    const [totalCompleted, setTotalCompleted] = useState<number>(0)
-    const [totalNotEntered, setTotalNotEntered] = useState<number>(0)
-    const [totalCanceled, setTotalCanceled] = useState<number>(0)
-    const [totalNotIndexed, setTotalNotIndexed] = useState<number>(0)
+
+    const updateOrderSummary = useCallback(async () => {
+        if (orderIndex === undefined) return
+
+        try {
+            const orderRef = ref(database, `orders/${orderIndex}`)
+            const snapshot = await get(orderRef)
+
+            if (snapshot.exists()) {
+                const orderData = snapshot.val()
+
+                if (!orderData.ChiTietDonHang || !Array.isArray(orderData.ChiTietDonHang)) {
+                    return
+                }
+
+                let totalUSDT = 0
+                let totalGiaMua = 0
+
+                orderData.ChiTietDonHang.forEach((detail: any) => {
+                    // Skip canceled orders
+                    const isCanceled =
+                        detail.TinhTrangKH?.includes("Hủy") ||
+                        detail.TinhTrangNCC === "Hủy đơn" ||
+                        detail.TinhTrangNCC === "Đồng ý hủy"
+
+                    if (!isCanceled) {
+                        const giaBan =
+                            Number(
+                                detail.Loai === "GP"
+                                    ? detail.GiaBanGP
+                                    : detail.Loai === "Text"
+                                        ? detail.GiaBanText
+                                        : detail.Loai === "TextHome"
+                                            ? detail.GiaBanTextHome
+                                            : detail.GiaBanTextHeader,
+                            ) || 0
+
+                        const giaMua =
+                            Number(
+                                detail.Loai === "GP"
+                                    ? detail.GiaMuaGP
+                                    : detail.Loai === "Text"
+                                        ? detail.GiaMuaText
+                                        : detail.Loai === "TextHome"
+                                            ? detail.GiaMuaTextHome
+                                            : detail.GiaMuaTextHeader,
+                            ) || 0
+
+                        totalUSDT += giaBan
+                        totalGiaMua += giaMua
+                    }
+                })
+
+                // Update the main order summary
+                await update(orderRef, {
+                    USDT: totalUSDT,
+                    GiaMua: totalGiaMua,
+                    LoiNhuan: totalUSDT - totalGiaMua,
+                })
+
+                // Call the callback to notify parent component
+                if (onOrderUpdate) {
+                    onOrderUpdate()
+                }
+            }
+        } catch (error) {
+            console.error("Error updating order summary:", error)
+        }
+    }, [orderIndex, onOrderUpdate])
 
     // Add function to extract MaKH from MaDon
     const extractMaKH = (maDon: string) => {
@@ -706,11 +758,6 @@ export default function PageBody({ supplierName }: PageBodyProps) {
             order.TinhTrangKH === "Đã nhập" &&
             order.TinhTrangNCC === "Đã lên bài"
         ).length;
-
-        setTotalCompleted(completed);
-        setTotalNotEntered(notEntered);
-        setTotalCanceled(canceled);
-        setTotalNotIndexed(notIndexed);
     }, [orders]);
 
     // Filter orders based on filters
@@ -748,7 +795,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
         const orderKey = orderKeys[orderIndex]
         if (!orderKey) return
 
-        const orderRef = ref(database, `orders/${orderKey}`)
+        const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`)
         const updatedOrder = { ...orders[orderIndex] }
 
         if (action === "ok") {
@@ -763,7 +810,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                     updatedOrder.TinhTrangKH = "Hủy - no index"
                 } else if (updatedOrder.Index === "Indexed") {
                     updatedOrder.TinhTrangKH = "Hủy - đã index"
-                    // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Khách hàng đang yêu cầu hủy đơn ${updatedOrder.MaDon}, xử lý tại https://www.ylink.shop/mua-ban`)
+                    // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Khách hàng đang yêu cầu hủy đơn ${updatedOrder.MaDon}, xử lý tại https://www.ylink.shop/gp-text`)
                     // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn hàng ${updatedOrder.MaDon} đã được gửi, vui lòng chờ phản hồi`)
                 }
             } else {
@@ -789,13 +836,12 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                             ? updatedOrder.GiaBanTextHome || 0
                                             : updatedOrder.GiaBanTextHeader || 0,
                             )
-                            await updateUserBalance(updatedOrder.KHMua, price, updatedOrder.TenNCC)
                             updatedOrder.paymentStatus1 = "refunded"
-                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Khách hàng đã hủy đơn ${updatedOrder.MaDon}, đây là đơn hàng ${updatedOrder.Loai} và được yêu cầu hủy trước 12h. Hệ thống đã tự động phê duyệt yêu cầu, số tiền ${price}$ đã bị trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
-                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được hủy thành công, số tiền ${price}$ đã được cộng vào vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Khách hàng đã hủy đơn ${updatedOrder.MaDon}, đây là đơn hàng ${updatedOrder.Loai} và được yêu cầu hủy trước 12h. Hệ thống đã tự động phê duyệt yêu cầu, số tiền ${price}$ đã bị trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
+                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được hủy thành công, số tiền ${price}$ đã được cộng vào vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
                         } else {
                             updatedOrder.TinhTrangKH = "Hủy - đã lên bài"
-                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Khách hàng đang yêu cầu hủy đơn ${updatedOrder.MaDon}, xử lý tại https://www.ylink.shop/mua-ban`)
+                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Khách hàng đang yêu cầu hủy đơn ${updatedOrder.MaDon}, xử lý tại https://www.ylink.shop/gp-text`)
                             // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn hàng ${updatedOrder.MaDon} đã được gửi, vui lòng chờ phản hồi`)
                         }
                     }
@@ -825,49 +871,9 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                 ? updatedOrder.GiaBanTextHome || 0
                                 : updatedOrder.GiaBanTextHeader || 0,
                 )
-
-                // Deduct from customer's pendingAmount and add to money
-                const customerPendingRef = ref(database, `pendingAmount/${updatedOrder.KHMua}`);
-                const customerMoneyRef = ref(database, `money/${updatedOrder.KHMua}`);
-                const supplierMoneyRef = ref(database, `money/${updatedOrder.TenNCC}`);
-
-                // Get current balances
-                const [customerPendingSnapshot, customerMoneySnapshot, supplierMoneySnapshot] = await Promise.all([
-                    get(customerPendingRef),
-                    get(customerMoneyRef),
-                    get(supplierMoneyRef)
-                ]);
-
-                let customerPendingAmount = 0;
-                let customerMoneyAmount = 0;
-                let supplierMoneyAmount = 0;
-
-                if (customerPendingSnapshot.exists()) {
-                    customerPendingAmount = customerPendingSnapshot.val().amount || 0;
-                }
-                if (customerMoneySnapshot.exists()) {
-                    customerMoneyAmount = customerMoneySnapshot.val().amount || 0;
-                }
-                if (supplierMoneySnapshot.exists()) {
-                    supplierMoneyAmount = supplierMoneySnapshot.val().amount || 0;
-                }
-
-                // Update balances
-                await Promise.all([
-                    update(customerPendingRef, { amount: customerPendingAmount - price }),
-                    update(customerMoneyRef, {
-                        amount: customerMoneyAmount + price,
-                        pendingAmount: customerMoneySnapshot.val()?.pendingAmount || 0,
-                        doneAmount: customerMoneySnapshot.val()?.doneAmount || 0
-                    }),
-                    update(supplierMoneyRef, {
-                        amount: supplierMoneyAmount + price
-                    })
-                ]);
-
                 updatedOrder.paymentStatus = "paid"
-                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
-                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
+                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
             }
         } else if (action === "ncc_accept_cancel") {
             updatedOrder.TinhTrangNCC = "Đồng ý hủy"
@@ -880,10 +886,9 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                             ? updatedOrder.GiaBanTextHome || 0
                             : updatedOrder.GiaBanTextHeader || 0,
             )
-            await updateUserBalance(updatedOrder.KHMua, price, updatedOrder.TenNCC)
             updatedOrder.paymentStatus1 = "refunded"
-            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã đồng ý yêu cầu hủy đơn ${updatedOrder.MaDon}, số tiền ${price}$ đã bị trừ khỏi vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
-            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn ${updatedOrder.MaDon} thành công, số tiền ${price}$ đã được cộng vào vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã đồng ý yêu cầu hủy đơn ${updatedOrder.MaDon}, số tiền ${price}$ đã bị trừ khỏi vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
+            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn ${updatedOrder.MaDon} thành công, số tiền ${price}$ đã được cộng vào vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
         } else if (action === "ncc_reject_cancel") {
             updatedOrder.TinhTrangNCC = "Từ chối hủy"
             // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã từ chối yêu cầu hủy đơn ${updatedOrder.MaDon}`)
@@ -891,7 +896,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
         }
 
         // Update the order in Firebase
-        set(orderRef, updatedOrder)
+        update(orderRef, updatedOrder)
             .then(() => {
                 console.log(`Successfully updated order status for ${orderCode}`)
             })
@@ -1154,28 +1159,13 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                 }
                 : undefined
 
+    // Load orders data
     useEffect(() => {
-        const ordersRef = ref(database, "orders")
-        onValue(ordersRef, (snapshot) => {
-            const data = snapshot.val()
-            if (data) {
-                const ordersArray = Object.values(data)
-                const keysArray = Object.keys(data)
-
-                // Filter orders based on user role
-                const filteredOrders = ordersArray.filter((order: any) => {
-                    if (userInfo?.role === "Khách hàng") {
-                        return order.TenKH === userInfo.username
-                    } else if (userInfo?.role === "NCC") {
-                        return order.TenNCC === userInfo.username
-                    }
-                    return true // Admin can see all orders
-                })
-                setOrders(filteredOrders)
-                setOrderKeys(keysArray.slice(0, filteredOrders.length))
-            }
-        })
-    }, [userInfo?.role, userInfo?.username])
+        if (order) {
+            setOrders(order)
+            setOrderKeys(order.map((_, index) => index.toString()))
+        }
+    }, [order])
 
     const checkOrderStatus = useCallback((order: any) => {
         if (!order.NgayOrder || !order.BaiViet) return order.TinhTrangNCC
@@ -1201,7 +1191,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                 if (orderKey) {
                     const newStatus = checkOrderStatus(order)
                     if (newStatus !== order.TinhTrangNCC) {
-                        const orderRef = ref(database, `orders/${orderKey}`)
+                        const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`)
                         set(orderRef, { ...order, TinhTrangNCC: newStatus })
                     }
 
@@ -1221,7 +1211,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                         const daysDiff = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24))
 
                         if (daysDiff >= 14) {
-                            const orderRef = ref(database, `orders/${orderKey}`)
+                            const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`)
                             set(orderRef, { ...order, TinhTrangKH: "Hủy - 14 ngày không index" })
                         }
                     }
@@ -1242,7 +1232,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                         const daysDiff = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24))
 
                         if (daysDiff >= 14) {
-                            const orderRef = ref(database, `orders/${orderKey}`)
+                            const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`)
                             set(orderRef, { ...order, TinhTrangKH: "Hủy - 14 ngày chưa index" })
                         }
                     }
@@ -1356,7 +1346,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                 const month = String(now.getMonth() + 1).padStart(2, "0")
                                 const year = now.getFullYear()
                                 updatedOrder.NgayOrder = `${day}/${month}/${year}`
-                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/mua-ban để xử lý đơn hàng ${updatedOrder.MaDon}`)
+                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/gp-text để xử lý đơn hàng ${updatedOrder.MaDon}`)
                             } else {
                                 updatedOrder.TinhTrangKH = "Chưa nhập"
                             }
@@ -1371,7 +1361,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                 const day = String(now.getDate()).padStart(2, "0")
                                 const month = String(now.getMonth() + 1).padStart(2, "0")
                                 updatedOrder.NgayBan = `${day}/${month}`
-                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, kiểm tra tại https://www.ylink.shop/gp-text`)
                             } else {
                                 updatedOrder.TinhTrangNCC = "Chưa nhận đơn"
                                 updatedOrder.NgayBan = ""
@@ -1393,7 +1383,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                         if (updatedOrder.Loai !== "GP") {
                             if (updatedOrder.Anchor1 && updatedOrder.Link1) {
                                 updatedOrder.TinhTrangKH = "Đã nhập"
-                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/mua-ban để xử lý đơn hàng ${updatedOrder.MaDon}`)
+                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/gp-text để xử lý đơn hàng ${updatedOrder.MaDon}`)
                             } else {
                                 updatedOrder.TinhTrangKH = "Chưa nhập"
                             }
@@ -1443,10 +1433,9 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                                 ? updatedOrder.GiaBanTextHome || 0
                                                 : updatedOrder.GiaBanTextHeader || 0,
                                 )
-                                await updateUserBalance(updatedOrder.KHMua, -price, updatedOrder.TenNCC)
                                 updatedOrder.paymentStatus = "paid"
-                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
-                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
+                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text `)
+                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text `)
                             }
                         } else if (updatedOrder.Index === "Indexed" && newValue !== "Indexed") {
                             // Only process refund if payment was previously processed
@@ -1461,7 +1450,6 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                                 ? updatedOrder.GiaBanTextHome || 0
                                                 : updatedOrder.GiaBanTextHeader || 0,
                                 )
-                                await updateUserBalance(updatedOrder.KHMua, price, updatedOrder.TenNCC)
                                 updatedOrder.paymentStatus1 = "refunded"
                             }
                         }
@@ -1496,57 +1484,17 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                                 ? updatedOrder.GiaBanTextHome || 0
                                                 : updatedOrder.GiaBanTextHeader || 0,
                                 )
-
-                                // Deduct from customer's pendingAmount and add to money
-                                const customerPendingRef = ref(database, `pendingAmount/${updatedOrder.KHMua}`);
-                                const customerMoneyRef = ref(database, `money/${updatedOrder.KHMua}`);
-                                const supplierMoneyRef = ref(database, `money/${updatedOrder.TenNCC}`);
-
-                                // Get current balances
-                                const [customerPendingSnapshot, customerMoneySnapshot, supplierMoneySnapshot] = await Promise.all([
-                                    get(customerPendingRef),
-                                    get(customerMoneyRef),
-                                    get(supplierMoneyRef)
-                                ]);
-
-                                let customerPendingAmount = 0;
-                                let customerMoneyAmount = 0;
-                                let supplierMoneyAmount = 0;
-
-                                if (customerPendingSnapshot.exists()) {
-                                    customerPendingAmount = customerPendingSnapshot.val().amount || 0;
-                                }
-                                if (customerMoneySnapshot.exists()) {
-                                    customerMoneyAmount = customerMoneySnapshot.val().amount || 0;
-                                }
-                                if (supplierMoneySnapshot.exists()) {
-                                    supplierMoneyAmount = supplierMoneySnapshot.val().amount || 0;
-                                }
-
-                                // Update balances
-                                await Promise.all([
-                                    update(customerPendingRef, { amount: customerPendingAmount - price }),
-                                    update(customerMoneyRef, {
-                                        amount: customerMoneyAmount + price,
-                                        pendingAmount: customerMoneySnapshot.val()?.pendingAmount || 0,
-                                        doneAmount: customerMoneySnapshot.val()?.doneAmount || 0
-                                    }),
-                                    update(supplierMoneyRef, {
-                                        amount: supplierMoneyAmount + price
-                                    })
-                                ]);
-
                                 updatedOrder.paymentStatus = "paid"
-                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
-                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
+                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
                             }
                         }
                         break
                 }
 
                 // Update the order in Firebase
-                const orderRef = ref(database, `orders/${orderKey}`)
-                set(orderRef, updatedOrder)
+                const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`)
+                update(orderRef, updatedOrder)
                     .then(() => {
                         console.log(`Successfully updated order ${orderCode}`)
                     })
@@ -1912,7 +1860,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
 
                         // Update Status to "Đã hoàn thành" for weekly orders
                         if (order.Status !== "Đã hoàn thành") {
-                            const orderRef = ref(database, `orders/${orderKeys[orders.findIndex((o) => o.MaDon === order.MaDon)]}`)
+                            const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKeys[orders.findIndex((o) => o.MaDon === order.MaDon)]}`)
                             set(orderRef, { ...order, Status: "Đã hoàn thành" })
                         }
 
@@ -2377,7 +2325,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
     useEffect(() => {
         if (!currentChatOrderId) return
 
-        const ordersRef = ref(database, "orders")
+        const ordersRef = ref(database, `orders/${orderIndex}/ChiTietDonHang`)
 
         const onOrdersChange = (snapshot: any) => {
             if (snapshot.exists()) {
@@ -2435,7 +2383,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
 
         try {
             // Get the current orders array
-            const ordersRef = ref(database, "orders")
+            const ordersRef = ref(database, `orders/${orderIndex}/ChiTietDonHang`)
             const snapshot = await get(ordersRef)
 
             if (snapshot.exists()) {
@@ -2471,7 +2419,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                         // sheetApiRequest.getIDKH(updatedOrder.TenKH, `NCC đơn ${currentChatOrderId} - ` + newChatMessage.trim())
                     }
                     // Save the updated orders array back to Firebase
-                    await set(ordersRef, ordersArray)
+                    await update(ordersRef, ordersArray)
                     setNewChatMessage("")
 
 
@@ -2532,9 +2480,6 @@ export default function PageBody({ supplierName }: PageBodyProps) {
 
             // Add a click event listener to open the chat dialog
             button.addEventListener("click", () => {
-                // Set KH and NCC information
-                setKhMuaIB(fullRowData[23])
-                setTenNBIB(fullRowData[21])
 
                 // Find the order in the orders array
                 const order = orders.find((o) => o.MaDon === orderCode)
@@ -2569,101 +2514,6 @@ export default function PageBody({ supplierName }: PageBodyProps) {
 
     return (
         <>
-            {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
-                <div className="p-2">
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
-                        {/* Thống kê */}
-                        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                            <div className="bg-green-50 border border-green-200 rounded-2xl shadow hover:shadow-md transition-all">
-                                <div className="flex items-center text-green-700 mt-2 justify-center">
-                                    <CheckCircle className="w-5 h-5 mr-2" />
-                                    <span className="text-sm font-semibold">Đơn hoàn thành</span>
-                                </div>
-                                <div className="text-2xl text-center font-bold text-green-600">{totalCompleted}</div>
-                            </div>
-                            <div className="bg-purple-50 border border-purple-200 rounded-2xl shadow hover:shadow-md transition-all">
-                                <div className="flex items-center text-purple-700 mt-2 justify-center">
-                                    <SearchX className="w-5 h-5 mr-2" />
-                                    <span className="text-sm font-semibold">Đơn chưa Index</span>
-                                </div>
-                                <div className="text-2xl text-center font-bold text-purple-600">{totalNotIndexed}</div>
-                            </div>
-                            <div className="bg-orange-50 border border-orange-200 rounded-2xl shadow hover:shadow-md transition-all">
-                                <div className="flex items-center text-orange-700 mt-2 justify-center">
-                                    <FileClock className="w-5 h-5 mr-2" />
-                                    <span className="text-sm font-semibold">Đơn chưa nhập</span>
-                                </div>
-                                <div className="text-2xl text-center font-bold text-orange-600">{totalNotEntered}</div>
-                            </div>
-                            <div className="bg-red-50 border border-red-200 rounded-2xl shadow hover:shadow-md transition-all">
-                                <div className="flex items-center text-red-700 mt-2 justify-center">
-                                    <XCircle className="w-5 h-5 mr-2" />
-                                    <span className="text-sm font-semibold">Đơn hủy</span>
-                                </div>
-                                <div className="text-2xl text-center font-bold text-red-600">{totalCanceled}</div>
-                            </div>
-                        </div>
-
-                        {/* Bộ lọc */}
-                        <div className="lg:col-span-2 space-y-6">
-                            <div className="flex flex-col md:flex-row gap-6">
-                                <div className="flex-1">
-                                    <label htmlFor="maKHFilter" className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Lọc theo Mã KH
-                                    </label>
-                                    <select
-                                        id="maKHFilter"
-                                        value={maKHFilter}
-                                        onChange={(e) => setMaKHFilter(e.target.value)}
-                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-                                    >
-                                        <option value="">Tất cả</option>
-                                        {uniqueMaKHList.map((maKH) => (
-                                            <option key={maKH} value={maKH}>{maKH}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="flex-1">
-                                    <label htmlFor="tenNCCFilter" className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Lọc theo Tên NCC
-                                    </label>
-                                    <select
-                                        id="tenNCCFilter"
-                                        value={tenNCCFilter}
-                                        onChange={(e) => setTenNCCFilter(e.target.value)}
-                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-                                    >
-                                        <option value="">Tất cả</option>
-                                        {uniqueTenNCCList.map((tenNCC) => (
-                                            <option key={tenNCC} value={tenNCC}>{tenNCC}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="flex-1">
-                                    <label htmlFor="tenNCCFilter" className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Hành động
-                                    </label>
-                                    <button
-                                        onClick={() => {
-                                            setMaKHFilter("");
-                                            setTenNCCFilter("");
-                                        }}
-                                        disabled={!maKHFilter && !tenNCCFilter}
-                                        className={`inline-flex items-center px-5 py-2.5 text-sm font-medium text-white rounded-xl transition shadow ${!maKHFilter && !tenNCCFilter
-                                            ? 'bg-gray-400 cursor-not-allowed'
-                                            : 'bg-red-500 hover:bg-red-600'
-                                            }`}
-                                    >
-                                        <FilterX className="w-4 h-4 mr-2" />
-                                        Xóa bộ lọc
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
             <HotTable
                 themeName="ht-theme-main"
                 colHeaders={RowHeader2}
@@ -2700,6 +2550,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
 
                     // Create a copy of the current data
                     const newData = [...data];
+                    const updates: { [key: string]: any } = {};
 
                     // Process each row of pasted data
                     pastedData.forEach((row, rowIndex) => {
@@ -2728,7 +2579,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                         if (!orderKey) return;
 
                         // Process each column in the row
-                        row.forEach(async (value, colIndex) => {
+                        row.forEach((value, colIndex) => {
                             const columnName = RowHeader2[startCol + colIndex];
                             if (!columnName) return;
 
@@ -2806,7 +2657,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                             const month = String(now.getMonth() + 1).padStart(2, "0");
                                             const year = now.getFullYear();
                                             updatedOrder.NgayOrder = `${day}/${month}/${year}`;
-                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/mua-ban để xử lý đơn hàng ${updatedOrder.MaDon}`)
+                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/gp-text để xử lý đơn hàng ${updatedOrder.MaDon}`)
                                         } else {
                                             updatedOrder.TinhTrangKH = "Chưa nhập";
                                         }
@@ -2821,7 +2672,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                             const day = String(now.getDate()).padStart(2, "0");
                                             const month = String(now.getMonth() + 1).padStart(2, "0");
                                             updatedOrder.NgayBan = `${day}/${month}`;
-                                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, kiểm tra tại https://www.ylink.shop/gp-text`)
                                         } else {
                                             updatedOrder.TinhTrangNCC = "Chưa nhận đơn";
                                             updatedOrder.NgayBan = "";
@@ -2843,7 +2694,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                     if (updatedOrder.Loai !== "GP") {
                                         if (updatedOrder.Anchor1 && updatedOrder.Link1) {
                                             updatedOrder.TinhTrangKH = "Đã nhập";
-                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/mua-ban để xử lý đơn hàng ${updatedOrder.MaDon}`)
+                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/gp-text để xử lý đơn hàng ${updatedOrder.MaDon}`)
                                         } else {
                                             updatedOrder.TinhTrangKH = "Chưa nhập";
                                         }
@@ -2893,10 +2744,9 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                                             ? updatedOrder.GiaBanTextHome || 0
                                                             : updatedOrder.GiaBanTextHeader || 0,
                                             );
-                                            updateUserBalance(updatedOrder.KHMua, -price, updatedOrder.TenNCC);
                                             updatedOrder.paymentStatus = "paid";
-                                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
-                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban `)
+                                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text `)
+                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text `)
                                         }
                                     } else if (updatedOrder.Index === "Indexed" && value !== "Indexed") {
                                         // Only process refund if payment was previously processed
@@ -2911,7 +2761,6 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                                             ? updatedOrder.GiaBanTextHome || 0
                                                             : updatedOrder.GiaBanTextHeader || 0,
                                             );
-                                            updateUserBalance(updatedOrder.KHMua, price, updatedOrder.TenNCC)
                                             updatedOrder.paymentStatus1 = "refunded"
                                         }
                                     }
@@ -2947,64 +2796,31 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                                                             : updatedOrder.GiaBanTextHeader || 0,
                                             )
 
-                                            // Deduct from customer's pendingAmount and add to money
-                                            const customerPendingRef = ref(database, `pendingAmount/${updatedOrder.KHMua}`);
-                                            const customerMoneyRef = ref(database, `money/${updatedOrder.KHMua}`);
-                                            const supplierMoneyRef = ref(database, `money/${updatedOrder.TenNCC}`);
-
-                                            // Get current balances
-                                            const [customerPendingSnapshot, customerMoneySnapshot, supplierMoneySnapshot] = await Promise.all([
-                                                get(customerPendingRef),
-                                                get(customerMoneyRef),
-                                                get(supplierMoneyRef)
-                                            ]);
-
-                                            let customerPendingAmount = 0;
-                                            let customerMoneyAmount = 0;
-                                            let supplierMoneyAmount = 0;
-
-                                            if (customerPendingSnapshot.exists()) {
-                                                customerPendingAmount = customerPendingSnapshot.val().amount || 0;
-                                            }
-                                            if (customerMoneySnapshot.exists()) {
-                                                customerMoneyAmount = customerMoneySnapshot.val().amount || 0;
-                                            }
-                                            if (supplierMoneySnapshot.exists()) {
-                                                supplierMoneyAmount = supplierMoneySnapshot.val().amount || 0;
-                                            }
-
-                                            // Update balances
-                                            await Promise.all([
-                                                update(customerPendingRef, { amount: customerPendingAmount - price }),
-                                                update(customerMoneyRef, {
-                                                    amount: customerMoneyAmount + price,
-                                                    pendingAmount: customerMoneySnapshot.val()?.pendingAmount || 0,
-                                                    doneAmount: customerMoneySnapshot.val()?.doneAmount || 0
-                                                }),
-                                                update(supplierMoneyRef, {
-                                                    amount: supplierMoneyAmount + price
-                                                })
-                                            ]);
-
                                             updatedOrder.paymentStatus = "paid"
-                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
-                                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/mua-ban`)
+                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
+                                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
                                         }
                                     }
                                     break;
                             }
 
-                            // Update the order in Firebase
-                            const orderRef = ref(database, `orders/${orderKey}`);
-                            set(orderRef, updatedOrder)
-                                .then(() => {
-                                    console.log(`Successfully updated order ${orderCode}`);
-                                })
-                                .catch((error) => {
-                                    console.error(`Error updating order ${orderCode}:`, error);
-                                });
+                            // Store the updated order in the updates object
+                            updates[orderKey] = updatedOrder;
                         });
                     });
+
+                    // Save all updates to Firebase
+                    if (Object.keys(updates).length > 0) {
+                        const ordersRef = ref(database, `orders/${orderIndex}/ChiTietDonHang`);
+                        update(ordersRef, updates)
+                            .then(() => {
+                                toast.success("Đã cập nhật dữ liệu thành công");
+                            })
+                            .catch((error) => {
+                                console.error("Error updating data:", error);
+                                toast.error("Không thể cập nhật dữ liệu");
+                            });
+                    }
                 }}
                 contextMenu={contextMenuItems}
                 columns={RowHeader2.map((header, index) => {
@@ -3177,6 +2993,7 @@ export default function PageBody({ supplierName }: PageBodyProps) {
                 role={userInfo?.role}
                 supplierName={supplierName}
                 user={userInfo}
+                orderIndex={orderIndex}
             />
             <HelpButton userRole={userInfo?.role} currentOrder={selectedOrder} />
         </>

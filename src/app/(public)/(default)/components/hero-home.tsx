@@ -323,7 +323,7 @@ export default function HeroHome() {
               </p>
               <div className="flex gap-4 text-sm">
                 <Link
-                  href="/mua-ban"
+                  href="/gp-text"
                   target="_blank"
                   className="group inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700 text-white font-medium rounded-full px-8 py-3.5 shadow-lg hover:shadow-xl transition-all duration-300"
                 >

@@ -1,17 +1,7 @@
 // Import Firebase database functions and database instance
 import { ref, set, onValue, push, remove, update, DataSnapshot } from 'firebase/database';
 import { database } from '@/lib/firebase';
-import { TelegramService } from '@/lib/telegram';
 
-// Initialize Telegram service
-let telegramService: TelegramService;
-
-try {
-    telegramService = TelegramService.getInstance();
-} catch (error) {
-    console.error('Telegram service initialization error:', error);
-    throw new Error('Failed to initialize Telegram service. Please check your configuration.');
-}
 
 // Orders operations
 export const ordersRef = ref(database, 'orders');
@@ -22,13 +12,6 @@ export const createOrder = async (orderData: any) => {
         createdAt: new Date().toISOString(),
         status: 'pending'
     });
-
-    // Send Telegram notification
-    await telegramService.sendOrderNotification({
-        id: newOrderRef.key,
-        ...orderData
-    });
-
     return newOrderRef.key;
 };
 

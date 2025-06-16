@@ -103,7 +103,10 @@ const authApiRequest = {
   get: () => {
     const timestamp = new Date().toISOString();
     return httpService.get<UsersResponse>(ENDPOINTS.GET, { 
-      params: { timestamp } 
+      params: { timestamp },
+      retry: 3, // Retry 3 times if failed
+      retryDelay: 1000, // Wait 1 second between retries
+      dedupe: true // Ensure only one request is made at a time
     });
   },
 

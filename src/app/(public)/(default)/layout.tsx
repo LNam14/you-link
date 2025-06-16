@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
-import { AnimatePresence, motion } from "framer-motion"
+import { AnimatePresence, m, motion } from "framer-motion"
 import { Trash, ShoppingBag, ShoppingCart, X, Search, DollarSign, Tag, Clock, Plus, Minus } from "lucide-react"
 import getUserInfo from "@/components/userInfo"
 import { ref, onValue, remove, update, get, set } from "firebase/database"
@@ -275,27 +275,6 @@ export default function ClientLayout({
     }))
   }
 
-  // Find the highest ID in an array of objects
-  const findHighestId = (array: any[]) => {
-    if (!array || array.length === 0) return -1
-
-    return array.reduce((maxId, item) => {
-      // Check both id and ProductID fields
-      const itemId =
-        typeof item.id === "number" ? item.id : typeof item.id === "string" ? Number.parseInt(item.id, 10) : -1
-
-      const productId =
-        typeof item.ProductID === "number"
-          ? item.ProductID
-          : typeof item.ProductID === "string"
-            ? Number.parseInt(item.ProductID, 10)
-            : -1
-
-      // Return the highest ID found
-      return Math.max(maxId, itemId, productId)
-    }, -1)
-  }
-
   // Replace the findNextAvailableId function with this updated version
   const findNextAvailableId = (username: string, orders: any[]): { orderNumber: number; nextId: string } => {
     // Find the highest order number (X) for this username
@@ -329,34 +308,6 @@ export default function ClientLayout({
 
     try {
       setIsProcessing(true)
-
-      // Get user's current balance from Firebase
-      const userBalanceRef = ref(database, `money/${user.username}`)
-      const balanceSnapshot = await get(userBalanceRef)
-
-      let currentBalance = 0
-      let currentPendingAmount = 0
-      if (balanceSnapshot.exists()) {
-        const balanceData = balanceSnapshot.val()
-        currentBalance = typeof balanceData.amount === "number" ? balanceData.amount : 0
-        currentPendingAmount = typeof balanceData.pendingAmount === "number" ? balanceData.pendingAmount : 0
-      }
-
-      // Calculate total price based on Loai type for new orders
-      const totalPrice = cartItems.reduce((acc, item) => {
-        const quantity = itemQuantities[item.id] || 1
-        const price = Number(
-          item.Loai === "GP"
-            ? item.GiaBanGP || 0
-            : item.Loai === "Text"
-              ? item.GiaBanText || 0
-              : item.Loai === "TextHome"
-                ? item.GiaBanTextHome || 0
-                : item.GiaBanTextHeader || 0,
-        )
-        return acc + price * quantity
-      }, 0)
-
       // Get existing orders
       const ordersRef = ref(database, "orders")
       const ordersSnapshot = await get(ordersRef)
@@ -376,85 +327,133 @@ export default function ClientLayout({
         }
       }
 
-      // Calculate total amount of existing orders for this user with status "Đang xử lý"
-      const existingOrdersTotal = existingOrders
-        .filter((order: any) => order.KHMua === user.username && order.Status === "Đang xử lý")
-        .reduce((acc: number, order: any) => {
-          const price = Number(
-            order.Loai === "GP"
-              ? order.GiaBanGP || 0
-              : order.Loai === "Text"
-                ? order.GiaBanText || 0
-                : order.Loai === "TextHome"
-                  ? order.GiaBanTextHome || 0
-                  : order.GiaBanTextHeader || 0,
-          )
-          return acc + price
-        }, 0)
-
-      // Calculate remaining available balance
-      const remainingBalance = currentBalance - existingOrdersTotal
-
-      // Check if remaining balance is sufficient for new orders
-      if (remainingBalance < totalPrice) {
-        message.error(
-          `Số dư không đủ! Số dư hiện tại: ${currentBalance.toLocaleString("vi-VN")} USDT, đã sử dụng: ${existingOrdersTotal.toLocaleString("vi-VN")} USDT, còn lại: ${remainingBalance.toLocaleString("vi-VN")} USDT, cần: ${totalPrice.toLocaleString("vi-VN")} USDT`,
-        )
-        return
-      }
-
-      // Generate a unique timestamp for this batch of orders
-      const batchTimestamp = Date.now()
-
-      // Find the base counter for this batch
-      // Generate order IDs based on the new format: Username-X-Y
       const { orderNumber } = findNextAvailableId(user.username, existingOrders)
 
-      // Prepare new orders to add, taking into account quantities
-      const newOrders = cartItems.flatMap((item: any, itemIndex: number) => {
+      // Group items by their base MaDon
+      const groupedItems = new Map()
+      let globalSequentialNumber = 1
+
+      cartItems.forEach((item: any) => {
         const quantity = itemQuantities[item.id] || 1
+        const baseMaDon = `${user.username}-${orderNumber}`
 
-        return Array(quantity)
-          .fill(null)
-          .map((_, qIndex) => {
-            // Calculate the sequential number for this item
-            const sequentialNumber = qIndex + 1
-            // Create the order ID in the format: Username-X-Y
-            const orderId = `${user.username}-${orderNumber}-${sequentialNumber}`
-
-            return {
-              ...item,
-              MaDon: orderId,
-              KHMua: user.username,
-              Status: "Đang xử lý",
-              TTNCC: "",
-              TinhTrangNCC: "Chưa nhận đơn",
-              TinhTrangKH: "Chưa nhập",
-              NgayBan: "",
-              Index: "No",
-              BaiViet: "",
-              LinkKQ: "",
-              Anchor1: "",
-              Link1: "",
-              Anchor2: "",
-              Link2: "",
-              TimeText: 1,
-            }
+        if (!groupedItems.has(baseMaDon)) {
+          groupedItems.set(baseMaDon, {
+            items: [],
+            totalUSDT: 0,
+            totalGiaMua: 0,
+            itemTypes: new Set()
           })
+        }
+
+        const group = groupedItems.get(baseMaDon)
+
+        // Add items to the group
+        for (let i = 0; i < quantity; i++) {
+          const orderId = `${baseMaDon}-${globalSequentialNumber++}`
+          const itemPrice = Number(
+            item.Loai === "GP"
+              ? item.GiaBanGP || 0
+              : item.Loai === "Text"
+                ? item.GiaBanText || 0
+                : item.Loai === "TextHome"
+                  ? item.GiaBanTextHome || 0
+                  : item.GiaBanTextHeader || 0
+          )
+          const itemGiaMua = Number(
+            item.Loai === "GP"
+              ? item.GiaMuaGP || 0
+              : item.Loai === "Text"
+                ? item.GiaMuaText || 0
+                : item.Loai === "TextHome"
+                  ? item.GiaMuaTextHome || 0
+                  : item.GiaMuaTextHeader || 0
+          )
+
+          group.items.push({
+            ...item,
+            MaDon: orderId,
+            KHMua: user.username,
+            Status: "Đang xử lý",
+            TTNCC: "",
+            TinhTrangNCC: "Chưa nhận đơn",
+            TinhTrangKH: "Chưa nhập",
+            NgayBan: "",
+            Index: "No",
+            BaiViet: "",
+            LinkKQ: "",
+            Anchor1: "",
+            Link1: "",
+            Anchor2: "",
+            Link2: "",
+            TimeText: 1,
+          })
+
+          group.totalUSDT += itemPrice
+          group.totalGiaMua += itemGiaMua
+          group.itemTypes.add(item.Loai)
+        }
       })
+
+      // Create order summaries and detailed orders
+      const newOrders = []
+      for (const [baseMaDon, group] of groupedItems) {
+        // Calculate HangMuc by counting actual items
+        const itemTypeCounts = new Map<string, number>()
+        group.items.forEach((item: any) => {
+          const type = item.Loai
+          itemTypeCounts.set(type, (itemTypeCounts.get(type) || 0) + 1)
+        })
+
+        const hangMucParts = []
+        for (const [type, count] of itemTypeCounts) {
+          hangMucParts.push(`${count}${type}`)
+        }
+        const hangMuc = hangMucParts.join(' - ')
+
+        // Create order summary
+        const orderSummary = {
+          MaDon: baseMaDon,
+          NDD: user.username,
+          Ngay: new Date().toLocaleString('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          }),
+          TenNV: "",
+          IDNV: "",
+          Domain: "",
+          HangMuc: hangMuc,
+          Note1: "",
+          TinhTrang: "Đang làm",
+          USDT: group.totalUSDT,
+          TiGia: "",
+          VND: "",
+          TKNhan: "",
+          ThanhToan: "",
+          LinkBill: "",
+          Note2: "",
+          KTXacNhan: "",
+          GiaMua: group.totalGiaMua,
+          LoiNhuan: group.totalUSDT - group.totalGiaMua,
+          KTKTB: "",
+          KTKTM: "",
+          ChiTietDonHang: group.items
+        }
+
+        newOrders.push(orderSummary)
+      }
 
       // Combine existing and new orders
       const updatedOrders = [...existingOrders, ...newOrders]
 
       // Set the entire orders array
       await set(ordersRef, updatedOrders)
-
-      // Update the money database with the new pending amount
-      const newPendingAmount = currentPendingAmount + totalPrice
-      await set(userBalanceRef, {
-        amount: currentBalance,
-        pendingAmount: newPendingAmount
-      })
 
       // Delete all items from cart
       const deletePromises = cartItems.map((item: any) => {
@@ -467,7 +466,7 @@ export default function ClientLayout({
       message.success("Đơn hàng đã được tạo thành công!")
       setCartItems([])
       setIsOpen(false)
-      window.open("/mua-ban", "_blank")
+      window.open("/gp-text", "_blank")
     } catch (error) {
       console.error("Lỗi khi xử lý đơn hàng:", error)
       message.error("Có lỗi xảy ra khi xử lý đơn hàng. Vui lòng thử lại.")
@@ -484,16 +483,17 @@ export default function ClientLayout({
       </main>
       <Footer border={true} />
 
-      <Script src="https://cdn.botpress.cloud/webchat/v2.5/inject.js" strategy="afterInteractive"></Script>
-      <Script src="https://files.bpcontent.cloud/2025/05/16/10/20250516103809-ABWVLW5J.js" strategy="afterInteractive"></Script>
+      {/* <Script src="https://cdn.botpress.cloud/webchat/v2.5/inject.js" strategy="afterInteractive"></Script>
+      <Script src="https://files.bpcontent.cloud/2025/05/16/10/20250516103809-ABWVLW5J.js" strategy="afterInteractive"></Script> */}
       {cartItems.length > 0 && (
         <button
           onClick={toggleCart}
-          className="fixed bottom-28 mb-1 right-5 p-3 rounded-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 z-40"
+          className="fixed bottom-4
+           mb-1 right-4 p-4 rounded-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 z-40"
           aria-label="Mở giỏ hàng"
         >
           <div className="relative">
-            <ShoppingCart className="h-5 w-5" />
+            <ShoppingCart className="h-7 w-7" />
             <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
               {cartSummary.totalItems}
             </span>
@@ -790,14 +790,10 @@ export default function ClientLayout({
                 </button>
                 <button
                   className="py-2 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200 text-sm font-medium flex items-center justify-center shadow-sm hover:shadow"
-                // onClick={processCheckout}
+                  onClick={processCheckout}
                 >
-                  Chức năng đang bảo trì
+                  Lên đơn
                 </button>
-              </div>
-
-              <div className="text-xs text-center text-gray-500">
-                Thanh toán sẽ sử dụng số dư trong tài khoản của bạn
               </div>
             </div>
           </motion.div>

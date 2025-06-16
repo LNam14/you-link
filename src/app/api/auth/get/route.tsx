@@ -3,10 +3,26 @@ import { NextResponse } from "next/server"
 // Add dynamic route configuration
 export const dynamic = 'force-dynamic';
 
+// Helper function to retry database operations
+async function retryOperation<T>(operation: () => Promise<T>, maxRetries = 3, delay = 1000): Promise<T> {
+    let lastError;
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            return await operation();
+        } catch (error) {
+            lastError = error;
+            if (i < maxRetries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+    }
+    throw lastError;
+}
+
 export async function GET(request: Request) {
     try {
-        // Query to get all accounts using Prisma
-        const accounts = await prisma.account.findMany()
+        // Query to get all accounts using Prisma with retry
+        const accounts = await retryOperation(() => prisma.account.findMany());
 
         // Group accounts by role
         const groupedAccounts = accounts.reduce((acc: any, account: any) => {
@@ -18,12 +34,12 @@ export async function GET(request: Request) {
             return acc
         }, {})
 
-        // Get all teams using Prisma
-        const teams = await prisma.team.findMany({
+        // Get all teams using Prisma with retry
+        const teams = await retryOperation(() => prisma.team.findMany({
             orderBy: {
                 name: 'asc'
             }
-        })
+        }));
 
         // Map teams to include their members
         const teamsWithMembers = teams.map((team: any) => ({

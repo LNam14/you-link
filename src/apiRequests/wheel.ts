@@ -25,7 +25,7 @@ const wheelApiRequest = {
    */
   get: () => {
     const timestamp = new Date().toISOString();
-    return httpService.get<Wheel>(ENDPOINTS.GET, { 
+    return httpService.get<Wheel[]>(ENDPOINTS.GET, { 
       params: { timestamp } 
     });
   },

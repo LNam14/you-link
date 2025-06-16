@@ -78,7 +78,7 @@ export default function DataSite({
 
     // Fetch cart items to know what's already in the cart
     useEffect(() => {
-        if (!user) return
+        if (!user?.id) return
 
         const cartRef = ref(database, `data/${user.id}/Products`)
         const unsubscribe = onValue(cartRef, (snapshot) => {
@@ -94,7 +94,7 @@ export default function DataSite({
         })
 
         return () => unsubscribe()
-    }, [user])
+    }, [user?.id])
 
     const extractDomain = (url: string): string => {
         return url
@@ -137,6 +137,9 @@ export default function DataSite({
 
     useEffect(() => {
         debouncedSearch(searchTerm)
+        return () => {
+            debouncedSearch.cancel()
+        }
     }, [searchTerm, debouncedSearch])
 
     const filteredProducts = useMemo(() => {

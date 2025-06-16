@@ -6,7 +6,7 @@ const privatePaths = ["/manage", "/dashboard", "/extort"]
 // Paths only for unauthenticated users
 const unAuthPaths = ["/login"]
 // Paths accessible by everyone (authenticated or not)
-const publicPaths = ["/", "/mua-ban"]
+const publicPaths = ["/", "/gp-text"]
 
 function getUserInfoFromCookie(cookieValue: string | undefined) {
   if (!cookieValue) return null

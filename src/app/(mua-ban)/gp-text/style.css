@@ -49,3 +49,11 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+.custom-table td,
+.custom-table th {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}

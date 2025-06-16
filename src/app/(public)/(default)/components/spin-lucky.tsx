@@ -20,6 +20,7 @@ import Confetti from "react-confetti"
 import { useWindowSize } from "react-use"
 import getUserInfo from "@/components/userInfo"
 import wheelApiRequest, { type Wheel as WheelType } from "@/apiRequests/wheel"
+import moment from "moment-timezone"
 
 // Add Telegram notification function
 const sendTelegramNotification = async (username: string, prize: string, luckyMessage?: string): Promise<boolean> => {
@@ -67,9 +68,11 @@ const luckyMessages = [
 
 export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   const [mustSpin, setMustSpin] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [prizeNumber, setPrizeNumber] = useState(0)
   const [previousPrize, setPreviousPrize] = useState<string | null>(null)
-  const [spinCount, setSpinCount] = useState(1)
+  const [spinCount, setSpinCount] = useState(0)
+  const [extraSpins, setExtraSpins] = useState(0)
   const [isMuted, setIsMuted] = useState(false)
   const [showPrizeAnimation, setShowPrizeAnimation] = useState(false)
   const [isButtonHovered, setIsButtonHovered] = useState(false)
@@ -80,11 +83,13 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   const [employees, setEmployees] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [goldWinners, setGoldWinners] = useState<{ username: string, count: number }[]>([])
   const itemsPerPage = 10
   const windowSize = useWindowSize()
   const userInfo = getUserInfo()
   const [luckyMessage, setLuckyMessage] = useState<string>("")
-
+  const today = moment().tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD")
+  console.log(today)
   // Enhanced prize data with money-themed colors
   const data = [
     {
@@ -94,10 +99,6 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     {
       option: "Quay thêm 1 lượt",
       style: { backgroundColor: "#9C27B0", textColor: "white" },
-    },
-    {
-      option: "Quay thêm 2 lượt",
-      style: { backgroundColor: "#673AB7", textColor: "white" },
     },
     {
       option: "1 phân vàng",
@@ -133,45 +134,33 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     }
   ]
 
-  // Check and reset daily spins
-  useEffect(() => {
-    const checkAndResetDailySpins = () => {
-      const today = new Date().toDateString()
-      const savedData = localStorage.getItem("spinData")
-      const spinData = savedData ? JSON.parse(savedData) : null
+  // Đưa hàm checkAndResetDailySpins ra ngoài useEffect để có thể gọi lại
+  const checkAndResetDailySpins = async () => {
+    try {
+      const response = await wheelApiRequest.get()
+      const rewardsData = response.data || []
 
-      if (!spinData || spinData.date !== today) {
-        // Reset spins for new day
-        const newSpinData = {
-          date: today,
-          count: userInfo?.role === "Admin" ? 999 : 1, // 999 spins for Admin, 1 for others
-          hasSpun: false, // Track if user has already spun today
-        }
-        localStorage.setItem("spinData", JSON.stringify(newSpinData))
-        setSpinCount(newSpinData.count)
-      } else {
-        // Load existing spins for today
-        setSpinCount(spinData.hasSpun ? (userInfo?.role === "Admin" ? 999 : 0) : spinData.count) // If already spun today, set count to 999 for Admin or 0 for others
-      }
+      // Lọc phần thưởng của user hôm nay
+      const userRecords = userInfo?.role === "Admin"
+        ? rewardsData
+        : rewardsData.filter(reward => reward.username === userInfo?.username)
+      const todayRecords = userRecords.filter(reward => reward.date === today)
+
+      // Đếm số lượt đã dùng: chỉ tính phần thưởng chính (không tính Quay thêm 1 lượt)
+      const usedSpins = todayRecords.filter(
+        reward => reward.reward !== "Quay thêm 1 lượt"
+      ).length
+
+      // Mỗi ngày chỉ được 1 lượt quay chính
+      let remain = 1 - usedSpins
+      if (remain < 0) remain = 0
+
+      setSpinCount(remain)
+    } catch (error) {
+      console.error("Error checking daily spins:", error)
+      setSpinCount(1)
     }
-
-    checkAndResetDailySpins()
-  }, [userInfo?.role]) // Add userInfo.role as dependency
-
-  // Save spin count to localStorage whenever it changes
-  useEffect(() => {
-    const savedData = localStorage.getItem("spinData")
-    const spinData = savedData ? JSON.parse(savedData) : { date: new Date().toDateString(), count: spinCount }
-
-    spinData.count = spinCount
-
-    // If spin count is 0, mark as spun for today
-    if (spinCount === 0) {
-      spinData.hasSpun = true
-    }
-
-    localStorage.setItem("spinData", JSON.stringify(spinData))
-  }, [spinCount])
+  }
 
   // Play sound effects
   const playSound = (soundType: string) => {
@@ -198,23 +187,12 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
   const handleSpinClick = () => {
     if (!mustSpin && spinCount > 0) {
+      setMustSpin(true)
       playSound("click")
-
-      // Decrease spin count
-      setSpinCount((prev) => prev - 1)
-
-      // Mark that user has spun today
-      const today = new Date().toDateString()
-      const savedData = localStorage.getItem("spinData")
-      const spinData = savedData ? JSON.parse(savedData) : { date: today, count: 0 }
-
-      spinData.hasSpun = true
-      localStorage.setItem("spinData", JSON.stringify(spinData))
 
       // Generate random prize with adjusted probability
       const newPrizeNumber = getWeightedPrizeNumber()
       setPrizeNumber(newPrizeNumber)
-      setMustSpin(true)
 
       // Play spinning sound
       playSound("spin")
@@ -223,74 +201,110 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
   // Function to get weighted prize number
   const getWeightedPrizeNumber = () => {
-    // Return random index from all available prizes
-    return Math.floor(Math.random() * data.length)
+    // Create array of possible prize indices, excluding "1 phân vàng" (index 2)
+    const possiblePrizes = data
+      .map((_, index) => index)
+      .filter(index => index !== 2) // Exclude index 2 which is "1 phân vàng"
+
+    // Return random index from filtered prizes
+    const randomIndex = Math.floor(Math.random() * possiblePrizes.length)
+    return possiblePrizes[randomIndex]
+  }
+
+  // Đưa fetchGoldWinners ra ngoài useEffect để có thể gọi lại
+  const fetchGoldWinners = async () => {
+    try {
+      const response = await wheelApiRequest.get()
+      const rewardsData: any = response.data || []
+      const now = new Date()
+      const currentMonth = now.toISOString().slice(0, 7) // YYYY-MM
+
+      // Lọc các bản ghi trong tháng hiện tại
+      const monthRecords = rewardsData.filter((reward: any) =>
+        reward.date && reward.date.startsWith(currentMonth)
+      )
+
+      // Đếm số lần mỗi username trúng '1 phân vàng' trong tháng
+      const goldWins = monthRecords
+        .filter((reward: any) => reward.reward === "1 phân vàng")
+        .reduce((acc: { [key: string]: number }, reward: any) => {
+          acc[reward.username] = (acc[reward.username] || 0) + 1
+          return acc
+        }, {})
+
+      // Convert to array and sort by count
+      const sortedGoldWinners = Object.entries(goldWins)
+        .map(([username, count]) => ({ username, count: count as number }))
+        .sort((a, b) => (b.count as number) - (a.count as number))
+        .slice(0, 10) // Top 10
+
+      setGoldWinners(sortedGoldWinners)
+    } catch (error) {
+      console.error("Error fetching gold winners:", error)
+    }
   }
 
   const handleStopSpinning = async () => {
-    setMustSpin(false)
-    const currentPrize = data[prizeNumber].option
-    setPreviousPrize(currentPrize)
+    try {
+      setIsLoading(true)
+      setMustSpin(false)
+      const currentPrize = data[prizeNumber].option
+      setPreviousPrize(currentPrize)
 
-    // Handle lucky message prize
-    let randomMessage = ""
-    if (currentPrize === "1 lời chúc may mắn") {
-      randomMessage = luckyMessages[Math.floor(Math.random() * luckyMessages.length)]
-      setLuckyMessage(randomMessage)
-    } else {
-      setLuckyMessage("")
-    }
+      // Handle lucky message prize
+      let randomMessage = ""
+      if (currentPrize === "1 lời chúc may mắn") {
+        randomMessage = luckyMessages[Math.floor(Math.random() * luckyMessages.length)]
+        setLuckyMessage(randomMessage)
+      } else {
+        setLuckyMessage("")
+      }
 
-    // Save prize to localStorage
-    localStorage.setItem("lastPrize", currentPrize)
+      // Nếu quay trúng Quay thêm 1 lượt thì không trừ lượt, chỉ cho quay tiếp
+      if (currentPrize === "Quay thêm 1 lượt") {
+        // Không lưu vào DB, không trừ lượt, chỉ cho quay tiếp
+        setIsLoading(false)
+        return
+      }
 
-    // Send Telegram notification
-    if (userInfo?.username) {
-      sendTelegramNotification(`${userInfo.username}-${userInfo.name || "No Name"}`, currentPrize, randomMessage)
-
-      // Save prize to database
-      try {
-        await wheelApiRequest.create({
+      // Nếu là phần thưởng chính thì lưu vào DB và gửi Telegram
+      if (userInfo?.username) {
+        // Gửi Telegram notification
+        sendTelegramNotification(`${userInfo.username}-${userInfo.name || "No Name"}`, currentPrize, randomMessage)
+        wheelApiRequest.create({
           username: userInfo.username,
           reward: currentPrize,
         })
-      } catch (error) {
-        console.error("Error saving wheel result:", error)
+          .then(() => {
+            checkAndResetDailySpins()
+            fetchGoldWinners()
+          })
+          .catch((error) => {
+            console.error("Error saving wheel result:", error)
+            // Có thể show toast lỗi nếu muốn
+          })
       }
-    }
 
-    // Handle prize logic
-    if (currentPrize.includes("Quay thêm")) {
-      const extraSpins = currentPrize.includes("2 lượt") ? 2 : 1
-      setSpinCount((prev) => prev + extraSpins)
+      // Show prize animation immediately
+      setShowPrizeAnimation(true)
 
-      // Update localStorage to reflect additional spins but keep hasSpun true
-      const savedData = localStorage.getItem("spinData")
-      const spinData = savedData ? JSON.parse(savedData) : { date: new Date().toDateString(), count: 0 }
-      spinData.count += extraSpins
-      spinData.hasSpun = true
-      localStorage.setItem("spinData", JSON.stringify(spinData))
-    } else if (currentPrize.includes("-")) {
-      // Handle negative prizes
-      const negativeAmount = Number.parseInt(currentPrize.replace(/[^0-9]/g, ""))
-      // You might want to handle the negative amount here if needed
-    }
+      // Hide prize animation after 5 seconds
+      setTimeout(() => {
+        setShowPrizeAnimation(false)
+      }, 5000)
 
-    // Show prize animation immediately
-    setShowPrizeAnimation(true)
+      // Play win sound
+      playSound("win")
 
-    // Hide prize animation after 5 seconds
-    setTimeout(() => {
-      setShowPrizeAnimation(false)
-    }, 5000)
-
-    // Play win sound
-    playSound("win")
-
-    // Show confetti for big prizes
-    if (currentPrize.includes("500.000") || currentPrize.includes("Quay thêm") || currentPrize === "1 tràng vỗ tay") {
-      setShowConfetti(true)
-      setTimeout(() => setShowConfetti(false), 5000)
+      // Show confetti for big prizes
+      if (currentPrize.includes("500.000") || currentPrize === "1 tràng vỗ tay") {
+        setShowConfetti(true)
+        setTimeout(() => setShowConfetti(false), 5000)
+      }
+    } catch (error) {
+      console.error("Error stopping spinning:", error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -320,6 +334,22 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
           const uniqueUsernames = Array.from(new Set(rewardsData.map((reward: any) => reward.username)))
           setEmployees(uniqueUsernames as unknown as string[])
         }
+
+        // Calculate gold winners leaderboard
+        const goldWins = rewardsData
+          .filter((reward: any) => reward.reward === "1 phân vàng")
+          .reduce((acc: { [key: string]: number }, reward: any) => {
+            acc[reward.username] = (acc[reward.username] || 0) + 1
+            return acc
+          }, {})
+
+        // Convert to array and sort by count
+        const sortedGoldWinners = Object.entries(goldWins)
+          .map(([username, count]) => ({ username, count: count as number }))
+          .sort((a, b) => (b.count as number) - (a.count as number))
+          .slice(0, 10) // Get top 10
+
+        setGoldWinners(sortedGoldWinners)
       } catch (error) {
         console.error("Error fetching rewards:", error)
       }
@@ -329,6 +359,16 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       fetchRewards()
     }
   }, [showRewards, selectedEmployee, userInfo?.role, userInfo?.username])
+
+  useEffect(() => {
+    if (userInfo?.username) {
+      checkAndResetDailySpins()
+    }
+  }, [userInfo?.username, userInfo?.role, today])
+
+  useEffect(() => {
+    fetchGoldWinners()
+  }, [])
 
   return (
     <section className="bg-gradient-to-b from-emerald-50 via-teal-50 to-cyan-50 py-16 relative overflow-hidden">
@@ -392,11 +432,11 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                   <Sparkles className="h-5 w-5 text-emerald-600" />
                   <h4 className="font-semibold text-gray-900">Lượt quay còn lại: {spinCount}</h4>
                 </div>
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-red-700">
                   {userInfo?.role === "Admin" ? (
                     "Admin được quay 999 lượt mỗi ngày"
                   ) : (
-                    "Phần thưởng 1 phân hàng có hiệu lực từ tháng sau tháng này quay chơi chơi thôi :v"
+                    "Phần thưởng 1 phân vàng rất hấp dẫn"
                   )}
                 </p>
                 {!userInfo && <p className="text-red-600 text-sm">Vui lòng đăng nhập để quay thưởng</p>}
@@ -427,21 +467,25 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
               <div className="mt-6 border-t border-gray-100 pt-4">
                 <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                   <Trophy className="h-4 w-4 text-yellow-500" />
-                  Người Chiến Thắng Gần Đây
+                  BXH 10 Phân vàng tháng này
                 </h4>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Nguyễn Văn A</span>
-                    <span className="font-medium text-emerald-600">500.000 VND</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Trần Thị B</span>
-                    <span className="font-medium text-emerald-600">20.000 VND</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Lê Văn C</span>
-                    <span className="font-medium text-emerald-600">10.000 VND</span>
-                  </div>
+                  {goldWinners.length > 0 ? (
+                    goldWinners.map((winner, index) => (
+                      <div key={winner.username} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-600 font-medium">{index + 1}.</span>
+                          <span className="text-gray-600">{winner.username}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium text-yellow-500">{winner.count}</span>
+                          <span className="text-gray-500">phân vàng</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-gray-500 text-sm">Chưa có người trúng phân vàng trong tháng này</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -540,13 +584,15 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                   onMouseLeave={() => setIsButtonHovered(false)}
                   className={`mt-10 px-10 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-full font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden ${isButtonHovered ? "scale-105" : ""}`}
                 >
-                  {/* Button shine effect */}
-                  <span
-                    className={`absolute top-0 left-0 w-full h-full bg-white opacity-20 transform ${isButtonHovered ? "translate-x-full" : "-translate-x-full"
-                      } skew-x-12 transition-transform duration-1000`}
-                  ></span>
-
-                  {mustSpin ? "Đang quay..." : spinCount <= 0 ? "Hết lượt quay" : "Quay Ngay"}
+                  {mustSpin ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      Đang quay...
+                    </span>
+                  ) : spinCount <= 0 ? "Hết lượt quay" : "Quay Ngay"}
                 </button>
 
                 {spinCount <= 0 && (
@@ -696,6 +742,19 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
           gravity={0.15}
           colors={["#10B981", "#059669", "#047857", "#0D9488", "#14B8A6", "#0891B2", "#0E7490", "#FFD700", "#22D3EE"]}
         />
+      )}
+
+      {/* Overlay loading */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-lg flex items-center gap-3">
+            <svg className="animate-spin h-6 w-6 text-emerald-600" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+            </svg>
+            <span>Đang lưu kết quả...</span>
+          </div>
+        </div>
       )}
 
       {/* Add custom animations */}

@@ -6,6 +6,7 @@ import PageBody from "./components/PageBody"
 import { Loader2, ShieldAlert, LogIn } from "lucide-react"
 import { motion } from "framer-motion"
 import Link from "next/link"
+import OrdersTable from "./components/OrdersTable"
 
 export default function MuaBanPage() {
   const [user, setUser] = useState<any>(null)
@@ -92,13 +93,6 @@ export default function MuaBanPage() {
 
   // Only render PageBody for users with appropriate roles
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800"
-    >
-      <PageBody supplierName={null} />
-    </motion.div>
+    <OrdersTable />
   )
 }
