@@ -12,6 +12,7 @@ import { database } from "@/lib/firebase"
 import getUserInfo from "@/components/userInfo"
 import ChatDialog from "./components/ChatDialog"
 import sheetApiRequest from "@/apiRequests/sheet"
+import { toast, Toaster } from "sonner"
 
 registerAllModules()
 
@@ -821,15 +822,23 @@ export default function PageBody() {
     const handleAfterPaste = async (data: any[][], coords: any[]) => {
         if (!data || !coords) return
 
+        // Check if pasted data has more rows than available
+        const startRow = coords[0].startRow
+        const availableRows = tableData.length - startRow
+        if (data.length > availableRows) {
+            toast.error(`Không thể dán ${data.length} hàng vì chỉ còn ${availableRows} hàng trống`)
+            return
+        }
+
         const ordersRef = ref(database, "content")
-        const updates: any = {}
+        const updates: { [key: string]: any } = {}
         const nccUpdates: { [key: string]: number } = {} // Track NCC balance updates
         const linkKQUpdates: { [key: string]: { orderId: string, MaKH: string, MaNCC: string, giaMua: number } } = {} // Track LinkKQ updates
 
         coords.forEach(async (coord, index) => {
             const startRow = coord.startRow
             const startCol = coord.startCol
-            const endRow = Math.min(coord.endRow, tableData.length - 1) // Limit endRow to table length
+            const endRow = coord.endRow
             const endCol = coord.endCol
 
             // Map table columns to Firebase fields
@@ -859,6 +868,8 @@ export default function PageBody() {
             // Xử lý từng ô trong vùng dán
             for (let row = startRow; row <= endRow; row++) {
                 const orderId = tableData[row][0] // Get the order ID from the first column
+                if (!orderId) continue
+
                 if (!updates[orderId]) {
                     updates[orderId] = {}
                 }
@@ -929,7 +940,6 @@ export default function PageBody() {
 
                                     sheetApiRequest.getIDKH(MaKHBeforeDash, `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`)
                                 }
-
                             }
                         }
                     }
@@ -960,15 +970,6 @@ export default function PageBody() {
             }
         })
 
-        // Kiểm tra và loại bỏ các giá trị undefined
-        Object.keys(updates).forEach((orderId) => {
-            Object.keys(updates[orderId]).forEach((field) => {
-                if (updates[orderId][field] === undefined) {
-                    updates[orderId][field] = ""
-                }
-            })
-        })
-
         try {
             // Send notifications for LinkKQ updates
             for (const { orderId, MaKH, MaNCC } of Object.values(linkKQUpdates)) {
@@ -980,11 +981,18 @@ export default function PageBody() {
 
             // Update all order data
             if (Object.keys(updates).length > 0) {
-                await update(ordersRef, updates)
-                console.log("Data updated successfully after paste")
+                // Convert updates object to the correct format for Firebase
+                const firebaseUpdates: { [key: string]: any } = {}
+                Object.entries(updates).forEach(([orderId, data]) => {
+                    firebaseUpdates[`${orderId}`] = data
+                })
+
+                await update(ordersRef, firebaseUpdates)
+                toast.success("Dữ liệu đã được cập nhật thành công")
             }
         } catch (error) {
             console.error("Error updating data after paste:", error)
+            toast.error("Có lỗi xảy ra khi cập nhật dữ liệu")
         }
     }
 
