@@ -829,7 +829,7 @@ export default function PageBody() {
         coords.forEach(async (coord, index) => {
             const startRow = coord.startRow
             const startCol = coord.startCol
-            const endRow = coord.endRow
+            const endRow = Math.min(coord.endRow, tableData.length - 1) // Limit endRow to table length
             const endCol = coord.endCol
 
             // Map table columns to Firebase fields
