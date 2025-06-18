@@ -36,6 +36,7 @@ export interface DeleteTransactionRequest {
 // API endpoints
 const ENDPOINTS = {
   GET: "/transactions/get",
+  GET_PAYMENT: "/transactions/get-payment",
   CREATE: "/transactions/create",
   UPDATE: "/transactions/update",
   DELETE: "/transactions/delete", // Sửa lại endpoint cho đồng nhất
@@ -49,6 +50,12 @@ const transactionApiRequest = {
   get: () => {
     const timestamp = new Date().toISOString();
     return httpService.get<Transaction>(ENDPOINTS.GET, { 
+      params: { timestamp } 
+    });
+  },
+  getPayment: () => {
+    const timestamp = new Date().toISOString();
+    return httpService.get<Transaction>(ENDPOINTS.GET_PAYMENT, { 
       params: { timestamp } 
     });
   },

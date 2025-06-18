@@ -13,6 +13,7 @@ import getUserInfo from "@/components/userInfo"
 import ChatDialog from "./components/ChatDialog"
 import sheetApiRequest from "@/apiRequests/sheet"
 import { toast, Toaster } from "sonner"
+import transactionApiRequest from "@/apiRequests/transactions"
 
 registerAllModules()
 
@@ -51,6 +52,14 @@ export default function PageBody() {
     const [newChatMessage, setNewChatMessage] = useState("")
     const [blinkingChatOrders, setBlinkingChatOrders] = useState<Set<string>>(new Set())
     const [isFullscreen, setIsFullscreen] = useState(false)
+    const [transactions, setTransactions] = useState<any[]>([])
+    const [withdrawModalOpen, setWithdrawModalOpen] = useState(false)
+
+    useEffect(() => {
+        transactionApiRequest.getPayment().then((res: any) => {
+            setTransactions(res.data)
+        })
+    }, [])
 
     const parseNumberWithComma = (value: any): number => {
         if (typeof value === "number") return value
@@ -779,18 +788,16 @@ export default function PageBody() {
                 }
 
                 // Kiểm tra và cập nhật TinhTrangKH khi thay đổi các trường liên quan
-                if (["Anchor1", "URL1", "Anchor2", "URL2"].includes(fieldName)) {
+                if (["Anchor1", "Anchor2"].includes(fieldName)) {
                     const currentData = tableData[row]
                     const currentStatus = currentData[19] // Get current TinhTrangKH
                     console.log(currentStatus)
 
                     // Chỉ cập nhật TinhTrangKH nếu chưa ở trạng thái hủy
                     const hasAnchor1 = currentData[6] && currentData[6].trim() !== ""
-                    const hasURL1 = currentData[7] && currentData[7].trim() !== ""
                     const hasAnchor2 = currentData[8] && currentData[8].trim() !== ""
-                    const hasURL2 = currentData[9] && currentData[9].trim() !== ""
 
-                    if ((hasAnchor1 && hasURL1) || (hasAnchor2 && hasURL2)) {
+                    if (hasAnchor1 || hasAnchor2) {
                         if (currentStatus === "Chưa nhập") {
                             updates[`${orderId}/TinhTrangKH`] = "Đã nhập"
                             const MaNCC = tableData[row][18]
@@ -947,11 +954,9 @@ export default function PageBody() {
 
                 // Kiểm tra và cập nhật Tình trạng sau khi dán
                 const hasAnchor1 = updates[orderId].Anchor1 && updates[orderId].Anchor1.trim() !== ""
-                const hasURL1 = updates[orderId].URL1 && updates[orderId].URL1.trim() !== ""
                 const hasAnchor2 = updates[orderId].Anchor2 && updates[orderId].Anchor2.trim() !== ""
-                const hasURL2 = updates[orderId].URL2 && updates[orderId].URL2.trim() !== ""
 
-                if ((hasAnchor1 && hasURL1) || (hasAnchor2 && hasURL2)) {
+                if (hasAnchor1 || hasAnchor2) {
                     if (updates[orderId].TinhTrangKH === "Chưa nhập") {
                         updates[orderId].TinhTrangKH = "Đã nhập"
                         const MaNCC = updates[orderId].MaNCC
@@ -1302,7 +1307,7 @@ export default function PageBody() {
         }
 
         // For completed orders, certain columns are gray and read-only
-        if (isCompletedOrder && [6, 7, 8, 9].includes(col)) { // Anchor1, URL1, Anchor2, URL2
+        if (isCompletedOrder && [6, 8].includes(col)) { // Anchor1, Anchor2
             style.backgroundColor = "#d3d3d3";
             style.isReadOnly = true;
             return style;
@@ -1704,8 +1709,65 @@ export default function PageBody() {
         }
     }, [isMerged]);
 
+    const handleWithdrawRequest = () => {
+        // Chuyển selectedWeek về dạng số để so sánh
+        const selectedWeekNum = parseInt(selectedWeek);
+
+        // Nếu đã có transaction cho tuần đang chọn thì hiển thị trạng thái và thoát
+        const selectedWeekTransaction = Array.isArray(transactions)
+            ? transactions.find(t => String(t.week) === String(selectedWeekNum))
+            : undefined;
+        if (selectedWeekTransaction) {
+            toast.info(
+                <>
+                    <div className="font-semibold">Yêu cầu thanh toán tuần {selectedWeek} đã được gửi</div>
+                    <div>Trạng thái: {selectedWeekTransaction.status}</div>
+                </>
+            );
+            return;
+        }
+
+        const currentWeek = getCurrentWeek();
+
+        // Không cho phép rút tiền cho tuần hiện tại
+        if (selectedWeekNum === currentWeek) {
+            toast.error(
+                <>
+                    <div className="font-semibold">Không thể yêu cầu thanh toán cho tuần hiện tại</div>
+                    <div>Vui lòng chỉ yêu cầu thanh toán cho các đơn hàng đã hoàn tất của tuần trước.</div>
+                </>
+            );
+            return;
+        }
+
+        // Đếm số đơn hoàn thành của tuần đang chọn
+        const completedOrders = tableData.filter((row: any) => {
+            const weekNumber = getWeekNumber(row[3]);
+            const tinhTrangKH = row[19];
+            const tinhTrangNCC = row[20];
+            return (
+                String(weekNumber) === String(selectedWeekNum) &&
+                (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
+                (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
+            );
+        });
+
+        if (completedOrders.length === 0) {
+            toast.error(
+                <>
+                    <div className="font-semibold">Không có đơn hàng hoàn tất trong tuần {selectedWeek}</div>
+                    <div>Tuần này không có đơn hàng đủ điều kiện để thanh toán.</div>
+                </>
+            );
+            return;
+        }
+
+        setWithdrawModalOpen(true);
+    };
+
     return (
         <>
+            <Toaster position="top-right" expand={true} richColors />
             <div className="mb-4 bg-white rounded-lg shadow-md p-4">
                 <div className="flex flex-col space-y-4">
                     {/* Filter Controls Row */}
@@ -1812,6 +1874,14 @@ export default function PageBody() {
                             {isMerged ? "Tách dữ liệu" : "Gộp dữ liệu"}
                         </button>
 
+                        {userInfo?.role === "NCC" && (
+                            <button
+                                onClick={handleWithdrawRequest}
+                                className="px-4 py-2 rounded-md text-sm font-medium bg-green-500 hover:bg-green-600 text-white transition-colors"
+                            >
+                                Y/C Thanh toán
+                            </button>
+                        )}
                         <div className="ml-auto">
                             <button
                                 onClick={() => setIsFullscreen(!isFullscreen)}
