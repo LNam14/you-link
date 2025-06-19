@@ -128,7 +128,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     {
       option: "1 phân vàng",
       style: { backgroundColor: "#FFD700", textColor: "black" },
-    }
+    },
     {
       option: "2.000 VND",
       style: { backgroundColor: "#2E7D32", textColor: "white" },
