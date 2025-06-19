@@ -93,6 +93,10 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   // Enhanced prize data with money-themed colors
   const data = [
     {
+      option: "1 phân vàng",
+      style: { backgroundColor: "#FFD700", textColor: "black" },
+    },
+    {
       option: "1 lời chúc may mắn",
       style: { backgroundColor: "#FF9800", textColor: "white" },
     },
@@ -101,16 +105,16 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       style: { backgroundColor: "#9C27B0", textColor: "white" },
     },
     {
-      option: "1 phân vàng",
-      style: { backgroundColor: "#FFD700", textColor: "black" },
-    },
-    {
       option: "50.000 VND",
       style: { backgroundColor: "#F44336", textColor: "white" },
     },
     {
       option: "20.000 VND",
       style: { backgroundColor: "#0D47A1", textColor: "white" },
+    },
+    {
+      option: "1 phân vàng",
+      style: { backgroundColor: "#FFD700", textColor: "black" },
     },
     {
       option: "10.000 VND",
@@ -131,6 +135,10 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     {
       option: "1 tràng vỗ tay",
       style: { backgroundColor: "#03A9F4", textColor: "black" },
+    },
+    {
+      option: "1 phân vàng",
+      style: { backgroundColor: "#FFD700", textColor: "black" },
     }
   ]
 
@@ -201,12 +209,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
   // Function to get weighted prize number
   const getWeightedPrizeNumber = () => {
-    // Create array of possible prize indices, excluding "1 phân vàng" (index 2)
-    const possiblePrizes = data
-      .map((_, index) => index)
-      .filter(index => index !== 2) // Exclude index 2 which is "1 phân vàng"
-
-    // Return random index from filtered prizes
+    const possiblePrizes = data.map((_, index) => index)
     const randomIndex = Math.floor(Math.random() * possiblePrizes.length)
     return possiblePrizes[randomIndex]
   }
