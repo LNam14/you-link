@@ -20,10 +20,13 @@ export async function POST(request: Request) {
         }
 
         // Create array of account data for bulk creation
+        const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
         const accountsData = Array(count).fill(null).map(() => ({
             role,
             ...(team && { team }),
             ...(position && { position }),
+            created_at: now,
+            updated_at: now,
         }))
 
         // Create multiple accounts using Prisma

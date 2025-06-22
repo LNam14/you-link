@@ -248,7 +248,6 @@ export default function PageBody() {
                 return
             }
 
-            // Split search terms by commas, newlines, or spaces
             const searchTerms = value.split(/[,\n\s]+/).filter((term) => term.trim() !== "")
 
             if (searchTerms.length === 0) {
@@ -258,55 +257,37 @@ export default function PageBody() {
                 return
             }
 
-            // Validate and filter search terms based on search type
             let validTerms: string[] = []
-
             if (selectedSearchType === "Site") {
-                // For site search, chấp nhận mọi định dạng (domain, URL có path, ...)
-                validTerms = searchTerms.map(term => {
-                    // Chuẩn hóa về domain (bỏ http, www, path, ...)
-                    return normalizeUrl(term.trim())
-                }).filter(term => term !== "") as string[]; // Đảm bảo không rỗng
+                validTerms = searchTerms.map(term => normalizeUrl(term.trim())).filter(term => term !== "")
             } else {
-                // For NCC search, accept terms starting with "N" followed by numbers
-                // Remove the case sensitivity requirement and make it more flexible
-                validTerms = searchTerms.filter(term => {
-                    const trimmed = term.trim()
-                    // Allow both uppercase and lowercase N, and any number of digits
-                    return trimmed.length > 0; // Simply check if the trimmed term is not empty
-                }).map(term => term.toUpperCase()) // Convert all to uppercase for consistency
+                validTerms = searchTerms.filter(term => term.trim().length > 0).map(term => term.toUpperCase())
             }
 
-            // If no valid terms after filtering, clear results
             if (validTerms.length === 0) {
                 setFilteredData([])
                 setDuplicateSites({})
-                setHasSearched(true) // Set to true to show "no results" message
+                setHasSearched(true)
                 return
             }
 
-            // Create a structure to hold search terms and their matched items
-            const searchResults: Array<{ searchTerm: string; items: SiteData[]; status: string }> = []
-            const processedDomains = new Set<string>() // Track which domains we've processed for the main list
+            const mainItems: SiteData[] = []
+            const newDuplicateSites: { [key: string]: SiteData[] } = {}
 
             validTerms.forEach(term => {
-                const normalizedTerm = selectedSearchType === "Site" ? normalizeUrl(term) : term.toUpperCase().trim()
+                const normalizedTerm = term // validTerms are already normalized/uppercased
                 const matchingItems = allData.filter(item => {
-                    const searchField = selectedSearchType === "Site" ? item.site : item.MaNCC
-                    if (!searchField) return false
-
                     if (selectedSearchType === "Site") {
-                        const normalizedSite = normalizeUrl(searchField)
+                        const normalizedSite = normalizeUrl(item.site)
                         return normalizedSite === normalizedTerm
                     } else {
-                        const normalizedMaNCC = searchField.toUpperCase().trim()
+                        const normalizedMaNCC = (item.MaNCC || "").toUpperCase().trim()
                         return normalizedMaNCC === normalizedTerm || normalizedMaNCC.startsWith(normalizedTerm)
                     }
                 })
 
                 if (matchingItems.length > 0) {
                     if (selectedSearchType === "Site") {
-                        // For site search, keep the existing logic of showing one main item and duplicates
                         matchingItems.sort((a, b) => {
                             const priceA = Number.parseFloat(a.giaMuaGP)
                             const priceB = Number.parseFloat(b.giaMuaGP)
@@ -319,40 +300,22 @@ export default function PageBody() {
                         })
 
                         const mainItem = matchingItems[0]
-                        const mainItemNormalized = normalizeUrl(mainItem.site)
-                        const status = mainItemNormalized === normalizedTerm ? "Đúng" : "Khác"
-                        searchResults.push({ searchTerm: term, items: [mainItem], status: status })
-                        processedDomains.add(mainItemNormalized)
+                        mainItems.push(mainItem)
 
                         if (matchingItems.length > 1) {
                             const duplicateItems = matchingItems.slice(1)
-                            const duplicateGroups: { [key: string]: SiteData[] } = {}
-                            duplicateItems.forEach(dupItem => {
-                                const dupNormalized = normalizeUrl(dupItem.site)
-                                if (!duplicateGroups[dupNormalized]) duplicateGroups[dupNormalized] = []
-                                duplicateGroups[dupNormalized].push(dupItem)
-                            })
-                            setDuplicateSites(prev => ({
-                                ...prev,
-                                ...duplicateGroups
-                            }))
-                        } else {
-                            const currentNormalized = normalizeUrl(mainItem.site)
-                            setDuplicateSites(prev => {
-                                const newState = { ...prev }
-                                delete newState[currentNormalized]
-                                return newState
-                            })
+                            const normalizedSite = normalizeUrl(mainItem.site)
+                            if (!newDuplicateSites[normalizedSite]) {
+                                newDuplicateSites[normalizedSite] = []
+                            }
+                            newDuplicateSites[normalizedSite].push(...duplicateItems)
                         }
                     } else {
-                        // For NCC search, show all matching items in the main results
-                        const status = matchingItems[0].MaNCC.toUpperCase().trim() === normalizedTerm ? "Đúng" : "Khác"
-                        searchResults.push({ searchTerm: term, items: matchingItems, status: status })
+                        mainItems.push(...matchingItems)
                     }
                 } else {
-                    // Add an empty entry for terms with no match
                     const emptyItem: SiteData = {
-                        cs: "", tinhTrang: "", site: term.trim(), bong: "", bet: "", chuDe: "", DR: "", trafficTool: "", ghiChu: "",
+                        cs: "", tinhTrang: "Không tìm thấy", site: term.trim(), bong: "", bet: "", chuDe: "", DR: "", trafficTool: "", ghiChu: "",
                         giaBanGP: "", giaBanText: "", giaBanTextHome: "", giaBanTextHeader: "",
                         giaBanGPLio: "", giaBanTextLio: "", giaBanTextHomeLio: "", giaBanTextHeaderLio: "",
                         giaMuaGP: "", giaMuaText: "", giaMuaTextHome: "", giaMuaTextHeader: "",
@@ -361,25 +324,14 @@ export default function PageBody() {
                         loiNhuanGPLio: "", loiNhuanTextLio: "", loiNhuanTextHomeLio: "", loiNhuanTextHeaderLio: "",
                         NCC: "", MaNCC: "", FileNCC: "", GroupNCC: "", GhiChuNCC: "", timeText: "",
                     }
-                    searchResults.push({ searchTerm: term, items: [emptyItem], status: "Không tìm thấy" })
+                    mainItems.push(emptyItem)
                 }
             })
 
-            // Flatten searchResults to get the main items for the primary table
-            const mainDisplayItems = searchResults.flatMap(result => result.items)
-
-            setFilteredData(mainDisplayItems)
-            setHasSearched(true)
-
-            // Add currency conversion AFTER filtering and splitting main/duplicates
             const applyCurrencyConversion = (dataToConvert: SiteData[]): SiteData[] => {
                 return dataToConvert.map(item => {
                     const newItem = { ...item }
-
-                    // Only determine the sell price field (Giá Bán)
                     const sellPriceField = getPriceColumnData(selectedPriceType, selectedBrand, "giaBan")
-
-                    // Convert only 'Giá Bán' to VND if selected currency is VND
                     if (selectedCurrency === "VND") {
                         const value = newItem[sellPriceField as keyof SiteData]?.toString() || ""
                         const numericValue = Number.parseFloat(value)
@@ -387,20 +339,19 @@ export default function PageBody() {
                             newItem[sellPriceField as keyof SiteData] = (numericValue * 26).toString()
                         }
                     }
-
                     return newItem
                 })
             }
 
-            // Apply conversion to both filteredData and duplicateSites
-            setFilteredData(applyCurrencyConversion(mainDisplayItems))
-
-            // Convert duplicate sites
+            const convertedMainItems = applyCurrencyConversion(mainItems)
             const convertedDuplicates: { [key: string]: SiteData[] } = {}
-            Object.entries(duplicateSites).forEach(([key, items]) => {
+            Object.entries(newDuplicateSites).forEach(([key, items]) => {
                 convertedDuplicates[key] = applyCurrencyConversion(items)
             })
+
+            setFilteredData(convertedMainItems)
             setDuplicateSites(convertedDuplicates)
+            setHasSearched(true)
         }, 300),
         [allData, selectedSearchType, selectedCurrency, selectedBrand],
     )

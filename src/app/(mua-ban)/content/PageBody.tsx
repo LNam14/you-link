@@ -56,9 +56,12 @@ export default function PageBody() {
     const [withdrawModalOpen, setWithdrawModalOpen] = useState(false)
 
     useEffect(() => {
-        transactionApiRequest.getPayment().then((res: any) => {
-            setTransactions(res.data)
-        })
+        if (userInfo?.role === "NCC") {
+            transactionApiRequest.getPayment().then((res: any) => {
+                setTransactions(res.transaction)
+
+            })
+        }
     }, [])
 
     const parseNumberWithComma = (value: any): number => {
@@ -1743,6 +1746,8 @@ export default function PageBody() {
         // Đếm số đơn hoàn thành của tuần đang chọn
         const completedOrders = tableData.filter((row: any) => {
             const weekNumber = getWeekNumber(row[3]);
+
+            console.log("completedOrders", weekNumber);
             const tinhTrangKH = row[19];
             const tinhTrangNCC = row[20];
             return (
@@ -1751,6 +1756,7 @@ export default function PageBody() {
                 (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
             );
         });
+
 
         if (completedOrders.length === 0) {
             toast.error(

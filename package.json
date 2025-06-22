@@ -14,7 +14,7 @@
     "@emotion/styled": "^11.11.0",
     "@handsontable/react": "^15.3.0",
     "@handsontable/react-wrapper": "^15.2.0",
-    "@prisma/client": "^6.9.0",
+    "@prisma/client": "^6.10.1",
     "@react-hook/media-query": "^1.1.1",
     "@types/moment-timezone": "^0.5.13",
     "@types/sqlite3": "^3.1.11",

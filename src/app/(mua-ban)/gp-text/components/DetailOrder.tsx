@@ -11,7 +11,6 @@ import { ref, onValue, set, get, update } from "firebase/database"
 import getUserInfo from "@/components/userInfo"
 import { database } from "@/app/firebase/firebase"
 import { Modal, Button, message as antdMessage } from "antd"
-import HelpButton from "./HelpButton"
 import { toast } from "sonner"
 // import sheetApiRequest from "@/apiRequests/sheet"
 
@@ -19,7 +18,8 @@ type PageBodyProps = {
     supplierName: string | null,
     orderIndex?: number,
     onOrderUpdate?: () => void, // Add callback prop
-    order?: any[] // Add order prop
+    order?: any[], // Add order prop
+    hiddenColumns?: number[] // Thêm prop để ẩn cột
 }
 // register Handsontable's modules
 registerAllModules()
@@ -34,7 +34,7 @@ const RowHeader2: ColumnHeader[] = [
     "Mã",
     "Loại",
     "Ngày Bán",
-    "Time Text",
+    "Text",
     "Site",
     "Ghi Chú",
     "Giá Bán",
@@ -204,6 +204,74 @@ const columnSettings: Record<string, any> = {
                 td.style.backgroundColor = "#FF26A1" // Light red - Hủy đơn
                 td.style.color = "#fff1f0"
             }
+        },
+    },
+    "Ngày Bán": {
+        type: "date",
+        dateFormat: "DD/MM/YYYY",
+        correctFormat: true,
+        className: "htCenter",
+        renderer: (
+            instance: any,
+            td: any,
+            row: number,
+            col: number,
+            prop: any,
+            value: any
+        ) => {
+            if (value) {
+                const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
+                if (dateRegex.test(value)) {
+                    const [day, month] = value.split("/")
+                    td.innerHTML = `
+                        <div class="flex items-center justify-center gap-1">
+                            <span style="color:#2563EB;font-weight:500;">${day}/${month} 📅</span>
+                        </div>
+                    `
+                } else {
+                    const date = new Date(value)
+                    if (!isNaN(date.getTime())) {
+                        const day = String(date.getDate()).padStart(2, "0")
+                        const month = String(date.getMonth() + 1).padStart(2, "0")
+                        td.innerHTML = `
+                            <div class="flex items-center justify-center gap-1">
+                                <span style="color:#2563EB;font-weight:500;">${day}/${month} 📅</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="#2563EB">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                        `
+                    } else {
+                        td.innerHTML = value
+                    }
+                }
+            }
+            td.classList.add("ngay-cell-custom")
+            td.style.textAlign = "center"
+            td.style.backgroundColor = ""
+            td.style.color = ""
+            td.style.padding = "4px"
+            td.style.borderRadius = "4px"
+            td.style.fontWeight = "500"
+            td.style.cursor = "pointer"
+            return td
+        },
+        validator: (value: any, callback: any) => {
+            if (!value) {
+                callback(true)
+                return
+            }
+            const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
+            if (dateRegex.test(value)) {
+                callback(true)
+                return
+            }
+            const date = new Date(value)
+            if (!isNaN(date.getTime())) {
+                callback(true)
+                return
+            }
+            callback(false)
         },
     },
 }
@@ -638,7 +706,7 @@ const ChatDialog = memo(
 
 ChatDialog.displayName = "ChatDialog"
 
-export default function PageBody({ supplierName, orderIndex, onOrderUpdate, order }: PageBodyProps) {
+export default function PageBody({ supplierName, orderIndex, onOrderUpdate, order, hiddenColumns }: PageBodyProps) {
     const [orders, setOrders] = useState<any[]>([])
     const [orderKeys, setOrderKeys] = useState<string[]>([])
     const userInfo = getUserInfo()
@@ -899,6 +967,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
         update(orderRef, updatedOrder)
             .then(() => {
                 console.log(`Successfully updated order status for ${orderCode}`)
+                if (onOrderUpdate) onOrderUpdate();
             })
             .catch((error) => {
                 console.error(`Error updating order status for ${orderCode}:`, error)
@@ -1264,15 +1333,18 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                 if (!orderCode) return
 
                 // Find the matching order in the orders array by Mã đơn
-                const orderIndex = orders.findIndex((order) => order.MaDon === orderCode)
-                if (orderIndex === -1) return
+                const orderIdx = orders.findIndex((order) => order.MaDon === orderCode)
+                if (orderIdx === -1) return
 
-                // Get the Firebase key for this order
-                const orderKey = orderKeys[orderIndex]
-                if (!orderKey) return
+                // Lấy index thực trong mảng gốc Firebase cho ChiTietDonHang
+                const parentIndex = typeof orders[orderIdx]._parentIndex === 'number'
+                    ? orders[orderIdx]._parentIndex
+                    : orderIndex;
+                const dbIndex = orders[orderIdx]._dbIndex;
+                if (typeof dbIndex !== 'number' || typeof parentIndex !== 'number') return;
 
                 // Get the current order data
-                const updatedOrder = { ...orders[orderIndex] }
+                const updatedOrder = { ...orders[orderIdx] }
                 const columnName = RowHeader2[Number(prop)]
 
                 // Map table columns to Firebase fields
@@ -1294,7 +1366,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                     case "Ngày Bán":
                         updatedOrder.NgayBan = newValue
                         break
-                    case "Time Text":
+                    case "Text":
                         updatedOrder.TimeText = newValue
                         break
                     case "Site":
@@ -1461,16 +1533,16 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                         updatedOrder.TeleNCC = newValue
                         break
                     case "KH":
-                        updatedOrder.TinhTrangKH = newValue
-                        break
+                        updatedOrder.TinhTrangKH = newValue;
+                        break;
                     case "NCC":
-                        updatedOrder.TinhTrangNCC = newValue
+                        updatedOrder.TinhTrangNCC = newValue;
                         // Update NgayBan for non-GP orders when TinhTrangNCC changes to 'Đã lên bài'
-                        if (updatedOrder.Loai !== "GP" && newValue === "Đã lên bài") {
-                            const now = new Date()
-                            const day = String(now.getDate()).padStart(2, "0")
-                            const month = String(now.getMonth() + 1).padStart(2, "0")
-                            updatedOrder.NgayBan = `${day}/${month}`
+                        if (updatedOrder.Loai !== "GP" && updatedOrder.TinhTrangNCC === "Đã lên bài") {
+                            const now = new Date();
+                            const day = String(now.getDate()).padStart(2, "0");
+                            const month = String(now.getMonth() + 1).padStart(2, "0");
+                            updatedOrder.NgayBan = `${day}/${month}`;
 
                             // Only process payment if it hasn't been processed before
                             if (!updatedOrder.paymentStatus || updatedOrder.paymentStatus !== "paid") {
@@ -1483,20 +1555,20 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                             : updatedOrder.Loai === "TextHome"
                                                 ? updatedOrder.GiaBanTextHome || 0
                                                 : updatedOrder.GiaBanTextHeader || 0,
-                                )
-                                updatedOrder.paymentStatus = "paid"
+                                );
+                                updatedOrder.paymentStatus = "paid";
                                 // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
                                 // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
                             }
                         }
-                        break
+                        break;
                 }
 
-                // Update the order in Firebase
-                const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`)
+                // Update the order in Firebase, dùng parentIndex làm index cha
+                const orderRef = ref(database, `orders/${parentIndex}/ChiTietDonHang/${dbIndex}`)
                 update(orderRef, updatedOrder)
                     .then(() => {
-                        console.log(`Successfully updated order ${orderCode}`)
+                        if (onOrderUpdate) onOrderUpdate();
                     })
                     .catch((error) => {
                         console.error(`Error updating order ${orderCode}:`, error)
@@ -1562,8 +1634,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                             : order.GiaMuaTextHeader
 
             const hoaHong = order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText
-            const giaCuoi = giaMua - (giaMua * hoaHong) / 100
-            const loiNhuan = giaBan - giaCuoi
+            const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+            const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
             const ttncc = order.TTNCC || 0
 
             // Check if order is canceled
@@ -1771,8 +1843,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                             ) || 0
 
                         const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
-                        const giaCuoi = giaMua - (giaMua * hoaHong) / 100
-                        const loiNhuan = giaBan - giaCuoi
+                        const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+                        const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
                         const ttncc = Number(order.TTNCC) || 0
 
                         acc.count++
@@ -1853,8 +1925,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                             ) || 0
 
                         const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
-                        const giaCuoi = giaMua - (giaMua * hoaHong) / 100
-                        const loiNhuan = giaBan - giaCuoi
+                        const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+                        const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
                         const timeText = order.Loai === "GP" ? "" : order.TimeText
                         const index = order.Loai === "GP" ? order.Index : ""
 
@@ -1922,8 +1994,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                         ) || 0
 
                     const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
-                    const giaCuoi = giaMua - (giaMua * hoaHong) / 100
-                    const loiNhuan = giaBan - giaCuoi
+                    const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+                    const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
                     const ttncc = Number(order.TTNCC) || 0
 
                     acc.count++
@@ -2001,8 +2073,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                     ) || 0
 
                 const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
-                const giaCuoi = giaMua - (giaMua * hoaHong) / 100
-                const loiNhuan = giaBan - giaCuoi
+                const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+                const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
                 const timeText = order.Loai === "GP" ? "" : order.TimeText
                 const index = order.Loai === "GP" ? order.Index : ""
 
@@ -2063,8 +2135,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                         ) || 0
 
                     const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
-                    const giaCuoi = giaMua - (giaMua * hoaHong) / 100
-                    const loiNhuan = giaBan - giaCuoi
+                    const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+                    const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
                     const ttncc = Number(order.TTNCC) || 0
 
                     acc.count++
@@ -2142,8 +2214,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                     ) || 0
 
                 const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
-                const giaCuoi = giaMua - (giaMua * hoaHong) / 100
-                const loiNhuan = giaBan - giaCuoi
+                const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+                const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
                 const timeText = order.Loai === "GP" ? "" : order.TimeText
                 const index = order.Loai === "GP" ? order.Index : ""
 
@@ -2204,8 +2276,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                         ) || 0
 
                     const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
-                    const giaCuoi = giaMua - (giaMua * hoaHong) / 100
-                    const loiNhuan = giaBan - giaCuoi
+                    const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+                    const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
                     const ttncc = Number(order.TTNCC) || 0
 
                     acc.count++
@@ -2283,8 +2355,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                     ) || 0
 
                 const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
-                const giaCuoi = giaMua - (giaMua * hoaHong) / 100
-                const loiNhuan = giaBan - giaCuoi
+                const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+                const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
                 const timeText = order.Loai === "GP" ? "" : order.TimeText
                 const index = order.Loai === "GP" ? order.Index : ""
 
@@ -2503,7 +2575,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
 
     const RowHeader1: NestedColumnHeader[] = [
         { label: `Tên: ${userInfo?.username}`, colspan: 2 },
-        { label: "Thời Gian", colspan: 2 },
+        { label: "Time", colspan: 2 },
         { label: "Thông Tin WEB", colspan: 2 },
         { label: "TIỀN NÈ", colspan: 6 },
         { label: "INFO Bài", colspan: 6 },
@@ -2527,15 +2599,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                 manualColumnMove={true}
                 manualRowResize={true}
                 className="custom-table"
-                hiddenColumns={{
-                    indicators: true,
-                    columns:
-                        userInfo?.role === "Khách hàng"
-                            ? [7, 8, 9, 10, 11, 20, 21] // Giá mua, Hoa hồng, Giá cuối, TTNCC, Lợi nhuận, Tên NCC, Link NCC
-                            : userInfo?.role === "NCC"
-                                ? [6, 11, 20, 21] // Giá bán, Lợi nhuận
-                                : [],
-                }}
+                hiddenColumns={hiddenColumns ? { columns: hiddenColumns, indicators: true } : undefined}
                 licenseKey="non-commercial-and-evaluation"
                 nestedHeaders={[RowHeader1, RowHeader2]}
                 data={data}
@@ -2605,7 +2669,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                 case "Ngày Bán":
                                     updatedOrder.NgayBan = value;
                                     break;
-                                case "Time Text":
+                                case "Text":
                                     updatedOrder.TimeText = value;
                                     break;
                                 case "Site":
@@ -2775,13 +2839,13 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                     updatedOrder.TinhTrangKH = value;
                                     break;
                                 case "NCC":
-                                    updatedOrder.TinhTrangNCC = value
+                                    updatedOrder.TinhTrangNCC = value;
                                     // Update NgayBan for non-GP orders when TinhTrangNCC changes to 'Đã lên bài'
-                                    if (updatedOrder.Loai !== "GP" && value === "Đã lên bài") {
-                                        const now = new Date()
-                                        const day = String(now.getDate()).padStart(2, "0")
-                                        const month = String(now.getMonth() + 1).padStart(2, "0")
-                                        updatedOrder.NgayBan = `${day}/${month}`
+                                    if (updatedOrder.Loai !== "GP" && updatedOrder.TinhTrangNCC === "Đã lên bài") {
+                                        const now = new Date();
+                                        const day = String(now.getDate()).padStart(2, "0");
+                                        const month = String(now.getMonth() + 1).padStart(2, "0");
+                                        updatedOrder.NgayBan = `${day}/${month}`;
 
                                         // Only process payment if it hasn't been processed before
                                         if (!updatedOrder.paymentStatus || updatedOrder.paymentStatus !== "paid") {
@@ -2794,9 +2858,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                                         : updatedOrder.Loai === "TextHome"
                                                             ? updatedOrder.GiaBanTextHome || 0
                                                             : updatedOrder.GiaBanTextHeader || 0,
-                                            )
-
-                                            updatedOrder.paymentStatus = "paid"
+                                            );
+                                            updatedOrder.paymentStatus = "paid";
                                             // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
                                             // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
                                         }
@@ -2844,13 +2907,32 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                         data: index,
                         title: header,
                         width:
-                            header === "Bài Viết" ||
-                                header === "Site" ||
-                                header === "Link KQ" ||
-                                header === "Link 1" ||
-                                header === "Link 2"
-                                ? 100
-                                : undefined,
+                            header === "Mã" ? 70 :
+                                header === "Loại" ? 70 :
+                                    header === "Ngày Bán" ? 0 :
+                                        header === "Text" ? 0 :
+                                            header === "Site" ? 120 :
+                                                header === "Ghi Chú" ? 60 :
+                                                    header === "Giá Bán" ? 60 :
+                                                        header === "Giá Mua" ? 60 :
+                                                            header === "Hoa Hồng" ? 60 :
+                                                                header === "Giá Cuối" ? 60 :
+                                                                    header === "TTNCC" ? 60 :
+                                                                        header === "Lợi Nhuận" ? 60 :
+                                                                            header === "Bài Viết" ? 70 :
+                                                                                header === "Link KQ" ? 70 :
+                                                                                    header === "Anchor 1" ? 60 :
+                                                                                        header === "Link 1" ? 60 :
+                                                                                            header === "Anchor 2" ? 60 :
+                                                                                                header === "Link 2" ? 60 :
+                                                                                                    header === "Ngày KT" ? 60 :
+                                                                                                        header === "Index" ? 60 :
+                                                                                                            header === "Tên NCC" ? 60 :
+                                                                                                                header === "Link NCC" ? 60 :
+                                                                                                                    header === "KH" ? 60 :
+                                                                                                                        header === "NCC" ? 60 :
+                                                                                                                            header === "Trao đổi" ? 100 : // Tăng width cho cột Trao đổi
+                                                                                                                                undefined,
                         readOnly: isReadOnly || (userInfo?.role === "Khách hàng" && header === "KH"),
                         renderer: header === "Trao đổi" ? chatRenderer : undefined,
                         ...columnSetting,
@@ -2995,7 +3077,6 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                 user={userInfo}
                 orderIndex={orderIndex}
             />
-            <HelpButton userRole={userInfo?.role} currentOrder={selectedOrder} />
         </>
     )
 }

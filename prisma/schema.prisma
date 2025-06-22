@@ -8,18 +8,18 @@ datasource db {
 }
 
 model account {
-  id           Int       @id @default(autoincrement())
-  name         String?   @db.VarChar(255)
-  username     String?   @unique @db.VarChar(100)
-  password     String?   @db.VarChar(255)
-  phone        String?   @db.VarChar(20)
-  role         String    @default("Khách hàng") @db.VarChar(50)
-  active       String    @default("Hoạt động") @db.VarChar(50)
-  created_at   String 
-  updated_at   String 
-  refreshtoken String?   @db.VarChar(255)
-  telegram     String?   @db.VarChar(20)
-  amount       Int?      @default(0)
+  id           Int     @id @default(autoincrement())
+  name         String? @db.VarChar(255)
+  username     String? @unique @db.VarChar(100)
+  password     String? @db.VarChar(255)
+  phone        String? @db.VarChar(20)
+  role         String  @default("Khách hàng") @db.VarChar(50)
+  active       String  @default("Hoạt động") @db.VarChar(50)
+  created_at   String
+  updated_at   String
+  refreshtoken String? @db.VarChar(255)
+  telegram     String? @db.VarChar(20)
+  amount       Int?    @default(0)
   team         String?
   position     String?
 
@@ -27,37 +27,38 @@ model account {
 }
 
 model attendance {
-  id       Int      @id @default(autoincrement())
-  username String   @db.VarChar(255)
-  date     String 
+  id        Int     @id @default(autoincrement())
+  username  String  @db.VarChar(255)
+  date      String
+  nguoi_xem String? @db.Text
 }
 
 model customer_data {
-  id           Int      @id @default(autoincrement())
-  ma_moi       String?  @db.VarChar(100)
-  ma_cu        String?  @db.VarChar(100)
-  phan_loai    String?  @db.VarChar(100)
-  phien_ban    String?  @db.VarChar(100)
-  oder         String?  @db.VarChar(100)
-  cty          String?  @db.VarChar(50)
-  team         String?  @db.VarChar(100)
-  chuc_vu      String?  @db.VarChar(100)
-  telegram     String   @db.Text
-  username     String?  @db.VarChar(100)
-  khac         String?  @db.Text
-  link_nhom    String?  @db.VarChar(255)
-  id_nhom      String?  @db.VarChar(100)
-  info         String?  @db.Text
-  nhom         String?  @db.VarChar(100)
-  nguoi_cham1  String?  @db.VarChar(100)
-  nguoi_cham2  String?  @db.VarChar(100)
-  tab_don      String?  @db.VarChar(255)
-  cong_no      String?  @db.VarChar(100)
-  tin_dung     String?  @db.VarChar(100)
-  tinh_trang   String?  @db.VarChar(50)
-  ngay_check   String?  @db.VarChar(20)
-  note_kt      String?  @db.Text
-  nguoi_xem    String?  @db.VarChar(100)
+  id          Int     @id @default(autoincrement())
+  ma_moi      String? @db.VarChar(100)
+  ma_cu       String? @db.VarChar(100)
+  phan_loai   String? @db.VarChar(100)
+  phien_ban   String? @db.VarChar(100)
+  oder        String? @db.VarChar(100)
+  cty         String? @db.VarChar(50)
+  team        String? @db.VarChar(100)
+  chuc_vu     String? @db.VarChar(100)
+  telegram    String  @db.Text
+  username    String? @db.VarChar(100)
+  khac        String? @db.Text
+  link_nhom   String? @db.VarChar(255)
+  id_nhom     String? @db.VarChar(100)
+  info        String? @db.Text
+  nhom        String? @db.VarChar(100)
+  nguoi_cham1 String? @db.VarChar(100)
+  nguoi_cham2 String? @db.VarChar(100)
+  tab_don     String? @db.VarChar(255)
+  tin_dung    String? @db.VarChar(100)
+  tinh_trang  String? @db.VarChar(50)
+  ngay_check  String? @db.VarChar(20)
+  note_kt     String? @db.Text
+  cong_no     String? @db.VarChar(22)
+  nguoi_xem   String? @db.Text
 }
 
 model team {
@@ -70,50 +71,50 @@ model team {
 }
 
 model transactions {
-  id           Int       @id @default(autoincrement())
+  id           Int     @id @default(autoincrement())
   amount       String?
-  deposit_date String 
-  method       String?   @db.VarChar(50)
-  description  String?   @db.VarChar(50)
-  status       String?   @default("Đang chờ")
+  deposit_date String
+  method       String? @db.VarChar(50)
+  description  String? @db.VarChar(50)
+  status       String? @default("Đang chờ")
   customer_id  Int?
   name         String?
-  type         String?   @default("recharge") @db.VarChar(30)
+  type         String? @default("recharge") @db.VarChar(30)
   wallet       String?
-  address      String?   @default("TRC20")
+  address      String? @default("TRC20")
   week         String
 }
 
 model wheel {
-  id       Int       @id @default(autoincrement())
+  id       Int    @id @default(autoincrement())
   reward   String
-  username String    @db.VarChar(255)
-  date     String 
+  username String @db.VarChar(255)
+  date     String
 }
 
 model content {
-  id        Int      @id @default(autoincrement())
-  ma_don    String   @unique @db.VarChar(100)
-  loai      String?  @db.VarChar(100)
+  id         Int     @id @default(autoincrement())
+  ma_don     String  @unique @db.VarChar(100)
+  loai       String? @db.VarChar(100)
   ngay_order String? @db.VarChar(20)
-  note_kh1  String?  @db.Text
-  note_kh2  String?  @db.Text
-  chu_de    String?  @db.Text
-  anchor1   String?  @db.Text
-  url1      String?  @db.Text
-  anchor2   String?  @db.Text
-  url2      String?  @db.Text
-  link_kq   String?  @db.Text
-  deadline  String?  @db.VarChar(100)
-  gia_ban   Float?   @default(0)
-  gia_mua   Float?   @default(0)
-  loi_nhuan Float?   @default(0)
-  ten_ncc   String?  @db.VarChar(255)
-  ma_ncc    String?  @db.VarChar(100)
-  tt_kh     String?  @default("Chưa nhập") @db.VarChar(50)
-  tt_ncc    String?  @default("Chưa nhận") @db.VarChar(50)
-  chat      String?  @db.Text
-  note      String?  @db.Text
+  note_kh1   String? @db.Text
+  note_kh2   String? @db.Text
+  chu_de     String? @db.Text
+  anchor1    String? @db.Text
+  url1       String? @db.Text
+  anchor2    String? @db.Text
+  url2       String? @db.Text
+  link_kq    String? @db.Text
+  deadline   String? @db.VarChar(100)
+  gia_ban    Float?  @default(0)
+  gia_mua    Float?  @default(0)
+  loi_nhuan  Float?  @default(0)
+  ten_ncc    String? @db.VarChar(255)
+  ma_ncc     String? @db.VarChar(100)
+  tt_kh      String? @default("Chưa nhập") @db.VarChar(50)
+  tt_ncc     String? @default("Chưa nhận") @db.VarChar(50)
+  chat       String? @db.Text
+  note       String? @db.Text
 
   @@index([ma_don])
 }

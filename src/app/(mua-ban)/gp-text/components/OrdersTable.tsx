@@ -6,7 +6,7 @@ import { database } from "@/app/firebase/firebase"
 import { HotTable } from "@handsontable/react"
 import { registerAllModules } from "handsontable/registry"
 import "handsontable/dist/handsontable.full.min.css"
-import PageBody from "./PageBody"
+import PageBody from "./DetailOrder"
 import "../style.css"
 import getUserInfo from "@/components/userInfo"
 
@@ -30,7 +30,7 @@ export default function OrdersTable() {
     const [allOrders, setAllOrders] = useState<any[]>([])
     const [selectedOrderDetails, setSelectedOrderDetails] = useState<any[]>([])
     const [selectedOrder, setSelectedOrder] = useState<any>(null)
-    const [selectedOrderIndex, setSelectedOrderIndex] = useState<number>(0)
+    const [selectedOrderDbIndex, setSelectedOrderDbIndex] = useState<number | null>(null) // Changed from selectedOrderIndex
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [selectedNDD, setSelectedNDD] = useState<string>("")
@@ -40,21 +40,22 @@ export default function OrdersTable() {
     const [filterType, setFilterType] = useState<"week" | "month">("week")
     const [summaryRow, setSummaryRow] = useState<any>(null)
     const userInfo = getUserInfo()
+
     const handleCloseModal = useCallback(() => {
         setIsModalOpen(false)
-        setSelectedOrderIndex(0)
+        setSelectedOrderDbIndex(null) // Reset to null instead of 0
     }, [])
 
     useEffect(() => {
         const handleEscKey = (event: KeyboardEvent) => {
-            if (event.key === 'Escape' && isModalOpen) {
+            if (event.key === "Escape" && isModalOpen) {
                 handleCloseModal()
             }
         }
 
-        window.addEventListener('keydown', handleEscKey)
+        window.addEventListener("keydown", handleEscKey)
         return () => {
-            window.removeEventListener('keydown', handleEscKey)
+            window.removeEventListener("keydown", handleEscKey)
         }
     }, [isModalOpen, handleCloseModal])
 
@@ -114,13 +115,13 @@ export default function OrdersTable() {
     // Function to get week number from date
     const getWeekNumber = (dateStr: string) => {
         // Convert DD/MM/YYYY to Date object
-        const [day, month, year] = dateStr.split('/').map(Number)
+        const [day, month, year] = dateStr.split("/").map(Number)
         const date = new Date(year, month - 1, day)
         const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
         const dayNum = d.getUTCDay() || 7
         d.setUTCDate(d.getUTCDate() + 4 - dayNum)
         const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-        return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+        return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
     }
 
     // Function to get week range string
@@ -131,7 +132,7 @@ export default function OrdersTable() {
 
     // Function to get month range string
     const getMonthRange = (dateStr: string) => {
-        const [day, month, year] = dateStr.split('/').map(Number)
+        const [day, month, year] = dateStr.split("/").map(Number)
         return `Tháng ${month}`
     }
 
@@ -148,7 +149,7 @@ export default function OrdersTable() {
     // Get unique weeks from orders
     const uniqueWeeks = useMemo(() => {
         const weeks = new Set<string>()
-        allOrders.forEach(order => {
+        allOrders.forEach((order) => {
             if (order.Ngay) {
                 const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
                 if (dateRegex.test(order.Ngay)) {
@@ -157,8 +158,8 @@ export default function OrdersTable() {
             }
         })
         const weeksArray = Array.from(weeks).sort((a, b) => {
-            const weekA = parseInt(a.match(/Tuần (\d+)/)?.[1] || "0")
-            const weekB = parseInt(b.match(/Tuần (\d+)/)?.[1] || "0")
+            const weekA = Number.parseInt(a.match(/Tuần (\d+)/)?.[1] || "0")
+            const weekB = Number.parseInt(b.match(/Tuần (\d+)/)?.[1] || "0")
             return weekB - weekA
         })
         return weeksArray
@@ -167,7 +168,7 @@ export default function OrdersTable() {
     // Get unique months from orders
     const uniqueMonths = useMemo(() => {
         const months = new Set<string>()
-        allOrders.forEach(order => {
+        allOrders.forEach((order) => {
             if (order.Ngay) {
                 const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
                 if (dateRegex.test(order.Ngay)) {
@@ -176,8 +177,8 @@ export default function OrdersTable() {
             }
         })
         const monthsArray = Array.from(months).sort((a, b) => {
-            const monthA = parseInt(a.match(/Tháng (\d+)/)?.[1] || "0")
-            const monthB = parseInt(b.match(/Tháng (\d+)/)?.[1] || "0")
+            const monthA = Number.parseInt(a.match(/Tháng (\d+)/)?.[1] || "0")
+            const monthB = Number.parseInt(b.match(/Tháng (\d+)/)?.[1] || "0")
             return monthB - monthA
         })
         return monthsArray
@@ -185,8 +186,12 @@ export default function OrdersTable() {
 
     // Calculate summary row
     const calculateSummaryRow = useCallback((orders: any[]) => {
-        let totalUSDT = 0, totalGiaMua = 0, totalThanhToan = 0, totalLoiNhuan = 0, totalKhachNo = 0
-        orders.forEach(order => {
+        let totalUSDT = 0,
+            totalGiaMua = 0,
+            totalThanhToan = 0,
+            totalLoiNhuan = 0,
+            totalKhachNo = 0
+        orders.forEach((order) => {
             const usdt = Number(order.USDT) || 0
             const giaMua = Number(order.GiaMua) || 0
             const thanhToan = Number(order.ThanhToan) || 0
@@ -204,16 +209,16 @@ export default function OrdersTable() {
             ThanhToan: totalThanhToan,
             GiaMua: totalGiaMua,
             LoiNhuan: totalLoiNhuan,
-            KhachNo: totalKhachNo
+            KhachNo: totalKhachNo,
         }
     }, [])
 
     // Get unique customer codes
     const uniqueCustomers = useMemo(() => {
         const customers = new Set<string>()
-        allOrders.forEach(order => {
+        allOrders.forEach((order) => {
             if (order.MaDon) {
-                const customerCode = order.MaDon.split('-')[0]
+                const customerCode = order.MaDon.split("-")[0]
                 if (customerCode) {
                     customers.add(customerCode)
                 }
@@ -233,9 +238,12 @@ export default function OrdersTable() {
                 setAllOrders(ordersArray)
 
                 // Filter orders based on user role, selected NDD, selected period, and customer
-                let filteredOrders = userInfo.role === "Admin"
-                    ? (selectedNDD ? ordersArray.filter((order: any) => order.NDD === selectedNDD) : ordersArray)
-                    : ordersArray.filter((order: any) => order.NDD === userInfo.username)
+                let filteredOrders =
+                    userInfo.role === "Admin"
+                        ? selectedNDD
+                            ? ordersArray.filter((order: any) => order.NDD === selectedNDD)
+                            : ordersArray
+                        : ordersArray.filter((order: any) => order.NDD === userInfo.username)
 
                 // Apply period filter if selected
                 if (filterType === "week" && selectedWeek) {
@@ -256,7 +264,7 @@ export default function OrdersTable() {
                 if (selectedCustomer) {
                     filteredOrders = filteredOrders.filter((order: any) => {
                         if (!order.MaDon) return false
-                        const customerCode = order.MaDon.split('-')[0]
+                        const customerCode = order.MaDon.split("-")[0]
                         return customerCode === selectedCustomer
                     })
                 }
@@ -284,7 +292,17 @@ export default function OrdersTable() {
         })
 
         return () => unsubscribe()
-    }, [calculateOrderSummary, userInfo.role, userInfo.username, selectedNDD, selectedWeek, selectedMonth, selectedCustomer, filterType, calculateSummaryRow])
+    }, [
+        calculateOrderSummary,
+        userInfo.role,
+        userInfo.username,
+        selectedNDD,
+        selectedWeek,
+        selectedMonth,
+        selectedCustomer,
+        filterType,
+        calculateSummaryRow,
+    ])
 
     // Set initial period when component mounts or filter type changes
     useEffect(() => {
@@ -301,7 +319,7 @@ export default function OrdersTable() {
     // Get unique NDD values for the filter dropdown from all orders
     const uniqueNDDs = useMemo(() => {
         const ndds = new Set<string>()
-        allOrders.forEach(order => {
+        allOrders.forEach((order) => {
             if (order.NDD) {
                 ndds.add(order.NDD)
             }
@@ -315,35 +333,35 @@ export default function OrdersTable() {
             title: "Mã Đơn",
             width: 60,
             readOnly: true,
-            className: 'readonly-column',
+            className: "readonly-column",
             renderer: (instance: any, td: any, row: number, col: number, prop: any, value: any) => {
-                td.innerHTML = value || ''
-                td.style.color = '#2563EB'
-                td.style.fontWeight = '600'
-                td.style.textAlign = 'left'
+                td.innerHTML = value || ""
+                td.style.color = "#2563EB"
+                td.style.fontWeight = "600"
+                td.style.textAlign = "left"
                 return td
-            }
+            },
         },
         {
             data: "NDD",
             title: "Ng Đi Đơn",
             width: 80,
             readOnly: true,
-            className: 'readonly-column'
+            className: "readonly-column",
         },
         {
             data: "Ngay",
             title: "Ngày",
             width: 70,
-            type: 'date',
-            dateFormat: 'DD/MM/YYYY',
+            type: "date",
+            dateFormat: "DD/MM/YYYY",
             correctFormat: true,
-            className: 'htCenter',
+            className: "htCenter",
             renderer: (instance: any, td: any, row: number, col: number, prop: any, value: any) => {
                 if (value) {
                     const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
                     if (dateRegex.test(value)) {
-                        const [day, month] = value.split('/')
+                        const [day, month] = value.split("/")
                         td.innerHTML = `
                             <div class="flex items-center justify-center gap-1">
                                 <span style="color:#2563EB;font-weight:500;">${day}/${month} 📅</span>
@@ -358,7 +376,7 @@ export default function OrdersTable() {
                                 <div class="flex items-center justify-center gap-1">
                                     <span style="color:#2563EB;font-weight:500;">${day}/${month}</span>
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="#2563EB">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                     </svg>
                                 </div>
                             `
@@ -367,17 +385,17 @@ export default function OrdersTable() {
                         }
                     }
                 }
-                td.classList.add('ngay-cell-custom')
-                td.style.textAlign = 'center'
-                td.style.backgroundColor = ''
-                td.style.color = ''
-                td.style.padding = '4px'
-                td.style.borderRadius = '4px'
-                td.style.fontWeight = '500'
-                td.style.cursor = 'pointer'
+                td.classList.add("ngay-cell-custom")
+                td.style.textAlign = "center"
+                td.style.backgroundColor = ""
+                td.style.color = ""
+                td.style.padding = "4px"
+                td.style.borderRadius = "4px"
+                td.style.fontWeight = "500"
+                td.style.cursor = "pointer"
                 return td
             },
-            validator: function (value: any, callback: any) {
+            validator: (value: any, callback: any) => {
                 if (!value) {
                     callback(true)
                     return
@@ -498,28 +516,28 @@ export default function OrdersTable() {
             data: "USDT",
             title: "USDT",
             width: 80,
-            className: 'htRight readonly-column',
-            readOnly: true
+            className: "htRight readonly-column",
+            readOnly: true,
         },
         {
             data: "TiGia",
             title: "Tỷ giá",
             width: 80,
-            className: 'htRight'
+            className: "htRight",
         },
         {
             data: "VND",
             title: "VND",
             width: 80,
-            className: 'htRight readonly-column',
-            readOnly: true
+            className: "htRight readonly-column",
+            readOnly: true,
         },
         { data: "TKNhan", title: "TK nhận", width: 80 },
         {
             data: "ThanhToan",
             title: "Thanh toán",
             width: 80,
-            className: 'htRight',
+            className: "htRight",
         },
         {
             data: "LinkBill",
@@ -553,7 +571,8 @@ export default function OrdersTable() {
             width: 70,
             renderer: (instance: any, td: any, row: number, col: number, prop: any, value: any) => {
                 if (!value) {
-                    td.innerHTML = '<button class="w-full h-full flex items-center justify-center px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600" style="min-width:unset;min-height:unset;">Xác nhận</button>'
+                    td.innerHTML =
+                        '<button class="w-full h-full flex items-center justify-center px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600" style="min-width:unset;min-height:unset;">Xác nhận</button>'
                     td.style.padding = "0"
                     td.style.overflow = "hidden"
                     td.style.verticalAlign = "middle"
@@ -562,12 +581,16 @@ export default function OrdersTable() {
                         if (e.target.tagName === "BUTTON") {
                             const order = orders[row - 1] // Adjust for summary row
                             if (order && order.MaDon) {
-                                try {
-                                    await update(ref(database), {
-                                        [`orders/${row - 1}/KTXacNhan`]: "Đã xong"
-                                    })
-                                } catch (error) {
-                                    console.error("Error updating KTXN:", error)
+                                // Find the database index for this order
+                                const dbIndex = allOrders.findIndex((o) => o.MaDon === order.MaDon)
+                                if (dbIndex !== -1) {
+                                    try {
+                                        await update(ref(database), {
+                                            [`orders/${dbIndex}/KTXacNhan`]: "Đã xong",
+                                        })
+                                    } catch (error) {
+                                        console.error("Error updating KTXN:", error)
+                                    }
                                 }
                             }
                         }
@@ -584,44 +607,66 @@ export default function OrdersTable() {
                 }
                 return td
             },
-            readOnly: true
+            readOnly: true,
         },
         {
             data: "GiaMua",
             title: "Giá mua",
             width: 70,
-            className: 'htRight readonly-column',
-            readOnly: true
+            className: "htRight readonly-column",
+            readOnly: true,
         },
         {
             data: "LoiNhuan",
             title: "Lợi nhuận",
             width: 70,
-            className: 'htRight readonly-column',
-            readOnly: true
+            className: "htRight readonly-column",
+            readOnly: true,
         },
         {
             data: "MaDon",
             title: "Chi Tiết",
             width: 50,
             renderer: (instance: any, td: any, row: number, col: number, prop: any, value: any) => {
-                const order = orders[row];
-                td.innerHTML =
-                    `<button class="w-full h-full flex items-center justify-center px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600" style="min-width:unset;min-height:unset;" data-madon="${order?.MaDon ?? ''}">Xem</button>`;
-                td.style.padding = "0";
-                td.style.overflow = "hidden";
-                td.style.verticalAlign = "middle";
-                td.style.textAlign = "center";
-                td.addEventListener("click", (e: any) => {
-                    if (e.target.tagName === "BUTTON") {
-                        const maDon = e.target.dataset.madon;
-                        const orderInDb = allOrders.find(o => o.MaDon === maDon);
-                        setSelectedOrder(orderInDb);
-                        setIsModalOpen(true);
-                        setSelectedOrderDetails(orderInDb?.ChiTietDonHang || []);
+                // Nếu có summaryRow, order bắt đầu từ row 1
+                const dataRowIndex = summaryRow ? row - 1 : row
+                const order = orders[dataRowIndex]
+                // Xóa event listener cũ nếu có
+                const newButton = document.createElement("button")
+                newButton.className = "w-full h-full flex items-center justify-center px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                newButton.style.minWidth = "unset"
+                newButton.style.minHeight = "unset"
+                newButton.setAttribute("data-madon", order?.MaDon ?? "")
+                newButton.textContent = "Xem"
+                newButton.onclick = (e: any) => {
+                    const maDon = order?.MaDon
+                    // Find the order in the original allOrders array to get the correct database index
+                    const dbIndex = allOrders.findIndex((o) => o.MaDon === maDon)
+                    const orderInDb = allOrders[dbIndex]
+
+                    if (orderInDb && dbIndex !== -1) {
+                        setSelectedOrder(orderInDb)
+                        setSelectedOrderDbIndex(dbIndex)
+                        setIsModalOpen(true)
+                        setSelectedOrderDetails(
+                            (orderInDb?.ChiTietDonHang || []).map(function (item: any, idx: number) {
+                                return {
+                                    ...item,
+                                    _dbIndex: idx
+                                };
+                            })
+                        )
                     }
-                });
-                return td;
+                }
+                td.innerHTML = ""
+                if (order) {
+                    td.appendChild(newButton)
+                }
+                td.style.padding = "0"
+                td.style.overflow = "hidden"
+                td.style.verticalAlign = "middle"
+                td.style.textAlign = "center"
+                return td
             },
         },
     ]
@@ -638,7 +683,7 @@ export default function OrdersTable() {
         for (let row = adjustedStartRow; row <= adjustedEndRow; row++) {
             const order = orders[row]
             if (!order || !order.MaDon) continue
-            const dbIndex = allOrders.findIndex(o => o.MaDon === order.MaDon)
+            const dbIndex = allOrders.findIndex((o) => o.MaDon === order.MaDon)
             if (dbIndex === -1) continue
 
             const rowUpdates: { [key: string]: any } = {}
@@ -655,7 +700,7 @@ export default function OrdersTable() {
             if (Object.keys(rowUpdates).length > 0) {
                 updates[`orders/${dbIndex}`] = {
                     ...allOrders[dbIndex],
-                    ...rowUpdates
+                    ...rowUpdates,
                 }
             }
         }
@@ -665,9 +710,6 @@ export default function OrdersTable() {
             if (Object.keys(updates).length > 0) {
                 await update(ref(database), updates)
             }
-
-            // Update local state
-            // (Không cần update local orders vì sẽ được đồng bộ lại từ Firebase)
         } catch (error) {
             console.error("Error updating data:", error)
         }
@@ -686,13 +728,13 @@ export default function OrdersTable() {
             const adjustedRow = row - 1
             const order = orders[adjustedRow]
             if (!order || !order.MaDon) return
-            const dbIndex = allOrders.findIndex(o => o.MaDon === order.MaDon)
+            const dbIndex = allOrders.findIndex((o) => o.MaDon === order.MaDon)
             if (dbIndex === -1) return
 
             if (prop === "MaDon") return // Skip MaDon column
 
             // Update VND if USDT or TiGia changes
-            let updateObj: any = { [prop]: newValue }
+            const updateObj: any = { [prop]: newValue }
             if (prop === "USDT" || prop === "TiGia") {
                 const usdt = prop === "USDT" ? newValue : order.USDT
                 const tiGia = prop === "TiGia" ? newValue : order.TiGia
@@ -701,7 +743,7 @@ export default function OrdersTable() {
             }
             updates[`orders/${dbIndex}`] = {
                 ...allOrders[dbIndex],
-                ...updateObj
+                ...updateObj,
             }
         })
 
@@ -715,9 +757,9 @@ export default function OrdersTable() {
     }
 
     // Tìm index các cột cần ẩn
-    const tiGiaIndex = columns.findIndex(c => c.data === 'TiGia');
-    const vndIndex = columns.findIndex(c => c.data === 'VND');
-    const hiddenCols = [tiGiaIndex, vndIndex].filter(i => i !== -1);
+    const tiGiaIndex = columns.findIndex((c) => c.data === "TiGia")
+    const vndIndex = columns.findIndex((c) => c.data === "VND")
+    const hiddenCols = [tiGiaIndex, vndIndex].filter((i) => i !== -1)
 
     return (
         <div>
@@ -832,19 +874,19 @@ export default function OrdersTable() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                     <div className="rounded-lg bg-blue-100 p-4 flex flex-col items-center">
                         <div className="text-xs text-blue-700 font-semibold uppercase">Doanh thu</div>
-                        <div className="text-2xl font-bold text-blue-700">{summaryRow.USDT?.toLocaleString('vi-VN')}</div>
+                        <div className="text-2xl font-bold text-blue-700">{summaryRow.USDT?.toLocaleString("vi-VN")}</div>
                     </div>
                     <div className="rounded-lg bg-purple-100 p-4 flex flex-col items-center">
                         <div className="text-xs text-purple-700 font-semibold uppercase">Mua NCC</div>
-                        <div className="text-2xl font-bold text-purple-700">{summaryRow.GiaMua?.toLocaleString('vi-VN')}</div>
+                        <div className="text-2xl font-bold text-purple-700">{summaryRow.GiaMua?.toLocaleString("vi-VN")}</div>
                     </div>
                     <div className="rounded-lg bg-orange-100 p-4 flex flex-col items-center">
                         <div className="text-xs text-orange-700 font-semibold uppercase">Khách nợ</div>
-                        <div className="text-2xl font-bold text-orange-700">{summaryRow.KhachNo?.toLocaleString('vi-VN')}</div>
+                        <div className="text-2xl font-bold text-orange-700">{summaryRow.KhachNo?.toLocaleString("vi-VN")}</div>
                     </div>
                     <div className="rounded-lg bg-green-100 p-4 flex flex-col items-center">
                         <div className="text-xs text-green-700 font-semibold uppercase">Lợi nhuận</div>
-                        <div className="text-2xl font-bold text-green-700">{summaryRow.LoiNhuan?.toLocaleString('vi-VN')}</div>
+                        <div className="text-2xl font-bold text-green-700">{summaryRow.LoiNhuan?.toLocaleString("vi-VN")}</div>
                     </div>
                 </div>
             )}
@@ -859,15 +901,15 @@ export default function OrdersTable() {
                 afterPaste={handleAfterPaste}
                 contextMenu={{
                     items: {
-                        'hidden_columns_hide': { name: 'Ẩn cột' },
-                        'show_all_columns': {
-                            name: 'Hiện tất cả cột',
+                        hidden_columns_hide: { name: "Ẩn cột" },
+                        show_all_columns: {
+                            name: "Hiện tất cả cột",
                             callback: function (key, selection, clickEvent) {
-                                const allIndexes = Array.from({ length: this.countCols() }, (_, i) => i);
-                                this.getPlugin('hiddenColumns').showColumns(allIndexes);
-                            }
-                        }
-                    }
+                                const allIndexes = Array.from({ length: this.countCols() }, (_, i) => i)
+                                this.getPlugin("hiddenColumns").showColumns(allIndexes)
+                            },
+                        },
+                    },
                 }}
                 manualColumnResize={true}
                 manualRowResize={true}
@@ -877,60 +919,60 @@ export default function OrdersTable() {
                 hiddenColumns={{ columns: hiddenCols, indicators: true }}
                 beforeOnCellContextMenu={(event, coords) => {
                     if (coords.row !== -1) {
-                        event.stopImmediatePropagation();
-                        event.preventDefault();
-                        return false;
+                        event.stopImmediatePropagation()
+                        event.preventDefault()
+                        return false
                     }
                 }}
                 cells={(row, col) => {
                     if (row === 0 && summaryRow) {
                         return {
-                            className: 'summary-row',
+                            className: "summary-row",
                             readOnly: true,
                             renderer: (instance, td, row, col, prop, value) => {
-                                if (['USDT', 'VND', 'ThanhToan', 'GiaMua', 'LoiNhuan'].includes(prop as string)) {
-                                    td.style.fontWeight = '600'
-                                    td.style.backgroundColor = '#fecaca'
-                                    td.style.color = '#dc2626'
-                                    td.style.textAlign = 'right'
-                                    td.innerHTML = value?.toLocaleString('vi-VN') || '0'
-                                } else if (prop === 'MaDon') {
-                                    td.style.fontWeight = '600'
-                                    td.style.backgroundColor = '#fecaca'
-                                    td.style.color = '#dc2626'
-                                    td.style.textAlign = 'left'
-                                } else if (prop === 'TinhTrang') {
-                                    td.style.fontWeight = '600'
-                                    td.style.backgroundColor = '#fecaca'
-                                    td.style.color = '#dc2626'
-                                    td.style.textAlign = 'center'
-                                    td.innerHTML = 'Tổng'
+                                if (["USDT", "VND", "ThanhToan", "GiaMua", "LoiNhuan"].includes(prop as string)) {
+                                    td.style.fontWeight = "600"
+                                    td.style.backgroundColor = "#fecaca"
+                                    td.style.color = "#dc2626"
+                                    td.style.textAlign = "right"
+                                    td.innerHTML = value?.toLocaleString("vi-VN") || "0"
+                                } else if (prop === "MaDon") {
+                                    td.style.fontWeight = "600"
+                                    td.style.backgroundColor = "#fecaca"
+                                    td.style.color = "#dc2626"
+                                    td.style.textAlign = "left"
+                                } else if (prop === "TinhTrang") {
+                                    td.style.fontWeight = "600"
+                                    td.style.backgroundColor = "#fecaca"
+                                    td.style.color = "#dc2626"
+                                    td.style.textAlign = "center"
+                                    td.innerHTML = "Tổng"
                                 } else {
-                                    td.style.backgroundColor = '#fecaca'
-                                    td.innerHTML = ''
+                                    td.style.backgroundColor = "#fecaca"
+                                    td.innerHTML = ""
                                 }
                                 return td
-                            }
+                            },
                         }
                     }
                     // Add styling for numeric columns in data rows
                     const prop = columns[col].data
-                    if (['USDT', 'VND', 'ThanhToan', 'GiaMua', 'LoiNhuan'].includes(prop as string)) {
+                    if (["USDT", "VND", "ThanhToan", "GiaMua", "LoiNhuan"].includes(prop as string)) {
                         return {
                             renderer: (instance, td, row, col, prop, value) => {
-                                td.style.color = '#dc2626'
-                                td.style.textAlign = 'right'
-                                td.style.fontWeight = '500'
-                                td.innerHTML = value?.toLocaleString('vi-VN') || '0'
+                                td.style.color = "#dc2626"
+                                td.style.textAlign = "right"
+                                td.style.fontWeight = "500"
+                                td.innerHTML = value?.toLocaleString("vi-VN") || "0"
                                 return td
-                            }
+                            },
                         }
                     }
                     return {}
                 }}
             />
 
-            {isModalOpen && selectedOrder && (
+            {isModalOpen && selectedOrder && selectedOrderDbIndex !== null && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]">
                     <div className="bg-white rounded-lg w-full overflow-auto relative z-[1001]">
                         <div className="bg-[#2563eb] text-white flex items-center justify-center py-2 rounded-t-lg relative">
@@ -941,12 +983,7 @@ export default function OrdersTable() {
                                     className="w-8 h-8 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors"
                                     aria-label="Close"
                                 >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        className="h-5 w-5"
-                                        viewBox="0 0 20 20"
-                                        fill="currentColor"
-                                    >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                         <path
                                             fillRule="evenodd"
                                             d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
@@ -964,7 +1001,7 @@ export default function OrdersTable() {
                             <MemoizedPageBody
                                 order={selectedOrderDetails}
                                 supplierName={selectedOrder.NDD}
-                                orderIndex={selectedOrderIndex === null ? undefined : selectedOrderIndex}
+                                orderIndex={selectedOrderDbIndex} // Pass the database index instead of filtered table index
                                 onOrderUpdate={() => {
                                     setIsLoading(true)
                                     // Force refresh of orders when details are updated
@@ -986,10 +1023,18 @@ export default function OrdersTable() {
                                                     }
                                                 })
 
-                                                setOrders(updatedOrders)
-                                                // Cập nhật lại selectedOrder nếu đang mở modal
-                                                if (selectedOrderIndex !== null && updatedOrders[selectedOrderIndex]) {
-                                                    setSelectedOrder(updatedOrders[selectedOrderIndex])
+                                                setAllOrders(updatedOrders)
+                                                // Update selectedOrder with the latest data from database
+                                                if (selectedOrderDbIndex !== null && updatedOrders[selectedOrderDbIndex]) {
+                                                    setSelectedOrder(updatedOrders[selectedOrderDbIndex])
+                                                    setSelectedOrderDetails(
+                                                        (updatedOrders[selectedOrderDbIndex]?.ChiTietDonHang || []).map(function (item: any, idx: number) {
+                                                            return {
+                                                                ...item,
+                                                                _dbIndex: idx
+                                                            };
+                                                        })
+                                                    )
                                                 }
                                             }
                                             setIsLoading(false)

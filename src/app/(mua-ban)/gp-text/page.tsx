@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import getUserInfo from "@/components/userInfo"
-import PageBody from "./components/PageBody"
+import PageBody from "./components/DetailOrder"
 import { Loader2, ShieldAlert, LogIn } from "lucide-react"
 import { motion } from "framer-motion"
 import Link from "next/link"

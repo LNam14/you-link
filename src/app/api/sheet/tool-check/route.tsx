@@ -128,25 +128,24 @@ const sheetConfigs: Record<string, SheetConfig> = {
 }
 
 async function getAllSheetData(gsapi: any) {
-    const ranges = Object.values(sheetConfigs).flatMap((config) => config.range.split(",").map((range) => range.trim()))
-
-    const { data } = await gsapi.spreadsheets.values.batchGet({
-        spreadsheetId: SPREADSHEET_ID,
-        ranges: ranges,
-    })
-
-    const rawData: Record<string, any[]> = {}
-    let currentIndex = 0
+    // Create a map to hold sheet data, keyed by a logical name
+    const allData: Record<string, any[]> = {}
 
     for (const [key, config] of Object.entries(sheetConfigs)) {
-        const numRanges = config.range.split(",").length
-        rawData[key] = data.valueRanges
-            .slice(currentIndex, currentIndex + numRanges)
-            .flatMap((range: any) => range.values || [])
-        currentIndex += numRanges
+        const ranges = config.range.split(",").map((range) => range.trim())
+        const { data } = await gsapi.spreadsheets.values.batchGet({
+            spreadsheetId: SPREADSHEET_ID,
+            ranges: ranges,
+        })
+
+        // Ensure data.valueRanges is an array before processing
+        const values = data.valueRanges || []
+
+        // Flatten the values from all ranges for this config
+        allData[key] = values.flatMap((range: any) => range.values || [])
     }
 
-    return rawData
+    return allData
 }
 
 export async function POST(req: Request) {
@@ -161,13 +160,20 @@ export async function POST(req: Request) {
 
         const rawData = await getAllSheetData(gsapi)
 
+        // Process NCC data first, as it's a dependency for gpTextVN
         const nccData = rawData.ncc ? rawData.ncc.map((row) => sheetConfigs.ncc.formatter(row, rawData)) : []
 
-        const formattedData: Record<string, any[]> = { ncc: nccData }
+        // Create a combined object for formatted data
+        const formattedData: Record<string, any[]> = {
+            ncc: nccData,
+        }
 
+        // Now process other sheets which may depend on NCC data
         for (const [key, config] of Object.entries(sheetConfigs)) {
-            if (key !== "ncc") {
-                formattedData[key] = rawData[key].map((row) => config.formatter(row, { ...rawData, ncc: nccData }))
+            if (key !== "ncc" && rawData[key]) {
+                // Pass the already processed nccData in the `allData` argument
+                const dependencyData = { ...rawData, ncc: nccData }
+                formattedData[key] = rawData[key].map((row) => config.formatter(row, dependencyData))
             }
         }
 

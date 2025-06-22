@@ -496,7 +496,7 @@ export default function AccountTracker() {
     }
 
     const handleDeleteRow = async (rowIndex: number) => {
-        const id = filteredData[rowIndex][8] // Get id from the 9th column
+        const id = filteredData[rowIndex][activeTab === "NV" ? 9 : 8] // Lấy id đúng cột theo loại tài khoản
         if (!id) return
 
         try {

@@ -22,7 +22,7 @@ export async function POST(request: Request) {
         // Delete the account using Prisma
         const deletedAccount = await prisma.account.delete({
             where: {
-                id: id
+                id: Number(id)
             }
         })
 
