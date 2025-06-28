@@ -9,6 +9,18 @@ import "handsontable/dist/handsontable.full.min.css"
 import PageBody from "./DetailOrder"
 import "../style.css"
 import getUserInfo from "@/components/userInfo"
+import {
+    Filter,
+    Users,
+    Calendar,
+    Clock,
+    Building2,
+    BarChart3,
+    DollarSign,
+    TrendingUp,
+    ShoppingCart,
+    AlertCircle,
+} from "lucide-react"
 
 registerAllModules()
 
@@ -25,7 +37,13 @@ type TinhTrangType = keyof typeof TINH_TRANG_OPTIONS
 
 const MemoizedPageBody = memo(PageBody)
 
-export default function OrdersTable() {
+// Add prop type for maKH
+interface OrdersTableProps {
+    maKH?: string
+    hiddenColumns?: number[]
+}
+
+export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
     const [orders, setOrders] = useState<any[]>([])
     const [allOrders, setAllOrders] = useState<any[]>([])
     const [selectedOrderDetails, setSelectedOrderDetails] = useState<any[]>([])
@@ -39,7 +57,8 @@ export default function OrdersTable() {
     const [selectedCustomer, setSelectedCustomer] = useState<string>("")
     const [filterType, setFilterType] = useState<"week" | "month">("week")
     const [summaryRow, setSummaryRow] = useState<any>(null)
-    const userInfo = getUserInfo()
+    // Only get userInfo if maKH is not provided
+    const userInfo = !maKH ? getUserInfo() : undefined
 
     const handleCloseModal = useCallback(() => {
         setIsModalOpen(false)
@@ -237,13 +256,24 @@ export default function OrdersTable() {
                 // Store all orders for NDD options
                 setAllOrders(ordersArray)
 
-                // Filter orders based on user role, selected NDD, selected period, and customer
-                let filteredOrders =
-                    userInfo.role === "Admin"
-                        ? selectedNDD
-                            ? ordersArray.filter((order: any) => order.NDD === selectedNDD)
-                            : ordersArray
-                        : ordersArray.filter((order: any) => order.NDD === userInfo.username)
+                let filteredOrders = ordersArray
+
+                // If maKH is present, filter by maKH only (ignore userInfo)
+                if (maKH) {
+                    filteredOrders = filteredOrders.filter((order: any) => {
+                        if (!order.MaDon) return false
+                        const customerCode = order.MaDon.split("-")[0]
+                        return customerCode === maKH
+                    })
+                } else if (userInfo) {
+                    // Filter orders based on user role, selected NDD, selected period, and customer
+                    filteredOrders =
+                        userInfo.role === "Admin"
+                            ? selectedNDD
+                                ? ordersArray.filter((order: any) => order.NDD === selectedNDD)
+                                : ordersArray
+                            : ordersArray.filter((order: any) => order.NDD === userInfo.username)
+                }
 
                 // Apply period filter if selected
                 if (filterType === "week" && selectedWeek) {
@@ -260,8 +290,8 @@ export default function OrdersTable() {
                     })
                 }
 
-                // Apply customer filter if selected
-                if (selectedCustomer) {
+                // Apply customer filter if selected (skip if maKH is set)
+                if (selectedCustomer && !maKH) {
                     filteredOrders = filteredOrders.filter((order: any) => {
                         if (!order.MaDon) return false
                         const customerCode = order.MaDon.split("-")[0]
@@ -294,14 +324,14 @@ export default function OrdersTable() {
         return () => unsubscribe()
     }, [
         calculateOrderSummary,
-        userInfo.role,
-        userInfo.username,
-        selectedNDD,
+        // Only include userInfo deps if maKH is not present
+        ...(maKH ? [] : [userInfo?.role, userInfo?.username, selectedNDD]),
         selectedWeek,
         selectedMonth,
         selectedCustomer,
         filterType,
         calculateSummaryRow,
+        maKH,
     ])
 
     // Set initial period when component mounts or filter type changes
@@ -633,7 +663,8 @@ export default function OrdersTable() {
                 const order = orders[dataRowIndex]
                 // Xóa event listener cũ nếu có
                 const newButton = document.createElement("button")
-                newButton.className = "w-full h-full flex items-center justify-center px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                newButton.className =
+                    "w-full h-full flex items-center justify-center px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
                 newButton.style.minWidth = "unset"
                 newButton.style.minHeight = "unset"
                 newButton.setAttribute("data-madon", order?.MaDon ?? "")
@@ -649,12 +680,11 @@ export default function OrdersTable() {
                         setSelectedOrderDbIndex(dbIndex)
                         setIsModalOpen(true)
                         setSelectedOrderDetails(
-                            (orderInDb?.ChiTietDonHang || []).map(function (item: any, idx: number) {
-                                return {
-                                    ...item,
-                                    _dbIndex: idx
-                                };
-                            })
+                            (orderInDb?.ChiTietDonHang || []).map((item: any, idx: number) => ({
+                                ...item,
+                                _dbIndex: idx,
+                                _parentIndex: dbIndex,
+                            })),
                         )
                     }
                 }
@@ -778,199 +808,267 @@ export default function OrdersTable() {
                     cursor: pointer;
                 }
             `}</style>
-            <div className="mb-4 flex items-center gap-4">
-                {userInfo.role === "Admin" && (
-                    <div className="flex items-center gap-2">
-                        <label htmlFor="nddFilter" className="text-sm font-medium text-gray-700">
-                            Bán hàng:
-                        </label>
-                        <select
-                            id="nddFilter"
-                            value={selectedNDD}
-                            onChange={(e) => setSelectedNDD(e.target.value)}
-                            className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                        >
-                            <option value="">Tất cả</option>
-                            {uniqueNDDs.map((ndd) => (
-                                <option key={ndd} value={ndd}>
-                                    {ndd}
-                                </option>
-                            ))}
-                        </select>
+            <div className="mb-3 space-y-3">
+                {/* Compact Filter Section */}
+                <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Filter className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm font-medium text-gray-700">Bộ lọc</span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 text-sm">
+                        {/* Sales Person Filter - Only show for Admin */}
+                        {userInfo?.role === "Admin" && (
+                            <div className="flex items-center gap-2">
+                                <Users className="h-3 w-3 text-blue-500" />
+                                <select
+                                    value={selectedNDD}
+                                    onChange={(e) => setSelectedNDD(e.target.value)}
+                                    className="text-xs border-gray-300 rounded px-2 py-1 focus:border-blue-500 focus:ring-blue-500"
+                                >
+                                    <option value="">Tất cả NV</option>
+                                    {uniqueNDDs.map((ndd) => (
+                                        <option key={ndd} value={ndd}>
+                                            {ndd}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {/* Period Type */}
+                        <div className="flex items-center gap-2">
+                            <Calendar className="h-3 w-3 text-green-500" />
+                            <label className="flex items-center gap-1">
+                                <input
+                                    type="radio"
+                                    name="filterType"
+                                    checked={filterType === "week"}
+                                    onChange={() => setFilterType("week")}
+                                    className="h-3 w-3"
+                                />
+                                <span className="text-xs">Tuần</span>
+                            </label>
+                            <label className="flex items-center gap-1">
+                                <input
+                                    type="radio"
+                                    name="filterType"
+                                    checked={filterType === "month"}
+                                    onChange={() => setFilterType("month")}
+                                    className="h-3 w-3"
+                                />
+                                <span className="text-xs">Tháng</span>
+                            </label>
+                        </div>
+
+                        {/* Period Selection */}
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-3 w-3 text-purple-500" />
+                            <select
+                                value={filterType === "week" ? selectedWeek : selectedMonth}
+                                onChange={(e) => {
+                                    if (filterType === "week") {
+                                        setSelectedWeek(e.target.value)
+                                    } else {
+                                        setSelectedMonth(e.target.value)
+                                    }
+                                }}
+                                className="text-xs border-gray-300 rounded px-2 py-1 focus:border-blue-500 focus:ring-blue-500"
+                            >
+                                {(filterType === "week" ? uniqueWeeks : uniqueMonths).map((period) => (
+                                    <option key={period} value={period}>
+                                        {period}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Customer Filter */}
+                        {!maKH && (
+                            <div className="flex items-center gap-2">
+                                <Building2 className="h-3 w-3 text-orange-500" />
+                                <select
+                                    value={selectedCustomer}
+                                    onChange={(e) => setSelectedCustomer(e.target.value)}
+                                    className="text-xs border-gray-300 rounded px-2 py-1 focus:border-blue-500 focus:ring-blue-500"
+                                >
+                                    <option value="">Tất cả KH</option>
+                                    {uniqueCustomers.map((customer) => (
+                                        <option key={customer} value={customer}>
+                                            {customer}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Beautiful Compact Summary Section */}
+                {!maKH && summaryRow && (
+                    <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-lg border border-gray-200 p-3 shadow-sm">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <div className="p-1.5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-sm">
+                                    <BarChart3 className="h-4 w-4 text-white" />
+                                </div>
+                                <span className="text-sm font-semibold text-gray-800">Tổng quan tài chính</span>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs">
+                                <div className="flex items-center gap-1 px-2 py-1 bg-green-100 rounded-full">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                    <span className="text-green-700 font-medium">
+                                        Tỷ lệ LN: {summaryRow.USDT > 0 ? ((summaryRow.LoiNhuan / summaryRow.USDT) * 100).toFixed(1) : 0}%
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 rounded-full">
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                    <span className="text-blue-700 font-medium">Tổng đơn: {orders.length}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-3">
+                            <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-3 text-white shadow-sm hover:shadow-md transition-shadow">
+                                <div className="absolute top-0 right-0 w-8 h-8 bg-white/10 rounded-full -mr-4 -mt-4"></div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <DollarSign className="h-4 w-4" />
+                                    <span className="text-xs font-medium opacity-90">DOANH THU</span>
+                                </div>
+                                <div className="text-lg font-bold">{summaryRow.USDT?.toLocaleString("vi-VN")}</div>
+                                <div className="text-xs opacity-75">USDT</div>
+                            </div>
+
+                            <div className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-3 text-white shadow-sm hover:shadow-md transition-shadow">
+                                <div className="absolute top-0 right-0 w-8 h-8 bg-white/10 rounded-full -mr-4 -mt-4"></div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <ShoppingCart className="h-4 w-4" />
+                                    <span className="text-xs font-medium opacity-90">CHI PHÍ NCC</span>
+                                </div>
+                                <div className="text-lg font-bold">{summaryRow.GiaMua?.toLocaleString("vi-VN")}</div>
+                                <div className="text-xs opacity-75">USDT</div>
+                            </div>
+
+                            <div className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg p-3 text-white shadow-sm hover:shadow-md transition-shadow">
+                                <div className="absolute top-0 right-0 w-8 h-8 bg-white/10 rounded-full -mr-4 -mt-4"></div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <AlertCircle className="h-4 w-4" />
+                                    <span className="text-xs font-medium opacity-90">CÔNG NỢ</span>
+                                </div>
+                                <div className="text-lg font-bold">{summaryRow.KhachNo?.toLocaleString("vi-VN")}</div>
+                                <div className="text-xs opacity-75">USDT</div>
+                            </div>
+
+                            <div className="relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-3 text-white shadow-sm hover:shadow-md transition-shadow">
+                                <div className="absolute top-0 right-0 w-8 h-8 bg-white/10 rounded-full -mr-4 -mt-4"></div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <TrendingUp className="h-4 w-4" />
+                                    <span className="text-xs font-medium opacity-90">LỢI NHUẬN</span>
+                                </div>
+                                <div className="text-lg font-bold">{summaryRow.LoiNhuan?.toLocaleString("vi-VN")}</div>
+                                <div className="text-xs opacity-75">USDT</div>
+                            </div>
+                        </div>
                     </div>
                 )}
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="radio"
-                            id="weekFilter"
-                            name="filterType"
-                            checked={filterType === "week"}
-                            onChange={() => setFilterType("week")}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <label htmlFor="weekFilter" className="text-sm font-medium text-gray-700">
-                            Theo tuần
-                        </label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="radio"
-                            id="monthFilter"
-                            name="filterType"
-                            checked={filterType === "month"}
-                            onChange={() => setFilterType("month")}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <label htmlFor="monthFilter" className="text-sm font-medium text-gray-700">
-                            Theo tháng
-                        </label>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2">
-                    <label htmlFor="periodFilter" className="text-sm font-medium text-gray-700">
-                        {filterType === "week" ? "Tuần:" : "Tháng:"}
-                    </label>
-                    <select
-                        id="periodFilter"
-                        value={filterType === "week" ? selectedWeek : selectedMonth}
-                        onChange={(e) => {
-                            if (filterType === "week") {
-                                setSelectedWeek(e.target.value)
-                            } else {
-                                setSelectedMonth(e.target.value)
-                            }
-                        }}
-                        className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                    >
-                        {(filterType === "week" ? uniqueWeeks : uniqueMonths).map((period) => (
-                            <option key={period} value={period}>
-                                {period}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-                <div className="flex items-center gap-2">
-                    <label htmlFor="customerFilter" className="text-sm font-medium text-gray-700">
-                        Khách hàng:
-                    </label>
-                    <select
-                        id="customerFilter"
-                        value={selectedCustomer}
-                        onChange={(e) => setSelectedCustomer(e.target.value)}
-                        className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                    >
-                        <option value="">Tất cả</option>
-                        {uniqueCustomers.map((customer) => (
-                            <option key={customer} value={customer}>
-                                {customer}
-                            </option>
-                        ))}
-                    </select>
-                </div>
             </div>
-            {/* 4 khối tổng quan */}
-            {summaryRow && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                    <div className="rounded-lg bg-blue-100 p-4 flex flex-col items-center">
-                        <div className="text-xs text-blue-700 font-semibold uppercase">Doanh thu</div>
-                        <div className="text-2xl font-bold text-blue-700">{summaryRow.USDT?.toLocaleString("vi-VN")}</div>
-                    </div>
-                    <div className="rounded-lg bg-purple-100 p-4 flex flex-col items-center">
-                        <div className="text-xs text-purple-700 font-semibold uppercase">Mua NCC</div>
-                        <div className="text-2xl font-bold text-purple-700">{summaryRow.GiaMua?.toLocaleString("vi-VN")}</div>
-                    </div>
-                    <div className="rounded-lg bg-orange-100 p-4 flex flex-col items-center">
-                        <div className="text-xs text-orange-700 font-semibold uppercase">Khách nợ</div>
-                        <div className="text-2xl font-bold text-orange-700">{summaryRow.KhachNo?.toLocaleString("vi-VN")}</div>
-                    </div>
-                    <div className="rounded-lg bg-green-100 p-4 flex flex-col items-center">
-                        <div className="text-xs text-green-700 font-semibold uppercase">Lợi nhuận</div>
-                        <div className="text-2xl font-bold text-green-700">{summaryRow.LoiNhuan?.toLocaleString("vi-VN")}</div>
+            {orders.length === 0 ? (
+                <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                            <BarChart3 className="h-8 w-8 text-gray-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-medium text-gray-900 mb-1">Không có dữ liệu</h3>
+                            <p className="text-sm text-gray-500">Không tìm thấy đơn hàng nào với bộ lọc hiện tại</p>
+                        </div>
                     </div>
                 </div>
-            )}
-            <HotTable
-                data={summaryRow ? [summaryRow, ...orders] : orders}
-                columns={columns}
-                colHeaders={true}
-                rowHeaders={false}
-                height="auto"
-                licenseKey="non-commercial-and-evaluation"
-                afterChange={handleAfterChange}
-                afterPaste={handleAfterPaste}
-                contextMenu={{
-                    items: {
-                        hidden_columns_hide: { name: "Ẩn cột" },
-                        show_all_columns: {
-                            name: "Hiện tất cả cột",
-                            callback: function (key, selection, clickEvent) {
-                                const allIndexes = Array.from({ length: this.countCols() }, (_, i) => i)
-                                this.getPlugin("hiddenColumns").showColumns(allIndexes)
+            ) : (
+                <HotTable
+                    data={summaryRow ? [summaryRow, ...orders] : orders}
+                    columns={columns}
+                    colHeaders={true}
+                    rowHeaders={false}
+                    height="auto"
+                    licenseKey="non-commercial-and-evaluation"
+                    afterChange={handleAfterChange}
+                    afterPaste={handleAfterPaste}
+                    contextMenu={{
+                        items: {
+                            hidden_columns_hide: { name: "Ẩn cột" },
+                            show_all_columns: {
+                                name: "Hiện tất cả cột",
+                                callback: function (key, selection, clickEvent) {
+                                    const allIndexes = Array.from({ length: this.countCols() }, (_, i) => i)
+                                    this.getPlugin("hiddenColumns").showColumns(allIndexes)
+                                },
                             },
                         },
-                    },
-                }}
-                manualColumnResize={true}
-                manualRowResize={true}
-                stretchH="all"
-                themeName="ht-theme-main"
-                className="custom-table"
-                hiddenColumns={{ columns: hiddenCols, indicators: true }}
-                beforeOnCellContextMenu={(event, coords) => {
-                    if (coords.row !== -1) {
-                        event.stopImmediatePropagation()
-                        event.preventDefault()
-                        return false
+                    }}
+                    manualColumnResize={true}
+                    manualRowResize={true}
+                    stretchH="all"
+                    themeName="ht-theme-main"
+                    className="custom-table"
+                    hiddenColumns={
+                        hiddenColumns ? { columns: hiddenColumns, indicators: true } : { columns: hiddenCols, indicators: true }
                     }
-                }}
-                cells={(row, col) => {
-                    if (row === 0 && summaryRow) {
-                        return {
-                            className: "summary-row",
-                            readOnly: true,
-                            renderer: (instance, td, row, col, prop, value) => {
-                                if (["USDT", "VND", "ThanhToan", "GiaMua", "LoiNhuan"].includes(prop as string)) {
-                                    td.style.fontWeight = "600"
-                                    td.style.backgroundColor = "#fecaca"
+                    beforeOnCellContextMenu={(event, coords) => {
+                        if (coords.row !== -1) {
+                            event.stopImmediatePropagation()
+                            event.preventDefault()
+                            return false
+                        }
+                    }}
+                    cells={(row, col) => {
+                        if (row === 0 && summaryRow) {
+                            return {
+                                className: "summary-row",
+                                readOnly: true,
+                                renderer: (instance, td, row, col, prop, value) => {
+                                    if (["USDT", "VND", "ThanhToan", "GiaMua", "LoiNhuan"].includes(prop as string)) {
+                                        td.style.fontWeight = "600"
+                                        td.style.backgroundColor = "#fecaca"
+                                        td.style.color = "#dc2626"
+                                        td.style.textAlign = "right"
+                                        td.innerHTML = value?.toLocaleString("vi-VN") || "0"
+                                    } else if (prop === "MaDon") {
+                                        td.style.fontWeight = "600"
+                                        td.style.backgroundColor = "#fecaca"
+                                        td.style.color = "#dc2626"
+                                        td.style.textAlign = "left"
+                                    } else if (prop === "TinhTrang") {
+                                        td.style.fontWeight = "600"
+                                        td.style.backgroundColor = "#fecaca"
+                                        td.style.color = "#dc2626"
+                                        td.style.textAlign = "center"
+                                        td.innerHTML = "Tổng"
+                                    } else {
+                                        td.style.backgroundColor = "#fecaca"
+                                        td.innerHTML = ""
+                                    }
+                                    return td
+                                },
+                            }
+                        }
+                        // Add styling for numeric columns in data rows
+                        const prop = columns[col].data
+                        if (["USDT", "VND", "ThanhToan", "GiaMua", "LoiNhuan"].includes(prop as string)) {
+                            return {
+                                renderer: (instance, td, row, col, prop, value) => {
                                     td.style.color = "#dc2626"
                                     td.style.textAlign = "right"
+                                    td.style.fontWeight = "500"
                                     td.innerHTML = value?.toLocaleString("vi-VN") || "0"
-                                } else if (prop === "MaDon") {
-                                    td.style.fontWeight = "600"
-                                    td.style.backgroundColor = "#fecaca"
-                                    td.style.color = "#dc2626"
-                                    td.style.textAlign = "left"
-                                } else if (prop === "TinhTrang") {
-                                    td.style.fontWeight = "600"
-                                    td.style.backgroundColor = "#fecaca"
-                                    td.style.color = "#dc2626"
-                                    td.style.textAlign = "center"
-                                    td.innerHTML = "Tổng"
-                                } else {
-                                    td.style.backgroundColor = "#fecaca"
-                                    td.innerHTML = ""
-                                }
-                                return td
-                            },
+                                    return td
+                                },
+                            }
                         }
-                    }
-                    // Add styling for numeric columns in data rows
-                    const prop = columns[col].data
-                    if (["USDT", "VND", "ThanhToan", "GiaMua", "LoiNhuan"].includes(prop as string)) {
-                        return {
-                            renderer: (instance, td, row, col, prop, value) => {
-                                td.style.color = "#dc2626"
-                                td.style.textAlign = "right"
-                                td.style.fontWeight = "500"
-                                td.innerHTML = value?.toLocaleString("vi-VN") || "0"
-                                return td
-                            },
-                        }
-                    }
-                    return {}
-                }}
-            />
+                        return {}
+                    }}
+                />
+            )}
 
             {isModalOpen && selectedOrder && selectedOrderDbIndex !== null && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]">
@@ -1028,12 +1126,13 @@ export default function OrdersTable() {
                                                 if (selectedOrderDbIndex !== null && updatedOrders[selectedOrderDbIndex]) {
                                                     setSelectedOrder(updatedOrders[selectedOrderDbIndex])
                                                     setSelectedOrderDetails(
-                                                        (updatedOrders[selectedOrderDbIndex]?.ChiTietDonHang || []).map(function (item: any, idx: number) {
-                                                            return {
+                                                        (updatedOrders[selectedOrderDbIndex]?.ChiTietDonHang || []).map(
+                                                            (item: any, idx: number) => ({
                                                                 ...item,
-                                                                _dbIndex: idx
-                                                            };
-                                                        })
+                                                                _dbIndex: idx,
+                                                                _parentIndex: selectedOrderDbIndex,
+                                                            }),
+                                                        ),
                                                     )
                                                 }
                                             }

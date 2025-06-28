@@ -975,7 +975,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
     }
 
     const contextMenuItems =
-        userInfo?.role === "Khách hàng" || userInfo?.role === "Admin" || userInfo?.role === "Nhân viên"
+        userInfo?.role !== "123123"
             ? {
                 items: {
                     ok: {
@@ -1231,7 +1231,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
     // Load orders data
     useEffect(() => {
         if (order) {
-            setOrders(order)
+            setOrders(order.map(o => ({ ...o })));
             setOrderKeys(order.map((_, index) => index.toString()))
         }
     }, [order])
@@ -1336,12 +1336,11 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                 const orderIdx = orders.findIndex((order) => order.MaDon === orderCode)
                 if (orderIdx === -1) return
 
-                // Lấy index thực trong mảng gốc Firebase cho ChiTietDonHang
-                const parentIndex = typeof orders[orderIdx]._parentIndex === 'number'
-                    ? orders[orderIdx]._parentIndex
-                    : orderIndex;
-                const dbIndex = orders[orderIdx]._dbIndex;
-                if (typeof dbIndex !== 'number' || typeof parentIndex !== 'number') return;
+                // Lấy _parentIndex và _dbIndex từ từng phần tử order
+                const detail = orders[orderIdx];
+                const parentIndex = detail._parentIndex;
+                const dbIndex = detail._dbIndex;
+                if (typeof parentIndex !== 'number' || typeof dbIndex !== 'number') return;
 
                 // Get the current order data
                 const updatedOrder = { ...orders[orderIdx] }
@@ -2642,13 +2641,13 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                         const orderKey = orderKeys[orderIndex];
                         if (!orderKey) return;
 
+                        // Get the current order data
+                        const updatedOrder = { ...orders[orderIndex] };
+
                         // Process each column in the row
                         row.forEach((value, colIndex) => {
                             const columnName = RowHeader2[startCol + colIndex];
                             if (!columnName) return;
-
-                            // Get the current order data
-                            const updatedOrder = { ...orders[orderIndex] };
 
                             // Map table columns to Firebase fields
                             switch (columnName) {
@@ -2721,7 +2720,6 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                             const month = String(now.getMonth() + 1).padStart(2, "0");
                                             const year = now.getFullYear();
                                             updatedOrder.NgayOrder = `${day}/${month}/${year}`;
-                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/gp-text để xử lý đơn hàng ${updatedOrder.MaDon}`)
                                         } else {
                                             updatedOrder.TinhTrangKH = "Chưa nhập";
                                         }
@@ -2736,7 +2734,6 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                             const day = String(now.getDate()).padStart(2, "0");
                                             const month = String(now.getMonth() + 1).padStart(2, "0");
                                             updatedOrder.NgayBan = `${day}/${month}`;
-                                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, kiểm tra tại https://www.ylink.shop/gp-text`)
                                         } else {
                                             updatedOrder.TinhTrangNCC = "Chưa nhận đơn";
                                             updatedOrder.NgayBan = "";
@@ -2758,7 +2755,6 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                     if (updatedOrder.Loai !== "GP") {
                                         if (updatedOrder.Anchor1 && updatedOrder.Link1) {
                                             updatedOrder.TinhTrangKH = "Đã nhập";
-                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/gp-text để xử lý đơn hàng ${updatedOrder.MaDon}`)
                                         } else {
                                             updatedOrder.TinhTrangKH = "Chưa nhập";
                                         }
@@ -2796,9 +2792,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
 
                                     // Handle money balance changes based on Index status
                                     if (value === "Indexed") {
-                                        // Only process payment if it hasn't been processed before
                                         if (!updatedOrder.paymentStatus || updatedOrder.paymentStatus !== "paid") {
-                                            // Deduct money when Indexed
                                             const price = Number(
                                                 updatedOrder.Loai === "GP"
                                                     ? updatedOrder.GiaBanGP || 0
@@ -2809,13 +2803,9 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                                             : updatedOrder.GiaBanTextHeader || 0,
                                             );
                                             updatedOrder.paymentStatus = "paid";
-                                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text `)
-                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text `)
                                         }
                                     } else if (updatedOrder.Index === "Indexed" && value !== "Indexed") {
-                                        // Only process refund if payment was previously processed
                                         if (updatedOrder.paymentStatus === "paid") {
-                                            // Add money back when changing from Indexed to something else
                                             const price = Number(
                                                 updatedOrder.Loai === "GP"
                                                     ? updatedOrder.GiaBanGP || 0
@@ -2825,10 +2815,10 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                                             ? updatedOrder.GiaBanTextHome || 0
                                                             : updatedOrder.GiaBanTextHeader || 0,
                                             );
-                                            updatedOrder.paymentStatus1 = "refunded"
+                                            updatedOrder.paymentStatus1 = "refunded";
                                         }
                                     }
-                                    break
+                                    break;
                                 case "Tên NCC":
                                     updatedOrder.TenNCC = value;
                                     break;
@@ -2840,16 +2830,12 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                     break;
                                 case "NCC":
                                     updatedOrder.TinhTrangNCC = value;
-                                    // Update NgayBan for non-GP orders when TinhTrangNCC changes to 'Đã lên bài'
                                     if (updatedOrder.Loai !== "GP" && updatedOrder.TinhTrangNCC === "Đã lên bài") {
                                         const now = new Date();
                                         const day = String(now.getDate()).padStart(2, "0");
                                         const month = String(now.getMonth() + 1).padStart(2, "0");
                                         updatedOrder.NgayBan = `${day}/${month}`;
-
-                                        // Only process payment if it hasn't been processed before
                                         if (!updatedOrder.paymentStatus || updatedOrder.paymentStatus !== "paid") {
-                                            // Handle money balance changes when NCC marks as Đã lên bài
                                             const price = Number(
                                                 updatedOrder.Loai === "GP"
                                                     ? updatedOrder.GiaBanGP || 0
@@ -2860,30 +2846,29 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                                             : updatedOrder.GiaBanTextHeader || 0,
                                             );
                                             updatedOrder.paymentStatus = "paid";
-                                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
-                                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
                                         }
                                     }
                                     break;
                             }
-
-                            // Store the updated order in the updates object
-                            updates[orderKey] = updatedOrder;
                         });
+
+                        // Store the updated order in the updates object
+                        updates[orderKey] = updatedOrder;
                     });
 
-                    // Save all updates to Firebase
-                    if (Object.keys(updates).length > 0) {
-                        const ordersRef = ref(database, `orders/${orderIndex}/ChiTietDonHang`);
-                        update(ordersRef, updates)
-                            .then(() => {
-                                toast.success("Đã cập nhật dữ liệu thành công");
-                            })
-                            .catch((error) => {
-                                console.error("Error updating data:", error);
-                                toast.error("Không thể cập nhật dữ liệu");
-                            });
-                    }
+                    // Lưu từng order một vào Firebase
+                    const updatePromises = Object.entries(updates).map(([orderKey, updatedOrder]) => {
+                        const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`);
+                        return update(orderRef, updatedOrder);
+                    });
+                    Promise.all(updatePromises)
+                        .then(() => {
+                            toast.success("Đã cập nhật dữ liệu thành công");
+                        })
+                        .catch((error) => {
+                            console.error("Error updating data:", error);
+                            toast.error("Không thể cập nhật dữ liệu");
+                        });
                 }}
                 contextMenu={contextMenuItems}
                 columns={RowHeader2.map((header, index) => {

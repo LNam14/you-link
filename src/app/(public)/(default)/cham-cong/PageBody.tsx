@@ -71,12 +71,14 @@ export default function AttendanceTracker() {
                         // Group attendance by username
                         const attendanceByUser = sortedUsernames.map((username) => {
                             const userAttendance = response.filter((record) => record.username === username)
-                            const presentDays = userAttendance.length
-                            const totalSalary = presentDays * dailyRate
+                            let presentDays = userAttendance.length
+                            let cappedDays = presentDays > 26.5 ? 26.5 : presentDays
+                            let totalSalary = cappedDays * dailyRate
+                            if (totalSalary > 8000) totalSalary = 8000
 
                             return {
                                 username,
-                                presentDays,
+                                presentDays: cappedDays,
                                 totalSalary,
                                 lastAttendance:
                                     userAttendance.length > 0
@@ -252,12 +254,17 @@ export default function AttendanceTracker() {
             return matchesDate && matchesUsername
         })
 
-        const presentDays = monthRecords.length
+        let presentDays = monthRecords.length
+        let cappedDays = presentDays > 26.5 ? 26.5 : presentDays
+        let totalSalary = cappedDays * dailyRate
+        if (totalSalary > 8000) totalSalary = 8000
 
-        // Tính tổng lương
-        const totalSalary = presentDays * dailyRate
+        // Thông báo nếu đã đủ công tháng này (chỉ cho nhân viên, không phải admin)
+        if (role !== "Admin" && presentDays > 26.5) {
+            toast.info("Bạn đã đủ công tháng này")
+        }
 
-        return { presentDays, totalSalary }
+        return { presentDays: cappedDays, totalSalary }
     }
 
     const monthStats = getMonthStats()
@@ -415,6 +422,9 @@ export default function AttendanceTracker() {
                         <div className="flex items-center gap-2">
                             <div className="w-4 h-4 bg-teal-200 border border-teal-400 rounded"></div>
                             <span className="font-medium">Hôm nay</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-500 font-medium mr-4">
+                            <span className="text-xs italic">Chỉ giới hạn tối đa 26.5 công/tháng</span>
                         </div>
                     </div>
                 </div>

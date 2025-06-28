@@ -74,7 +74,9 @@ export async function GET(request: Request) {
         const formattedData = Object.entries(wheelData)
             .sort(([monthA], [monthB]) => monthB.localeCompare(monthA)) // Sort months in descending order
             .map(([month, data]) => ({
-                [month]: data
+                [month]: Object.fromEntries(
+                    Object.entries(data).sort(([a], [b]) => a.localeCompare(b, 'vi', { sensitivity: 'base' }))
+                )
             }))
 
         return NextResponse.json({ data: formattedData }, { status: 200 })

@@ -38,7 +38,7 @@ export default function AttendanceTracker() {
 
     const fetchData = async () => {
         try {
-            const response = await moneyApiRequest.get()
+            const response: any = await moneyApiRequest.get()
             if (response.data) {
                 setData(response.data)
                 // Set default selected month to the most recent month
@@ -317,7 +317,8 @@ export default function AttendanceTracker() {
                                         <tbody className="divide-y divide-indigo-50">
                                             {employees.map(([username, info]: [string, any], index) => {
                                                 // Calculate total
-                                                const total = info.wheel + info.wage
+                                                const wage = info.wage > 8000000 ? 8000000 : info.wage
+                                                const total = info.wheel + wage
 
                                                 return (
                                                     <tr
@@ -332,7 +333,7 @@ export default function AttendanceTracker() {
                                                             {formatCurrency(info.wheel)}
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                            {formatCurrency(info.wage)}
+                                                            {formatCurrency(wage)}
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-700 bg-blue-50/50 rounded-lg">
                                                             <div className="flex items-center gap-1">

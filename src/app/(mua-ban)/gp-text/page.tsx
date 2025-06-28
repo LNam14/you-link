@@ -7,6 +7,7 @@ import { Loader2, ShieldAlert, LogIn } from "lucide-react"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import OrdersTable from "./components/OrdersTable"
+import OrderNCC from "./components/OrderNCC"
 
 export default function MuaBanPage() {
   const [user, setUser] = useState<any>(null)
@@ -92,6 +93,9 @@ export default function MuaBanPage() {
   }
 
   // Only render PageBody for users with appropriate roles
+  if (user?.role === "NCC") {
+    return <OrderNCC supplierName={user?.username} />
+  }
   return (
     <OrdersTable />
   )
