@@ -93,15 +93,15 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   // Enhanced prize data with money-themed colors
   const data = [
     { option: "1 phân vàng", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 0
-    // { option: "1 lời chúc may mắn", style: { backgroundColor: "#FF9800", textColor: "white" } }, // 1
-    // { option: "Quay thêm 1 lượt", style: { backgroundColor: "#9C27B0", textColor: "white" } }, // 2
-    // { option: "50.000 VND", style: { backgroundColor: "#F44336", textColor: "white" } }, // 3
-    // { option: "1 phân vàng", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 4
-    // { option: "20.000 VND", style: { backgroundColor: "#0D47A1", textColor: "white" } }, // 5
-    // { option: "10.000 VND", style: { backgroundColor: "#1976D2", textColor: "white" } }, // 6
-    // { option: "1 phân vàng", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 7
-    // { option: "5.000 VND", style: { backgroundColor: "#B71C1C", textColor: "white" } }, // 8
-    // { option: "2.000 VND", style: { backgroundColor: "#2E7D32", textColor: "white" } }, // 9
+    { option: "1 lời chúc may mắn", style: { backgroundColor: "#FF9800", textColor: "white" } }, // 1
+    { option: "Quay thêm 1 lượt", style: { backgroundColor: "#9C27B0", textColor: "white" } }, // 2
+    { option: "50.000 VND", style: { backgroundColor: "#F44336", textColor: "white" } }, // 3
+    { option: "1 phân vàng", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 4
+    { option: "20.000 VND", style: { backgroundColor: "#0D47A1", textColor: "white" } }, // 5
+    { option: "10.000 VND", style: { backgroundColor: "#1976D2", textColor: "white" } }, // 6
+    { option: "1 phân vàng", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 7
+    { option: "5.000 VND", style: { backgroundColor: "#B71C1C", textColor: "white" } }, // 8
+    { option: "2.000 VND", style: { backgroundColor: "#2E7D32", textColor: "white" } }, // 9
   ]
 
   // Đưa hàm checkAndResetDailySpins ra ngoài useEffect để có thể gọi lại
