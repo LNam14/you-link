@@ -116,19 +116,32 @@ export default function DataSite({
                 } else {
                     const terms = searchValue
                         .split(/[\s,\n]+/)
-                        .map((term) => extractDomain(term.trim()))
+                        .map((term) => extractDomain(term.trim()).toLowerCase())
                         .filter(Boolean)
 
-                    const results = data.filter((item: any) => terms.some((term) => extractDomain(item.Site).includes(term)))
+                    // Tạo map domain -> item để tìm nhanh
+                    const domainToItem: Record<string, any> = {}
+                    data.forEach((item: any) => {
+                        const domain = extractDomain(item.Site).toLowerCase()
+                        domainToItem[domain] = item
+                    })
+
+                    // Lấy kết quả đúng thứ tự nhập vào
+                    const results = terms
+                        .map((term) => domainToItem[term])
+                        .filter(Boolean)
 
                     setDataColumn(results)
 
+                    // Các site không tồn tại
                     const nonExistent = terms.filter(
-                        (term) => isValidDomain(term) && !data.some((item: any) => extractDomain(item.Site).includes(term)),
+                        (term) => isValidDomain(term) && !domainToItem[term],
                     )
 
                     if (nonExistent.length > 0) {
                         setNotFoundSites(nonExistent)
+                    } else {
+                        setNotFoundSites([])
                     }
                 }
             }, 300),

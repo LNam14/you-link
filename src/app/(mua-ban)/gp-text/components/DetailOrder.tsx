@@ -12,6 +12,7 @@ import getUserInfo from "@/components/userInfo"
 import { database } from "@/app/firebase/firebase"
 import { Modal, Button, message as antdMessage } from "antd"
 import { toast } from "sonner"
+import { Merge, Split } from "lucide-react"
 // import sheetApiRequest from "@/apiRequests/sheet"
 
 type PageBodyProps = {
@@ -19,7 +20,8 @@ type PageBodyProps = {
     orderIndex?: number,
     onOrderUpdate?: () => void, // Add callback prop
     order?: any[], // Add order prop
-    hiddenColumns?: number[] // Thêm prop để ẩn cột
+    hiddenColumns?: number[], // Thêm prop để ẩn cột
+    chietKhau?: number, // Thêm prop chiết khấu
 }
 // register Handsontable's modules
 registerAllModules()
@@ -60,6 +62,22 @@ const RowHeader2: ColumnHeader[] = [
 
 // Add column settings
 const columnSettings: Record<string, any> = {
+    Mã: {
+        renderer: (
+            instance: Handsontable,
+            td: HTMLTableCellElement,
+            row: number,
+            col: number,
+            prop: string | number,
+            value: string,
+            cellProperties: Handsontable.CellProperties,
+        ) => {
+            Handsontable.renderers.TextRenderer(instance, td, row, col, prop, value, cellProperties)
+            td.style.backgroundColor = "#d3d3d3" // Light blue - Guest Post
+            td.style.color = "#FF0000"
+            td.style.fontWeight = "500" // Make text bold
+        },
+    },
     Loại: {
         type: "dropdown",
         source: ["GP", "Text", "Text Home", "Text Header"],
@@ -110,6 +128,8 @@ const columnSettings: Record<string, any> = {
             } else if (value === "Mất - Index") {
                 td.style.backgroundColor = "#f5222d" // Light red - Mất Index
                 td.style.color = "#fff1f0"
+            } else {
+                td.style.backgroundColor = "#d3d3d3" // Light blue - Guest Post
             }
         },
     },
@@ -503,20 +523,19 @@ const ChatDialog = memo(
                 return
             }
 
+            // Nếu là khách hàng thì không lấy user, để tên mặc định
             const message: ChatMessage = {
                 text: option,
-                sender: user?.displayName || user?.email || "Unknown User",
-                senderRole: role || "NCC",
+                sender: role === 'Khách hàng' ? 'Khách ẩn danh' : (user?.displayName || user?.email || 'Unknown User'),
+                senderRole: role || 'NCC',
                 timestamp: Date.now(),
                 isComplaint: true,
-                complaintStatus: "pending",
+                complaintStatus: 'pending',
             }
-            // sheetApiRequest.getIDNCC(currentOrder.TenNCC, `Khách hàng yêu cầu hoàn tiền đối với trường hợp ${option} cho đơn hàng ${currentChatOrderId}, kiểm tra tại https://www.ylink.shop/gp-text`)
-            // sheetApiRequest.getIDKH(currentOrder.TenKH, `Yêu cầu hoàn tiền đối với trường hợp ${option} cho đơn hàng ${currentChatOrderId} đã được gửi`)
-            if (role === "NCC") {
-                message.supplierName = supplierName || user?.name || user?.displayName || ""
-            } else if (role === "Khách hàng") {
-                message.name = user?.username || user?.name || user?.displayName || ""
+            if (role === 'NCC') {
+                message.supplierName = supplierName || user?.name || user?.displayName || ''
+            } else if (role === 'Khách hàng') {
+                message.name = 'Khách hàng'
             }
             try {
                 const ordersRef = ref(database, `orders/${orderIndex}/ChiTietDonHang`)
@@ -706,10 +725,11 @@ const ChatDialog = memo(
 
 ChatDialog.displayName = "ChatDialog"
 
-export default function PageBody({ supplierName, orderIndex, onOrderUpdate, order, hiddenColumns }: PageBodyProps) {
+export default function PageBody({ supplierName, orderIndex, onOrderUpdate, order, hiddenColumns, chietKhau }: PageBodyProps) {
     const [orders, setOrders] = useState<any[]>([])
     const [orderKeys, setOrderKeys] = useState<string[]>([])
-    const userInfo = getUserInfo()
+    // Lấy userInfo, nhưng nếu là khách hàng thì để null
+    const userInfo = typeof window !== 'undefined' && localStorage.getItem('role') === 'Khách hàng' ? null : getUserInfo()
     const [chatDialogOpen, setChatDialogOpen] = useState(false)
     const [currentChatOrderId, setCurrentChatOrderId] = useState<string | null>(null)
     const [currentChatMessages, setCurrentChatMessages] = useState<ChatMessage[]>([])
@@ -719,6 +739,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
     const [tenNCCFilter, setTenNCCFilter] = useState<string>("")
     const [uniqueMaKHList, setUniqueMaKHList] = useState<string[]>([])
     const [uniqueTenNCCList, setUniqueTenNCCList] = useState<string[]>([])
+    const [mergeMode, setMergeMode] = useState<boolean>(true) // Thay đổi mặc định thành true
 
     const updateOrderSummary = useCallback(async () => {
         if (orderIndex === undefined) return
@@ -844,7 +865,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
     const handleContextMenuAction = async (row: number, action: string) => {
         // Skip if this is a summary row
         const isSummaryRow =
-            data[row][0]?.includes("Tuần") ||
+            data[row][0]?.includes("Tổng") ||
             data[row][0]?.includes("Chưa Index") ||
             data[row][0]?.includes("Chưa NNhập") ||
             data[row][0]?.includes("Đơn hủy")
@@ -856,15 +877,17 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
         if (!orderCode) return
 
         // Find the matching order in the orders array by Mã đơn
-        const orderIndex = orders.findIndex((order) => order.MaDon === orderCode)
-        if (orderIndex === -1) return
+        const orderIdx = orders.findIndex((order) => order.MaDon === orderCode)
+        if (orderIdx === -1) return
 
-        // Get the Firebase key for this order
-        const orderKey = orderKeys[orderIndex]
-        if (!orderKey) return
+        // Always use _parentIndex and _dbIndex from the order item
+        const detail = orders[orderIdx];
+        const parentIndex = detail._parentIndex;
+        const dbIndex = detail._dbIndex;
+        if (typeof parentIndex !== 'number' || typeof dbIndex !== 'number') return;
 
-        const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`)
-        const updatedOrder = { ...orders[orderIndex] }
+        const orderRef = ref(database, `orders/${parentIndex}/ChiTietDonHang/${dbIndex}`)
+        const updatedOrder = { ...orders[orderIdx] }
 
         if (action === "ok") {
             updatedOrder.TinhTrangKH = "Đơn OK"
@@ -878,8 +901,6 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                     updatedOrder.TinhTrangKH = "Hủy - no index"
                 } else if (updatedOrder.Index === "Indexed") {
                     updatedOrder.TinhTrangKH = "Hủy - đã index"
-                    // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Khách hàng đang yêu cầu hủy đơn ${updatedOrder.MaDon}, xử lý tại https://www.ylink.shop/gp-text`)
-                    // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn hàng ${updatedOrder.MaDon} đã được gửi, vui lòng chờ phản hồi`)
                 }
             } else {
                 // Non-GP order cancellation logic
@@ -905,44 +926,20 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                             : updatedOrder.GiaBanTextHeader || 0,
                             )
                             updatedOrder.paymentStatus1 = "refunded"
-                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Khách hàng đã hủy đơn ${updatedOrder.MaDon}, đây là đơn hàng ${updatedOrder.Loai} và được yêu cầu hủy trước 12h. Hệ thống đã tự động phê duyệt yêu cầu, số tiền ${price}$ đã bị trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
-                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được hủy thành công, số tiền ${price}$ đã được cộng vào vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
                         } else {
                             updatedOrder.TinhTrangKH = "Hủy - đã lên bài"
-                            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Khách hàng đang yêu cầu hủy đơn ${updatedOrder.MaDon}, xử lý tại https://www.ylink.shop/gp-text`)
-                            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn hàng ${updatedOrder.MaDon} đã được gửi, vui lòng chờ phản hồi`)
                         }
                     }
                 }
             }
         } else if (action === "ncc_cancel") {
             updatedOrder.TinhTrangNCC = "Hủy đơn"
-            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã được hủy thành công`)
-            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã bị hủy, đặt đơn mới tại https://www.ylink.shop`)
-
         } else if (action === "ncc_ok") {
             updatedOrder.TinhTrangNCC = "Đã lên bài"
             const now = new Date()
             const day = String(now.getDate()).padStart(2, "0")
             const month = String(now.getMonth() + 1).padStart(2, "0")
             updatedOrder.NgayBan = `${day}/${month}`
-
-            // Only process payment if it hasn't been processed before
-            if (!updatedOrder.paymentStatus || updatedOrder.paymentStatus !== "paid") {
-                // Handle money balance changes when NCC marks as Đã lên bài
-                const price = Number(
-                    updatedOrder.Loai === "GP"
-                        ? updatedOrder.GiaBanGP || 0
-                        : updatedOrder.Loai === "Text"
-                            ? updatedOrder.GiaBanText || 0
-                            : updatedOrder.Loai === "TextHome"
-                                ? updatedOrder.GiaBanTextHome || 0
-                                : updatedOrder.GiaBanTextHeader || 0,
-                )
-                updatedOrder.paymentStatus = "paid"
-                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
-                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
-            }
         } else if (action === "ncc_accept_cancel") {
             updatedOrder.TinhTrangNCC = "Đồng ý hủy"
             const price = Number(
@@ -955,12 +952,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                             : updatedOrder.GiaBanTextHeader || 0,
             )
             updatedOrder.paymentStatus1 = "refunded"
-            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã đồng ý yêu cầu hủy đơn ${updatedOrder.MaDon}, số tiền ${price}$ đã bị trừ khỏi vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
-            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn ${updatedOrder.MaDon} thành công, số tiền ${price}$ đã được cộng vào vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
         } else if (action === "ncc_reject_cancel") {
             updatedOrder.TinhTrangNCC = "Từ chối hủy"
-            // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã từ chối yêu cầu hủy đơn ${updatedOrder.MaDon}`)
-            // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Yêu cầu hủy đơn ${updatedOrder.MaDon} đã bị từ chối`)
         }
 
         // Update the order in Firebase
@@ -975,8 +968,167 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
     }
 
     const contextMenuItems =
-        userInfo?.role !== "123123"
+        userInfo?.role === "NCC" || userInfo?.role === "Admin" || userInfo?.role === "Nhân viên"
             ? {
+                items: {
+                    ncc_cancel: {
+                        name: "Hủy đơn",
+                        callback: function (this: Handsontable, key: string, selection: any) {
+                            const selected = this.getSelectedLast()
+                            if (selected) {
+                                handleContextMenuAction(selected[0], "ncc_cancel")
+                            }
+                        },
+                        hidden: function (this: Handsontable): boolean {
+                            const selected = this.getSelectedLast()
+                            if (selected) {
+                                const row = selected[0]
+                                // Get the order code from the data array
+                                if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
+                                const orderCode = data[row][0]
+                                if (!orderCode || typeof orderCode !== "string") return true
+
+                                // Skip if this is a summary row
+                                if (
+                                    orderCode.includes("Tổng") ||
+                                    orderCode.includes("Chưa Index") ||
+                                    orderCode.includes("Đang Xử Lý") ||
+                                    orderCode.includes("Đơn hủy")
+                                ) {
+                                    return true
+                                }
+
+                                // Find the matching order in the orders array
+                                const order = orders.find((o) => o.MaDon === orderCode)
+                                console.log(order)
+
+                                if (!order) return true
+                                return order?.TinhTrangKH !== "Đã nhập" || order?.TinhTrangNCC !== "Chưa nhận đơn"
+                            }
+                            return true
+                        },
+                    },
+                    ncc_ok: {
+                        name: "Đơn OK",
+                        callback: function (this: Handsontable, key: string, selection: any) {
+                            const selected = this.getSelectedLast()
+                            if (selected) {
+                                handleContextMenuAction(selected[0], "ncc_ok")
+                            }
+                        },
+                        hidden: function (this: Handsontable): boolean {
+                            const selected = this.getSelectedLast()
+                            if (selected) {
+                                const row = selected[0]
+                                // Get the order code from the data array
+                                if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
+                                const orderCode = data[row][0]
+                                if (!orderCode || typeof orderCode !== "string") return true
+
+                                // Skip if this is a summary row
+                                if (
+                                    orderCode.includes("Tổng") ||
+                                    orderCode.includes("Chưa Index") ||
+                                    orderCode.includes("Đang Xử Lý") ||
+                                    orderCode.includes("Đơn hủy")
+                                ) {
+                                    return true
+                                }
+
+                                // Find the matching order in the orders array
+                                const order = orders.find((o) => o.MaDon === orderCode)
+                                if (!order) return true
+                                // Condition 1: Show if Loai !== GP and TinhTrangKH === Đã nhập
+                                return !(
+                                    order?.Loai !== "GP" &&
+                                    order?.TinhTrangKH === "Đã nhập" &&
+                                    order?.TinhTrangNCC === "Chưa nhận đơn"
+                                )
+                            }
+                            return true
+                        },
+                    },
+                    ncc_accept_cancel: {
+                        name: "Đồng ý hủy",
+                        callback: function (this: Handsontable, key: string, selection: any) {
+                            const selected = this.getSelectedLast()
+                            if (selected) {
+                                handleContextMenuAction(selected[0], "ncc_accept_cancel")
+                            }
+                        },
+                        hidden: function (this: Handsontable): boolean {
+                            const selected = this.getSelectedLast()
+                            if (selected) {
+                                const row = selected[0]
+                                // Get the order code from the data array
+                                if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
+                                const orderCode = data[row][0]
+                                if (!orderCode || typeof orderCode !== "string") return true
+
+                                // Skip if this is a summary row
+                                if (
+                                    orderCode.includes("Tổng") ||
+                                    orderCode.includes("Chưa Index") ||
+                                    orderCode.includes("Đang Xử Lý") ||
+                                    orderCode.includes("Đơn hủy")
+                                ) {
+                                    return true
+                                }
+
+                                // Find the matching order in the orders array
+                                const order = orders.find((o) => o.MaDon === orderCode)
+                                if (!order) return true
+                                // Condition 3: Show if TinhTrangKH === Hủy - đã index or Hủy - đã lên bài
+                                return (
+                                    !(order?.TinhTrangKH === "Hủy - đã index" || order?.TinhTrangKH === "Hủy - đã lên bài") ||
+                                    !(order?.TinhTrangNCC === "Đã lên bài")
+                                )
+                            }
+                            return true
+                        },
+                    },
+                    ncc_reject_cancel: {
+                        name: "Từ chối hủy",
+                        callback: function (this: Handsontable, key: string, selection: any) {
+                            const selected = this.getSelectedLast()
+                            if (selected) {
+                                handleContextMenuAction(selected[0], "ncc_reject_cancel")
+                            }
+                        },
+                        hidden: function (this: Handsontable): boolean {
+                            const selected = this.getSelectedLast()
+                            if (selected) {
+                                const row = selected[0]
+                                // Get the order code from the data array
+                                if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
+                                const orderCode = data[row][0]
+                                if (!orderCode || typeof orderCode !== "string") return true
+
+                                // Skip if this is a summary row
+                                if (
+                                    orderCode.includes("Tổng") ||
+                                    orderCode.includes("Chưa Index") ||
+                                    orderCode.includes("Đang Xử Lý") ||
+                                    orderCode.includes("Đơn hủy")
+                                ) {
+                                    return true
+                                }
+
+                                // Find the matching order in the orders array
+                                const order = orders.find((o) => o.MaDon === orderCode)
+                                if (!order) return true
+                                // Condition 4: Show if TinhTrangKH === Hủy - đã index or Hủy - đã lên bài
+                                return (
+                                    !(order?.TinhTrangKH === "Hủy - đã index" || order?.TinhTrangKH === "Hủy - đã lên bài") ||
+                                    !(order?.TinhTrangNCC === "Đã lên bài")
+                                )
+                            }
+                            return true
+                        },
+                    },
+                } as any,
+            }
+            : {
                 items: {
                     ok: {
                         name: "Đơn OK",
@@ -997,7 +1149,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
 
                                 // Skip if this is a summary row
                                 if (
-                                    orderCode.includes("Tuần") ||
+                                    orderCode.includes("Tổng") ||
                                     orderCode.includes("Chưa Index") ||
                                     orderCode.includes("Đang Xử Lý") ||
                                     orderCode.includes("Đơn hủy")
@@ -1043,7 +1195,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
 
                                 // Skip if this is a summary row
                                 if (
-                                    orderCode.includes("Tuần") ||
+                                    orderCode.includes("Tổng") ||
                                     orderCode.includes("Chưa Index") ||
                                     orderCode.includes("Đang Xử Lý") ||
                                     orderCode.includes("Đơn hủy")
@@ -1066,167 +1218,6 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                     },
                 },
             }
-            : userInfo?.role === "NCC" || userInfo?.role === "Admin" || userInfo?.role === "Nhân viên"
-                ? {
-                    items: {
-                        ncc_cancel: {
-                            name: "Hủy đơn",
-                            callback: function (this: Handsontable, key: string, selection: any) {
-                                const selected = this.getSelectedLast()
-                                if (selected) {
-                                    handleContextMenuAction(selected[0], "ncc_cancel")
-                                }
-                            },
-                            hidden: function (this: Handsontable): boolean {
-                                const selected = this.getSelectedLast()
-                                if (selected) {
-                                    const row = selected[0]
-                                    // Get the order code from the data array
-                                    if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
-                                    const orderCode = data[row][0]
-                                    if (!orderCode || typeof orderCode !== "string") return true
-
-                                    // Skip if this is a summary row
-                                    if (
-                                        orderCode.includes("Tuần") ||
-                                        orderCode.includes("Chưa Index") ||
-                                        orderCode.includes("Đang Xử Lý") ||
-                                        orderCode.includes("Đơn hủy")
-                                    ) {
-                                        return true
-                                    }
-
-                                    // Find the matching order in the orders array
-                                    const order = orders.find((o) => o.MaDon === orderCode)
-                                    console.log(order)
-
-                                    if (!order) return true
-                                    return order?.TinhTrangKH !== "Đã nhập" || order?.TinhTrangNCC !== "Chưa nhận đơn"
-                                }
-                                return true
-                            },
-                        },
-                        ncc_ok: {
-                            name: "Đơn OK",
-                            callback: function (this: Handsontable, key: string, selection: any) {
-                                const selected = this.getSelectedLast()
-                                if (selected) {
-                                    handleContextMenuAction(selected[0], "ncc_ok")
-                                }
-                            },
-                            hidden: function (this: Handsontable): boolean {
-                                const selected = this.getSelectedLast()
-                                if (selected) {
-                                    const row = selected[0]
-                                    // Get the order code from the data array
-                                    if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
-                                    const orderCode = data[row][0]
-                                    if (!orderCode || typeof orderCode !== "string") return true
-
-                                    // Skip if this is a summary row
-                                    if (
-                                        orderCode.includes("Tuần") ||
-                                        orderCode.includes("Chưa Index") ||
-                                        orderCode.includes("Đang Xử Lý") ||
-                                        orderCode.includes("Đơn hủy")
-                                    ) {
-                                        return true
-                                    }
-
-                                    // Find the matching order in the orders array
-                                    const order = orders.find((o) => o.MaDon === orderCode)
-                                    if (!order) return true
-                                    // Condition 1: Show if Loai !== GP and TinhTrangKH === Đã nhập
-                                    return !(
-                                        order?.Loai !== "GP" &&
-                                        order?.TinhTrangKH === "Đã nhập" &&
-                                        order?.TinhTrangNCC === "Chưa nhận đơn"
-                                    )
-                                }
-                                return true
-                            },
-                        },
-                        ncc_accept_cancel: {
-                            name: "Đồng ý hủy",
-                            callback: function (this: Handsontable, key: string, selection: any) {
-                                const selected = this.getSelectedLast()
-                                if (selected) {
-                                    handleContextMenuAction(selected[0], "ncc_accept_cancel")
-                                }
-                            },
-                            hidden: function (this: Handsontable): boolean {
-                                const selected = this.getSelectedLast()
-                                if (selected) {
-                                    const row = selected[0]
-                                    // Get the order code from the data array
-                                    if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
-                                    const orderCode = data[row][0]
-                                    if (!orderCode || typeof orderCode !== "string") return true
-
-                                    // Skip if this is a summary row
-                                    if (
-                                        orderCode.includes("Tuần") ||
-                                        orderCode.includes("Chưa Index") ||
-                                        orderCode.includes("Đang Xử Lý") ||
-                                        orderCode.includes("Đơn hủy")
-                                    ) {
-                                        return true
-                                    }
-
-                                    // Find the matching order in the orders array
-                                    const order = orders.find((o) => o.MaDon === orderCode)
-                                    if (!order) return true
-                                    // Condition 3: Show if TinhTrangKH === Hủy - đã index or Hủy - đã lên bài
-                                    return (
-                                        !(order?.TinhTrangKH === "Hủy - đã index" || order?.TinhTrangKH === "Hủy - đã lên bài") ||
-                                        !(order?.TinhTrangNCC === "Đã lên bài")
-                                    )
-                                }
-                                return true
-                            },
-                        },
-                        ncc_reject_cancel: {
-                            name: "Từ chối hủy",
-                            callback: function (this: Handsontable, key: string, selection: any) {
-                                const selected = this.getSelectedLast()
-                                if (selected) {
-                                    handleContextMenuAction(selected[0], "ncc_reject_cancel")
-                                }
-                            },
-                            hidden: function (this: Handsontable): boolean {
-                                const selected = this.getSelectedLast()
-                                if (selected) {
-                                    const row = selected[0]
-                                    // Get the order code from the data array
-                                    if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
-                                    const orderCode = data[row][0]
-                                    if (!orderCode || typeof orderCode !== "string") return true
-
-                                    // Skip if this is a summary row
-                                    if (
-                                        orderCode.includes("Tuần") ||
-                                        orderCode.includes("Chưa Index") ||
-                                        orderCode.includes("Đang Xử Lý") ||
-                                        orderCode.includes("Đơn hủy")
-                                    ) {
-                                        return true
-                                    }
-
-                                    // Find the matching order in the orders array
-                                    const order = orders.find((o) => o.MaDon === orderCode)
-                                    if (!order) return true
-                                    // Condition 4: Show if TinhTrangKH === Hủy - đã index or Hủy - đã lên bài
-                                    return (
-                                        !(order?.TinhTrangKH === "Hủy - đã index" || order?.TinhTrangKH === "Hủy - đã lên bài") ||
-                                        !(order?.TinhTrangNCC === "Đã lên bài")
-                                    )
-                                }
-                                return true
-                            },
-                        },
-                    } as any,
-                }
-                : undefined
 
     // Load orders data
     useEffect(() => {
@@ -1321,7 +1312,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
 
                 // Skip if this is a summary row
                 const isSummaryRow =
-                    data[row][0]?.includes("Tuần") ||
+                    data[row][0]?.includes("Tổng") ||
                     data[row][0]?.includes("Chưa Index") ||
                     data[row][0]?.includes("Chưa nhập") ||
                     data[row][0]?.includes("Đơn hủy")
@@ -1668,7 +1659,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                 if (day && month) {
                     const date = new Date(2023, Number(month) - 1, Number(day))
                     const weekNumber = getWeekNumber(date)
-                    const weekKey = `Tuần ${weekNumber}`
+                    const weekKey = `Tổng`
 
                     if (!weeklyOrders[weekKey]) {
                         weeklyOrders[weekKey] = {
@@ -1790,7 +1781,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                     if (day && month) {
                         const date = new Date(2023, Number(month) - 1, Number(day))
                         const weekNumber = getWeekNumber(date)
-                        const weekKey = `Tuần ${weekNumber}`
+                        const weekKey = `Tổng`
 
                         if (!weeklyOrders[weekKey]) {
                             weeklyOrders[weekKey] = []
@@ -1807,17 +1798,468 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
         // Create the final data array with summary rows and their corresponding order rows
         const finalData: any[] = []
 
-        // Add weekly summaries and their orders
-        Object.entries(weeklyOrders)
-            .sort(([weekA], [weekB]) => {
-                // Extract week numbers from "Tuần X" format
-                const weekNumA = Number.parseInt(weekA.split(" ")[1])
-                const weekNumB = Number.parseInt(weekB.split(" ")[1])
-                return weekNumA - weekNumB
-            })
-            .forEach(([weekKey, weekOrders]) => {
-                // Calculate totals for this week
-                const weekSummary = weekOrders.reduce(
+        if (mergeMode) {
+            // Merge mode: Combine all non-canceled orders into a single "Tổng" section
+            const allNonCanceledOrders = [
+                ...Object.values(weeklyOrders).flat(),
+                ...nonIndexedOrders,
+                ...notEnteredOrders
+            ]
+
+            if (allNonCanceledOrders.length > 0) {
+                // Sort allNonCanceledOrders by MaDon (Mã) A-Z
+                allNonCanceledOrders.sort((a, b) => {
+                    if (!a.MaDon) return 1;
+                    if (!b.MaDon) return -1;
+                    return a.MaDon.localeCompare(b.MaDon, undefined, { numeric: true, sensitivity: 'base' });
+                });
+
+                // Calculate totals for all non-canceled orders
+                const mergedSummary = allNonCanceledOrders.reduce(
+                    (acc, order) => {
+                        const giaBan =
+                            Number(
+                                order.Loai === "GP"
+                                    ? order.GiaBanGP
+                                    : order.Loai === "Text"
+                                        ? order.GiaBanText
+                                        : order.Loai === "TextHome"
+                                            ? order.GiaBanTextHome
+                                            : order.GiaBanTextHeader,
+                            ) || 0
+
+                        const giaMua =
+                            Number(
+                                order.Loai === "GP"
+                                    ? order.GiaMuaGP
+                                    : order.Loai === "Text"
+                                        ? order.GiaMuaText
+                                        : order.Loai === "TextHome"
+                                            ? order.GiaMuaTextHome
+                                            : order.GiaMuaTextHeader,
+                            ) || 0
+
+                        const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
+                        const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+                        const loiNhuan = Math.round(giaBan - giaCuoi)
+                        const ttncc = Number(order.TTNCC) || 0
+
+                        acc.count++
+                        acc.totalGiaBan += giaBan
+                        acc.totalGiaMua += giaMua
+                        acc.totalHoaHong += hoaHong
+                        acc.totalGiaCuoi += giaCuoi
+                        acc.totalLoiNhuan += loiNhuan
+                        acc.totalTTNCC += ttncc
+
+                        return acc
+                    },
+                    {
+                        count: 0,
+                        totalGiaBan: 0,
+                        totalGiaMua: 0,
+                        totalHoaHong: 0,
+                        totalGiaCuoi: 0,
+                        totalLoiNhuan: 0,
+                        totalTTNCC: 0,
+                    },
+                )
+
+                // Add merged summary row
+                finalData.push([
+                    "Tổng",
+                    "",
+                    "",
+                    "",
+                    "",
+                    `CK (${chietKhau || 0}%)`,
+                    chietKhau ? mergedSummary.totalGiaBan - (mergedSummary.totalGiaBan * chietKhau / 100) : mergedSummary.totalGiaBan,
+                    mergedSummary.totalGiaMua,
+                    mergedSummary.totalHoaHong,
+                    mergedSummary.totalGiaCuoi,
+                    mergedSummary.totalTTNCC,
+                    chietKhau ? Math.round(((mergedSummary.totalGiaBan - (mergedSummary.totalGiaBan * chietKhau / 100)) - mergedSummary.totalGiaCuoi) * 100) / 100 : Math.round(mergedSummary.totalLoiNhuan * 100) / 100,
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "bg-blue-300", // Add background color for merged summary
+                ])
+
+                // Add all non-canceled orders (already sorted)
+                allNonCanceledOrders.forEach((order) => {
+                    const giaBan =
+                        Number(
+                            order.Loai === "GP"
+                                ? order.GiaBanGP
+                                : order.Loai === "Text"
+                                    ? order.GiaBanText
+                                    : order.Loai === "TextHome"
+                                        ? order.GiaBanTextHome
+                                        : order.GiaBanTextHeader,
+                        ) || 0
+
+                    const giaMua =
+                        Number(
+                            order.Loai === "GP"
+                                ? order.GiaMuaGP
+                                : order.Loai === "Text"
+                                    ? order.GiaMuaText
+                                    : order.Loai === "TextHome"
+                                        ? order.GiaMuaTextHome
+                                        : order.GiaMuaTextHeader,
+                        ) || 0
+
+                    const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
+                    const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+                    const loiNhuan = Math.round(giaBan - giaCuoi)
+                    const timeText = order.Loai === "GP" ? "" : order.TimeText
+                    const index = order.Loai === "GP" ? order.Index : ""
+
+                    finalData.push([
+                        order.MaDon,
+                        order.Loai,
+                        order.NgayBan,
+                        timeText,
+                        order.Site,
+                        order.Note,
+                        giaBan,
+                        giaMua,
+                        hoaHong,
+                        giaCuoi,
+                        order.TTNCC || "",
+                        loiNhuan,
+                        order.BaiViet,
+                        order.LinkKQ,
+                        order.Anchor1,
+                        order.Link1,
+                        order.Anchor2,
+                        order.Link2,
+                        order.NgayKT,
+                        index,
+                        order.TenNCC,
+                        order.TeleNCC,
+                        order.TinhTrangKH || "Chưa nhập",
+                        order.TinhTrangNCC || "Chưa nhận đơn",
+                        order.TraoDoi,
+                    ])
+                })
+            }
+        } else {
+            // Normal mode: Show separate sections
+            // Add weekly summaries and their orders
+            Object.entries(weeklyOrders)
+                .sort(([weekA], [weekB]) => {
+                    // Extract week numbers from "Tổng X" format
+                    const weekNumA = Number.parseInt(weekA.split(" ")[1])
+                    const weekNumB = Number.parseInt(weekB.split(" ")[1])
+                    return weekNumA - weekNumB
+                })
+                .forEach(([weekKey, weekOrders]) => {
+                    // Calculate totals for this week
+                    const weekSummary = weekOrders.reduce(
+                        (acc, order) => {
+                            const giaBan =
+                                Number(
+                                    order.Loai === "GP"
+                                        ? order.GiaBanGP
+                                        : order.Loai === "Text"
+                                            ? order.GiaBanText
+                                            : order.Loai === "TextHome"
+                                                ? order.GiaBanTextHome
+                                                : order.GiaBanTextHeader,
+                                ) || 0
+
+                            const giaMua =
+                                Number(
+                                    order.Loai === "GP"
+                                        ? order.GiaMuaGP
+                                        : order.Loai === "Text"
+                                            ? order.GiaMuaText
+                                            : order.Loai === "TextHome"
+                                                ? order.GiaMuaTextHome
+                                                : order.GiaMuaTextHeader,
+                                ) || 0
+
+                            const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
+                            const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+                            const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
+                            const ttncc = Number(order.TTNCC) || 0
+
+                            acc.count++
+                            acc.totalGiaBan += giaBan
+                            acc.totalGiaMua += giaMua
+                            acc.totalHoaHong += hoaHong
+                            acc.totalGiaCuoi += giaCuoi
+                            acc.totalLoiNhuan += loiNhuan
+                            acc.totalTTNCC += ttncc
+
+                            return acc
+                        },
+                        {
+                            count: 0,
+                            totalGiaBan: 0,
+                            totalGiaMua: 0,
+                            totalHoaHong: 0,
+                            totalGiaCuoi: 0,
+                            totalLoiNhuan: 0,
+                            totalTTNCC: 0,
+                        },
+                    )
+
+                    // Only add weekly summary row if there are orders
+                    if (weekSummary.count > 0) {
+                        // Add weekly summary row
+                        finalData.push([
+                            weekKey,
+                            "",
+                            "",
+                            "",
+                            "",
+                            `CK (${chietKhau || 0}%)`,
+                            chietKhau ? weekSummary.totalGiaBan - (weekSummary.totalGiaBan * chietKhau / 100) : weekSummary.totalGiaBan,
+                            weekSummary.totalGiaMua,
+                            weekSummary.totalHoaHong,
+                            weekSummary.totalGiaCuoi,
+                            weekSummary.totalTTNCC,
+                            chietKhau ? Math.round(((weekSummary.totalGiaBan - (weekSummary.totalGiaBan * chietKhau / 100)) - weekSummary.totalGiaCuoi) * 100) / 100 : Math.round(weekSummary.totalLoiNhuan * 100) / 100,
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "bg-green-300", // Add background color for weekly summary
+                        ])
+
+                        // Add orders for this week
+                        weekOrders.forEach((order) => {
+                            const giaBan =
+                                Number(
+                                    order.Loai === "GP"
+                                        ? order.GiaBanGP
+                                        : order.Loai === "Text"
+                                            ? order.GiaBanText
+                                            : order.Loai === "TextHome"
+                                                ? order.GiaBanTextHome
+                                                : order.GiaBanTextHeader,
+                                ) || 0
+
+                            const giaMua =
+                                Number(
+                                    order.Loai === "GP"
+                                        ? order.GiaMuaGP
+                                        : order.Loai === "Text"
+                                            ? order.GiaMuaText
+                                            : order.Loai === "TextHome"
+                                                ? order.GiaMuaTextHome
+                                                : order.GiaMuaTextHeader,
+                                ) || 0
+
+                            const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
+                            const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+                            const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
+                            const timeText = order.Loai === "GP" ? "" : order.TimeText
+                            const index = order.Loai === "GP" ? order.Index : ""
+
+                            // Update Status to "Đã hoàn thành" for weekly orders
+                            if (order.Status !== "Đã hoàn thành") {
+                                const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKeys[orders.findIndex((o) => o.MaDon === order.MaDon)]}`)
+                                set(orderRef, { ...order, Status: "Đã hoàn thành" })
+                            }
+
+                            finalData.push([
+                                order.MaDon,
+                                order.Loai,
+                                order.NgayBan,
+                                timeText,
+                                order.Site,
+                                order.Note,
+                                giaBan,
+                                giaMua,
+                                hoaHong,
+                                giaCuoi,
+                                order.TTNCC || "",
+                                loiNhuan,
+                                order.BaiViet,
+                                order.LinkKQ,
+                                order.Anchor1,
+                                order.Link1,
+                                order.Anchor2,
+                                order.Link2,
+                                order.NgayKT,
+                                index,
+                                order.TenNCC,
+                                order.TeleNCC,
+                                order.TinhTrangKH || "Chưa nhập",
+                                order.TinhTrangNCC || "Chưa nhận đơn",
+                                order.TraoDoi,
+                            ])
+                        })
+                    }
+                })
+
+            // Only add non-indexed summary if there are non-indexed orders
+            if (nonIndexedOrders.length > 0) {
+                const nonIndexedSummary = nonIndexedOrders.reduce(
+                    (acc, order) => {
+                        const giaBan =
+                            Number(
+                                order.Loai === "GP"
+                                    ? order.GiaBanGP
+                                    : order.Loai === "Text"
+                                        ? order.GiaBanText
+                                        : order.Loai === "TextHome"
+                                            ? order.GiaBanTextHome
+                                            : order.GiaBanTextHeader,
+                            ) || 0
+
+                        const giaMua =
+                            Number(
+                                order.Loai === "GP"
+                                    ? order.GiaMuaGP
+                                    : order.Loai === "Text"
+                                        ? order.GiaMuaText
+                                        : order.Loai === "TextHome"
+                                            ? order.GiaMuaTextHome
+                                            : order.GiaBanTextHeader,
+                            ) || 0
+
+                        const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
+                        const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+                        const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
+                        const ttncc = Number(order.TTNCC) || 0
+
+                        acc.count++
+                        acc.totalGiaBan += giaBan
+                        acc.totalGiaMua += giaMua
+                        acc.totalHoaHong += hoaHong
+                        acc.totalGiaCuoi += giaCuoi
+                        acc.totalLoiNhuan += loiNhuan
+                        acc.totalTTNCC += ttncc
+
+                        return acc
+                    },
+                    {
+                        count: 0,
+                        totalGiaBan: 0,
+                        totalGiaMua: 0,
+                        totalHoaHong: 0,
+                        totalGiaCuoi: 0,
+                        totalLoiNhuan: 0,
+                        totalTTNCC: 0,
+                    },
+                )
+
+                finalData.push([
+                    `Chưa Index`,
+                    "",
+                    "",
+                    "",
+                    "",
+                    `CK (${chietKhau || 0}%)`,
+                    chietKhau ? nonIndexedSummary.totalGiaBan - (nonIndexedSummary.totalGiaBan * chietKhau / 100) : nonIndexedSummary.totalGiaBan,
+                    nonIndexedSummary.totalGiaMua,
+                    nonIndexedSummary.totalHoaHong,
+                    nonIndexedSummary.totalGiaCuoi,
+                    nonIndexedSummary.totalTTNCC,
+                    chietKhau ? Math.round(((nonIndexedSummary.totalGiaBan - (nonIndexedSummary.totalGiaBan * chietKhau / 100)) - nonIndexedSummary.totalGiaCuoi) * 100) / 100 : Math.round(nonIndexedSummary.totalLoiNhuan * 100) / 100,
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "bg-purple-300", // Add background color for non-indexed summary
+                ])
+
+                // Add non-indexed orders
+                nonIndexedOrders.forEach((order) => {
+                    const giaBan =
+                        Number(
+                            order.Loai === "GP"
+                                ? order.GiaBanGP
+                                : order.Loai === "Text"
+                                    ? order.GiaBanText
+                                    : order.Loai === "TextHome"
+                                        ? order.GiaBanTextHome
+                                        : order.GiaBanTextHeader,
+                        ) || 0
+
+                    const giaMua =
+                        Number(
+                            order.Loai === "GP"
+                                ? order.GiaMuaGP
+                                : order.Loai === "Text"
+                                    ? order.GiaMuaText
+                                    : order.Loai === "TextHome"
+                                        ? order.GiaMuaTextHome
+                                        : order.GiaMuaTextHeader,
+                        ) || 0
+
+                    const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
+                    const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+                    const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
+                    const timeText = order.Loai === "GP" ? "" : order.TimeText
+                    const index = order.Loai === "GP" ? order.Index : ""
+
+                    finalData.push([
+                        order.MaDon,
+                        order.Loai,
+                        order.NgayBan,
+                        timeText,
+                        order.Site,
+                        order.Note,
+                        giaBan,
+                        giaMua,
+                        hoaHong,
+                        giaCuoi,
+                        order.TTNCC || "",
+                        loiNhuan,
+                        order.BaiViet,
+                        order.LinkKQ,
+                        order.Anchor1,
+                        order.Link1,
+                        order.Anchor2,
+                        order.Link2,
+                        order.NgayKT,
+                        index,
+                        order.TenNCC,
+                        order.TeleNCC,
+                        order.TinhTrangKH || "Chưa nhập",
+                        order.TinhTrangNCC || "Chưa nhận đơn",
+                        order.TraoDoi,
+                    ])
+                })
+            }
+
+            // Only add not entered summary if there are not entered orders
+            if (notEnteredOrders.length > 0) {
+                const notEnteredSummary = notEnteredOrders.reduce(
                     (acc, order) => {
                         const giaBan =
                             Number(
@@ -1867,250 +2309,37 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                     },
                 )
 
-                // Only add weekly summary row if there are orders
-                if (weekSummary.count > 0) {
-                    // Add weekly summary row
-                    finalData.push([
-                        weekKey,
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        weekSummary.totalGiaBan,
-                        weekSummary.totalGiaMua,
-                        weekSummary.totalHoaHong,
-                        weekSummary.totalGiaCuoi,
-                        weekSummary.totalTTNCC,
-                        weekSummary.totalLoiNhuan,
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "bg-green-300", // Add background color for weekly summary
-                    ])
-
-                    // Add orders for this week
-                    weekOrders.forEach((order) => {
-                        const giaBan =
-                            Number(
-                                order.Loai === "GP"
-                                    ? order.GiaBanGP
-                                    : order.Loai === "Text"
-                                        ? order.GiaBanText
-                                        : order.Loai === "TextHome"
-                                            ? order.GiaBanTextHome
-                                            : order.GiaBanTextHeader,
-                            ) || 0
-
-                        const giaMua =
-                            Number(
-                                order.Loai === "GP"
-                                    ? order.GiaMuaGP
-                                    : order.Loai === "Text"
-                                        ? order.GiaMuaText
-                                        : order.Loai === "TextHome"
-                                            ? order.GiaMuaTextHome
-                                            : order.GiaMuaTextHeader,
-                            ) || 0
-
-                        const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
-                        const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
-                        const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
-                        const timeText = order.Loai === "GP" ? "" : order.TimeText
-                        const index = order.Loai === "GP" ? order.Index : ""
-
-                        // Update Status to "Đã hoàn thành" for weekly orders
-                        if (order.Status !== "Đã hoàn thành") {
-                            const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKeys[orders.findIndex((o) => o.MaDon === order.MaDon)]}`)
-                            set(orderRef, { ...order, Status: "Đã hoàn thành" })
-                        }
-
-                        finalData.push([
-                            order.MaDon,
-                            order.Loai,
-                            order.NgayBan,
-                            timeText,
-                            order.Site,
-                            order.Note,
-                            giaBan,
-                            giaMua,
-                            hoaHong,
-                            giaCuoi,
-                            order.TTNCC || "",
-                            loiNhuan,
-                            order.BaiViet,
-                            order.LinkKQ,
-                            order.Anchor1,
-                            order.Link1,
-                            order.Anchor2,
-                            order.Link2,
-                            order.NgayKT,
-                            index,
-                            order.TenNCC,
-                            order.TeleNCC,
-                            order.TinhTrangKH || "Chưa nhập",
-                            order.TinhTrangNCC || "Chưa nhận đơn",
-                            order.TraoDoi,
-                        ])
-                    })
-                }
-            })
-
-        // Only add non-indexed summary if there are non-indexed orders
-        if (nonIndexedOrders.length > 0) {
-            const nonIndexedSummary = nonIndexedOrders.reduce(
-                (acc, order) => {
-                    const giaBan =
-                        Number(
-                            order.Loai === "GP"
-                                ? order.GiaBanGP
-                                : order.Loai === "Text"
-                                    ? order.GiaBanText
-                                    : order.Loai === "TextHome"
-                                        ? order.GiaBanTextHome
-                                        : order.GiaBanTextHeader,
-                        ) || 0
-
-                    const giaMua =
-                        Number(
-                            order.Loai === "GP"
-                                ? order.GiaMuaGP
-                                : order.Loai === "Text"
-                                    ? order.GiaMuaText
-                                    : order.Loai === "TextHome"
-                                        ? order.GiaMuaTextHome
-                                        : order.GiaBanTextHeader,
-                        ) || 0
-
-                    const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
-                    const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
-                    const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
-                    const ttncc = Number(order.TTNCC) || 0
-
-                    acc.count++
-                    acc.totalGiaBan += giaBan
-                    acc.totalGiaMua += giaMua
-                    acc.totalHoaHong += hoaHong
-                    acc.totalGiaCuoi += giaCuoi
-                    acc.totalLoiNhuan += loiNhuan
-                    acc.totalTTNCC += ttncc
-
-                    return acc
-                },
-                {
-                    count: 0,
-                    totalGiaBan: 0,
-                    totalGiaMua: 0,
-                    totalHoaHong: 0,
-                    totalGiaCuoi: 0,
-                    totalLoiNhuan: 0,
-                    totalTTNCC: 0,
-                },
-            )
-
-            finalData.push([
-                `Chưa Index`,
-                "",
-                "",
-                "",
-                "",
-                "",
-                nonIndexedSummary.totalGiaBan,
-                nonIndexedSummary.totalGiaMua,
-                nonIndexedSummary.totalHoaHong,
-                nonIndexedSummary.totalGiaCuoi,
-                nonIndexedSummary.totalTTNCC,
-                nonIndexedSummary.totalLoiNhuan,
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "bg-purple-300", // Add background color for non-indexed summary
-            ])
-
-            // Add non-indexed orders
-            nonIndexedOrders.forEach((order) => {
-                const giaBan =
-                    Number(
-                        order.Loai === "GP"
-                            ? order.GiaBanGP
-                            : order.Loai === "Text"
-                                ? order.GiaBanText
-                                : order.Loai === "TextHome"
-                                    ? order.GiaBanTextHome
-                                    : order.GiaBanTextHeader,
-                    ) || 0
-
-                const giaMua =
-                    Number(
-                        order.Loai === "GP"
-                            ? order.GiaMuaGP
-                            : order.Loai === "Text"
-                                ? order.GiaMuaText
-                                : order.Loai === "TextHome"
-                                    ? order.GiaMuaTextHome
-                                    : order.GiaMuaTextHeader,
-                    ) || 0
-
-                const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
-                const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
-                const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
-                const timeText = order.Loai === "GP" ? "" : order.TimeText
-                const index = order.Loai === "GP" ? order.Index : ""
-
                 finalData.push([
-                    order.MaDon,
-                    order.Loai,
-                    order.NgayBan,
-                    timeText,
-                    order.Site,
-                    order.Note,
-                    giaBan,
-                    giaMua,
-                    hoaHong,
-                    giaCuoi,
-                    order.TTNCC || "",
-                    loiNhuan,
-                    order.BaiViet,
-                    order.LinkKQ,
-                    order.Anchor1,
-                    order.Link1,
-                    order.Anchor2,
-                    order.Link2,
-                    order.NgayKT,
-                    index,
-                    order.TenNCC,
-                    order.TeleNCC,
-                    order.TinhTrangKH || "Chưa nhập",
-                    order.TinhTrangNCC || "Chưa nhận đơn",
-                    order.TraoDoi,
+                    `Chưa nhập`,
+                    "",
+                    "",
+                    "",
+                    "",
+                    `CK (${chietKhau || 0}%)`,
+                    chietKhau ? notEnteredSummary.totalGiaBan - (notEnteredSummary.totalGiaBan * chietKhau / 100) : notEnteredSummary.totalGiaBan,
+                    notEnteredSummary.totalGiaMua,
+                    notEnteredSummary.totalHoaHong,
+                    notEnteredSummary.totalGiaCuoi,
+                    notEnteredSummary.totalTTNCC,
+                    chietKhau ? Math.round(((notEnteredSummary.totalGiaBan - (notEnteredSummary.totalGiaBan * chietKhau / 100)) - notEnteredSummary.totalGiaCuoi) * 100) / 100 : Math.round(notEnteredSummary.totalLoiNhuan * 100) / 100,
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "bg-orange-300", // Add background color for not entered summary
                 ])
-            })
-        }
 
-        // Only add not entered summary if there are not entered orders
-        if (notEnteredOrders.length > 0) {
-            const notEnteredSummary = notEnteredOrders.reduce(
-                (acc, order) => {
+                // Add not entered orders
+                notEnteredOrders.forEach((order) => {
                     const giaBan =
                         Number(
                             order.Loai === "GP"
@@ -2136,116 +2365,38 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                     const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
                     const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
                     const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
-                    const ttncc = Number(order.TTNCC) || 0
+                    const timeText = order.Loai === "GP" ? "" : order.TimeText
+                    const index = order.Loai === "GP" ? order.Index : ""
 
-                    acc.count++
-                    acc.totalGiaBan += giaBan
-                    acc.totalGiaMua += giaMua
-                    acc.totalHoaHong += hoaHong
-                    acc.totalGiaCuoi += giaCuoi
-                    acc.totalLoiNhuan += loiNhuan
-                    acc.totalTTNCC += ttncc
-
-                    return acc
-                },
-                {
-                    count: 0,
-                    totalGiaBan: 0,
-                    totalGiaMua: 0,
-                    totalHoaHong: 0,
-                    totalGiaCuoi: 0,
-                    totalLoiNhuan: 0,
-                    totalTTNCC: 0,
-                },
-            )
-
-            finalData.push([
-                `Chưa nhập`,
-                "",
-                "",
-                "",
-                "",
-                "",
-                notEnteredSummary.totalGiaBan,
-                notEnteredSummary.totalGiaMua,
-                notEnteredSummary.totalHoaHong,
-                notEnteredSummary.totalGiaCuoi,
-                notEnteredSummary.totalTTNCC,
-                notEnteredSummary.totalLoiNhuan,
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "bg-orange-300", // Add background color for not entered summary
-            ])
-
-            // Add not entered orders
-            notEnteredOrders.forEach((order) => {
-                const giaBan =
-                    Number(
-                        order.Loai === "GP"
-                            ? order.GiaBanGP
-                            : order.Loai === "Text"
-                                ? order.GiaBanText
-                                : order.Loai === "TextHome"
-                                    ? order.GiaBanTextHome
-                                    : order.GiaBanTextHeader,
-                    ) || 0
-
-                const giaMua =
-                    Number(
-                        order.Loai === "GP"
-                            ? order.GiaMuaGP
-                            : order.Loai === "Text"
-                                ? order.GiaMuaText
-                                : order.Loai === "TextHome"
-                                    ? order.GiaMuaTextHome
-                                    : order.GiaMuaTextHeader,
-                    ) || 0
-
-                const hoaHong = Number(order.Loai === "GP" ? order.HoaHongGP : order.HoaHongText) || 0
-                const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
-                const loiNhuan = Math.round(Number(giaBan) - giaCuoi)
-                const timeText = order.Loai === "GP" ? "" : order.TimeText
-                const index = order.Loai === "GP" ? order.Index : ""
-
-                finalData.push([
-                    order.MaDon,
-                    order.Loai,
-                    order.NgayBan,
-                    timeText,
-                    order.Site,
-                    order.Note,
-                    giaBan,
-                    giaMua,
-                    hoaHong,
-                    giaCuoi,
-                    order.TTNCC || "",
-                    loiNhuan,
-                    order.BaiViet,
-                    order.LinkKQ,
-                    order.Anchor1,
-                    order.Link1,
-                    order.Anchor2,
-                    order.Link2,
-                    order.NgayKT,
-                    index,
-                    order.TenNCC,
-                    order.TeleNCC,
-                    order.TinhTrangKH || "Chưa nhập",
-                    order.TinhTrangNCC || "Chưa nhận đơn",
-                    order.TraoDoi,
-                ])
-            })
+                    finalData.push([
+                        order.MaDon,
+                        order.Loai,
+                        order.NgayBan,
+                        timeText,
+                        order.Site,
+                        order.Note,
+                        giaBan,
+                        giaMua,
+                        hoaHong,
+                        giaCuoi,
+                        order.TTNCC || "",
+                        loiNhuan,
+                        order.BaiViet,
+                        order.LinkKQ,
+                        order.Anchor1,
+                        order.Link1,
+                        order.Anchor2,
+                        order.Link2,
+                        order.NgayKT,
+                        index,
+                        order.TenNCC,
+                        order.TeleNCC,
+                        order.TinhTrangKH || "Chưa nhập",
+                        order.TinhTrangNCC || "Chưa nhận đơn",
+                        order.TraoDoi,
+                    ])
+                })
+            }
         }
 
         // Only add canceled orders summary if there are canceled orders
@@ -2301,7 +2452,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
             )
 
             finalData.push([
-                `Đơn hủy (${canceledSummary.count})`,
+                `Đơn hủy`,
                 "",
                 "",
                 "",
@@ -2390,7 +2541,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
         }
 
         return finalData
-    }, [filteredOrders, calculateSummaryRows, orders, orderKeys])
+    }, [filteredOrders, calculateSummaryRows, orders, orderKeys, mergeMode, chietKhau])
 
     // Load chat messages when currentChatOrderId changes
     useEffect(() => {
@@ -2436,20 +2587,30 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
         const year = now.getFullYear()
         const ngayChat = `${day}/${month}/${year}`
 
-        // Create the message object with the appropriate name fields
-        const message: ChatMessage = {
-            text: newChatMessage.trim(),
-            sender: userInfo?.displayName || userInfo?.username || "Unknown User",
-            senderRole: userInfo?.role || "NCC",
-            timestamp: Date.now(),
-            ngayChat: ngayChat,
-        }
-
-        // Add the appropriate name field based on role
-        if (userInfo?.role === "NCC") {
-            message.supplierName = supplierName || userInfo?.name || userInfo?.displayName || ""
-        } else if (userInfo?.role === "Khách hàng") {
-            message.name = userInfo?.username || userInfo?.name || userInfo?.displayName || ""
+        // Nếu là khách hàng thì không có userInfo, tạo message với tên mặc định
+        let message: ChatMessage
+        if (userInfo?.role === "Khách hàng" || (!userInfo && (typeof window !== 'undefined' && localStorage.getItem('role') === 'Khách hàng'))) {
+            message = {
+                text: newChatMessage.trim(),
+                sender: "Khách ẩn danh",
+                senderRole: "Khách hàng",
+                timestamp: Date.now(),
+                ngayChat: ngayChat,
+                name: "Khách ẩn danh",
+            }
+        } else {
+            message = {
+                text: newChatMessage.trim(),
+                sender: userInfo?.displayName || userInfo?.username || "Unknown User",
+                senderRole: userInfo?.role || "NCC",
+                timestamp: Date.now(),
+                ngayChat: ngayChat,
+            }
+            if (userInfo?.role === "NCC") {
+                message.supplierName = supplierName || userInfo?.name || userInfo?.displayName || ""
+            } else if (userInfo?.role === "Khách hàng") {
+                message.name = userInfo?.username || userInfo?.name || userInfo?.displayName || "Khách ẩn danh"
+            }
         }
 
         try {
@@ -2527,7 +2688,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
 
             // Skip if this is a summary row
             const isSummaryRow =
-                fullRowData[0]?.includes("Tuần") ||
+                fullRowData[0]?.includes("Tổng") ||
                 fullRowData[0]?.includes("Chưa Index") ||
                 fullRowData[0]?.includes("Chưa nhập") ||
                 fullRowData[0]?.includes("Đơn hủy")
@@ -2583,8 +2744,40 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
         { label: "Tình Trạng", colspan: 2 },
     ]
 
+    // Xác định các cột cần ẩn nếu không có role hoặc không có userInfo
+    const columnsToHideIfNoRole = [
+        RowHeader2.indexOf("Giá Mua"),
+        RowHeader2.indexOf("Hoa Hồng"),
+        RowHeader2.indexOf("Giá Cuối"),
+        RowHeader2.indexOf("TTNCC"),
+        RowHeader2.indexOf("Lợi Nhuận"),
+        RowHeader2.indexOf("Tên NCC"),
+        RowHeader2.indexOf("Link NCC"),
+    ].filter(i => i !== -1);
+
     return (
         <>
+            {/* Floating toggle button for merge mode */}
+            <div className="fixed top-1 left-1 z-50">
+                <button
+                    onClick={() => setMergeMode(!mergeMode)}
+                    className={`px-3 py-2 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2 text-white font-medium ${mergeMode
+                        ? "bg-orange-600 text-white hover:bg-orange-700"
+                        : "bg-green-600 text-white hover:bg-green-700"
+                        }`}
+                    title={mergeMode ? "Tắt gộp dữ liệu" : "Bật gộp dữ liệu"}
+                >
+                    <span className="text-xs">
+                        {mergeMode ? "Tách dữ liệu" : "Gộp dữ liệu"}
+                    </span>
+                    {mergeMode ? (
+                        <Split size={16} />
+                    ) : (
+                        <Merge size={16} />
+                    )}
+                </button>
+            </div>
+
             <HotTable
                 themeName="ht-theme-main"
                 colHeaders={RowHeader2}
@@ -2598,7 +2791,11 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                 manualColumnMove={true}
                 manualRowResize={true}
                 className="custom-table"
-                hiddenColumns={hiddenColumns ? { columns: hiddenColumns, indicators: true } : undefined}
+                hiddenColumns={
+                    (!userInfo?.role || !userInfo)
+                        ? { columns: columnsToHideIfNoRole, indicators: true }
+                        : (hiddenColumns ? { columns: hiddenColumns, indicators: true } : undefined)
+                }
                 licenseKey="non-commercial-and-evaluation"
                 nestedHeaders={[RowHeader1, RowHeader2]}
                 data={data}
@@ -2613,7 +2810,6 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
 
                     // Create a copy of the current data
                     const newData = [...data];
-                    const updates: { [key: string]: any } = {};
 
                     // Process each row of pasted data
                     pastedData.forEach((row, rowIndex) => {
@@ -2622,7 +2818,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
 
                         // Skip if this is a summary row
                         const isSummaryRow =
-                            newData[physicalRow]?.[0]?.includes("Tuần") ||
+                            newData[physicalRow]?.[0]?.includes("Tổng") ||
                             newData[physicalRow]?.[0]?.includes("Chưa Index") ||
                             newData[physicalRow]?.[0]?.includes("Chưa nhập") ||
                             newData[physicalRow]?.[0]?.includes("Đơn hủy");
@@ -2634,15 +2830,17 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                         if (!orderCode) return;
 
                         // Find the matching order in the orders array
-                        const orderIndex = orders.findIndex((order) => order.MaDon === orderCode);
-                        if (orderIndex === -1) return;
+                        const orderIdx = orders.findIndex((order) => order.MaDon === orderCode);
+                        if (orderIdx === -1) return;
 
-                        // Get the Firebase key for this order
-                        const orderKey = orderKeys[orderIndex];
-                        if (!orderKey) return;
+                        // Lấy _parentIndex và _dbIndex từ từng phần tử order
+                        const detail = orders[orderIdx];
+                        const parentIndex = detail._parentIndex;
+                        const dbIndex = detail._dbIndex;
+                        if (typeof parentIndex !== 'number' || typeof dbIndex !== 'number') return;
 
                         // Get the current order data
-                        const updatedOrder = { ...orders[orderIndex] };
+                        const updatedOrder = { ...orders[orderIdx] };
 
                         // Process each column in the row
                         row.forEach((value, colIndex) => {
@@ -2852,23 +3050,16 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                             }
                         });
 
-                        // Store the updated order in the updates object
-                        updates[orderKey] = updatedOrder;
+                        // Update the order in Firebase, dùng parentIndex làm index cha
+                        const orderRef = ref(database, `orders/${parentIndex}/ChiTietDonHang/${dbIndex}`);
+                        update(orderRef, updatedOrder)
+                            .then(() => {
+                                if (onOrderUpdate) onOrderUpdate();
+                            })
+                            .catch((error) => {
+                                console.error(`Error updating order ${orderCode}:`, error);
+                            });
                     });
-
-                    // Lưu từng order một vào Firebase
-                    const updatePromises = Object.entries(updates).map(([orderKey, updatedOrder]) => {
-                        const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`);
-                        return update(orderRef, updatedOrder);
-                    });
-                    Promise.all(updatePromises)
-                        .then(() => {
-                            toast.success("Đã cập nhật dữ liệu thành công");
-                        })
-                        .catch((error) => {
-                            console.error("Error updating data:", error);
-                            toast.error("Không thể cập nhật dữ liệu");
-                        });
                 }}
                 contextMenu={contextMenuItems}
                 columns={RowHeader2.map((header, index) => {
@@ -2877,15 +3068,28 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                     // Basic read-only settings based on user role
                     let isReadOnly = false
 
+                    // Nếu không có userInfo thì không thể sửa các cột Mã, Site, Ngày Bán, Text và Giá Bán
+                    if (!userInfo && ["Mã", "Site", "Ngày Bán", "Text", "Giá Bán"].includes(header)) {
+                        isReadOnly = true;
+                    }
+
                     if (userInfo?.role === "NCC") {
                         // NCC can only edit Link KQ
                         isReadOnly = header !== "Link KQ"
                     } else if (userInfo?.role === "Khách hàng") {
                         // Khách hàng can edit these columns
-                        isReadOnly = !["Bài Viết", "Anchor 1", "Link 1", "Anchor 2", "Link 2", "Index", "Loại"].includes(header)
-                    } else {
+                        isReadOnly = !["Bài Viết", "Anchor 1", "Link 1", "Anchor 2", "Link 2", "Index"].includes(header)
+                    } else if (userInfo) {
                         // Other roles can edit all columns
                         isReadOnly = false
+                    } else {
+                        // If no userInfo, only allow editing of certain columns
+                        isReadOnly = !["Loại", "Text", "Ghi Chú", "Giá Mua", "Hoa Hồng", "TTNCC", "Lợi Nhuận", "Bài Viết", "Link KQ", "Anchor 1", "Link 1", "Anchor 2", "Link 2", "Ngày KT", "Index", "Tên NCC", "Link NCC", "KH", "NCC", "Trao đổi"].includes(header)
+                    }
+
+                    // Đảm bảo cột 'Loại' luôn có thể chọn
+                    if (header === "Loại") {
+                        isReadOnly = false;
                     }
 
                     return {
@@ -2929,7 +3133,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                     // Find if this is a summary row
                     const isSummaryRow =
                         row < data.length &&
-                        (data[row][0]?.includes("Tuần") ||
+                        (data[row][0]?.includes("Tổng") ||
                             data[row][0]?.includes("Chưa Index") ||
                             data[row][0]?.includes("Chưa nhập") ||
                             data[row][0]?.includes("Đơn hủy"));
@@ -2956,7 +3160,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                         if (
                             !orderCode ||
                             typeof orderCode !== "string" ||
-                            orderCode.includes("Tuần") ||
+                            orderCode.includes("Tổng") ||
                             orderCode.includes("Chưa Index") ||
                             orderCode.includes("Chưa nhập") ||
                             orderCode.includes("Đơn hủy")
@@ -2972,6 +3176,14 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                             return {
                                 readOnly: true, // Cột "Trao đổi" không cho phép chỉnh sửa trực tiếp
                                 renderer: chatRenderer, // Sử dụng chatRenderer để hiển thị nút
+                            };
+                        }
+
+                        // Đảm bảo cột 'Loại' luôn có thể chọn nếu không phải dòng tổng kết và không phải trạng thái hoàn thành
+                        if (header === "Loại" && order.Status !== "Đã hoàn thành") {
+                            return {
+                                readOnly: false,
+                                ...columnSettings[header],
                             };
                         }
 
@@ -3011,6 +3223,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                         }
 
                         const isReadOnly =
+                            (!userInfo && ["Mã", "Site", "Ngày Bán", "Text", "Giá Bán", "KH", "NCC"].includes(header)) ||
                             (userInfo?.role === "NCC" && header !== "Index" && header !== "Link KQ") ||
                             (userInfo?.role === "Khách hàng" &&
                                 !["Bài Viết", "Anchor 1", "Link 1", "Anchor 2", "Link 2", "Index", "Loại"].includes(header)) ||
@@ -3057,9 +3270,9 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                 newChatMessage={newChatMessage}
                 setNewChatMessage={setNewChatMessage}
                 sendChatMessage={sendChatMessage}
-                role={userInfo?.role}
+                role={userInfo?.role || (typeof window !== 'undefined' && localStorage.getItem('role'))}
                 supplierName={supplierName}
-                user={userInfo}
+                user={userInfo?.role === 'Khách hàng' || (!userInfo && (typeof window !== 'undefined' && localStorage.getItem('role') === 'Khách hàng')) ? null : userInfo}
                 orderIndex={orderIndex}
             />
         </>

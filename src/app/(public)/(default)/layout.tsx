@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
 import { AnimatePresence, m, motion } from "framer-motion"
-import { Trash, ShoppingBag, ShoppingCart, X, Search, DollarSign, Tag, Clock, Plus, Minus } from "lucide-react"
+import { Trash, ShoppingBag, ShoppingCart, X, Search, DollarSign, Tag, Clock, Plus, Minus, User } from "lucide-react"
 import getUserInfo from "@/components/userInfo"
 import { ref, onValue, remove, update, get, set } from "firebase/database"
 import { message } from "antd"
@@ -41,6 +41,8 @@ export default function ClientLayout({
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedItems, setSelectedItems] = useState<string[]>([])
   const [itemQuantities, setItemQuantities] = useState<{ [key: string]: number }>({})
+  const [customerName, setCustomerName] = useState("")
+  const [discount, setDiscount] = useState("")
   const [cartSummary, setCartSummary] = useState({
     totalItems: 0,
     totalPrice: 0,
@@ -54,6 +56,17 @@ export default function ClientLayout({
   const cartRef = useRef<HTMLDivElement>(null)
   const user = getUserInfo()
   const [isProcessing, setIsProcessing] = useState(false)
+
+  // Check if user has Admin or Nhân viên role
+  const isAdminOrStaff = user?.role === "Admin" || user?.role === "Nhân viên"
+
+  // Get the effective username (either customer name for admin/staff or user's username)
+  const getEffectiveUsername = () => {
+    if (isAdminOrStaff && customerName.trim()) {
+      return customerName.trim()
+    }
+    return user?.username || ""
+  }
 
   useEffect(() => {
     if (!user) return
@@ -258,6 +271,10 @@ export default function ClientLayout({
         return acc + getItemPrice(item) * (itemQuantities[item.id] || 1)
       }, 0)
 
+  // Calculate discount amount and final total
+  const discountAmount = discount ? (subtotal * parseFloat(discount) / 100) : 0
+  const finalTotal = subtotal - discountAmount
+
   // Scroll to top of cart when tab changes
   useEffect(() => {
     if (cartRef.current) {
@@ -306,6 +323,12 @@ export default function ClientLayout({
   const processCheckout = async () => {
     if (!user || cartItems.length === 0) return
 
+    // Validate customer name for Admin and Staff
+    if (isAdminOrStaff && !customerName.trim()) {
+      message.error("Vui lòng nhập tên khách hàng trước khi lên đơn!")
+      return
+    }
+
     try {
       setIsProcessing(true)
       // Get existing orders
@@ -327,7 +350,10 @@ export default function ClientLayout({
         }
       }
 
-      const { orderNumber } = findNextAvailableId(user.username, existingOrders)
+      // Clean existing orders to remove any undefined values
+      existingOrders = existingOrders.filter(order => order !== null && order !== undefined)
+
+      const { orderNumber } = findNextAvailableId(getEffectiveUsername(), existingOrders)
 
       // Group items by their base MaDon
       const groupedItems = new Map()
@@ -335,7 +361,7 @@ export default function ClientLayout({
 
       cartItems.forEach((item: any) => {
         const quantity = itemQuantities[item.id] || 1
-        const baseMaDon = `${user.username}-${orderNumber}`
+        const baseMaDon = `${getEffectiveUsername()}-${orderNumber}`
 
         if (!groupedItems.has(baseMaDon)) {
           groupedItems.set(baseMaDon, {
@@ -370,10 +396,10 @@ export default function ClientLayout({
                   : item.GiaMuaTextHeader || 0
           )
 
-          group.items.push({
-            ...item,
+          // Create a clean item object with all required properties and no undefined values
+          const cleanItem = {
             MaDon: orderId,
-            KHMua: user.username,
+            KHMua: getEffectiveUsername(),
             Status: "Đang xử lý",
             TTNCC: "",
             TinhTrangNCC: "Chưa nhận đơn",
@@ -387,7 +413,27 @@ export default function ClientLayout({
             Anchor2: "",
             Link2: "",
             TimeText: 1,
-          })
+            // Copy item properties with defaults to avoid undefined values
+            Site: item.Site || "",
+            Loai: item.Loai || "GP",
+            GiaBanGP: item.GiaBanGP || "",
+            GiaBanText: item.GiaBanText || "",
+            GiaBanTextHeader: item.GiaBanTextHeader || "",
+            GiaBanTextHome: item.GiaBanTextHome || "",
+            GiaMuaGP: item.GiaMuaGP || "",
+            GiaMuaText: item.GiaMuaText || "",
+            GiaMuaTextHeader: item.GiaMuaTextHeader || "",
+            GiaMuaTextHome: item.GiaMuaTextHome || "",
+            HoaHongGP: item.HoaHongGP || "",
+            HoaHongText: item.HoaHongText || "",
+            TenCombo: item.TenCombo || "",
+            id: item.id || "",
+            khId: item.khId || "",
+            TenNCC: item.TenNCC || "",
+            TeleNCC: item.TeleNCC || ""
+          }
+
+          group.items.push(cleanItem)
 
           group.totalUSDT += itemPrice
           group.totalGiaMua += itemGiaMua
@@ -411,10 +457,14 @@ export default function ClientLayout({
         }
         const hangMuc = hangMucParts.join(' - ')
 
-        // Create order summary
+        // Calculate final total with discount
+        const discountAmount = discount ? (group.totalUSDT * parseFloat(discount) / 100) : 0
+        const finalTotal = group.totalUSDT - discountAmount
+
+        // Create order summary with all required properties
         const orderSummary = {
           MaDon: baseMaDon,
-          NDD: user.username,
+          NDD: user.username || "",
           Ngay: new Date().toLocaleString('vi-VN', {
             timeZone: 'Asia/Ho_Chi_Minh',
             day: '2-digit',
@@ -425,9 +475,9 @@ export default function ClientLayout({
           IDNV: "",
           Domain: "",
           HangMuc: hangMuc,
-          Note1: "",
-          TinhTrang: "Đang làm",
-          USDT: group.totalUSDT,
+          Note1: discount ? `Chiết khấu: ${discount}% (-${discountAmount.toLocaleString("vi-VI")} $)` : "",
+          TinhTrang: "dang_lam",
+          TongTien: finalTotal,
           TiGia: "",
           VND: "",
           TKNhan: "",
@@ -435,11 +485,8 @@ export default function ClientLayout({
           LinkBill: "",
           Note2: "",
           KTXacNhan: "",
-          GiaMua: group.totalGiaMua,
-          LoiNhuan: group.totalUSDT - group.totalGiaMua,
-          KTKTB: "",
-          KTKTM: "",
-          ChiTietDonHang: group.items
+          ChiTietDonHang: group.items,
+          ChietKhau: discount ? parseFloat(discount) : 0
         }
 
         newOrders.push(orderSummary)
@@ -524,6 +571,53 @@ export default function ClientLayout({
                 >
                   <X className="h-5 w-5" />
                 </button>
+              </div>
+
+              {/* Customer Name Input for Admin and Staff */}
+              {isAdminOrStaff && (
+                <div className="mt-3">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <User className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Nhập tên khách hàng..."
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    />
+                  </div>
+                  {customerName.trim() && (
+                    <div className="mt-1 text-xs text-indigo-600 font-medium">
+                      Đơn hàng sẽ được tạo cho: {customerName.trim()}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Discount Input */}
+              <div className="mt-3">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Tag className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    placeholder="Chiết khấu (%)"
+                    value={discount}
+                    onChange={(e) => setDiscount(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  />
+                </div>
+                {discount && parseFloat(discount) > 0 && (
+                  <div className="mt-1 text-xs text-green-600 font-medium">
+                    Giảm: {discountAmount.toLocaleString("vi-VI")} $ ({discount}%)
+                  </div>
+                )}
               </div>
 
               <div className="mt-3">
@@ -764,6 +858,16 @@ export default function ClientLayout({
                 </div>
               )}
 
+              {/* Customer Info for Admin/Staff */}
+              {isAdminOrStaff && customerName.trim() && (
+                <div className="mb-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center text-sm text-green-800">
+                    <User className="w-4 h-4 mr-2" />
+                    <span>Khách hàng: <strong>{customerName.trim()}</strong></span>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-between items-center mb-3">
                 <div>
                   <span className="text-gray-600 text-sm">Tổng tiền:</span>
@@ -777,6 +881,20 @@ export default function ClientLayout({
                 </div>
               </div>
 
+              {/* Discount Display */}
+              {discount && parseFloat(discount) > 0 && (
+                <div className="mb-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-green-800">Chiết khấu ({discount}%):</span>
+                    <span className="text-green-800 font-medium">-{discountAmount.toLocaleString("vi-VI")} $</span>
+                  </div>
+                  <div className="flex justify-between items-center mt-2 text-lg font-semibold text-green-800">
+                    <span>Thành tiền:</span>
+                    <span>{finalTotal.toLocaleString("vi-VI")} $</span>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <button
                   className="py-2 px-4 border border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-200 text-sm font-medium flex items-center justify-center"
@@ -785,10 +903,19 @@ export default function ClientLayout({
                   Tiếp tục mua sắm
                 </button>
                 <button
-                  className="py-2 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200 text-sm font-medium flex items-center justify-center shadow-sm hover:shadow"
+                  className={`py-2 px-4 rounded-lg transition-all duration-200 text-sm font-medium flex items-center justify-center shadow-sm hover:shadow ${isAdminOrStaff && !customerName.trim()
+                    ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                    : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
+                    }`}
                   onClick={processCheckout}
+                  disabled={isAdminOrStaff && !customerName.trim()}
+                  title={
+                    isAdminOrStaff && !customerName.trim()
+                      ? "Vui lòng nhập tên khách hàng trước khi lên đơn"
+                      : "Lên đơn hàng"
+                  }
                 >
-                  Lên đơn
+                  {isAdminOrStaff && !customerName.trim() ? "Nhập tên KH" : "Lên đơn"}
                 </button>
               </div>
             </div>

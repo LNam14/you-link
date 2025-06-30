@@ -26,7 +26,7 @@ registerAllModules()
 
 // Add status options and colors
 const TINH_TRANG_OPTIONS = {
-    da_lam: { label: "Đang làm", color: "#16A34A", bgColor: "#DCFCE7" }, // green
+    dang_lam: { label: "Đang làm", color: "#16A34A", bgColor: "#DCFCE7" }, // green
     don_xong: { label: "Đơn xong", color: "#2563EB", bgColor: "#DBEAFE" }, // blue
     da_bao_seo: { label: "Đã báo seo", color: "#D97706", bgColor: "#FEF3C7" }, // amber
     da_lap_phieu: { label: "Đã lập phiếu", color: "#7C3AED", bgColor: "#EDE9FE" }, // purple
@@ -57,8 +57,13 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
     const [selectedCustomer, setSelectedCustomer] = useState<string>("")
     const [filterType, setFilterType] = useState<"week" | "month">("week")
     const [summaryRow, setSummaryRow] = useState<any>(null)
+    const [multiOrderDetails, setMultiOrderDetails] = useState<any[] | null>(null)
+    const [showFilterModal, setShowFilterModal] = useState(false)
+    const [selectedTenNCC, setSelectedTenNCC] = useState<string>("")
+    const [showOnlyTTNCCGreaterThanGiaCuoi, setShowOnlyTTNCCGreaterThanGiaCuoi] = useState(false)
     // Only get userInfo if maKH is not provided
     const userInfo = !maKH ? getUserInfo() : undefined
+    const isReadOnly = !userInfo;
 
     const handleCloseModal = useCallback(() => {
         setIsModalOpen(false)
@@ -82,14 +87,15 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
     const calculateOrderSummary = useCallback((order: any) => {
         if (!order.ChiTietDonHang || !Array.isArray(order.ChiTietDonHang)) {
             return {
-                totalUSDT: 0,
-                totalGiaMua: 0,
+                totalTongTien: 0,
+                totalGiaCuoi: 0,
                 totalLoiNhuan: 0,
+                totalSauCK: 0,
             }
         }
 
-        let totalUSDT = 0
-        let totalGiaMua = 0
+        let totalTongTien = 0
+        let totalGiaCuoi = 0
 
         order.ChiTietDonHang.forEach((detail: any) => {
             // Skip canceled orders
@@ -119,15 +125,23 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                     : detail.GiaMuaTextHeader,
                     ) || 0
 
-                totalUSDT += giaBan
-                totalGiaMua += giaMua
+                const hoaHong = Number(detail.Loai === "GP" ? detail.HoaHongGP : detail.HoaHongText) || 0
+                const giaCuoi = Math.round(Number(giaMua) - (Number(giaMua) * Number(hoaHong)) / 100)
+
+                totalTongTien += giaBan
+                totalGiaCuoi += giaCuoi
             }
         })
 
+        // Calculate SauCK based on the main order's discount percentage
+        const chietKhau = Number(order.ChietKhau) || 0
+        const totalSauCK = totalTongTien - (totalTongTien * chietKhau / 100)
+
         return {
-            totalUSDT,
-            totalGiaMua,
-            totalLoiNhuan: totalUSDT - totalGiaMua,
+            totalTongTien,
+            totalGiaCuoi,
+            totalLoiNhuan: totalSauCK - totalGiaCuoi,
+            totalSauCK,
         }
     }, [])
 
@@ -205,30 +219,39 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
 
     // Calculate summary row
     const calculateSummaryRow = useCallback((orders: any[]) => {
-        let totalUSDT = 0,
+        let totalTongTien = 0,
             totalGiaMua = 0,
             totalThanhToan = 0,
             totalLoiNhuan = 0,
-            totalKhachNo = 0
+            totalKhachNo = 0,
+            totalChietKhau = 0,
+            totalSauCK = 0
         orders.forEach((order) => {
-            const usdt = Number(order.USDT) || 0
+            const tongTien = Number(order.TongTien) || 0
             const giaMua = Number(order.GiaMua) || 0
             const thanhToan = Number(order.ThanhToan) || 0
             const loiNhuan = Number(order.LoiNhuan) || 0
-            totalUSDT += usdt
+            const chietKhau = Number(order.SoTienChietKhau) || 0
+            const sauCK = Number(order.SauCK) || 0
+
+            totalTongTien += tongTien
             totalGiaMua += giaMua
             totalThanhToan += thanhToan
             totalLoiNhuan += loiNhuan
-            totalKhachNo += usdt - thanhToan
+            totalKhachNo += sauCK - thanhToan
+            totalChietKhau += chietKhau
+            totalSauCK += sauCK
         })
         return {
             MaDon: "Tổng cộng",
-            USDT: totalUSDT,
+            TongTien: totalTongTien,
             VND: orders.reduce((acc, order) => acc + (Number(order.VND) || 0), 0),
             ThanhToan: totalThanhToan,
             GiaMua: totalGiaMua,
             LoiNhuan: totalLoiNhuan,
             KhachNo: totalKhachNo,
+            SoTienChietKhau: totalChietKhau,
+            SauCK: totalSauCK
         }
     }, [])
 
@@ -245,6 +268,48 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
         })
         return Array.from(customers).sort()
     }, [allOrders])
+
+    // Lấy danh sách unique TenNCC từ ChiTietDonHang với điều kiện lọc
+    const uniqueTenNCCs = useMemo(() => {
+        const tenNCCs = new Set<string>();
+        orders.forEach(order => {
+            if (order.ChiTietDonHang) {
+                order.ChiTietDonHang.forEach((detail: any) => {
+                    if (!detail.TenNCC) return;
+
+                    // Kiểm tra điều kiện TTKH
+                    const validTTKH = ["Đã nhập", "Đơn OK", "Hủy đơn - đã lên bài"].includes(detail.TinhTrangKH);
+                    if (!validTTKH) return;
+
+                    // Kiểm tra điều kiện TTNCC
+                    const validTTNCC = ["Đã lên bài", "Từ chối hủy"].includes(detail.TinhTrangNCC);
+                    if (!validTTNCC) return;
+
+                    // Kiểm tra điều kiện Loại và Index cho GP
+                    if (detail.Loai === "GP" && detail.Index === "No") return;
+
+                    // Tính giá cuối
+                    const giaMua = Number(
+                        detail.Loai === "GP"
+                            ? detail.GiaMuaGP
+                            : detail.Loai === "Text"
+                                ? detail.GiaMuaText
+                                : detail.Loai === "TextHome"
+                                    ? detail.GiaMuaTextHome
+                                    : detail.GiaMuaTextHeader
+                    ) || 0;
+                    const hoaHong = Number(detail.Loai === "GP" ? detail.HoaHongGP : detail.HoaHongText) || 0;
+                    const giaCuoi = Math.round(giaMua - (giaMua * hoaHong / 100));
+
+                    // Chỉ thêm NCC nếu có ít nhất 1 đơn có TTNCC khác Giá cuối
+                    if (Number(detail.TTNCC) !== Number(giaCuoi)) {
+                        tenNCCs.add(detail.TenNCC);
+                    }
+                });
+            }
+        });
+        return Array.from(tenNCCs).sort();
+    }, [orders]);
 
     useEffect(() => {
         const ordersRef = ref(database, "orders")
@@ -304,9 +369,10 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                     const summary = calculateOrderSummary(order)
                     return {
                         ...order,
-                        USDT: summary.totalUSDT,
-                        GiaMua: summary.totalGiaMua,
+                        TongTien: summary.totalTongTien,
+                        GiaMua: summary.totalGiaCuoi,
                         LoiNhuan: summary.totalLoiNhuan,
+                        SauCK: summary.totalSauCK,
                     }
                 })
 
@@ -543,11 +609,52 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
             },
         },
         {
-            data: "USDT",
-            title: "USDT",
+            data: "TongTien",
+            title: "Tổng tiền",
             width: 80,
             className: "htRight readonly-column",
             readOnly: true,
+        },
+        {
+            data: "ChietKhau",
+            title: "CK (%)",
+            width: 60,
+            className: "htCenter",
+            readOnly: isReadOnly,
+            renderer: (instance: any, td: any, row: number, col: number, prop: any, value: any) => {
+                if (value && value > 0) {
+                    td.innerHTML = `
+                        <div class="flex flex-col items-center">
+                            <span class="text-xs font-medium text-green-600">${value}%</span>
+                        </div>
+                    `
+                    td.style.backgroundColor = "#DCFCE7"
+                } else {
+                    td.innerHTML = ""
+                    td.style.backgroundColor = "#F3F4F6"
+                }
+                return td
+            },
+        },
+        {
+            data: "SauCK",
+            title: "Sau CK",
+            width: 80,
+            className: "htRight readonly-column",
+            readOnly: true,
+            renderer: (instance: any, td: any, row: number, col: number, prop: any, value: any) => {
+                const order = instance.getSourceDataAtRow(row)
+                const chietKhau = order?.ChietKhau || 0
+                const usdt = order?.TongTien || 0
+                const tongGoc = usdt - (usdt * chietKhau / 100)
+                td.innerHTML = `
+                        <div class="flex flex-col items-end">
+                            <span class="text-xs font-medium text-gray-600 line-through">${tongGoc.toLocaleString("vi-VI")}</span>
+                            <span class="text-xs text-gray-400">Gốc</span>
+                        </div>
+                    `
+                return td
+            },
         },
         {
             data: "TiGia",
@@ -562,12 +669,18 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
             className: "htRight readonly-column",
             readOnly: true,
         },
-        { data: "TKNhan", title: "TK nhận", width: 80 },
+        {
+            data: "TKNhan",
+            title: "TK nhận",
+            width: 80,
+            readOnly: isReadOnly,
+        },
         {
             data: "ThanhToan",
             title: "Thanh toán",
             width: 80,
             className: "htRight",
+            readOnly: isReadOnly,
         },
         {
             data: "LinkBill",
@@ -613,7 +726,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                             if (order && order.MaDon) {
                                 // Find the database index for this order
                                 const dbIndex = allOrders.findIndex((o) => o.MaDon === order.MaDon)
-                                if (dbIndex !== -1) {
+                                if (!isReadOnly && dbIndex !== -1) {
                                     try {
                                         await update(ref(database), {
                                             [`orders/${dbIndex}/KTXacNhan`]: "Đã xong",
@@ -621,6 +734,8 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                     } catch (error) {
                                         console.error("Error updating KTXN:", error)
                                     }
+                                } else {
+
                                 }
                             }
                         }
@@ -641,7 +756,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
         },
         {
             data: "GiaMua",
-            title: "Giá mua",
+            title: "Giá cuối",
             width: 70,
             className: "htRight readonly-column",
             readOnly: true,
@@ -763,10 +878,10 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
 
             if (prop === "MaDon") return // Skip MaDon column
 
-            // Update VND if USDT or TiGia changes
+            // Update VND if TongTien or TiGia changes
             const updateObj: any = { [prop]: newValue }
-            if (prop === "USDT" || prop === "TiGia") {
-                const usdt = prop === "USDT" ? newValue : order.USDT
+            if (prop === "TongTien" || prop === "TiGia") {
+                const usdt = prop === "TongTien" ? newValue : order.TongTien
                 const tiGia = prop === "TiGia" ? newValue : order.TiGia
                 const vnd = Number(usdt) * Number(tiGia)
                 updateObj.VND = vnd
@@ -918,7 +1033,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                 <div className="flex items-center gap-1 px-2 py-1 bg-green-100 rounded-full">
                                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                                     <span className="text-green-700 font-medium">
-                                        Tỷ lệ LN: {summaryRow.USDT > 0 ? ((summaryRow.LoiNhuan / summaryRow.USDT) * 100).toFixed(1) : 0}%
+                                        Tỷ lệ LN: {summaryRow.TongTien > 0 ? ((summaryRow.LoiNhuan / summaryRow.TongTien) * 100).toFixed(1) : 0}%
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 rounded-full">
@@ -935,7 +1050,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                     <DollarSign className="h-4 w-4" />
                                     <span className="text-xs font-medium opacity-90">DOANH THU</span>
                                 </div>
-                                <div className="text-lg font-bold">{summaryRow.USDT?.toLocaleString("vi-VN")}</div>
+                                <div className="text-lg font-bold">{summaryRow.SauCK?.toLocaleString("vi-VN")}</div>
                                 <div className="text-xs opacity-75">USDT</div>
                             </div>
 
@@ -944,9 +1059,61 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                 <div className="flex items-center gap-2 mb-1">
                                     <ShoppingCart className="h-4 w-4" />
                                     <span className="text-xs font-medium opacity-90">CHI PHÍ NCC</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowFilterModal(true)}
+                                        style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '4px', padding: '2px', marginLeft: '4px', cursor: 'pointer' }}
+                                        title={`Xem chi tiết đơn hàng trong ${filterType === "week" ? selectedWeek : selectedMonth}`}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                                    </button>
                                 </div>
-                                <div className="text-lg font-bold">{summaryRow.GiaMua?.toLocaleString("vi-VN")}</div>
-                                <div className="text-xs opacity-75">USDT</div>
+                                {(() => {
+                                    let totalGiaCuoi = 0;
+                                    let totalTTNCC = 0;
+
+                                    orders.forEach(order => {
+                                        if (order.ChiTietDonHang) {
+                                            order.ChiTietDonHang.forEach((detail: any) => {
+                                                // Tính tổng TTNCC
+                                                totalTTNCC += Number(detail.TTNCC) || 0;
+
+                                                // Tính tổng giá cuối
+                                                const giaMua = Number(
+                                                    detail.Loai === "GP"
+                                                        ? detail.GiaMuaGP
+                                                        : detail.Loai === "Text"
+                                                            ? detail.GiaMuaText
+                                                            : detail.Loai === "TextHome"
+                                                                ? detail.GiaMuaTextHome
+                                                                : detail.GiaMuaTextHeader
+                                                ) || 0;
+                                                const hoaHong = Number(detail.Loai === "GP" ? detail.HoaHongGP : detail.HoaHongText) || 0;
+                                                const giaCuoi = Math.round(giaMua - (giaMua * hoaHong / 100));
+                                                totalGiaCuoi += giaCuoi;
+                                            });
+                                        }
+                                    });
+
+                                    const difference = totalGiaCuoi - totalTTNCC;
+
+                                    return (
+                                        <>
+                                            <div className="text-lg font-bold">{difference.toLocaleString("vi-VN")}</div>
+                                            <div className="text-xs opacity-75">USDT</div>
+                                            <div className="mt-2 text-xs">
+                                                <div className="flex justify-between opacity-75">
+                                                    <span>Tổng giá cuối:</span>
+                                                    <span>{totalGiaCuoi.toLocaleString("vi-VN")}</span>
+                                                </div>
+                                                <div className="flex justify-between opacity-75">
+                                                    <span>Tổng TTNCC:</span>
+                                                    <span>{totalTTNCC.toLocaleString("vi-VN")}</span>
+                                                </div>
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
 
                             <div className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg p-3 text-white shadow-sm hover:shadow-md transition-shadow">
@@ -1027,7 +1194,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                 className: "summary-row",
                                 readOnly: true,
                                 renderer: (instance, td, row, col, prop, value) => {
-                                    if (["USDT", "VND", "ThanhToan", "GiaMua", "LoiNhuan"].includes(prop as string)) {
+                                    if (["TongTien", "VND", "ThanhToan", "GiaMua", "LoiNhuan", "SoTienChietKhau", "SauCK"].includes(prop as string)) {
                                         td.style.fontWeight = "600"
                                         td.style.backgroundColor = "#fecaca"
                                         td.style.color = "#dc2626"
@@ -1038,12 +1205,12 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                         td.style.backgroundColor = "#fecaca"
                                         td.style.color = "#dc2626"
                                         td.style.textAlign = "left"
-                                    } else if (prop === "TinhTrang") {
+                                    } else if (prop === "TinhTrang" || prop === "ChietKhau") {
                                         td.style.fontWeight = "600"
                                         td.style.backgroundColor = "#fecaca"
                                         td.style.color = "#dc2626"
                                         td.style.textAlign = "center"
-                                        td.innerHTML = "Tổng"
+                                        td.innerHTML = prop === "TinhTrang" ? "Tổng" : summaryRow.SoTienChietKhau > 0 ? "CK" : ""
                                     } else {
                                         td.style.backgroundColor = "#fecaca"
                                         td.innerHTML = ""
@@ -1054,13 +1221,13 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                         }
                         // Add styling for numeric columns in data rows
                         const prop = columns[col].data
-                        if (["USDT", "VND", "ThanhToan", "GiaMua", "LoiNhuan"].includes(prop as string)) {
+                        if (["TongTien", "VND", "ThanhToan", "GiaMua", "LoiNhuan", "SoTienChietKhau", "SauCK"].includes(prop as string)) {
                             return {
                                 renderer: (instance, td, row, col, prop, value) => {
                                     td.style.color = "#dc2626"
                                     td.style.textAlign = "right"
                                     td.style.fontWeight = "500"
-                                    td.innerHTML = value?.toLocaleString("vi-VN") || "0"
+                                    td.innerHTML = value?.toLocaleString("vi-VI") || "0"
                                     return td
                                 },
                             }
@@ -1070,14 +1237,19 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                 />
             )}
 
-            {isModalOpen && selectedOrder && selectedOrderDbIndex !== null && (
+            {isModalOpen && ((multiOrderDetails && multiOrderDetails.length > 0) || (selectedOrder && selectedOrderDbIndex !== null)) && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]">
                     <div className="bg-white rounded-lg w-full overflow-auto relative z-[1001]">
                         <div className="bg-[#2563eb] text-white flex items-center justify-center py-2 rounded-t-lg relative">
-                            <h3 className="pt-10 font-semibold w-full text-center">Chi tiết đơn hàng: {selectedOrder.MaDon}</h3>
+                            <h3 className="pt-10 font-semibold w-full text-center">
+                                {multiOrderDetails ? `Chi tiết đơn hàng trong ${filterType === "week" ? selectedWeek : selectedMonth}` : `Chi tiết đơn hàng: ${selectedOrder.MaDon}`}
+                            </h3>
                             <div className="absolute top-14 right-0 -translate-y-1/2 z-[1002]">
                                 <button
-                                    onClick={handleCloseModal}
+                                    onClick={() => {
+                                        handleCloseModal();
+                                        setMultiOrderDetails(null);
+                                    }}
                                     className="w-8 h-8 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors"
                                     aria-label="Close"
                                 >
@@ -1097,52 +1269,183 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                             </div>
                         ) : (
                             <MemoizedPageBody
-                                order={selectedOrderDetails}
-                                supplierName={selectedOrder.NDD}
-                                orderIndex={selectedOrderDbIndex} // Pass the database index instead of filtered table index
+                                order={multiOrderDetails || selectedOrderDetails}
+                                supplierName={multiOrderDetails ? null : selectedOrder?.NDD}
+                                orderIndex={multiOrderDetails ? -1 : (selectedOrderDbIndex || -1)}
+                                chietKhau={multiOrderDetails ? undefined : selectedOrder?.ChietKhau}
                                 onOrderUpdate={() => {
-                                    setIsLoading(true)
-                                    // Force refresh of orders when details are updated
-                                    const ordersRef = ref(database, "orders")
+                                    setIsLoading(true);
+                                    const ordersRef = ref(database, "orders");
                                     onValue(
                                         ordersRef,
                                         (snapshot) => {
                                             if (snapshot.exists()) {
-                                                const data = snapshot.val()
-                                                const ordersArray = Array.isArray(data) ? data : Object.values(data)
+                                                const data = snapshot.val();
+                                                const ordersArray = Array.isArray(data) ? data : Object.values(data);
 
                                                 const updatedOrders = ordersArray.map((order: any) => {
-                                                    const summary = calculateOrderSummary(order)
+                                                    const summary = calculateOrderSummary(order);
                                                     return {
                                                         ...order,
-                                                        USDT: summary.totalUSDT,
-                                                        GiaMua: summary.totalGiaMua,
+                                                        TongTien: summary.totalTongTien,
+                                                        GiaMua: summary.totalGiaCuoi,
                                                         LoiNhuan: summary.totalLoiNhuan,
-                                                    }
-                                                })
+                                                        SauCK: summary.totalSauCK,
+                                                    };
+                                                });
 
-                                                setAllOrders(updatedOrders)
-                                                // Update selectedOrder with the latest data from database
-                                                if (selectedOrderDbIndex !== null && updatedOrders[selectedOrderDbIndex]) {
-                                                    setSelectedOrder(updatedOrders[selectedOrderDbIndex])
+                                                setAllOrders(updatedOrders);
+                                                if (!multiOrderDetails && selectedOrderDbIndex !== null && updatedOrders[selectedOrderDbIndex]) {
+                                                    setSelectedOrder(updatedOrders[selectedOrderDbIndex]);
                                                     setSelectedOrderDetails(
                                                         (updatedOrders[selectedOrderDbIndex]?.ChiTietDonHang || []).map(
                                                             (item: any, idx: number) => ({
                                                                 ...item,
                                                                 _dbIndex: idx,
                                                                 _parentIndex: selectedOrderDbIndex,
-                                                            }),
-                                                        ),
-                                                    )
+                                                            })
+                                                        )
+                                                    );
                                                 }
                                             }
-                                            setIsLoading(false)
+                                            setIsLoading(false);
                                         },
-                                        { onlyOnce: true },
-                                    )
+                                        { onlyOnce: true }
+                                    );
                                 }}
                             />
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Filter Modal */}
+            {showFilterModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1001]">
+                    <div className="bg-white rounded-lg p-6 w-96 relative">
+                        <h3 className="text-lg font-semibold mb-4">Lọc chi tiết đơn hàng</h3>
+
+                        {/* TenNCC Select */}
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Tên NCC
+                            </label>
+                            <select
+                                value={selectedTenNCC}
+                                onChange={(e) => setSelectedTenNCC(e.target.value)}
+                                className="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                <option value="">Tất cả NCC</option>
+                                {uniqueTenNCCs.map((ncc) => (
+                                    <option key={ncc} value={ncc}>
+                                        {ncc}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Buttons */}
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() => setShowFilterModal(false)}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowFilterModal(false);
+
+                                    // Lọc orders theo tuần/tháng hiện tại
+                                    const filteredOrders = orders.filter((order) => {
+                                        if (!order.Ngay) return false;
+                                        const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+                                        if (!dateRegex.test(order.Ngay)) return false;
+
+                                        if (filterType === "week") {
+                                            return getWeekRange(order.Ngay) === selectedWeek;
+                                        } else {
+                                            return getMonthRange(order.Ngay) === selectedMonth;
+                                        }
+                                    });
+
+                                    // Gộp và lọc ChiTietDonHang theo điều kiện
+                                    const allDetails = filteredOrders.flatMap((order, orderIndex) => {
+                                        // Tìm index thực trong mảng orders gốc
+                                        const originalOrderIndex = allOrders.findIndex(o => o.MaDon === order.MaDon);
+
+                                        return (order.ChiTietDonHang || [])
+                                            .map((item: any, detailIndex: number) => ({
+                                                item,
+                                                originalIndex: detailIndex
+                                            }))
+                                            .filter(({ item }: { item: any }) => {
+                                                // Lọc theo TenNCC nếu có chọn
+                                                if (selectedTenNCC && item.TenNCC !== selectedTenNCC) {
+                                                    return false;
+                                                }
+
+                                                // Kiểm tra điều kiện TTKH
+                                                const validTTKH = ["Đã nhập", "Đơn OK", "Hủy đơn - đã lên bài"].includes(item.TinhTrangKH);
+                                                if (!validTTKH) return false;
+
+                                                // Kiểm tra điều kiện TTNCC
+                                                const validTTNCC = ["Đã lên bài", "Từ chối hủy"].includes(item.TinhTrangNCC);
+                                                if (!validTTNCC) return false;
+
+                                                // Kiểm tra điều kiện Loại và Index cho GP
+                                                if (item.Loai === "GP" && item.Index === "No") return false;
+
+                                                // Tính và so sánh TTNCC với Giá cuối
+                                                const giaMua = Number(
+                                                    item.Loai === "GP"
+                                                        ? item.GiaMuaGP
+                                                        : item.Loai === "Text"
+                                                            ? item.GiaMuaText
+                                                            : item.Loai === "TextHome"
+                                                                ? item.GiaMuaTextHome
+                                                                : item.GiaMuaTextHeader
+                                                ) || 0;
+                                                const hoaHong = Number(item.Loai === "GP" ? item.HoaHongGP : item.HoaHongText) || 0;
+                                                const giaCuoi = Math.round(giaMua - (giaMua * hoaHong / 100));
+
+                                                return Number(item.TTNCC) !== Number(giaCuoi);
+                                            })
+                                            .map(({ item, originalIndex }: { item: any, originalIndex: number }) => ({
+                                                ...item,
+                                                _dbIndex: originalIndex,
+                                                _parentIndex: originalOrderIndex,
+                                                _orderInfo: {
+                                                    MaDon: order.MaDon,
+                                                    Ngay: order.Ngay,
+                                                    NDD: order.NDD
+                                                }
+                                            }));
+                                    });
+
+                                    if (allDetails.length === 0) {
+                                        alert(`Không có dữ liệu chi tiết đơn hàng phù hợp với điều kiện lọc`);
+                                        return;
+                                    }
+
+                                    setMultiOrderDetails(allDetails);
+                                    setIsModalOpen(true);
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            >
+                                Xem chi tiết
+                            </button>
+                        </div>
+
+                        {/* Close button */}
+                        <button
+                            onClick={() => setShowFilterModal(false)}
+                            className="absolute top-2 right-2 text-gray-400 hover:text-gray-500"
+                        >
+                            <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
                     </div>
                 </div>
             )}
