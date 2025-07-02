@@ -17,7 +17,9 @@ export default function NCCPage({ supplierName }: NCCPageProps) {
         onValue(ordersRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.val()
-                const ordersArray = Array.isArray(data) ? data : Object.values(data)
+                let ordersArray = Array.isArray(data) ? data : Object.values(data)
+                // Lọc bỏ các orders có Status === 'Hủy'
+                ordersArray = ordersArray.filter((order: any) => order.Status !== 'Hủy')
                 // Lọc tất cả ChiTietDonHang có TenNCC === supplierName
                 const allDetails: any = []
                 ordersArray.forEach((order, orderIdx) => {

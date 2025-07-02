@@ -316,7 +316,10 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
         const unsubscribe = onValue(ordersRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.val()
-                const ordersArray = Array.isArray(data) ? data : Object.values(data)
+                let ordersArray = Array.isArray(data) ? data : Object.values(data)
+
+                // Lọc bỏ các orders có Status === 'Hủy'
+                ordersArray = ordersArray.filter((order: any) => order.Status !== 'Hủy')
 
                 // Store all orders for NDD options
                 setAllOrders(ordersArray)
@@ -1171,6 +1174,40 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                     this.getPlugin("hiddenColumns").showColumns(allIndexes)
                                 },
                             },
+                            delete_order: {
+                                name: "Xóa đơn",
+                                callback: async function (this: any, key: string, selection: any[], clickEvent: MouseEvent) {
+                                    // Only allow if right-clicked on a data row (not summary row)
+                                    if (!selection || !selection.length) return;
+                                    const row = selection[0].start.row;
+                                    if (row === 0 && summaryRow) return; // Don't allow on summary row
+                                    // Adjust for summary row
+                                    const dataRow = summaryRow ? row - 1 : row;
+                                    if (dataRow < 0 || dataRow >= orders.length) return;
+                                    const order = orders[dataRow];
+                                    if (!order || !order.MaDon) return;
+                                    const dbIndex = allOrders.findIndex((o) => o.MaDon === order.MaDon);
+                                    if (dbIndex === -1) return;
+                                    try {
+                                        await update(ref(database), {
+                                            [`orders/${dbIndex}/Status`]: "Hủy",
+                                        });
+                                    } catch (error) {
+                                        alert("Lỗi khi xóa đơn: " + error);
+                                    }
+                                },
+                                disabled: function (this: any) {
+                                    // Lấy selection từ this
+                                    const sel = this.getSelectedLast && this.getSelectedLast();
+                                    if (!sel) return true;
+                                    const row = sel[0];
+                                    if (row === 0 && summaryRow) return true;
+                                    // Adjust for summary row
+                                    const dataRow = summaryRow ? row - 1 : row;
+                                    if (dataRow < 0 || dataRow >= orders.length) return true;
+                                    return false;
+                                },
+                            },
                         },
                     }}
                     manualColumnResize={true}
@@ -1182,10 +1219,11 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                         hiddenColumns ? { columns: hiddenColumns, indicators: true } : { columns: hiddenCols, indicators: true }
                     }
                     beforeOnCellContextMenu={(event, coords) => {
-                        if (coords.row !== -1) {
-                            event.stopImmediatePropagation()
-                            event.preventDefault()
-                            return false
+                        // Chỉ chặn context menu ở header (row === -1)
+                        if (coords.row === -1) {
+                            event.stopImmediatePropagation();
+                            event.preventDefault();
+                            return false;
                         }
                     }}
                     cells={(row, col) => {
