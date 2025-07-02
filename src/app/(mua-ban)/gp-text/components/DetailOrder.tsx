@@ -13,7 +13,7 @@ import { database } from "@/app/firebase/firebase"
 import { Modal, Button, message as antdMessage } from "antd"
 import { toast } from "sonner"
 import { Merge, Split } from "lucide-react"
-// import sheetApiRequest from "@/apiRequests/sheet"
+import sheetApiRequest from "@/apiRequests/sheet"
 
 type PageBodyProps = {
     supplierName: string | null,
@@ -481,7 +481,7 @@ const ChatDialog = memo(
                                 updatedOrder.paymentStatus1 !== "refunded"
                             ) {
                                 updatedOrder.paymentStatus1 = "refunded"
-                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã đồng ý hoàn ${refundAmount}$ cho đơn hàng ${updatedOrder.MaDon}, số tiền trên đã được trừ khỏi ví của bạn`)
+                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Bạn đã đồng ý hoàn ${refundAmount}$ cho đơn hàng ${updatedOrder.MaDon}, kiểm tra tại https://www.ylink.shop/gp-text `)
                                 // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được hoàn tiền, số tiền ${refundAmount}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text `)
                             }
                         } else {
@@ -1408,7 +1408,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                 const month = String(now.getMonth() + 1).padStart(2, "0")
                                 const year = now.getFullYear()
                                 updatedOrder.NgayOrder = `${day}/${month}/${year}`
-                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/gp-text để xử lý đơn hàng ${updatedOrder.MaDon}`)
+                                sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/gp-text để xử lý đơn hàng ${updatedOrder.MaDon}`)
                             } else {
                                 updatedOrder.TinhTrangKH = "Chưa nhập"
                             }
@@ -1423,7 +1423,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                 const day = String(now.getDate()).padStart(2, "0")
                                 const month = String(now.getMonth() + 1).padStart(2, "0")
                                 updatedOrder.NgayBan = `${day}/${month}`
-                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, kiểm tra tại https://www.ylink.shop/gp-text`)
+                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, kiểm tra tại https://www.ylink.shop/gp-text/${updatedOrder.MaDon.split("-")[0]}`)
                             } else {
                                 updatedOrder.TinhTrangNCC = "Chưa nhận đơn"
                                 updatedOrder.NgayBan = ""
@@ -1445,7 +1445,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                         if (updatedOrder.Loai !== "GP") {
                             if (updatedOrder.Anchor1 && updatedOrder.Link1) {
                                 updatedOrder.TinhTrangKH = "Đã nhập"
-                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/gp-text để xử lý đơn hàng ${updatedOrder.MaDon}`)
+                                sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/gp-text để xử lý đơn hàng ${updatedOrder.MaDon}`)
                             } else {
                                 updatedOrder.TinhTrangKH = "Chưa nhập"
                             }
@@ -1496,7 +1496,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                                 : updatedOrder.GiaBanTextHeader || 0,
                                 )
                                 updatedOrder.paymentStatus = "paid"
-                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được trừ khỏi ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text `)
+                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, kiểm tra tại https://www.ylink.shop/gp-text/${updatedOrder.MaDon.split("-")[0]}`)
                                 // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã Indexed, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text `)
                             }
                         } else if (updatedOrder.Index === "Indexed" && newValue !== "Indexed") {
@@ -1547,8 +1547,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                                 : updatedOrder.GiaBanTextHeader || 0,
                                 );
                                 updatedOrder.paymentStatus = "paid";
-                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, số tiền ${price}$ đã được cộng vào ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
-                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, số tiền ${price}$ đã được chuyển từ pendingAmount sang money trong ví của bạn, kiểm tra tại https://www.ylink.shop/gp-text`)
+                                // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, kiểm tra tại https://www.ylink.shop/gp-text`)
+                                // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã hoàn thành, kiểm tra tại https://www.ylink.shop/gp-text/${updatedOrder.MaDon.split("-")[0]}`)
                             }
                         }
                         break;
