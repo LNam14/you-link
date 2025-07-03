@@ -2079,11 +2079,11 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                             const timeText = order.Loai === "GP" ? "" : order.TimeText
                             const index = order.Loai === "GP" ? order.Index : ""
 
-                            // Update Status to "Đã hoàn thành" for weekly orders
-                            if (order.Status !== "Đã hoàn thành") {
-                                const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKeys[orders.findIndex((o) => o.MaDon === order.MaDon)]}`)
-                                set(orderRef, { ...order, Status: "Đã hoàn thành" })
-                            }
+                            // // Update Status to "Đã hoàn thành" for weekly orders
+                            // if (order.Status !== "Đã hoàn thành") {
+                            //     const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKeys[orders.findIndex((o) => o.MaDon === order.MaDon)]}`)
+                            //     set(orderRef, { ...order, Status: "Đã hoàn thành" })
+                            // }
 
                             finalData.push([
                                 order.MaDon,
