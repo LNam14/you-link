@@ -1272,7 +1272,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
 
                         if (daysDiff >= 14) {
                             const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`)
-                            set(orderRef, { ...order, TinhTrangKH: "Hủy - 14 ngày không index" })
+                            // set(orderRef, { ...order, TinhTrangKH: "Hủy - 14 ngày không index" })
                         }
                     }
 
