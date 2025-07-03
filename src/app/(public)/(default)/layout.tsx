@@ -42,6 +42,7 @@ export default function ClientLayout({
   const [selectedItems, setSelectedItems] = useState<string[]>([])
   const [itemQuantities, setItemQuantities] = useState<{ [key: string]: number }>({})
   const [customerName, setCustomerName] = useState("")
+  const [customerNameError, setCustomerNameError] = useState("")
   const [discount, setDiscount] = useState("")
   const [cartSummary, setCartSummary] = useState({
     totalItems: 0,
@@ -187,6 +188,19 @@ export default function ClientLayout({
     }
   }, [cartItems]) // Only depend on cartItems changes
 
+  // Validate customer name for Admin and Staff
+  useEffect(() => {
+    if (isAdminOrStaff) {
+      if (customerName.includes("-") || customerName.includes("/")) {
+        setCustomerNameError("Tên khách hàng không được chứa dấu '-' hoặc dấu '/'!")
+      } else {
+        setCustomerNameError("")
+      }
+    } else {
+      setCustomerNameError("")
+    }
+  }, [customerName, isAdminOrStaff])
+
   const toggleCart = () => setIsOpen(!isOpen)
 
   const handleDelete = (productId: string) => {
@@ -326,6 +340,10 @@ export default function ClientLayout({
     // Validate customer name for Admin and Staff
     if (isAdminOrStaff && !customerName.trim()) {
       message.error("Vui lòng nhập tên khách hàng trước khi lên đơn!")
+      return
+    }
+    if (isAdminOrStaff && customerNameError) {
+      message.error(customerNameError)
       return
     }
 
@@ -585,10 +603,15 @@ export default function ClientLayout({
                       placeholder="Nhập tên khách hàng..."
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      className={`w-full pl-10 pr-4 py-2 border ${customerNameError ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm`}
                     />
                   </div>
-                  {customerName.trim() && (
+                  {customerNameError && (
+                    <div className="mt-1 text-xs text-red-600 font-medium">
+                      {customerNameError}
+                    </div>
+                  )}
+                  {customerName.trim() && !customerNameError && (
                     <div className="mt-1 text-xs text-indigo-600 font-medium">
                       Đơn hàng sẽ được tạo cho: {customerName.trim()}
                     </div>
@@ -903,19 +926,19 @@ export default function ClientLayout({
                   Tiếp tục mua sắm
                 </button>
                 <button
-                  className={`py-2 px-4 rounded-lg transition-all duration-200 text-sm font-medium flex items-center justify-center shadow-sm hover:shadow ${isAdminOrStaff && !customerName.trim()
+                  className={`py-2 px-4 rounded-lg transition-all duration-200 text-sm font-medium flex items-center justify-center shadow-sm hover:shadow ${isAdminOrStaff && (!customerName.trim() || !!customerNameError)
                     ? "bg-gray-400 text-gray-200 cursor-not-allowed"
                     : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
                     }`}
                   onClick={processCheckout}
-                  disabled={isAdminOrStaff && !customerName.trim()}
+                  disabled={isAdminOrStaff && (!customerName.trim() || !!customerNameError)}
                   title={
-                    isAdminOrStaff && !customerName.trim()
-                      ? "Vui lòng nhập tên khách hàng trước khi lên đơn"
+                    isAdminOrStaff && (!customerName.trim() || customerNameError)
+                      ? customerNameError || "Vui lòng nhập tên khách hàng trước khi lên đơn"
                       : "Lên đơn hàng"
                   }
                 >
-                  {isAdminOrStaff && !customerName.trim() ? "Nhập tên KH" : "Lên đơn"}
+                  {isAdminOrStaff && (!customerName.trim() || customerNameError) ? "Nhập tên KH" : "Lên đơn"}
                 </button>
               </div>
             </div>
