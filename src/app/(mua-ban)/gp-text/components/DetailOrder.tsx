@@ -1235,9 +1235,9 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
         const hoursElapsed = (now.getTime() - orderTime.getTime()) / (1000 * 60 * 60)
 
         if (order.TinhTrangNCC !== "Đã lên bài") {
-            if (hoursElapsed >= 3) return "Delay 48h"
-            if (hoursElapsed >= 2) return "Delay 24h"
-            if (hoursElapsed >= 1) return "Delay 12h"
+            // if (hoursElapsed >= 3) return "Delay 48h"
+            // if (hoursElapsed >= 2) return "Delay 24h"
+            // if (hoursElapsed >= 1) return "Delay 12h"
         }
 
         return order.TinhTrangNCC
