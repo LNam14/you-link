@@ -1244,64 +1244,64 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
     }, [])
 
     // Set up interval to check order status
-    useEffect(() => {
-        const interval = setInterval(() => {
-            orders.forEach((order, index) => {
-                const orderKey = orderKeys[index]
-                if (orderKey) {
-                    const newStatus = checkOrderStatus(order)
-                    if (newStatus !== order.TinhTrangNCC) {
-                        const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`)
-                        set(orderRef, { ...order, TinhTrangNCC: newStatus })
-                    }
+    // useEffect(() => {
+    //     const interval = setInterval(() => {
+    //         orders.forEach((order, index) => {
+    //             const orderKey = orderKeys[index]
+    //             if (orderKey) {
+    //                 const newStatus = checkOrderStatus(order)
+    //                 if (newStatus !== order.TinhTrangNCC) {
+    //                     const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`)
+    //                     set(orderRef, { ...order, TinhTrangNCC: newStatus })
+    //                 }
 
-                    // Check for 14-day auto-cancellation for GP orders with no index
-                    if (
-                        order.Loai === "GP" &&
-                        order.NgayOrder &&
-                        (order.Index === "No" || !order.Index) &&
-                        order.TinhTrangKH !== "Hủy - 14 ngày không index" &&
-                        order.TinhTrangKH !== "Hủy đơn" &&
-                        order.TinhTrangKH !== "Hủy - no index" &&
-                        order.TinhTrangKH !== "Hủy - đã index" &&
-                        order.TinhTrangKH !== "Hủy - 14 ngày chưa index"
-                    ) {
-                        const orderDate = new Date(order.NgayOrder)
-                        const now = new Date()
-                        const daysDiff = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24))
+    //                 // Check for 14-day auto-cancellation for GP orders with no index
+    //                 if (
+    //                     order.Loai === "GP" &&
+    //                     order.NgayOrder &&
+    //                     (order.Index === "No" || !order.Index) &&
+    //                     order.TinhTrangKH !== "Hủy - 14 ngày không index" &&
+    //                     order.TinhTrangKH !== "Hủy đơn" &&
+    //                     order.TinhTrangKH !== "Hủy - no index" &&
+    //                     order.TinhTrangKH !== "Hủy - đã index" &&
+    //                     order.TinhTrangKH !== "Hủy - 14 ngày chưa index"
+    //                 ) {
+    //                     const orderDate = new Date(order.NgayOrder)
+    //                     const now = new Date()
+    //                     const daysDiff = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24))
 
-                        if (daysDiff >= 14) {
-                            const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`)
-                            // set(orderRef, { ...order, TinhTrangKH: "Hủy - 14 ngày không index" })
-                        }
-                    }
+    //                     if (daysDiff >= 14) {
+    //                         const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`)
+    //                         // set(orderRef, { ...order, TinhTrangKH: "Hủy - 14 ngày không index" })
+    //                     }
+    //                 }
 
-                    // Check for 14-day auto-cancellation for GP orders with Index = "No"
-                    if (
-                        order.Loai === "GP" &&
-                        order.NgayOrder &&
-                        order.Index === "No" &&
-                        order.TinhTrangKH !== "Hủy - 14 ngày chưa index" &&
-                        order.TinhTrangKH !== "Hủy đơn" &&
-                        order.TinhTrangKH !== "Hủy - no index" &&
-                        order.TinhTrangKH !== "Hủy - đã index" &&
-                        order.TinhTrangKH !== "Hủy - 14 ngày không index"
-                    ) {
-                        const orderDate = new Date(order.NgayOrder)
-                        const now = new Date()
-                        const daysDiff = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24))
+    //                 // Check for 14-day auto-cancellation for GP orders with Index = "No"
+    //                 if (
+    //                     order.Loai === "GP" &&
+    //                     order.NgayOrder &&
+    //                     order.Index === "No" &&
+    //                     order.TinhTrangKH !== "Hủy - 14 ngày chưa index" &&
+    //                     order.TinhTrangKH !== "Hủy đơn" &&
+    //                     order.TinhTrangKH !== "Hủy - no index" &&
+    //                     order.TinhTrangKH !== "Hủy - đã index" &&
+    //                     order.TinhTrangKH !== "Hủy - 14 ngày không index"
+    //                 ) {
+    //                     const orderDate = new Date(order.NgayOrder)
+    //                     const now = new Date()
+    //                     const daysDiff = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24))
 
-                        if (daysDiff >= 14) {
-                            const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`)
-                            // set(orderRef, { ...order, TinhTrangKH: "Hủy - 14 ngày chưa index" })
-                        }
-                    }
-                }
-            })
-        }, 60000) // Check every minute
+    //                     if (daysDiff >= 14) {
+    //                         const orderRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`)
+    //                         // set(orderRef, { ...order, TinhTrangKH: "Hủy - 14 ngày chưa index" })
+    //                     }
+    //                 }
+    //             }
+    //         })
+    //     }, 60000) // Check every minute
 
-        return () => clearInterval(interval)
-    }, [orders, orderKeys, checkOrderStatus])
+    //     return () => clearInterval(interval)
+    // }, [orders, orderKeys, checkOrderStatus])
 
     const handleAfterChange = (changes: any, source: any) => {
         if (source === "edit" && Array.isArray(changes)) {
