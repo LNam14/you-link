@@ -739,7 +739,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
     const [tenNCCFilter, setTenNCCFilter] = useState<string>("")
     const [uniqueMaKHList, setUniqueMaKHList] = useState<string[]>([])
     const [uniqueTenNCCList, setUniqueTenNCCList] = useState<string[]>([])
-    const [mergeMode, setMergeMode] = useState<boolean>(true) // Thay đổi mặc định thành true
+    const [mergeMode, setMergeMode] = useState<boolean>(supplierName ? false : true) // Thay đổi mặc định thành true
 
     const updateOrderSummary = useCallback(async () => {
         if (orderIndex === undefined) return
