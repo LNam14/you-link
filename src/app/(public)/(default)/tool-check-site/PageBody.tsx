@@ -25,6 +25,7 @@ import {
     EyeOff,
     Eye,
 } from "lucide-react"
+import DirectMessageModal from "./DirectMessageModal"
 
 // Update the SiteData interface to handle arrays for FileNCC and GroupNCC
 interface SiteData {
@@ -103,7 +104,6 @@ export default function PageBody() {
     const [userInfo] = useState(getUserInfo())
     const [duplicateSites, setDuplicateSites] = useState<{ [key: string]: SiteData[] }>({})
     const [showDirectMessageModal, setShowDirectMessageModal] = useState(false)
-    const [directMessage, setDirectMessage] = useState("")
     const [showNccSelectionModal, setShowNccSelectionModal] = useState(false)
     const [selectedNCCs, setSelectedNCCs] = useState<Set<string>>(new Set())
     const [nccList, setNccList] = useState<Array<{ id: string; name: string }>>([])
@@ -1239,27 +1239,17 @@ export default function PageBody() {
     }
 
     // Add message handling functions
-    const handleDirectMessage = useCallback(async () => {
-        if (!directMessage.trim()) {
+    const handleDirectMessage = useCallback(async (message: string) => {
+        if (!message.trim()) {
             alert("Vui lòng nhập tin nhắn")
             return
         }
 
         try {
             setLoading(true)
-            const response = await fetch("/api/sheet/tool-check", {
-                method: "POST",
-            })
-            const data = await response.json()
-
-            if (!data.gpTextVN) {
-                alert("Không thể lấy dữ liệu từ sheet")
-                return
-            }
-
-            // Extract all unique IdGroups
+            // Lấy unique IdGroup từ filteredData
             const uniqueIdGroups = new Set<string>()
-            data.gpTextVN.forEach((item: SiteData) => {
+            filteredData.forEach((item: SiteData) => {
                 if (item.IdGroup && item.IdGroup.trim() !== "") {
                     let chatId = item.IdGroup.trim()
                     if (chatId.startsWith("#")) {
@@ -1270,7 +1260,7 @@ export default function PageBody() {
             })
 
             if (uniqueIdGroups.size === 0) {
-                alert("Không tìm thấy IdGroup nào trong dữ liệu")
+                alert("Không tìm thấy IdGroup nào trong kết quả tìm kiếm")
                 return
             }
 
@@ -1279,7 +1269,7 @@ export default function PageBody() {
                 alert(`Đang gửi tin nhắn cho ${uniqueIdGroups.size} NCC...`)
 
                 const successfulSends: string[] = []
-                const errors: string[] = [] // Declare errors array
+                const errors: string[] = []
                 const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
 
                 // Send message to Telegram
@@ -1288,19 +1278,19 @@ export default function PageBody() {
                         const url = `https://ylink.qctl44.workers.dev/bot${botToken}/sendMessage`
                         const params = new URLSearchParams({
                             chat_id: chatId,
-                            text: directMessage,
+                            text: message,
                         })
 
                         console.log("Sending message to chat ID:", chatId)
                         const res = await fetch(`${url}?${params.toString()}`)
-                        const responseData = await res.json() // Declare responseData
+                        const responseData = await res.json()
 
                         if (responseData.ok) {
                             successfulSends.push(chatId)
                         } else {
                             errors.push(`Failed to send to ${chatId}: ${responseData.description}`)
                         }
-                    } catch (error: any) { // Add type annotation for error
+                    } catch (error: any) {
                         console.error("Error sending message:", error)
                         errors.push(`Failed to send to ${chatId}: Unknown error`)
                     }
@@ -1316,15 +1306,14 @@ export default function PageBody() {
                 }
 
                 setShowDirectMessageModal(false)
-                setDirectMessage("")
             }
-        } catch (error: any) { // Add type annotation for error
+        } catch (error: any) {
             console.error("Error:", error)
             alert("Có lỗi xảy ra khi gửi tin nhắn")
         } finally {
             setLoading(false)
         }
-    }, [directMessage])
+    }, [filteredData])
 
     const openNccSelectionModal = useCallback(() => {
         // Extract unique NCCs from the filtered data
@@ -1850,55 +1839,12 @@ export default function PageBody() {
             </div>
 
             {/* Direct Message Modal */}
-            {showDirectMessageModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-500 text-gray-800">Gửi tin nhắn trực tiếp</h3>
-                            <button
-                                onClick={() => {
-                                    setShowDirectMessageModal(false)
-                                    setDirectMessage("")
-                                }}
-                                className="text-gray-500 hover:text-gray-700"
-                            >
-                                <X className="h-6 w-6" />
-                            </button>
-                        </div>
-
-                        <div className="mb-4">
-                            <p className="text-gray-600 mb-2">Tin nhắn sẽ được gửi đến tất cả NCC có IdGroup trong dữ liệu.</p>
-                            <textarea
-                                value={directMessage}
-                                onChange={(e) => setDirectMessage(e.target.value)}
-                                placeholder="Nhập tin nhắn cần gửi..."
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                rows={4}
-                            />
-                        </div>
-
-                        <div className="flex justify-end space-x-3">
-                            <button
-                                onClick={() => {
-                                    setShowDirectMessageModal(false)
-                                    setDirectMessage("")
-                                }}
-                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={handleDirectMessage}
-                                disabled={!directMessage.trim()}
-                                className={`px-4 py-2 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${!directMessage.trim() ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
-                                    }`}
-                            >
-                                Gửi tin nhắn
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <DirectMessageModal
+                show={showDirectMessageModal}
+                loading={loading}
+                onClose={() => setShowDirectMessageModal(false)}
+                onSend={handleDirectMessage}
+            />
 
             {/* NCC Selection Modal */}
             {showNccSelectionModal && (
