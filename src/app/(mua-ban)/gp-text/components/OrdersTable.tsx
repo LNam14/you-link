@@ -1174,40 +1174,40 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                     this.getPlugin("hiddenColumns").showColumns(allIndexes)
                                 },
                             },
-                            delete_order: {
-                                name: "Xóa đơn",
-                                callback: async function (this: any, key: string, selection: any[], clickEvent: MouseEvent) {
-                                    // Only allow if right-clicked on a data row (not summary row)
-                                    if (!selection || !selection.length) return;
-                                    const row = selection[0].start.row;
-                                    if (row === 0 && summaryRow) return; // Don't allow on summary row
-                                    // Adjust for summary row
-                                    const dataRow = summaryRow ? row - 1 : row;
-                                    if (dataRow < 0 || dataRow >= orders.length) return;
-                                    const order = orders[dataRow];
-                                    if (!order || !order.MaDon) return;
-                                    const dbIndex = allOrders.findIndex((o) => o.MaDon === order.MaDon);
-                                    if (dbIndex === -1) return;
-                                    try {
-                                        await update(ref(database), {
-                                            [`orders/${dbIndex}/Status`]: "Hủy",
-                                        });
-                                    } catch (error) {
-                                        alert("Lỗi khi xóa đơn: " + error);
-                                    }
-                                },
-                                disabled: function (this: any) {
-                                    // Lấy selection từ this
-                                    const sel = this.getSelectedLast && this.getSelectedLast();
-                                    if (!sel) return true;
-                                    const row = sel[0];
-                                    if (row === 0 && summaryRow) return true;
-                                    // Adjust for summary row
-                                    const dataRow = summaryRow ? row - 1 : row;
-                                    if (dataRow < 0 || dataRow >= orders.length) return true;
-                                    return false;
-                                },
-                            },
+                            // delete_order: {
+                            //     name: "Xóa đơn",
+                            //     callback: async function (this: any, key: string, selection: any[], clickEvent: MouseEvent) {
+                            //         // Only allow if right-clicked on a data row (not summary row)
+                            //         if (!selection || !selection.length) return;
+                            //         const row = selection[0].start.row;
+                            //         if (row === 0 && summaryRow) return; // Don't allow on summary row
+                            //         // Adjust for summary row
+                            //         const dataRow = summaryRow ? row - 1 : row;
+                            //         if (dataRow < 0 || dataRow >= orders.length) return;
+                            //         const order = orders[dataRow];
+                            //         if (!order || !order.MaDon) return;
+                            //         const dbIndex = allOrders.findIndex((o) => o.MaDon === order.MaDon);
+                            //         if (dbIndex === -1) return;
+                            //         try {
+                            //             await update(ref(database), {
+                            //                 [`orders/${dbIndex}/Status`]: "Hủy",
+                            //             });
+                            //         } catch (error) {
+                            //             alert("Lỗi khi xóa đơn: " + error);
+                            //         }
+                            //     },
+                            //     disabled: function (this: any) {
+                            //         // Lấy selection từ this
+                            //         const sel = this.getSelectedLast && this.getSelectedLast();
+                            //         if (!sel) return true;
+                            //         const row = sel[0];
+                            //         if (row === 0 && summaryRow) return true;
+                            //         // Adjust for summary row
+                            //         const dataRow = summaryRow ? row - 1 : row;
+                            //         if (dataRow < 0 || dataRow >= orders.length) return true;
+                            //         return false;
+                            //     },
+                            // },
                         },
                     }}
                     manualColumnResize={true}
