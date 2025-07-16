@@ -967,257 +967,221 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
             })
     }
 
-    const contextMenuItems =
-        userInfo?.role === "NCC" || userInfo?.role === "Admin" || userInfo?.role === "Nhân viên"
-            ? {
-                items: {
-                    ncc_cancel: {
-                        name: "Hủy đơn",
-                        callback: function (this: Handsontable, key: string, selection: any) {
-                            const selected = this.getSelectedLast()
-                            if (selected) {
-                                handleContextMenuAction(selected[0], "ncc_cancel")
-                            }
-                        },
-                        hidden: function (this: Handsontable): boolean {
-                            const selected = this.getSelectedLast()
-                            if (selected) {
-                                const row = selected[0]
-                                // Get the order code from the data array
-                                if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
-                                const orderCode = data[row][0]
-                                if (!orderCode || typeof orderCode !== "string") return true
+    // --- Tách riêng menu items cho NCC và Khách hàng ---
+    const nccMenuItems = {
+        ncc_cancel: {
+            name: userInfo?.role === "Admin" ? "Hủy đơn (NCC)" : "Hủy đơn",
+            callback: function (this: Handsontable, key: string, selection: any) {
+                const selected = this.getSelectedLast()
+                if (selected) {
+                    handleContextMenuAction(selected[0], "ncc_cancel")
+                }
+            },
+            hidden: function (this: Handsontable): boolean {
+                const selected = this.getSelectedLast()
+                if (selected) {
+                    const row = selected[0]
+                    if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
+                    const orderCode = data[row][0]
+                    if (!orderCode || typeof orderCode !== "string") return true
+                    if (
+                        orderCode.includes("Tổng") ||
+                        orderCode.includes("Chưa Index") ||
+                        orderCode.includes("Đang Xử Lý") ||
+                        orderCode.includes("Đơn hủy")
+                    ) {
+                        return true
+                    }
+                    const order = orders.find((o) => o.MaDon === orderCode)
+                    if (!order) return true
+                    return order?.TinhTrangKH !== "Đã nhập" || order?.TinhTrangNCC !== "Chưa nhận đơn"
+                }
+                return true
+            },
+        },
+        ncc_ok: {
+            name: "Đơn OK",
+            callback: function (this: Handsontable, key: string, selection: any) {
+                const selected = this.getSelectedLast()
+                if (selected) {
+                    handleContextMenuAction(selected[0], "ncc_ok")
+                }
+            },
+            hidden: function (this: Handsontable): boolean {
+                const selected = this.getSelectedLast()
+                if (selected) {
+                    const row = selected[0]
+                    if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
+                    const orderCode = data[row][0]
+                    if (!orderCode || typeof orderCode !== "string") return true
+                    if (
+                        orderCode.includes("Tổng") ||
+                        orderCode.includes("Chưa Index") ||
+                        orderCode.includes("Đang Xử Lý") ||
+                        orderCode.includes("Đơn hủy")
+                    ) {
+                        return true
+                    }
+                    const order = orders.find((o) => o.MaDon === orderCode)
+                    if (!order) return true
+                    return !(
+                        order?.Loai !== "GP" &&
+                        order?.TinhTrangKH === "Đã nhập" &&
+                        order?.TinhTrangNCC === "Chưa nhận đơn"
+                    )
+                }
+                return true
+            },
+        },
+        ncc_accept_cancel: {
+            name: "Đồng ý hủy",
+            callback: function (this: Handsontable, key: string, selection: any) {
+                const selected = this.getSelectedLast()
+                if (selected) {
+                    handleContextMenuAction(selected[0], "ncc_accept_cancel")
+                }
+            },
+            hidden: function (this: Handsontable): boolean {
+                const selected = this.getSelectedLast()
+                if (selected) {
+                    const row = selected[0]
+                    if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
+                    const orderCode = data[row][0]
+                    if (!orderCode || typeof orderCode !== "string") return true
+                    if (
+                        orderCode.includes("Tổng") ||
+                        orderCode.includes("Chưa Index") ||
+                        orderCode.includes("Đang Xử Lý") ||
+                        orderCode.includes("Đơn hủy")
+                    ) {
+                        return true
+                    }
+                    const order = orders.find((o) => o.MaDon === orderCode)
+                    if (!order) return true
+                    return (
+                        !(order?.TinhTrangKH === "Hủy - đã index" || order?.TinhTrangKH === "Hủy - đã lên bài") ||
+                        !(order?.TinhTrangNCC === "Đã lên bài")
+                    )
+                }
+                return true
+            },
+        },
+        ncc_reject_cancel: {
+            name: "Từ chối hủy",
+            callback: function (this: Handsontable, key: string, selection: any) {
+                const selected = this.getSelectedLast()
+                if (selected) {
+                    handleContextMenuAction(selected[0], "ncc_reject_cancel")
+                }
+            },
+            hidden: function (this: Handsontable): boolean {
+                const selected = this.getSelectedLast()
+                if (selected) {
+                    const row = selected[0]
+                    if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
+                    const orderCode = data[row][0]
+                    if (!orderCode || typeof orderCode !== "string") return true
+                    if (
+                        orderCode.includes("Tổng") ||
+                        orderCode.includes("Chưa Index") ||
+                        orderCode.includes("Đang Xử Lý") ||
+                        orderCode.includes("Đơn hủy")
+                    ) {
+                        return true
+                    }
+                    const order = orders.find((o) => o.MaDon === orderCode)
+                    if (!order) return true
+                    return (
+                        !(order?.TinhTrangKH === "Hủy - đã index" || order?.TinhTrangKH === "Hủy - đã lên bài") ||
+                        !(order?.TinhTrangNCC === "Đã lên bài")
+                    )
+                }
+                return true
+            },
+        },
+    };
+    const khMenuItems = {
+        ok: {
+            name: "Đơn OK",
+            callback: function (this: Handsontable, key: string, selection: any) {
+                const selected = this.getSelectedLast()
+                if (selected) {
+                    handleContextMenuAction(selected[0], "ok")
+                }
+            },
+            hidden: function (this: Handsontable): boolean {
+                const selected = this.getSelectedLast()
+                if (selected) {
+                    const row = selected[0]
+                    if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
+                    const orderCode = data[row][0]
+                    if (!orderCode || typeof orderCode !== "string") return true
+                    if (
+                        orderCode.includes("Tổng") ||
+                        orderCode.includes("Chưa Index") ||
+                        orderCode.includes("Đang Xử Lý") ||
+                        orderCode.includes("Đơn hủy")
+                    ) {
+                        return true
+                    }
+                    const order = orders.find((o) => o.MaDon === orderCode)
+                    if (!order) return true
+                    if (order.Loai === "GP") {
+                        return !(
+                            order.Index === "Indexed" &&
+                            order.TinhTrangKH === "Đã nhập" &&
+                            order.TinhTrangNCC === "Đã lên bài"
+                        )
+                    }
+                    return !(order.TinhTrangKH === "Đã nhập" && order.TinhTrangNCC === "Đã lên bài")
+                }
+                return true
+            },
+        },
+        cancel: {
+            name: userInfo?.role === "Admin" ? "Hủy đơn (KH)" : "Hủy đơn",
+            callback: function (this: Handsontable, key: string, selection: any) {
+                const selected = this.getSelectedLast()
+                if (selected) {
+                    handleContextMenuAction(selected[0], "cancel")
+                }
+            },
+            hidden: function (this: Handsontable): boolean {
+                const selected = this.getSelectedLast()
+                if (selected) {
+                    const row = selected[0]
+                    if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
+                    const orderCode = data[row][0]
+                    if (!orderCode || typeof orderCode !== "string") return true
+                    if (
+                        orderCode.includes("Tổng") ||
+                        orderCode.includes("Chưa Index") ||
+                        orderCode.includes("Đang Xử Lý") ||
+                        orderCode.includes("Đơn hủy")
+                    ) {
+                        return true
+                    }
+                    const order = orders.find((o) => o.MaDon === orderCode)
+                    if (!order) return true
+                    return (
+                        order?.TinhTrangKH === "Đơn OK" ||
+                        order?.TinhTrangNCC === "Hủy đơn" ||
+                        order?.TinhTrangKH.includes("Hủy")
+                    )
+                }
+                return true
+            },
+        },
+    };
 
-                                // Skip if this is a summary row
-                                if (
-                                    orderCode.includes("Tổng") ||
-                                    orderCode.includes("Chưa Index") ||
-                                    orderCode.includes("Đang Xử Lý") ||
-                                    orderCode.includes("Đơn hủy")
-                                ) {
-                                    return true
-                                }
-
-                                // Find the matching order in the orders array
-                                const order = orders.find((o) => o.MaDon === orderCode)
-                                console.log(order)
-
-                                if (!order) return true
-                                return order?.TinhTrangKH !== "Đã nhập" || order?.TinhTrangNCC !== "Chưa nhận đơn"
-                            }
-                            return true
-                        },
-                    },
-                    ncc_ok: {
-                        name: "Đơn OK",
-                        callback: function (this: Handsontable, key: string, selection: any) {
-                            const selected = this.getSelectedLast()
-                            if (selected) {
-                                handleContextMenuAction(selected[0], "ncc_ok")
-                            }
-                        },
-                        hidden: function (this: Handsontable): boolean {
-                            const selected = this.getSelectedLast()
-                            if (selected) {
-                                const row = selected[0]
-                                // Get the order code from the data array
-                                if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
-                                const orderCode = data[row][0]
-                                if (!orderCode || typeof orderCode !== "string") return true
-
-                                // Skip if this is a summary row
-                                if (
-                                    orderCode.includes("Tổng") ||
-                                    orderCode.includes("Chưa Index") ||
-                                    orderCode.includes("Đang Xử Lý") ||
-                                    orderCode.includes("Đơn hủy")
-                                ) {
-                                    return true
-                                }
-
-                                // Find the matching order in the orders array
-                                const order = orders.find((o) => o.MaDon === orderCode)
-                                if (!order) return true
-                                // Condition 1: Show if Loai !== GP and TinhTrangKH === Đã nhập
-                                return !(
-                                    order?.Loai !== "GP" &&
-                                    order?.TinhTrangKH === "Đã nhập" &&
-                                    order?.TinhTrangNCC === "Chưa nhận đơn"
-                                )
-                            }
-                            return true
-                        },
-                    },
-                    ncc_accept_cancel: {
-                        name: "Đồng ý hủy",
-                        callback: function (this: Handsontable, key: string, selection: any) {
-                            const selected = this.getSelectedLast()
-                            if (selected) {
-                                handleContextMenuAction(selected[0], "ncc_accept_cancel")
-                            }
-                        },
-                        hidden: function (this: Handsontable): boolean {
-                            const selected = this.getSelectedLast()
-                            if (selected) {
-                                const row = selected[0]
-                                // Get the order code from the data array
-                                if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
-                                const orderCode = data[row][0]
-                                if (!orderCode || typeof orderCode !== "string") return true
-
-                                // Skip if this is a summary row
-                                if (
-                                    orderCode.includes("Tổng") ||
-                                    orderCode.includes("Chưa Index") ||
-                                    orderCode.includes("Đang Xử Lý") ||
-                                    orderCode.includes("Đơn hủy")
-                                ) {
-                                    return true
-                                }
-
-                                // Find the matching order in the orders array
-                                const order = orders.find((o) => o.MaDon === orderCode)
-                                if (!order) return true
-                                // Condition 3: Show if TinhTrangKH === Hủy - đã index or Hủy - đã lên bài
-                                return (
-                                    !(order?.TinhTrangKH === "Hủy - đã index" || order?.TinhTrangKH === "Hủy - đã lên bài") ||
-                                    !(order?.TinhTrangNCC === "Đã lên bài")
-                                )
-                            }
-                            return true
-                        },
-                    },
-                    ncc_reject_cancel: {
-                        name: "Từ chối hủy",
-                        callback: function (this: Handsontable, key: string, selection: any) {
-                            const selected = this.getSelectedLast()
-                            if (selected) {
-                                handleContextMenuAction(selected[0], "ncc_reject_cancel")
-                            }
-                        },
-                        hidden: function (this: Handsontable): boolean {
-                            const selected = this.getSelectedLast()
-                            if (selected) {
-                                const row = selected[0]
-                                // Get the order code from the data array
-                                if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
-                                const orderCode = data[row][0]
-                                if (!orderCode || typeof orderCode !== "string") return true
-
-                                // Skip if this is a summary row
-                                if (
-                                    orderCode.includes("Tổng") ||
-                                    orderCode.includes("Chưa Index") ||
-                                    orderCode.includes("Đang Xử Lý") ||
-                                    orderCode.includes("Đơn hủy")
-                                ) {
-                                    return true
-                                }
-
-                                // Find the matching order in the orders array
-                                const order = orders.find((o) => o.MaDon === orderCode)
-                                if (!order) return true
-                                // Condition 4: Show if TinhTrangKH === Hủy - đã index or Hủy - đã lên bài
-                                return (
-                                    !(order?.TinhTrangKH === "Hủy - đã index" || order?.TinhTrangKH === "Hủy - đã lên bài") ||
-                                    !(order?.TinhTrangNCC === "Đã lên bài")
-                                )
-                            }
-                            return true
-                        },
-                    },
-                } as any,
-            }
-            : {
-                items: {
-                    ok: {
-                        name: "Đơn OK",
-                        callback: function (this: Handsontable, key: string, selection: any) {
-                            const selected = this.getSelectedLast()
-                            if (selected) {
-                                handleContextMenuAction(selected[0], "ok")
-                            }
-                        },
-                        hidden: function (this: Handsontable): boolean {
-                            const selected = this.getSelectedLast()
-                            if (selected) {
-                                const row = selected[0]
-                                // Get the order code from the data array
-                                if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
-                                const orderCode = data[row][0]
-                                if (!orderCode || typeof orderCode !== "string") return true
-
-                                // Skip if this is a summary row
-                                if (
-                                    orderCode.includes("Tổng") ||
-                                    orderCode.includes("Chưa Index") ||
-                                    orderCode.includes("Đang Xử Lý") ||
-                                    orderCode.includes("Đơn hủy")
-                                ) {
-                                    return true
-                                }
-
-                                // Find the matching order in the orders array
-                                const order = orders.find((o) => o.MaDon === orderCode)
-                                if (!order) return true
-
-                                // Condition 1: For GP orders
-                                if (order.Loai === "GP") {
-                                    return !(
-                                        order.Index === "Indexed" &&
-                                        order.TinhTrangKH === "Đã nhập" &&
-                                        order.TinhTrangNCC === "Đã lên bài"
-                                    )
-                                }
-
-                                // For non-GP orders
-                                return !(order.TinhTrangKH === "Đã nhập" && order.TinhTrangNCC === "Đã lên bài")
-                            }
-                            return true
-                        },
-                    },
-                    cancel: {
-                        name: "Hủy đơn",
-                        callback: function (this: Handsontable, key: string, selection: any) {
-                            const selected = this.getSelectedLast()
-                            if (selected) {
-                                handleContextMenuAction(selected[0], "cancel")
-                            }
-                        },
-                        hidden: function (this: Handsontable): boolean {
-                            const selected = this.getSelectedLast()
-                            if (selected) {
-                                const row = selected[0]
-                                // Get the order code from the data array
-                                if (!data || !Array.isArray(data) || row < 0 || row >= data.length) return true
-                                const orderCode = data[row][0]
-                                if (!orderCode || typeof orderCode !== "string") return true
-
-                                // Skip if this is a summary row
-                                if (
-                                    orderCode.includes("Tổng") ||
-                                    orderCode.includes("Chưa Index") ||
-                                    orderCode.includes("Đang Xử Lý") ||
-                                    orderCode.includes("Đơn hủy")
-                                ) {
-                                    return true
-                                }
-
-                                // Find the matching order in the orders array
-                                const order = orders.find((o) => o.MaDon === orderCode)
-                                if (!order) return true
-
-                                return (
-                                    order?.TinhTrangKH === "Đơn OK" ||
-                                    order?.TinhTrangNCC === "Hủy đơn" ||
-                                    order?.TinhTrangKH.includes("Hủy")
-                                )
-                            }
-                            return true
-                        },
-                    },
-                },
-            }
+    let contextMenuItems;
+    if (userInfo?.role === "Admin") {
+        contextMenuItems = { items: { ...nccMenuItems, ...khMenuItems } };
+    } else if (userInfo?.role === "NCC") {
+        contextMenuItems = { items: nccMenuItems };
+    } else {
+        contextMenuItems = { items: khMenuItems };
+    }
 
     // Load orders data
     useEffect(() => {

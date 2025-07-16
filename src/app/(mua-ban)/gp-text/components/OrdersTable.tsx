@@ -1277,12 +1277,13 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
 
             {isModalOpen && ((multiOrderDetails && multiOrderDetails.length > 0) || (selectedOrder && selectedOrderDbIndex !== null)) && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]">
-                    <div className="bg-white rounded-lg w-full overflow-auto relative z-[1001]">
-                        <div className="bg-[#2563eb] text-white flex items-center justify-center py-2 rounded-t-lg relative">
-                            <h3 className="pt-10 font-semibold w-full text-center">
+                    <div className="bg-white rounded-lg w-full h-screen relative z-[1001] flex flex-col">
+                        {/* Header modal cố định */}
+                        <div className="bg-[#2563eb] text-white flex items-center justify-center py-2 rounded-t-lg relative shrink-0 z-10">
+                            <h3 className="font-semibold w-full text-center">
                                 {multiOrderDetails ? `Chi tiết đơn hàng trong ${filterType === "week" ? selectedWeek : selectedMonth}` : `Chi tiết đơn hàng: ${selectedOrder.MaDon}`}
                             </h3>
-                            <div className="absolute top-14 right-0 -translate-y-1/2 z-[1002]">
+                            <div className="absolute top-5 right-0 -translate-y-1/2 z-[1002]">
                                 <button
                                     onClick={() => {
                                         handleCloseModal();
@@ -1301,58 +1302,61 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                 </button>
                             </div>
                         </div>
-                        {isLoading ? (
-                            <div className="flex items-center justify-center h-full">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                            </div>
-                        ) : (
-                            <MemoizedPageBody
-                                order={multiOrderDetails || selectedOrderDetails}
-                                supplierName={multiOrderDetails ? null : selectedOrder?.NDD}
-                                orderIndex={multiOrderDetails ? -1 : (selectedOrderDbIndex || -1)}
-                                chietKhau={multiOrderDetails ? undefined : selectedOrder?.ChietKhau}
-                                onOrderUpdate={() => {
-                                    setIsLoading(true);
-                                    const ordersRef = ref(database, "orders");
-                                    onValue(
-                                        ordersRef,
-                                        (snapshot) => {
-                                            if (snapshot.exists()) {
-                                                const data = snapshot.val();
-                                                const ordersArray = Array.isArray(data) ? data : Object.values(data);
+                        {/* Nội dung cuộn: chỉ phần này có overflow-y-auto */}
+                        <div className="grow overflow-y-auto" style={{ maxHeight: "calc(100vh - 56px)", scrollbarWidth: "none" }}>
+                            {isLoading ? (
+                                <div className="flex items-center justify-center h-full">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                                </div>
+                            ) : (
+                                <MemoizedPageBody
+                                    order={multiOrderDetails || selectedOrderDetails}
+                                    supplierName={multiOrderDetails ? null : selectedOrder?.NDD}
+                                    orderIndex={multiOrderDetails ? -1 : (selectedOrderDbIndex || -1)}
+                                    chietKhau={multiOrderDetails ? undefined : selectedOrder?.ChietKhau}
+                                    onOrderUpdate={() => {
+                                        setIsLoading(true);
+                                        const ordersRef = ref(database, "orders");
+                                        onValue(
+                                            ordersRef,
+                                            (snapshot) => {
+                                                if (snapshot.exists()) {
+                                                    const data = snapshot.val();
+                                                    const ordersArray = Array.isArray(data) ? data : Object.values(data);
 
-                                                const updatedOrders = ordersArray.map((order: any) => {
-                                                    const summary = calculateOrderSummary(order);
-                                                    return {
-                                                        ...order,
-                                                        TongTien: summary.totalTongTien,
-                                                        GiaMua: summary.totalGiaCuoi,
-                                                        LoiNhuan: summary.totalLoiNhuan,
-                                                        SauCK: summary.totalSauCK,
-                                                    };
-                                                });
+                                                    const updatedOrders = ordersArray.map((order: any) => {
+                                                        const summary = calculateOrderSummary(order);
+                                                        return {
+                                                            ...order,
+                                                            TongTien: summary.totalTongTien,
+                                                            GiaMua: summary.totalGiaCuoi,
+                                                            LoiNhuan: summary.totalLoiNhuan,
+                                                            SauCK: summary.totalSauCK,
+                                                        };
+                                                    });
 
-                                                setAllOrders(updatedOrders);
-                                                if (!multiOrderDetails && selectedOrderDbIndex !== null && updatedOrders[selectedOrderDbIndex]) {
-                                                    setSelectedOrder(updatedOrders[selectedOrderDbIndex]);
-                                                    setSelectedOrderDetails(
-                                                        (updatedOrders[selectedOrderDbIndex]?.ChiTietDonHang || []).map(
-                                                            (item: any, idx: number) => ({
-                                                                ...item,
-                                                                _dbIndex: idx,
-                                                                _parentIndex: selectedOrderDbIndex,
-                                                            })
-                                                        )
-                                                    );
+                                                    setAllOrders(updatedOrders);
+                                                    if (!multiOrderDetails && selectedOrderDbIndex !== null && updatedOrders[selectedOrderDbIndex]) {
+                                                        setSelectedOrder(updatedOrders[selectedOrderDbIndex]);
+                                                        setSelectedOrderDetails(
+                                                            (updatedOrders[selectedOrderDbIndex]?.ChiTietDonHang || []).map(
+                                                                (item: any, idx: number) => ({
+                                                                    ...item,
+                                                                    _dbIndex: idx,
+                                                                    _parentIndex: selectedOrderDbIndex,
+                                                                })
+                                                            )
+                                                        );
+                                                    }
                                                 }
-                                            }
-                                            setIsLoading(false);
-                                        },
-                                        { onlyOnce: true }
-                                    );
-                                }}
-                            />
-                        )}
+                                                setIsLoading(false);
+                                            },
+                                            { onlyOnce: true }
+                                        );
+                                    }}
+                                />
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
