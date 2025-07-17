@@ -182,14 +182,19 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       const response = await wheelApiRequest.get()
       const rewardsData: any = response.data || []
       const now = new Date()
-      const currentMonth = now.toISOString().slice(0, 7) // YYYY-MM
+      const year = now.getFullYear()
+      const month = now.getMonth()
+      const firstDayOfMonth = new Date(year, month, 1)
+      const lastDayOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999)
 
       // Lọc các bản ghi trong tháng hiện tại
-      const monthRecords = rewardsData.filter((reward: any) =>
-        reward.date && reward.date.startsWith(currentMonth)
-      )
+      const monthRecords = rewardsData.filter((reward: any) => {
+        if (!reward.date) return false
+        const rewardDate = new Date(reward.date)
+        return rewardDate >= firstDayOfMonth && rewardDate <= lastDayOfMonth
+      })
 
-      // Đếm số lần mỗi username trúng '1 phân vàng' trong tháng
+      // Đếm số lần mỗi username trúng '1 phân vàng' trong tháng hiện tại
       const goldWins = monthRecords
         .filter((reward: any) => reward.reward === "1 phân vàng")
         .reduce((acc: { [key: string]: number }, reward: any) => {
@@ -300,8 +305,18 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
           setEmployees(uniqueUsernames as unknown as string[])
         }
 
-        // Calculate gold winners leaderboard
-        const goldWins = rewardsData
+        // Calculate gold winners leaderboard (tháng hiện tại)
+        const now = new Date()
+        const year = now.getFullYear()
+        const month = now.getMonth()
+        const firstDayOfMonth = new Date(year, month, 1)
+        const lastDayOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999)
+        const monthRecords = rewardsData.filter((reward: any) => {
+          if (!reward.date) return false
+          const rewardDate = new Date(reward.date)
+          return rewardDate >= firstDayOfMonth && rewardDate <= lastDayOfMonth
+        })
+        const goldWins = monthRecords
           .filter((reward: any) => reward.reward === "1 phân vàng")
           .reduce((acc: { [key: string]: number }, reward: any) => {
             acc[reward.username] = (acc[reward.username] || 0) + 1
