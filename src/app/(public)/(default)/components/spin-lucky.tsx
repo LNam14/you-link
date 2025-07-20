@@ -181,21 +181,9 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     try {
       const response = await wheelApiRequest.get()
       const rewardsData: any = response.data || []
-      const now = new Date()
-      const year = now.getFullYear()
-      const month = now.getMonth()
-      const firstDayOfMonth = new Date(year, month, 1)
-      const lastDayOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999)
 
-      // Lọc các bản ghi trong tháng hiện tại
-      const monthRecords = rewardsData.filter((reward: any) => {
-        if (!reward.date) return false
-        const rewardDate = new Date(reward.date)
-        return rewardDate >= firstDayOfMonth && rewardDate <= lastDayOfMonth
-      })
-
-      // Đếm số lần mỗi username trúng '1 phân vàng' trong tháng hiện tại
-      const goldWins = monthRecords
+      // Đếm số lần mỗi username trúng '1 phân vàng' trong tất cả thời gian
+      const goldWins = rewardsData
         .filter((reward: any) => reward.reward === "1 phân vàng")
         .reduce((acc: { [key: string]: number }, reward: any) => {
           acc[reward.username] = (acc[reward.username] || 0) + 1
@@ -305,18 +293,8 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
           setEmployees(uniqueUsernames as unknown as string[])
         }
 
-        // Calculate gold winners leaderboard (tháng hiện tại)
-        const now = new Date()
-        const year = now.getFullYear()
-        const month = now.getMonth()
-        const firstDayOfMonth = new Date(year, month, 1)
-        const lastDayOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999)
-        const monthRecords = rewardsData.filter((reward: any) => {
-          if (!reward.date) return false
-          const rewardDate = new Date(reward.date)
-          return rewardDate >= firstDayOfMonth && rewardDate <= lastDayOfMonth
-        })
-        const goldWins = monthRecords
+        // Calculate gold winners leaderboard (tất cả thời gian)
+        const goldWins = rewardsData
           .filter((reward: any) => reward.reward === "1 phân vàng")
           .reduce((acc: { [key: string]: number }, reward: any) => {
             acc[reward.username] = (acc[reward.username] || 0) + 1
@@ -447,7 +425,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
               <div className="mt-6 border-t border-gray-100 pt-4">
                 <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                   <Trophy className="h-4 w-4 text-yellow-500" />
-                  BXH 10 Phân vàng tháng này
+                  BXH 10 Phân vàng tất cả thời gian
                 </h4>
                 <div className="space-y-2">
                   {goldWinners.length > 0 ? (
@@ -464,7 +442,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                       </div>
                     ))
                   ) : (
-                    <p className="text-gray-500 text-sm">Chưa có người trúng phân vàng trong tháng này</p>
+                    <p className="text-gray-500 text-sm">Chưa có người trúng phân vàng</p>
                   )}
                 </div>
               </div>
