@@ -145,16 +145,33 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
         }
     }, [])
 
-    // Function to get week number from date
+    // Function to get week number from date (Monday to Sunday)
     const getWeekNumber = (dateStr: string) => {
         // Convert DD/MM/YYYY to Date object
         const [day, month, year] = dateStr.split("/").map(Number)
         const date = new Date(year, month - 1, day)
-        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-        const dayNum = d.getUTCDay() || 7
-        d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-        return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+
+        // Get the day of week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+        const dayOfWeek = date.getDay()
+
+        // Adjust to Monday = 0, Sunday = 6
+        const mondayBasedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+
+        // Get the Monday of the current week
+        const mondayOfWeek = new Date(date)
+        mondayOfWeek.setDate(date.getDate() - mondayBasedDay)
+
+        // Get the first Monday of the year
+        const firstDayOfYear = new Date(year, 0, 1)
+        const firstMondayOfYear = new Date(firstDayOfYear)
+        const firstDayOfYearDay = firstDayOfYear.getDay()
+        const daysToFirstMonday = firstDayOfYearDay === 0 ? 1 : 8 - firstDayOfYearDay
+        firstMondayOfYear.setDate(1 + daysToFirstMonday)
+
+        // Calculate week number
+        const weekNumber = Math.ceil((mondayOfWeek.getTime() - firstMondayOfYear.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+
+        return weekNumber
     }
 
     // Function to get week range string
