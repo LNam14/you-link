@@ -425,7 +425,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
               <div className="mt-6 border-t border-gray-100 pt-4">
                 <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                   <Trophy className="h-4 w-4 text-yellow-500" />
-                  BXH 10 Phân vàng tất cả thời gian
+                  BXH 10 Phân vàng tháng 6 + tháng 7
                 </h4>
                 <div className="space-y-2">
                   {goldWinners.length > 0 ? (
