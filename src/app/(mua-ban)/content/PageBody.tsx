@@ -75,11 +75,13 @@ export default function PageBody() {
     const getCurrentWeek = () => {
         const now = new Date()
         const firstDayOfYear = new Date(now.getFullYear(), 0, 1)
-        // Adjust first day to be Monday (1) instead of Sunday (0)
-        const firstDayOfWeek = firstDayOfYear.getDay() || 7 // Convert Sunday (0) to 7
+        // Get the day of week for January 1st (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+        const firstDayOfWeek = firstDayOfYear.getDay()
+        // Convert to Monday-based week (0 = Monday, 1 = Tuesday, ..., 6 = Sunday)
+        const mondayBasedFirstDay = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1
         const pastDaysOfYear = (now.getTime() - firstDayOfYear.getTime()) / 86400000
-        // Adjust calculation to start from Monday
-        return Math.ceil((pastDaysOfYear + firstDayOfWeek) / 7)
+        // Calculate week number starting from Monday
+        return Math.ceil((pastDaysOfYear + mondayBasedFirstDay) / 7)
     }
 
     // Add function to get week number from date
@@ -89,11 +91,13 @@ export default function PageBody() {
         const [day, month, year] = dateStr.split("/")
         const date = new Date(Number.parseInt(year), Number.parseInt(month) - 1, Number.parseInt(day))
         const firstDayOfYear = new Date(date.getFullYear(), 0, 1)
-        // Adjust first day to be Monday (1) instead of Sunday (0)
-        const firstDayOfWeek = firstDayOfYear.getDay() || 7 // Convert Sunday (0) to 7
+        // Get the day of week for January 1st (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+        const firstDayOfWeek = firstDayOfYear.getDay()
+        // Convert to Monday-based week (0 = Monday, 1 = Tuesday, ..., 6 = Sunday)
+        const mondayBasedFirstDay = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1
         const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000
-        // Adjust calculation to start from Monday
-        return Math.ceil((pastDaysOfYear + firstDayOfWeek) / 7)
+        // Calculate week number starting from Monday
+        return Math.ceil((pastDaysOfYear + mondayBasedFirstDay) / 7)
     }
 
     // Set current week as default when component mounts
