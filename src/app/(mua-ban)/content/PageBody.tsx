@@ -87,9 +87,18 @@ export default function PageBody() {
     // Add function to get week number from date
     const getWeekNumber = (dateStr: string) => {
         if (!dateStr) return ""
-        // Parse date from DD/MM/YYYY format
-        const [day, month, year] = dateStr.split("/")
-        const date = new Date(Number.parseInt(year), Number.parseInt(month) - 1, Number.parseInt(day))
+        let date: Date;
+        if (dateStr.includes("/")) {
+            // DD/MM/YYYY
+            const [day, month, year] = dateStr.split("/")
+            date = new Date(Number.parseInt(year), Number.parseInt(month) - 1, Number.parseInt(day))
+        } else if (dateStr.includes("-")) {
+            // YYYY-MM-DD
+            const [year, month, day] = dateStr.split("-")
+            date = new Date(Number.parseInt(year), Number.parseInt(month) - 1, Number.parseInt(day))
+        } else {
+            return ""
+        }
         const firstDayOfYear = new Date(date.getFullYear(), 0, 1)
         // Get the day of week for January 1st (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
         const firstDayOfWeek = firstDayOfYear.getDay()
