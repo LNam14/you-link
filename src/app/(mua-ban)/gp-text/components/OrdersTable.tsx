@@ -20,7 +20,14 @@ import {
     TrendingUp,
     ShoppingCart,
     AlertCircle,
+    Search,
+    X,
+    CreditCard,
+    FileText,
+    CheckCircle,
+    Wallet,
 } from "lucide-react"
+import { toast, Toaster } from "sonner"
 
 registerAllModules()
 
@@ -61,9 +68,11 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
     const [showFilterModal, setShowFilterModal] = useState(false)
     const [selectedTenNCC, setSelectedTenNCC] = useState<string>("")
     const [showOnlyTTNCCGreaterThanGiaCuoi, setShowOnlyTTNCCGreaterThanGiaCuoi] = useState(false)
+    const [searchTerm, setSearchTerm] = useState<string>("")
+
     // Only get userInfo if maKH is not provided
     const userInfo = !maKH ? getUserInfo() : undefined
-    const isReadOnly = !userInfo;
+    const isReadOnly = !userInfo
 
     const handleCloseModal = useCallback(() => {
         setIsModalOpen(false)
@@ -135,7 +144,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
 
         // Calculate SauCK based on the main order's discount percentage
         const chietKhau = Number(order.ChietKhau) || 0
-        const totalSauCK = totalTongTien - (totalTongTien * chietKhau / 100)
+        const totalSauCK = totalTongTien - (totalTongTien * chietKhau) / 100
 
         return {
             totalTongTien,
@@ -251,7 +260,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
             LoiNhuan: totalLoiNhuan,
             KhachNo: totalKhachNo,
             SoTienChietKhau: totalChietKhau,
-            SauCK: totalSauCK
+            SauCK: totalSauCK,
         }
     }, [])
 
@@ -271,45 +280,52 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
 
     // Lấy danh sách unique TenNCC từ ChiTietDonHang với điều kiện lọc
     const uniqueTenNCCs = useMemo(() => {
-        const tenNCCs = new Set<string>();
-        orders.forEach(order => {
+        const tenNCCs = new Set<string>()
+        orders.forEach((order) => {
             if (order.ChiTietDonHang) {
                 order.ChiTietDonHang.forEach((detail: any) => {
-                    if (!detail.TenNCC) return;
+                    if (!detail.TenNCC) return
 
                     // Kiểm tra điều kiện TTKH
-                    const validTTKH = ["Đã nhập", "Đơn OK", "Hủy đơn - đã lên bài"].includes(detail.TinhTrangKH);
-                    if (!validTTKH) return;
+                    const validTTKH = ["Đã nhập", "Đơn OK", "Hủy đơn - đã lên bài"].includes(detail.TinhTrangKH)
+                    if (!validTTKH) return
 
                     // Kiểm tra điều kiện TTNCC
-                    const validTTNCC = ["Đã lên bài", "Từ chối hủy"].includes(detail.TinhTrangNCC);
-                    if (!validTTNCC) return;
+                    const validTTNCC = ["Đã lên bài", "Từ chối hủy"].includes(detail.TinhTrangNCC)
+                    if (!validTTNCC) return
 
                     // Kiểm tra điều kiện Loại và Index cho GP
-                    if (detail.Loai === "GP" && detail.Index === "No") return;
+                    if (detail.Loai === "GP" && detail.Index === "No") return
 
                     // Tính giá cuối
-                    const giaMua = Number(
-                        detail.Loai === "GP"
-                            ? detail.GiaMuaGP
-                            : detail.Loai === "Text"
-                                ? detail.GiaMuaText
-                                : detail.Loai === "TextHome"
-                                    ? detail.GiaMuaTextHome
-                                    : detail.GiaMuaTextHeader
-                    ) || 0;
-                    const hoaHong = Number(detail.Loai === "GP" ? detail.HoaHongGP : detail.HoaHongText) || 0;
-                    const giaCuoi = Math.round(giaMua - (giaMua * hoaHong / 100));
+                    const giaMua =
+                        Number(
+                            detail.Loai === "GP"
+                                ? detail.GiaMuaGP
+                                : detail.Loai === "Text"
+                                    ? detail.GiaMuaText
+                                    : detail.Loai === "TextHome"
+                                        ? detail.GiaMuaTextHome
+                                        : detail.GiaMuaTextHeader,
+                        ) || 0
+                    const hoaHong = Number(detail.Loai === "GP" ? detail.HoaHongGP : detail.HoaHongText) || 0
+                    const giaCuoi = Math.round(giaMua - (giaMua * hoaHong) / 100)
 
                     // Chỉ thêm NCC nếu có ít nhất 1 đơn có TTNCC khác Giá cuối
                     if (Number(detail.TTNCC) !== Number(giaCuoi)) {
-                        tenNCCs.add(detail.TenNCC);
+                        tenNCCs.add(detail.TenNCC)
                     }
-                });
+                })
             }
-        });
-        return Array.from(tenNCCs).sort();
-    }, [orders]);
+        })
+        return Array.from(tenNCCs).sort()
+    }, [orders])
+
+    // Filter suppliers based on search term
+    const filteredSuppliers = useMemo(() => {
+        if (!searchTerm) return uniqueTenNCCs
+        return uniqueTenNCCs.filter((supplier) => supplier.toLowerCase().includes(searchTerm.toLowerCase()))
+    }, [uniqueTenNCCs, searchTerm])
 
     useEffect(() => {
         const ordersRef = ref(database, "orders")
@@ -319,7 +335,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                 let ordersArray = Array.isArray(data) ? data : Object.values(data)
 
                 // Lọc bỏ các orders có Status === 'Hủy'
-                ordersArray = ordersArray.filter((order: any) => order.Status !== 'Hủy')
+                ordersArray = ordersArray.filter((order: any) => order.Status !== "Hủy")
 
                 // Store all orders for NDD options
                 setAllOrders(ordersArray)
@@ -649,7 +665,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                 const order = instance.getSourceDataAtRow(row)
                 const chietKhau = order?.ChietKhau || 0
                 const usdt = order?.TongTien || 0
-                const tongGoc = usdt - (usdt * chietKhau / 100)
+                const tongGoc = usdt - (usdt * chietKhau) / 100
                 td.innerHTML = `
                         <div class="flex flex-col items-end">
                             <span class="text-xs font-medium text-gray-600 line-through">${tongGoc.toLocaleString("vi-VI")}</span>
@@ -738,7 +754,6 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                         console.error("Error updating KTXN:", error)
                                     }
                                 } else {
-
                                 }
                             }
                         }
@@ -925,78 +940,158 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                     background: #dbeafe !important; /* blue-100 */
                     cursor: pointer;
                 }
+                    @keyframes pulse-fade {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 1; }
+    }
+    .animate-pulse {
+        animation: pulse-fade 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes ripple-pulse {
+        0% { transform: scale(0.8); opacity: 0.7; }
+        70% { transform: scale(1.6); opacity: 0; }
+        100% { transform: scale(0.8); opacity: 0; }
+    }
+    .ripple-pulse {
+        animation: ripple-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes ripple-pulse2 {
+        0% { transform: scale(0.8); opacity: 0.3; }
+        70% { transform: scale(2.1); opacity: 0; }
+        100% { transform: scale(0.8); opacity: 0; }
+    }
+    .ripple-pulse2 {
+        animation: ripple-pulse2 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
             `}</style>
             <div className="mb-3 space-y-3">
                 {/* Compact Filter Section */}
+                <Toaster position="bottom-right" expand={true} richColors />
                 <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Filter className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm font-medium text-gray-700">Bộ lọc</span>
-                        {/* Nút Chưa index */}
-                        <button
-                            type="button"
-                            onClick={() => {
-                                // Lọc các đơn thỏa điều kiện theo NgayBan
-                                const filteredOrders = orders.filter(order => {
-                                    if (!order.ChiTietDonHang) return false;
-                                    return order.ChiTietDonHang.some((detail: any) => {
-                                        const isGP = detail.Loai === "GP";
-                                        const isIndexNo = detail.Index === "No" || detail.Index === "'";
-                                        const validTTKH = ["Đã nhập", "Đơn OK"].includes(detail.TinhTrangKH);
-                                        const validTTNCC = detail.TinhTrangNCC === "Đã lên bài";
+                    <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-2">
+                            <Filter className="h-4 w-4 text-blue-600" />
+                            <span className="text-sm font-medium text-gray-700">Bộ lọc</span>
+                        </div>
 
-                                        // Kiểm tra NgayKT cho GP và NgayBan cho các loại khác
-                                        if (filterType === "week" && selectedWeek) {
-                                            const dateToCheck = detail.Loai === "GP" ? detail.NgayKT : detail.NgayBan;
-                                            if (!dateToCheck) return false;
-                                            const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-                                            if (!dateRegex.test(dateToCheck)) return false;
-                                            if (getWeekRange(dateToCheck) !== selectedWeek) return false;
-                                        } else if (filterType === "month" && selectedMonth) {
-                                            const dateToCheck = detail.Loai === "GP" ? detail.NgayKT : detail.NgayBan;
-                                            if (!dateToCheck) return false;
-                                            const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-                                            if (!dateRegex.test(dateToCheck)) return false;
-                                            if (getMonthRange(dateToCheck) !== selectedMonth) return false;
-                                        }
-
-                                        return isGP && isIndexNo && validTTKH && validTTNCC;
-                                    });
-                                });
-                                // Gộp chi tiết đơn hàng thỏa điều kiện
-                                const allDetails = filteredOrders.flatMap((order, orderIndex) => {
-                                    const originalOrderIndex = allOrders.findIndex(o => o.MaDon === order.MaDon);
-                                    return (order.ChiTietDonHang || [])
-                                        .map((item: any, detailIndex: number) => ({ item, originalIndex: detailIndex }))
-                                        .filter(({ item }: { item: any }) => {
-                                            const isGP = item.Loai === "GP";
-                                            const isIndexNo = item.Index === "No" || item.Index === "'";
-                                            const validTTKH = ["Đã nhập", "Đơn OK"].includes(item.TinhTrangKH);
-                                            const validTTNCC = item.TinhTrangNCC === "Đã lên bài";
-                                            return isGP && isIndexNo && validTTKH && validTTNCC;
+                        {/* Action Buttons Group - Top Right */}
+                        <div className="flex items-center gap-2">
+                            {/* Nút Chưa index */}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    // Lọc các đơn thỏa điều kiện từ toàn bộ database, không phụ thuộc filter
+                                    const filteredOrders = allOrders.filter((order) => {
+                                        if (!order.ChiTietDonHang) return false
+                                        return order.ChiTietDonHang.some((detail: any) => {
+                                            const isGP = detail.Loai === "GP"
+                                            const isIndexNo = detail.Index === "No" || detail.Index === "'"
+                                            const validTTKH = ["Đã nhập", "Đơn OK"].includes(detail.TinhTrangKH)
+                                            const validTTNCC = detail.TinhTrangNCC === "Đã lên bài"
+                                            return isGP && isIndexNo && validTTKH && validTTNCC
                                         })
-                                        .map(({ item, originalIndex }: { item: any, originalIndex: number }) => ({
-                                            ...item,
-                                            _dbIndex: originalIndex,
-                                            _parentIndex: originalOrderIndex,
-                                            _orderInfo: {
-                                                MaDon: order.MaDon,
-                                                Ngay: item.NgayBan || order.Ngay,
-                                                NDD: order.NDD
-                                            }
-                                        }));
-                                });
-                                if (allDetails.length === 0) {
-                                    alert("Không có đơn GP chưa index phù hợp");
-                                    return;
-                                }
-                                setMultiOrderDetails(allDetails);
-                                setIsModalOpen(true);
-                            }}
-                            className="ml-2 px-2 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 text-xs font-semibold shadow"
-                        >
-                            Chưa index
-                        </button>
+                                    })
+                                    // Gộp chi tiết đơn hàng thỏa điều kiện
+                                    const allDetails = filteredOrders.flatMap((order) => {
+                                        const originalOrderIndex = allOrders.findIndex((o) => o.MaDon === order.MaDon)
+                                        return (order.ChiTietDonHang || [])
+                                            .map((item: any, detailIndex: number) => ({ item, originalIndex: detailIndex }))
+                                            .filter(({ item }: { item: any }) => {
+                                                const isGP = item.Loai === "GP"
+                                                const isIndexNo = item.Index === "No" || item.Index === "'"
+                                                const validTTKH = ["Đã nhập", "Đơn OK"].includes(item.TinhTrangKH)
+                                                const validTTNCC = item.TinhTrangNCC === "Đã lên bài"
+                                                return isGP && isIndexNo && validTTKH && validTTNCC
+                                            })
+                                            .map(({ item, originalIndex }: { item: any; originalIndex: number }) => ({
+                                                ...item,
+                                                _dbIndex: originalIndex,
+                                                _parentIndex: originalOrderIndex,
+                                                _orderInfo: {
+                                                    MaDon: order.MaDon,
+                                                    Ngay: item.NgayBan || order.Ngay,
+                                                    NDD: order.NDD,
+                                                },
+                                            }))
+                                    })
+                                    if (allDetails.length === 0) {
+                                        toast.error("Không có đơn GP chưa index")
+                                        return
+                                    }
+                                    setMultiOrderDetails(allDetails)
+                                    setIsModalOpen(true)
+                                }}
+                                className="group relative px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium text-sm flex items-center gap-2"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                                    />
+                                </svg>
+                                <span>Chưa index</span>
+                                {(() => {
+                                    // Check if there's data for unindexed GP orders
+                                    const hasUnindexedData = allOrders.some((order) => {
+                                        if (!order.ChiTietDonHang) return false
+                                        return order.ChiTietDonHang.some((detail: any) => {
+                                            const isGP = detail.Loai === "GP"
+                                            const isIndexNo = detail.Index === "No" || detail.Index === "'"
+                                            const validTTKH = ["Đã nhập", "Đơn OK"].includes(detail.TinhTrangKH)
+                                            const validTTNCC = detail.TinhTrangNCC === "Đã lên bài"
+                                            return isGP && isIndexNo && validTTKH && validTTNCC
+                                        })
+                                    })
+
+                                    return hasUnindexedData ? (
+                                        <span className="absolute top-1 right-1 flex items-center justify-center">
+                                            <span className="ripple-pulse absolute w-4 h-4 rounded-full bg-green-500 opacity-60"></span>
+                                            <span className="ripple-pulse2 absolute w-6 h-6 rounded-full bg-green-500 opacity-30"></span>
+                                            <span className="w-2 h-2 bg-green-500 rounded-full relative z-10"></span>
+                                        </span>
+                                    ) : (
+                                        <span className="absolute top-1 right-1 flex items-center justify-center">
+                                            <span className="w-2 h-2 bg-red-500 rounded-full relative z-10"></span>
+                                        </span>
+                                    )
+                                })()}
+                            </button>
+
+                            {/* Nút Thanh Toán NCC */}
+                            <button
+                                type="button"
+                                onClick={() => setShowFilterModal(true)}
+                                className="group relative px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg hover:from-emerald-600 hover:to-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium text-sm flex items-center gap-2"
+                                title={`Xem chi tiết thanh toán NCC trong ${filterType === "week" ? selectedWeek : selectedMonth}`}
+                            >
+                                <Wallet className="h-4 w-4" />
+                                <span>Thanh toán NCC</span>
+                                {(() => {
+                                    // Check if there's payment data available
+                                    const hasPaymentData = uniqueTenNCCs.length > 0
+
+                                    return hasPaymentData ? (
+                                        <span className="absolute top-1 right-1 flex items-center justify-center">
+                                            <span className="ripple-pulse absolute w-4 h-4 rounded-full bg-yellow-400 opacity-60"></span>
+                                            <span className="ripple-pulse2 absolute w-6 h-6 rounded-full bg-yellow-400 opacity-30"></span>
+                                            <span className="w-2 h-2 bg-yellow-400 rounded-full relative z-10"></span>
+                                        </span>
+                                    ) : (
+                                        <span className="absolute top-1 right-1 flex items-center justify-center">
+                                            <span className="w-2 h-2 bg-green-500 rounded-full relative z-10"></span>
+                                        </span>
+                                    )
+                                })()}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -1101,7 +1196,8 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                 <div className="flex items-center gap-1 px-2 py-1 bg-green-100 rounded-full">
                                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                                     <span className="text-green-700 font-medium">
-                                        Tỷ lệ LN: {summaryRow.TongTien > 0 ? ((summaryRow.LoiNhuan / summaryRow.TongTien) * 100).toFixed(1) : 0}%
+                                        Tỷ lệ LN:{" "}
+                                        {summaryRow.TongTien > 0 ? ((summaryRow.LoiNhuan / summaryRow.TongTien) * 100).toFixed(1) : 0}%
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 rounded-full">
@@ -1127,43 +1223,36 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                 <div className="flex items-center gap-2 mb-1">
                                     <ShoppingCart className="h-4 w-4" />
                                     <span className="text-xs font-medium opacity-90">CHI PHÍ NCC</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowFilterModal(true)}
-                                        style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '4px', padding: '2px', marginLeft: '4px', cursor: 'pointer' }}
-                                        title={`Xem chi tiết đơn hàng trong ${filterType === "week" ? selectedWeek : selectedMonth}`}
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                                    </button>
                                 </div>
                                 {(() => {
-                                    let totalGiaCuoi = 0;
-                                    let totalTTNCC = 0;
+                                    let totalGiaCuoi = 0
+                                    let totalTTNCC = 0
 
-                                    orders.forEach(order => {
+                                    orders.forEach((order) => {
                                         if (order.ChiTietDonHang) {
                                             order.ChiTietDonHang.forEach((detail: any) => {
                                                 // Tính tổng TTNCC
-                                                totalTTNCC += Number(detail.TTNCC) || 0;
+                                                totalTTNCC += Number(detail.TTNCC) || 0
 
                                                 // Tính tổng giá cuối
-                                                const giaMua = Number(
-                                                    detail.Loai === "GP"
-                                                        ? detail.GiaMuaGP
-                                                        : detail.Loai === "Text"
-                                                            ? detail.GiaMuaText
-                                                            : detail.Loai === "TextHome"
-                                                                ? detail.GiaMuaTextHome
-                                                                : detail.GiaMuaTextHeader
-                                                ) || 0;
-                                                const hoaHong = Number(detail.Loai === "GP" ? detail.HoaHongGP : detail.HoaHongText) || 0;
-                                                const giaCuoi = Math.round(giaMua - (giaMua * hoaHong / 100));
-                                                totalGiaCuoi += giaCuoi;
-                                            });
+                                                const giaMua =
+                                                    Number(
+                                                        detail.Loai === "GP"
+                                                            ? detail.GiaMuaGP
+                                                            : detail.Loai === "Text"
+                                                                ? detail.GiaMuaText
+                                                                : detail.Loai === "TextHome"
+                                                                    ? detail.GiaMuaTextHome
+                                                                    : detail.GiaMuaTextHeader,
+                                                    ) || 0
+                                                const hoaHong = Number(detail.Loai === "GP" ? detail.HoaHongGP : detail.HoaHongText) || 0
+                                                const giaCuoi = Math.round(giaMua - (giaMua * hoaHong) / 100)
+                                                totalGiaCuoi += giaCuoi
+                                            })
                                         }
-                                    });
+                                    })
 
-                                    const difference = totalGiaCuoi - totalTTNCC;
+                                    const difference = totalGiaCuoi - totalTTNCC
 
                                     return (
                                         <>
@@ -1180,7 +1269,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                                 </div>
                                             </div>
                                         </>
-                                    );
+                                    )
                                 })()}
                             </div>
 
@@ -1239,40 +1328,6 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                     this.getPlugin("hiddenColumns").showColumns(allIndexes)
                                 },
                             },
-                            // delete_order: {
-                            //     name: "Xóa đơn",
-                            //     callback: async function (this: any, key: string, selection: any[], clickEvent: MouseEvent) {
-                            //         // Only allow if right-clicked on a data row (not summary row)
-                            //         if (!selection || !selection.length) return;
-                            //         const row = selection[0].start.row;
-                            //         if (row === 0 && summaryRow) return; // Don't allow on summary row
-                            //         // Adjust for summary row
-                            //         const dataRow = summaryRow ? row - 1 : row;
-                            //         if (dataRow < 0 || dataRow >= orders.length) return;
-                            //         const order = orders[dataRow];
-                            //         if (!order || !order.MaDon) return;
-                            //         const dbIndex = allOrders.findIndex((o) => o.MaDon === order.MaDon);
-                            //         if (dbIndex === -1) return;
-                            //         try {
-                            //             await update(ref(database), {
-                            //                 [`orders/${dbIndex}/Status`]: "Hủy",
-                            //             });
-                            //         } catch (error) {
-                            //             alert("Lỗi khi xóa đơn: " + error);
-                            //         }
-                            //     },
-                            //     disabled: function (this: any) {
-                            //         // Lấy selection từ this
-                            //         const sel = this.getSelectedLast && this.getSelectedLast();
-                            //         if (!sel) return true;
-                            //         const row = sel[0];
-                            //         if (row === 0 && summaryRow) return true;
-                            //         // Adjust for summary row
-                            //         const dataRow = summaryRow ? row - 1 : row;
-                            //         if (dataRow < 0 || dataRow >= orders.length) return true;
-                            //         return false;
-                            //     },
-                            // },
                         },
                     }}
                     manualColumnResize={true}
@@ -1286,9 +1341,9 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                     beforeOnCellContextMenu={(event, coords) => {
                         // Chỉ chặn context menu ở header (row === -1)
                         if (coords.row === -1) {
-                            event.stopImmediatePropagation();
-                            event.preventDefault();
-                            return false;
+                            event.stopImmediatePropagation()
+                            event.preventDefault()
+                            return false
                         }
                     }}
                     cells={(row, col) => {
@@ -1297,7 +1352,11 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                 className: "summary-row",
                                 readOnly: true,
                                 renderer: (instance, td, row, col, prop, value) => {
-                                    if (["TongTien", "VND", "ThanhToan", "GiaMua", "LoiNhuan", "SoTienChietKhau", "SauCK"].includes(prop as string)) {
+                                    if (
+                                        ["TongTien", "VND", "ThanhToan", "GiaMua", "LoiNhuan", "SoTienChietKhau", "SauCK"].includes(
+                                            prop as string,
+                                        )
+                                    ) {
                                         td.style.fontWeight = "600"
                                         td.style.backgroundColor = "#fecaca"
                                         td.style.color = "#dc2626"
@@ -1324,7 +1383,11 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                         }
                         // Add styling for numeric columns in data rows
                         const prop = columns[col].data
-                        if (["TongTien", "VND", "ThanhToan", "GiaMua", "LoiNhuan", "SoTienChietKhau", "SauCK"].includes(prop as string)) {
+                        if (
+                            ["TongTien", "VND", "ThanhToan", "GiaMua", "LoiNhuan", "SoTienChietKhau", "SauCK"].includes(
+                                prop as string,
+                            )
+                        ) {
                             return {
                                 renderer: (instance, td, row, col, prop, value) => {
                                     td.style.color = "#dc2626"
@@ -1340,219 +1403,301 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                 />
             )}
 
-            {isModalOpen && ((multiOrderDetails && multiOrderDetails.length > 0) || (selectedOrder && selectedOrderDbIndex !== null)) && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]">
-                    <div className="bg-white rounded-lg w-full h-screen relative z-[1001] flex flex-col">
-                        {/* Header modal cố định */}
-                        <div className="bg-[#2563eb] text-white flex items-center justify-center py-2 rounded-t-lg relative shrink-0 z-10">
-                            <h3 className="font-semibold w-full text-center">
-                                {multiOrderDetails ? `Chi tiết đơn hàng trong ${filterType === "week" ? selectedWeek : selectedMonth}` : `Chi tiết đơn hàng: ${selectedOrder.MaDon}`}
-                            </h3>
-                            <div className="absolute top-5 right-0 -translate-y-1/2 z-[1002]">
-                                <button
-                                    onClick={() => {
-                                        handleCloseModal();
-                                        setMultiOrderDetails(null);
-                                    }}
-                                    className="w-8 h-8 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors"
-                                    aria-label="Close"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path
-                                            fillRule="evenodd"
-                                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                                            clipRule="evenodd"
-                                        />
-                                    </svg>
-                                </button>
+            {isModalOpen &&
+                ((multiOrderDetails && multiOrderDetails.length > 0) || (selectedOrder && selectedOrderDbIndex !== null)) && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]">
+                        <div className="bg-white rounded-lg w-full h-screen relative z-[1001] flex flex-col">
+                            {/* Header modal cố định */}
+                            <div className="bg-[#2563eb] text-white flex items-center justify-center py-2 rounded-t-lg relative shrink-0 z-10">
+                                <h3 className="font-semibold w-full text-center">
+                                    {multiOrderDetails
+                                        ? `Chi tiết đơn hàng trong ${filterType === "week" ? selectedWeek : selectedMonth}`
+                                        : `Chi tiết đơn hàng: ${selectedOrder.MaDon}`}
+                                </h3>
+                                <div className="absolute top-5 right-0 -translate-y-1/2 z-[1002]">
+                                    <button
+                                        onClick={() => {
+                                            handleCloseModal()
+                                            setMultiOrderDetails(null)
+                                        }}
+                                        className="w-8 h-8 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors"
+                                        aria-label="Close"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path
+                                                fillRule="evenodd"
+                                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                                clipRule="evenodd"
+                                            />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            {/* Nội dung cuộn: chỉ phần này có overflow-y-auto */}
+                            <div className="grow overflow-y-auto" style={{ maxHeight: "calc(100vh - 56px)", scrollbarWidth: "none" }}>
+                                {isLoading ? (
+                                    <div className="flex items-center justify-center h-full">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                                    </div>
+                                ) : (
+                                    <MemoizedPageBody
+                                        order={multiOrderDetails || selectedOrderDetails}
+                                        supplierName={multiOrderDetails ? null : selectedOrder?.NDD}
+                                        orderIndex={multiOrderDetails ? -1 : selectedOrderDbIndex || -1}
+                                        chietKhau={multiOrderDetails ? undefined : selectedOrder?.ChietKhau}
+                                        onOrderUpdate={() => {
+                                            setIsLoading(true)
+                                            const ordersRef = ref(database, "orders")
+                                            onValue(
+                                                ordersRef,
+                                                (snapshot) => {
+                                                    if (snapshot.exists()) {
+                                                        const data = snapshot.val()
+                                                        const ordersArray = Array.isArray(data) ? data : Object.values(data)
+
+                                                        const updatedOrders = ordersArray.map((order: any) => {
+                                                            const summary = calculateOrderSummary(order)
+                                                            return {
+                                                                ...order,
+                                                                TongTien: summary.totalTongTien,
+                                                                GiaMua: summary.totalGiaCuoi,
+                                                                LoiNhuan: summary.totalLoiNhuan,
+                                                                SauCK: summary.totalSauCK,
+                                                            }
+                                                        })
+
+                                                        setAllOrders(updatedOrders)
+                                                        if (
+                                                            !multiOrderDetails &&
+                                                            selectedOrderDbIndex !== null &&
+                                                            updatedOrders[selectedOrderDbIndex]
+                                                        ) {
+                                                            setSelectedOrder(updatedOrders[selectedOrderDbIndex])
+                                                            setSelectedOrderDetails(
+                                                                (updatedOrders[selectedOrderDbIndex]?.ChiTietDonHang || []).map(
+                                                                    (item: any, idx: number) => ({
+                                                                        ...item,
+                                                                        _dbIndex: idx,
+                                                                        _parentIndex: selectedOrderDbIndex,
+                                                                    }),
+                                                                ),
+                                                            )
+                                                        }
+                                                    }
+                                                    setIsLoading(false)
+                                                },
+                                                { onlyOnce: true },
+                                            )
+                                        }}
+                                    />
+                                )}
                             </div>
                         </div>
-                        {/* Nội dung cuộn: chỉ phần này có overflow-y-auto */}
-                        <div className="grow overflow-y-auto" style={{ maxHeight: "calc(100vh - 56px)", scrollbarWidth: "none" }}>
-                            {isLoading ? (
-                                <div className="flex items-center justify-center h-full">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                                </div>
-                            ) : (
-                                <MemoizedPageBody
-                                    order={multiOrderDetails || selectedOrderDetails}
-                                    supplierName={multiOrderDetails ? null : selectedOrder?.NDD}
-                                    orderIndex={multiOrderDetails ? -1 : (selectedOrderDbIndex || -1)}
-                                    chietKhau={multiOrderDetails ? undefined : selectedOrder?.ChietKhau}
-                                    onOrderUpdate={() => {
-                                        setIsLoading(true);
-                                        const ordersRef = ref(database, "orders");
-                                        onValue(
-                                            ordersRef,
-                                            (snapshot) => {
-                                                if (snapshot.exists()) {
-                                                    const data = snapshot.val();
-                                                    const ordersArray = Array.isArray(data) ? data : Object.values(data);
-
-                                                    const updatedOrders = ordersArray.map((order: any) => {
-                                                        const summary = calculateOrderSummary(order);
-                                                        return {
-                                                            ...order,
-                                                            TongTien: summary.totalTongTien,
-                                                            GiaMua: summary.totalGiaCuoi,
-                                                            LoiNhuan: summary.totalLoiNhuan,
-                                                            SauCK: summary.totalSauCK,
-                                                        };
-                                                    });
-
-                                                    setAllOrders(updatedOrders);
-                                                    if (!multiOrderDetails && selectedOrderDbIndex !== null && updatedOrders[selectedOrderDbIndex]) {
-                                                        setSelectedOrder(updatedOrders[selectedOrderDbIndex]);
-                                                        setSelectedOrderDetails(
-                                                            (updatedOrders[selectedOrderDbIndex]?.ChiTietDonHang || []).map(
-                                                                (item: any, idx: number) => ({
-                                                                    ...item,
-                                                                    _dbIndex: idx,
-                                                                    _parentIndex: selectedOrderDbIndex,
-                                                                })
-                                                            )
-                                                        );
-                                                    }
-                                                }
-                                                setIsLoading(false);
-                                            },
-                                            { onlyOnce: true }
-                                        );
-                                    }}
-                                />
-                            )}
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Filter Modal */}
+            {/* Enhanced Filter Modal for Supplier Payment */}
             {showFilterModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1001]">
-                    <div className="bg-white rounded-lg p-6 w-96 relative">
-                        <h3 className="text-lg font-semibold mb-4">Lọc chi tiết đơn hàng</h3>
-
-                        {/* TenNCC Select */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Tên NCC
-                            </label>
-                            <select
-                                value={selectedTenNCC}
-                                onChange={(e) => setSelectedTenNCC(e.target.value)}
-                                className="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="">Tất cả NCC</option>
-                                {uniqueTenNCCs.map((ncc) => (
-                                    <option key={ncc} value={ncc}>
-                                        {ncc}
-                                    </option>
-                                ))}
-                            </select>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[1001] p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden">
+                        {/* Header with gradient */}
+                        <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-4 text-white">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <CreditCard className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold">Thanh toán nhà cung cấp</h3>
+                                    <p className="text-emerald-100 text-sm">{filterType === "week" ? selectedWeek : selectedMonth}</p>
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Buttons */}
-                        <div className="flex justify-end gap-2">
+                        {/* Content */}
+                        <div className="p-6 space-y-6">
+                            {/* Search and Select Section */}
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <FileText className="h-4 w-4" />
+                                    <span>Chọn nhà cung cấp để xem chi tiết thanh toán</span>
+                                </div>
+
+                                {/* Supplier Selection */}
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Nhà cung cấp ({filteredSuppliers.length})
+                                    </label>
+                                    <div className="relative">
+                                        <select
+                                            value={selectedTenNCC}
+                                            onChange={(e) => setSelectedTenNCC(e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors appearance-none bg-white"
+                                        >
+                                            <option value="">-- Tất cả NCC --</option>
+                                            {filteredSuppliers.map((ncc) => (
+                                                <option key={ncc} value={ncc}>
+                                                    {ncc}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Info Card */}
+                                {uniqueTenNCCs.length > 0 && (
+                                    <div className="bg-gradient-to-r from-blue-50 to-emerald-50 border border-blue-200 rounded-lg p-4">
+                                        <div className="flex items-start gap-3">
+                                            <div className="p-1 bg-blue-100 rounded">
+                                                <CheckCircle className="h-4 w-4 text-blue-600" />
+                                            </div>
+                                            <div className="text-sm">
+                                                <p className="font-medium text-gray-800 mb-1">
+                                                    Có {uniqueTenNCCs.length} nhà cung cấp cần thanh toán
+                                                </p>
+                                                <p className="text-gray-600">
+                                                    Chỉ hiển thị các NCC có TTNCC khác với giá cuối và đáp ứng điều kiện lọc
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {uniqueTenNCCs.length === 0 && (
+                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                        <div className="flex items-start gap-3">
+                                            <div className="p-1 bg-yellow-100 rounded">
+                                                <AlertCircle className="h-4 w-4 text-yellow-600" />
+                                            </div>
+                                            <div className="text-sm">
+                                                <p className="font-medium text-gray-800 mb-1">Không có dữ liệu thanh toán</p>
+                                                <p className="text-gray-600">
+                                                    Không tìm thấy nhà cung cấp nào cần thanh toán trong khoảng thời gian này
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3">
                             <button
-                                onClick={() => setShowFilterModal(false)}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                onClick={() => {
+                                    setShowFilterModal(false)
+                                    setSearchTerm("")
+                                    setSelectedTenNCC("")
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
                             >
                                 Hủy
                             </button>
                             <button
                                 onClick={() => {
-                                    setShowFilterModal(false);
+                                    setShowFilterModal(false)
 
                                     // Gộp và lọc ChiTietDonHang theo điều kiện từ tất cả orders
                                     const allDetails = allOrders.flatMap((order, orderIndex) => {
                                         return (order.ChiTietDonHang || [])
                                             .map((item: any, detailIndex: number) => ({
                                                 item,
-                                                originalIndex: detailIndex
+                                                originalIndex: detailIndex,
                                             }))
                                             .filter(({ item }: { item: any }) => {
                                                 // Lọc theo TenNCC nếu có chọn
                                                 if (selectedTenNCC && item.TenNCC !== selectedTenNCC) {
-                                                    return false;
+                                                    return false
                                                 }
 
                                                 // Lọc theo ngày - sử dụng NgayKT cho GP, NgayBan cho các loại khác
-                                                const dateToCheck = item.Loai === "GP" ? item.NgayKT : item.NgayBan;
+                                                const dateToCheck = item.Loai === "GP" ? item.NgayKT : item.NgayBan
                                                 if (dateToCheck) {
-                                                    const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+                                                    const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
                                                     if (dateRegex.test(dateToCheck)) {
                                                         if (filterType === "week") {
                                                             if (getWeekRange(dateToCheck) !== selectedWeek) {
-                                                                return false;
+                                                                return false
                                                             }
                                                         } else {
                                                             if (getMonthRange(dateToCheck) !== selectedMonth) {
-                                                                return false;
+                                                                return false
                                                             }
                                                         }
                                                     }
                                                 }
 
                                                 // Kiểm tra điều kiện TTKH
-                                                const validTTKH = ["Đã nhập", "Đơn OK", "Hủy đơn - đã lên bài"].includes(item.TinhTrangKH);
-                                                if (!validTTKH) return false;
+                                                const validTTKH = ["Đã nhập", "Đơn OK", "Hủy đơn - đã lên bài"].includes(item.TinhTrangKH)
+                                                if (!validTTKH) return false
 
                                                 // Kiểm tra điều kiện TTNCC
-                                                const validTTNCC = ["Đã lên bài", "Từ chối hủy"].includes(item.TinhTrangNCC);
-                                                if (!validTTNCC) return false;
+                                                const validTTNCC = ["Đã lên bài", "Từ chối hủy"].includes(item.TinhTrangNCC)
+                                                if (!validTTNCC) return false
 
                                                 // Kiểm tra điều kiện Loại và Index cho GP
-                                                if (item.Loai === "GP" && item.Index === "No") return false;
+                                                if (item.Loai === "GP" && item.Index === "No") return false
 
                                                 // Tính và so sánh TTNCC với Giá cuối
-                                                const giaMua = Number(
-                                                    item.Loai === "GP"
-                                                        ? item.GiaMuaGP
-                                                        : item.Loai === "Text"
-                                                            ? item.GiaMuaText
-                                                            : item.Loai === "TextHome"
-                                                                ? item.GiaMuaTextHome
-                                                                : item.GiaMuaTextHeader
-                                                ) || 0;
-                                                const hoaHong = Number(item.Loai === "GP" ? item.HoaHongGP : item.HoaHongText) || 0;
-                                                const giaCuoi = Math.round(giaMua - (giaMua * hoaHong / 100));
+                                                const giaMua =
+                                                    Number(
+                                                        item.Loai === "GP"
+                                                            ? item.GiaMuaGP
+                                                            : item.Loai === "Text"
+                                                                ? item.GiaMuaText
+                                                                : item.Loai === "TextHome"
+                                                                    ? item.GiaMuaTextHome
+                                                                    : item.GiaMuaTextHeader,
+                                                    ) || 0
+                                                const hoaHong = Number(item.Loai === "GP" ? item.HoaHongGP : item.HoaHongText) || 0
+                                                const giaCuoi = Math.round(giaMua - (giaMua * hoaHong) / 100)
 
-                                                return Number(item.TTNCC) !== Number(giaCuoi);
+                                                return Number(item.TTNCC) !== Number(giaCuoi)
                                             })
-                                            .map(({ item, originalIndex }: { item: any, originalIndex: number }) => ({
+                                            .map(({ item, originalIndex }: { item: any; originalIndex: number }) => ({
                                                 ...item,
                                                 _dbIndex: originalIndex,
                                                 _parentIndex: orderIndex,
                                                 _orderInfo: {
                                                     MaDon: order.MaDon,
                                                     Ngay: item.Loai === "GP" ? item.NgayKT : item.NgayBan || order.Ngay,
-                                                    NDD: order.NDD
-                                                }
-                                            }));
-                                    });
+                                                    NDD: order.NDD,
+                                                },
+                                            }))
+                                    })
 
                                     if (allDetails.length === 0) {
-                                        alert(`Không có dữ liệu chi tiết đơn hàng phù hợp với điều kiện lọc`);
-                                        return;
+                                        toast.error(`Không có dữ liệu chi tiết đơn hàng phù hợp với điều kiện lọc`)
+                                        return
                                     }
 
-                                    setMultiOrderDetails(allDetails);
-                                    setIsModalOpen(true);
+                                    setMultiOrderDetails(allDetails)
+                                    setIsModalOpen(true)
+                                    setSearchTerm("")
+                                    setSelectedTenNCC("")
                                 }}
-                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                disabled={uniqueTenNCCs.length === 0}
+                                className="px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg hover:from-emerald-600 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
                             >
-                                Xem chi tiết
+                                <Wallet className="h-4 w-4" />
+                                Xem chi tiết thanh toán
                             </button>
                         </div>
 
                         {/* Close button */}
                         <button
-                            onClick={() => setShowFilterModal(false)}
-                            className="absolute top-2 right-2 text-gray-400 hover:text-gray-500"
+                            onClick={() => {
+                                setShowFilterModal(false)
+                                setSearchTerm("")
+                                setSelectedTenNCC("")
+                            }}
+                            className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
                         >
-                            <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            <X className="h-5 w-5" />
                         </button>
                     </div>
                 </div>
