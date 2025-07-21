@@ -1217,8 +1217,35 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
         if (order) {
             setOrders(order.map(o => ({ ...o })));
             setOrderKeys(order.map((_, index) => index.toString()))
+
+            // Tự động cập nhật NgayBan, NgayKT thiếu năm
+            order.forEach((o, idx) => {
+                let needUpdate = false;
+                const updates: any = {};
+                if (typeof o.NgayBan === 'string') {
+                    const match = o.NgayBan.match(/^\d{2}\/\d{2}$/);
+                    if (match) {
+                        updates.NgayBan = o.NgayBan + '/2025';
+                        needUpdate = true;
+                    }
+                }
+                if (typeof o.NgayKT === 'string') {
+                    const match = o.NgayKT.match(/^\d{2}\/\d{2}$/);
+                    if (match) {
+                        updates.NgayKT = o.NgayKT + '/2025';
+                        needUpdate = true;
+                    }
+                }
+                if (needUpdate) {
+                    // Lấy _parentIndex và _dbIndex nếu có, nếu không thì dùng idx
+                    const parentIndex = o._parentIndex ?? orderIndex;
+                    const dbIndex = o._dbIndex ?? idx;
+                    const orderRef = ref(database, `orders/${parentIndex}/ChiTietDonHang/${dbIndex}`);
+                    update(orderRef, updates);
+                }
+            });
         }
-    }, [order])
+    }, [order, orderIndex]);
 
     const checkOrderStatus = useCallback((order: any) => {
         if (!order.NgayOrder || !order.BaiViet) return order.TinhTrangNCC
