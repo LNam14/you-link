@@ -32,6 +32,22 @@ interface ChatMessage {
     supplierName?: string
 }
 
+// Add function to get ISO week number (Monday-Sunday, ISO-8601)
+function getISOWeek(date: Date): number {
+    const target = new Date(date.valueOf());
+    // Set to nearest Thursday: current date + 4 - current day number (Monday is 1, Sunday is 7)
+    const dayNr = (target.getDay() + 6) % 7;
+    target.setDate(target.getDate() - dayNr + 3);
+    // January 4th is always in week 1
+    const jan4 = new Date(target.getFullYear(), 0, 4);
+    // Set to nearest Thursday to January 4th
+    const jan4DayNr = (jan4.getDay() + 6) % 7;
+    jan4.setDate(jan4.getDate() - jan4DayNr + 3);
+    // Calculate full weeks to the target date
+    const weekNo = 1 + Math.round((target.getTime() - jan4.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    return weekNo;
+}
+
 export default function PageBody() {
     const [tableData, setTableData] = useState<any[]>([])
     const [isMerged, setIsMerged] = useState(true)
@@ -72,41 +88,24 @@ export default function PageBody() {
     }
 
     // Add function to get current week number
-    const getCurrentWeek = () => {
-        const now = new Date()
-        const firstDayOfYear = new Date(now.getFullYear(), 0, 1)
-        // Get the day of week for January 1st (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
-        const firstDayOfWeek = firstDayOfYear.getDay()
-        // Convert to Monday-based week (0 = Monday, 1 = Tuesday, ..., 6 = Sunday)
-        const mondayBasedFirstDay = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1
-        const pastDaysOfYear = (now.getTime() - firstDayOfYear.getTime()) / 86400000
-        // Calculate week number starting from Monday
-        return Math.ceil((pastDaysOfYear + mondayBasedFirstDay) / 7)
-    }
+    const getCurrentWeek = () => getISOWeek(new Date());
 
     // Add function to get week number from date
     const getWeekNumber = (dateStr: string) => {
-        if (!dateStr) return ""
+        if (!dateStr) return "";
         let date: Date;
         if (dateStr.includes("/")) {
             // DD/MM/YYYY
-            const [day, month, year] = dateStr.split("/")
-            date = new Date(Number.parseInt(year), Number.parseInt(month) - 1, Number.parseInt(day))
+            const [day, month, year] = dateStr.split("/");
+            date = new Date(Number(year), Number(month) - 1, Number(day));
         } else if (dateStr.includes("-")) {
             // YYYY-MM-DD
-            const [year, month, day] = dateStr.split("-")
-            date = new Date(Number.parseInt(year), Number.parseInt(month) - 1, Number.parseInt(day))
+            const [year, month, day] = dateStr.split("-");
+            date = new Date(Number(year), Number(month) - 1, Number(day));
         } else {
-            return ""
+            return "";
         }
-        const firstDayOfYear = new Date(date.getFullYear(), 0, 1)
-        // Get the day of week for January 1st (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
-        const firstDayOfWeek = firstDayOfYear.getDay()
-        // Convert to Monday-based week (0 = Monday, 1 = Tuesday, ..., 6 = Sunday)
-        const mondayBasedFirstDay = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1
-        const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000
-        // Calculate week number starting from Monday
-        return Math.ceil((pastDaysOfYear + mondayBasedFirstDay) / 7)
+        return getISOWeek(date);
     }
 
     // Set current week as default when component mounts

@@ -932,6 +932,55 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                     <div className="flex items-center gap-2 mb-2">
                         <Filter className="h-4 w-4 text-blue-600" />
                         <span className="text-sm font-medium text-gray-700">Bộ lọc</span>
+                        {/* Nút Chưa index */}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                // Lọc các đơn thỏa điều kiện
+                                const filteredOrders = orders.filter(order => {
+                                    if (!order.ChiTietDonHang) return false;
+                                    return order.ChiTietDonHang.some((detail: any) => {
+                                        const isGP = detail.Loai === "GP";
+                                        const isIndexNo = detail.Index === "No" || detail.Index === "'";
+                                        const validTTKH = ["Đã nhập", "Đơn OK"].includes(detail.TinhTrangKH);
+                                        const validTTNCC = detail.TinhTrangNCC === "Đã lên bài";
+                                        return isGP && isIndexNo && validTTKH && validTTNCC;
+                                    });
+                                });
+                                // Gộp chi tiết đơn hàng thỏa điều kiện
+                                const allDetails = filteredOrders.flatMap((order, orderIndex) => {
+                                    const originalOrderIndex = allOrders.findIndex(o => o.MaDon === order.MaDon);
+                                    return (order.ChiTietDonHang || [])
+                                        .map((item: any, detailIndex: number) => ({ item, originalIndex: detailIndex }))
+                                        .filter(({ item }: { item: any }) => {
+                                            const isGP = item.Loai === "GP";
+                                            const isIndexNo = item.Index === "No" || item.Index === "'";
+                                            const validTTKH = ["Đã nhập", "Đơn OK"].includes(item.TinhTrangKH);
+                                            const validTTNCC = item.TinhTrangNCC === "Đã lên bài";
+                                            return isGP && isIndexNo && validTTKH && validTTNCC;
+                                        })
+                                        .map(({ item, originalIndex }: { item: any, originalIndex: number }) => ({
+                                            ...item,
+                                            _dbIndex: originalIndex,
+                                            _parentIndex: originalOrderIndex,
+                                            _orderInfo: {
+                                                MaDon: order.MaDon,
+                                                Ngay: order.Ngay,
+                                                NDD: order.NDD
+                                            }
+                                        }));
+                                });
+                                if (allDetails.length === 0) {
+                                    alert("Không có đơn GP chưa index phù hợp");
+                                    return;
+                                }
+                                setMultiOrderDetails(allDetails);
+                                setIsModalOpen(true);
+                            }}
+                            className="ml-2 px-2 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 text-xs font-semibold shadow"
+                        >
+                            Chưa index
+                        </button>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3 text-sm">
