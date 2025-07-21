@@ -432,6 +432,16 @@ export default function PageBody() {
 
             let displayValue = value || ""
 
+            // Nếu là cột hoa hồng, ép về 0 nếu không phải số hoặc khác 0
+            if (field === "hoaHongGP" || field === "hoaHongText") {
+                const numericValue = Number.parseFloat(value)
+                if (isNaN(numericValue) || numericValue === 0) {
+                    displayValue = "0"
+                } else {
+                    displayValue = numericValue.toString()
+                }
+            }
+
             // Make summary row values red
             if (row === 0) {
                 td.style.color = "red"
