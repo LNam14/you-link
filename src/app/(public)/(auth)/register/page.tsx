@@ -139,7 +139,7 @@ export default function SignUp() {
       const messageText = `${username} đã tạo tài khoản, vui lòng liên hệ ${telegram} để tạo nhóm`
 
       // Send message via Telegram API
-      const url = `https://ylink.qctl44.workers.dev/bot${TELEGRAM_BOT_TOKEN}/sendMessage`
+      const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`
       const params = new URLSearchParams({
         chat_id: TELEGRAM_CHAT_ID,
         text: messageText,

@@ -31,7 +31,7 @@ async function getAllSheetData(gsapi: any) {
 }
 
 async function sendTelegramMessage(chatId: string, text: string) {
-    const url = `https://ylink.qctl44.workers.dev/bot${BOT_TOKEN}/sendMessage`;
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
     const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

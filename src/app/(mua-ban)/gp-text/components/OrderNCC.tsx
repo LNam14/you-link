@@ -288,7 +288,7 @@ export default function NCCPage({ supplierName }: NCCPageProps) {
                                     }}
                                     className="appearance-none bg-white border border-slate-200 rounded-lg px-4 py-2.5 pr-10 text-sm font-semibold text-slate-700 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20 transition-all cursor-pointer hover:border-slate-300"
                                 >
-                                    {(filterType === "week" ? uniqueWeeks : uniqueMonths).map((period) => (
+                                    {(filterType === "week" ? [...uniqueWeeks].reverse() : [...uniqueMonths].reverse()).map((period) => (
                                         <option key={period} value={period}>
                                             {period}
                                         </option>

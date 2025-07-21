@@ -57,7 +57,7 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
             const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
 
             try {
-                const url = `https://ylink.qctl44.workers.dev/bot${botToken}/sendMessage`
+                const url = `https://api.telegram.org/bot${botToken}/sendMessage`
                 const params = new URLSearchParams({
                     chat_id: chatId,
                     text: messageText,
