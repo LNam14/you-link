@@ -22,6 +22,7 @@
 .custom-table .ht_master .wtHolder {
     overflow-x: auto;
     overflow-y: auto;
+    scrollbar-width: none;
 }
 
 .custom-table .ht_master .wtHolder::-webkit-scrollbar {

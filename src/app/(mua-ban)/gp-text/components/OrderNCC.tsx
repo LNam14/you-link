@@ -203,6 +203,58 @@ export default function NCCPage({ supplierName }: NCCPageProps) {
         setFilteredOrders(filtered)
     }, [allDetails, filterType, selectedWeek, selectedMonth])
 
+    // Calculate total money for filtered orders
+    const totalMoney = useMemo(() => {
+        const includedOrderCodes: string[] = [];
+        const total = filteredOrders.reduce((sum, item) => {
+            // Chỉ tính các đơn hàng có TinhTrangKH là 'Đã nhập' hoặc 'Đơn OK' và TinhTrangNCC là 'Đã lên bài' hoặc 'Từ chối hủy'
+            const kh = typeof item.TinhTrangKH === "string" ? item.TinhTrangKH : ""
+            const ncc = typeof item.TinhTrangNCC === "string" ? item.TinhTrangNCC : ""
+            const validKH = kh === "Đã nhập" || kh === "Đơn OK"
+            const validNCC = ncc === "Đã lên bài" || ncc === "Từ chối hủy"
+            if (!validKH || !validNCC) return sum
+            if (item.MaDon) includedOrderCodes.push(item.MaDon)
+            // Determine price field by type
+            let price = 0
+            if (item.Loai === "GP") {
+                const giaMua = Number(item.GiaMuaGP) || 0;
+                const hoaHong = Number(item.HoaHongGP);
+                if (isNaN(hoaHong) || hoaHong === 0) {
+                    price = Math.round(giaMua);
+                } else {
+                    price = Math.round(giaMua - (giaMua * hoaHong / 100));
+                }
+            } else if (item.Loai === "Text") {
+                const giaMua = Number(item.GiaMuaText) || 0;
+                const hoaHong = Number(item.HoaHongText);
+                if (isNaN(hoaHong) || hoaHong === 0) {
+                    price = Math.round(giaMua);
+                } else {
+                    price = Math.round(giaMua - (giaMua * hoaHong / 100));
+                }
+            } else if (item.Loai === "Text Home") {
+                const giaMua = Number(item.GiaMuaTextHome) || 0;
+                const hoaHong = Number(item.HoaHongText);
+                if (isNaN(hoaHong) || hoaHong === 0) {
+                    price = Math.round(giaMua);
+                } else {
+                    price = Math.round(giaMua - (giaMua * hoaHong / 100));
+                }
+            } else if (item.Loai === "Text Header") {
+                const giaMua = Number(item.GiaMuaTextHeader) || 0;
+                const hoaHong = Number(item.HoaHongText);
+                if (isNaN(hoaHong) || hoaHong === 0) {
+                    price = Math.round(giaMua);
+                } else {
+                    price = Math.round(giaMua - (giaMua * hoaHong / 100));
+                }
+            }
+            return Math.round(sum + price)
+        }, 0)
+        console.log("Các mã đơn nằm trong phần totalMoney:", includedOrderCodes)
+        return total
+    }, [filteredOrders])
+
     return (
         <div>
             {/* Beautiful Compact Filter Section */}
@@ -306,12 +358,27 @@ export default function NCCPage({ supplierName }: NCCPageProps) {
 
                         {/* Right Section - Info and Help Button */}
                         <div className="flex items-center gap-6">
+                            {/* Total Money - Compact Blue Design */}
                             {/* Supplier Info */}
                             <div className="flex items-center gap-3">
-                                <span className="text-sm font-medium text-slate-600">NCC:</span>
-                                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                                    <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                                    <span className="text-sm font-bold text-emerald-700">{supplierName}</span>
+                                <span className="text-sm font-medium text-slate-600">Tổng tiền:</span>
+                                <div className="flex items-center gap-4">
+                                    <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg px-4 py-2.5 shadow-sm border border-blue-300 min-w-[140px]">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    strokeWidth={2}
+                                                    d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm0 0V4m0 16v-4m8-4h-4m-8 0H4"
+                                                />
+                                            </svg>
+                                            <div className="text-center">
+                                                <span className="text-lg font-bold text-white">{totalMoney.toLocaleString("vi-VN")}</span>
+                                                <span className="text-xs text-white/90 font-medium ml-1">USDT</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -344,7 +411,10 @@ export default function NCCPage({ supplierName }: NCCPageProps) {
             {/* Guide Modal */}
             {showGuideModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2000]">
-                    <div style={{ scrollbarWidth: "none" }} className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div
+                        style={{ scrollbarWidth: "none" }}
+                        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                    >
                         {/* Modal Header */}
                         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-2xl">
                             <div className="flex items-center justify-between">

@@ -141,6 +141,7 @@
 .custom-table .ht_master .wtHolder {
   overflow-x: auto;
   overflow-y: auto;
+  scrollbar-width: none;
 }
 
 /* Chat notification styling */

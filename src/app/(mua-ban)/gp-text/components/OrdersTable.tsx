@@ -69,6 +69,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
     const [selectedTenNCC, setSelectedTenNCC] = useState<string>("")
     const [showOnlyTTNCCGreaterThanGiaCuoi, setShowOnlyTTNCCGreaterThanGiaCuoi] = useState(false)
     const [searchTerm, setSearchTerm] = useState<string>("")
+    const [searchAllTerm, setSearchAllTerm] = useState<string>("")
 
     // Only get userInfo if maKH is not provided
     const userInfo = !maKH ? getUserInfo() : undefined
@@ -383,6 +384,34 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                     })
                 }
 
+                // --- BẮT ĐẦU: Lọc theo searchAllTerm ---
+                if (searchAllTerm && searchAllTerm.trim() !== "") {
+                    const keyword = searchAllTerm.trim().toLowerCase()
+                    filteredOrders = filteredOrders.filter((order: any) => {
+                        // Kiểm tra MaDon
+                        if (order.MaDon && order.MaDon.toLowerCase().includes(keyword)) return true
+                        // Kiểm tra các trường trong ChiTietDonHang
+                        if (Array.isArray(order.ChiTietDonHang)) {
+                            return order.ChiTietDonHang.some((detail: any) => {
+                                return [
+                                    detail.Site,
+                                    detail.Anchor1,
+                                    detail.Anchor2,
+                                    detail.Link1,
+                                    detail.Link2,
+                                    detail.TenNCC,
+                                    detail.BaiViet,
+                                    detail.LinkKQ,
+                                ]
+                                    .filter(Boolean)
+                                    .some((field) => String(field).toLowerCase().includes(keyword))
+                            })
+                        }
+                        return false
+                    })
+                }
+                // --- KẾT THÚC: Lọc theo searchAllTerm ---
+
                 // Recalculate summary for each order
                 const updatedOrders = filteredOrders.map((order: any) => {
                     const summary = calculateOrderSummary(order)
@@ -417,6 +446,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
         filterType,
         calculateSummaryRow,
         maKH,
+        searchAllTerm, // Thêm searchAllTerm vào dependency
     ])
 
     // Set initial period when component mounts or filter type changes
@@ -973,9 +1003,22 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                             <Filter className="h-4 w-4 text-blue-600" />
                             <span className="text-sm font-medium text-gray-700">Bộ lọc</span>
                         </div>
-
-                        {/* Action Buttons Group - Top Right */}
+                        {/* Action Buttons Group - Top Right, now includes search */}
                         <div className="flex items-center gap-2">
+                            {/* Search input with icon */}
+                            <div className="relative">
+                                <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                    <Search className="h-4 w-4 text-gray-400" />
+                                </span>
+                                <input
+                                    type="text"
+                                    value={searchAllTerm}
+                                    onChange={e => setSearchAllTerm(e.target.value)}
+                                    placeholder="Tìm kiếm..."
+                                    className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[200px] bg-white shadow-sm transition-all placeholder-gray-400"
+                                    style={{ boxShadow: '0 1px 2px 0 rgba(16,30,54,0.04)' }}
+                                />
+                            </div>
                             {/* Nút Chưa index */}
                             <button
                                 type="button"

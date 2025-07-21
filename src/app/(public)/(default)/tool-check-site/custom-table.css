@@ -23,6 +23,7 @@
 .custom-table .ht_master .wtHolder {
     overflow-x: auto;
     overflow-y: auto;
+    scrollbar-width: none;
 }
 
 /* Horizontal scrollbar styling */
