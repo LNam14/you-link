@@ -255,7 +255,7 @@ const columnSettings: Record<string, any> = {
                         const month = String(date.getMonth() + 1).padStart(2, "0")
                         td.innerHTML = `
                             <div class="flex items-center justify-center gap-1">
-                                <span style="color:#2563EB;font-weight:500;">${day}/${month} 📅</span>
+                                <span style="color:#2563EB;font-weight:500;">${day}/${month}</span>
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="#2563EB">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
@@ -272,26 +272,54 @@ const columnSettings: Record<string, any> = {
             td.style.color = ""
             td.style.padding = "4px"
             td.style.borderRadius = "4px"
-            td.style.fontWeight = "500"
-            td.style.cursor = "pointer"
-            return td
         },
-        validator: (value: any, callback: any) => {
-            if (!value) {
-                callback(true)
-                return
+    },
+    "Ngày KT": {
+        type: "date",
+        dateFormat: "DD/MM/YYYY",
+        correctFormat: true,
+        className: "htCenter",
+        renderer: (
+            instance: any,
+            td: any,
+            row: number,
+            col: number,
+            prop: any,
+            value: any
+        ) => {
+            if (value) {
+                const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
+                if (dateRegex.test(value)) {
+                    const [day, month] = value.split("/")
+                    td.innerHTML = `
+                        <div class="flex items-center justify-center gap-1">
+                            <span style="color:#2563EB;font-weight:500;">${day}/${month} 📅</span>
+                        </div>
+                    `
+                } else {
+                    const date = new Date(value)
+                    if (!isNaN(date.getTime())) {
+                        const day = String(date.getDate()).padStart(2, "0")
+                        const month = String(date.getMonth() + 1).padStart(2, "0")
+                        td.innerHTML = `
+                            <div class="flex items-center justify-center gap-1">
+                                <span style="color:#2563EB;font-weight:500;">${day}/${month}</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="#2563EB">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                        `
+                    } else {
+                        td.innerHTML = value
+                    }
+                }
             }
-            const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
-            if (dateRegex.test(value)) {
-                callback(true)
-                return
-            }
-            const date = new Date(value)
-            if (!isNaN(date.getTime())) {
-                callback(true)
-                return
-            }
-            callback(false)
+            td.classList.add("ngay-cell-custom")
+            td.style.textAlign = "center"
+            td.style.backgroundColor = ""
+            td.style.color = ""
+            td.style.padding = "4px"
+            td.style.borderRadius = "4px"
         },
     },
 }
@@ -910,9 +938,9 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                     updatedOrder.TinhTrangKH = "Hủy - chưa lên bài"
                 } else if (updatedOrder.TinhTrangNCC === "Đã lên bài") {
                     if (updatedOrder.NgayBan) {
-                        const [day, month] = updatedOrder.NgayBan.split("/")
+                        const [day, month, year] = updatedOrder.NgayBan.split("/")
                         const now = new Date()
-                        const ngayBan = new Date(now.getFullYear(), Number(month) - 1, Number(day))
+                        const ngayBan = new Date(year || now.getFullYear(), Number(month) - 1, Number(day))
                         const diffInDays = (now.getTime() - ngayBan.getTime()) / (1000 * 60 * 60 * 24)
                         if (diffInDays < 1) {
                             updatedOrder.TinhTrangKH = "Hủy - trước 12h"
@@ -939,7 +967,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
             const now = new Date()
             const day = String(now.getDate()).padStart(2, "0")
             const month = String(now.getMonth() + 1).padStart(2, "0")
-            updatedOrder.NgayBan = `${day}/${month}`
+            const year = now.getFullYear()
+            updatedOrder.NgayBan = `${day}/${month}/${year}`
         } else if (action === "ncc_accept_cancel") {
             updatedOrder.TinhTrangNCC = "Đồng ý hủy"
             const price = Number(
@@ -1443,7 +1472,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                         const now = new Date()
                         const day = String(now.getDate()).padStart(2, "0")
                         const month = String(now.getMonth() + 1).padStart(2, "0")
-                        updatedOrder.NgayKT = `${day}/${month}`
+                        const year = now.getFullYear()
+                        updatedOrder.NgayKT = `${day}/${month}/${year}`
 
                         // Handle money balance changes based on Index status
                         if (newValue === "Indexed") {
@@ -1496,7 +1526,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                             const now = new Date();
                             const day = String(now.getDate()).padStart(2, "0");
                             const month = String(now.getMonth() + 1).padStart(2, "0");
-                            updatedOrder.NgayBan = `${day}/${month}`;
+                            const year = now.getFullYear();
+                            updatedOrder.NgayBan = `${day}/${month}/${year}`;
 
                             // Only process payment if it hasn't been processed before
                             if (!updatedOrder.paymentStatus || updatedOrder.paymentStatus !== "paid") {
@@ -1741,9 +1772,9 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                 // Group by week based on NgayKT for GP orders and NgayBan for non-GP orders
                 const dateStr = order.Loai === "GP" ? order.NgayKT : order.NgayBan
                 if (dateStr) {
-                    const [day, month] = dateStr.split("/")
-                    if (day && month) {
-                        const date = new Date(2023, Number(month) - 1, Number(day))
+                    const [day, month, year] = dateStr.split("/")
+                    if (day && month && year) {
+                        const date = new Date(Number(year), Number(month) - 1, Number(day))
                         const weekNumber = getWeekNumber(date)
                         const weekKey = `Tổng`
 
@@ -2944,13 +2975,14 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                     break;
                                 case "Ngày KT":
                                     updatedOrder.NgayKT = value;
-                                    break;
+                                    break
                                 case "Index":
                                     updatedOrder.Index = value;
                                     const now = new Date();
                                     const day = String(now.getDate()).padStart(2, "0");
                                     const month = String(now.getMonth() + 1).padStart(2, "0");
-                                    updatedOrder.NgayKT = `${day}/${month}`;
+                                    const year = now.getFullYear();
+                                    updatedOrder.NgayKT = `${day}/${month}/${year}`;
 
                                     // Handle money balance changes based on Index status
                                     if (value === "Indexed") {
@@ -2996,7 +3028,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                         const now = new Date();
                                         const day = String(now.getDate()).padStart(2, "0");
                                         const month = String(now.getMonth() + 1).padStart(2, "0");
-                                        updatedOrder.NgayBan = `${day}/${month}`;
+                                        const year = now.getFullYear();
+                                        updatedOrder.NgayBan = `${day}/${month}/${year}`;
                                         if (!updatedOrder.paymentStatus || updatedOrder.paymentStatus !== "paid") {
                                             const price = Number(
                                                 updatedOrder.Loai === "GP"

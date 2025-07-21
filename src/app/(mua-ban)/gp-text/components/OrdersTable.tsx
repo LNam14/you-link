@@ -936,7 +936,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                         <button
                             type="button"
                             onClick={() => {
-                                // Lọc các đơn thỏa điều kiện
+                                // Lọc các đơn thỏa điều kiện theo NgayBan
                                 const filteredOrders = orders.filter(order => {
                                     if (!order.ChiTietDonHang) return false;
                                     return order.ChiTietDonHang.some((detail: any) => {
@@ -944,6 +944,22 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                         const isIndexNo = detail.Index === "No" || detail.Index === "'";
                                         const validTTKH = ["Đã nhập", "Đơn OK"].includes(detail.TinhTrangKH);
                                         const validTTNCC = detail.TinhTrangNCC === "Đã lên bài";
+
+                                        // Kiểm tra NgayKT cho GP và NgayBan cho các loại khác
+                                        if (filterType === "week" && selectedWeek) {
+                                            const dateToCheck = detail.Loai === "GP" ? detail.NgayKT : detail.NgayBan;
+                                            if (!dateToCheck) return false;
+                                            const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+                                            if (!dateRegex.test(dateToCheck)) return false;
+                                            if (getWeekRange(dateToCheck) !== selectedWeek) return false;
+                                        } else if (filterType === "month" && selectedMonth) {
+                                            const dateToCheck = detail.Loai === "GP" ? detail.NgayKT : detail.NgayBan;
+                                            if (!dateToCheck) return false;
+                                            const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+                                            if (!dateRegex.test(dateToCheck)) return false;
+                                            if (getMonthRange(dateToCheck) !== selectedMonth) return false;
+                                        }
+
                                         return isGP && isIndexNo && validTTKH && validTTNCC;
                                     });
                                 });
@@ -965,7 +981,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                             _parentIndex: originalOrderIndex,
                                             _orderInfo: {
                                                 MaDon: order.MaDon,
-                                                Ngay: order.Ngay,
+                                                Ngay: item.NgayBan || order.Ngay,
                                                 NDD: order.NDD
                                             }
                                         }));
@@ -1447,24 +1463,8 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                 onClick={() => {
                                     setShowFilterModal(false);
 
-                                    // Lọc orders theo tuần/tháng hiện tại
-                                    const filteredOrders = orders.filter((order) => {
-                                        if (!order.Ngay) return false;
-                                        const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-                                        if (!dateRegex.test(order.Ngay)) return false;
-
-                                        if (filterType === "week") {
-                                            return getWeekRange(order.Ngay) === selectedWeek;
-                                        } else {
-                                            return getMonthRange(order.Ngay) === selectedMonth;
-                                        }
-                                    });
-
-                                    // Gộp và lọc ChiTietDonHang theo điều kiện
-                                    const allDetails = filteredOrders.flatMap((order, orderIndex) => {
-                                        // Tìm index thực trong mảng orders gốc
-                                        const originalOrderIndex = allOrders.findIndex(o => o.MaDon === order.MaDon);
-
+                                    // Gộp và lọc ChiTietDonHang theo điều kiện từ tất cả orders
+                                    const allDetails = allOrders.flatMap((order, orderIndex) => {
                                         return (order.ChiTietDonHang || [])
                                             .map((item: any, detailIndex: number) => ({
                                                 item,
@@ -1474,6 +1474,23 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                                 // Lọc theo TenNCC nếu có chọn
                                                 if (selectedTenNCC && item.TenNCC !== selectedTenNCC) {
                                                     return false;
+                                                }
+
+                                                // Lọc theo ngày - sử dụng NgayKT cho GP, NgayBan cho các loại khác
+                                                const dateToCheck = item.Loai === "GP" ? item.NgayKT : item.NgayBan;
+                                                if (dateToCheck) {
+                                                    const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+                                                    if (dateRegex.test(dateToCheck)) {
+                                                        if (filterType === "week") {
+                                                            if (getWeekRange(dateToCheck) !== selectedWeek) {
+                                                                return false;
+                                                            }
+                                                        } else {
+                                                            if (getMonthRange(dateToCheck) !== selectedMonth) {
+                                                                return false;
+                                                            }
+                                                        }
+                                                    }
                                                 }
 
                                                 // Kiểm tra điều kiện TTKH
@@ -1505,10 +1522,10 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                             .map(({ item, originalIndex }: { item: any, originalIndex: number }) => ({
                                                 ...item,
                                                 _dbIndex: originalIndex,
-                                                _parentIndex: originalOrderIndex,
+                                                _parentIndex: orderIndex,
                                                 _orderInfo: {
                                                     MaDon: order.MaDon,
-                                                    Ngay: order.Ngay,
+                                                    Ngay: item.Loai === "GP" ? item.NgayKT : item.NgayBan || order.Ngay,
                                                     NDD: order.NDD
                                                 }
                                             }));
