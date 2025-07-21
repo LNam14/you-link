@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState, useMemo } from "react"
+import { HelpCircle, X, MousePointer, Link, MessageSquare, XCircle } from "lucide-react"
 import "handsontable/styles/handsontable.css"
 import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
@@ -16,6 +17,7 @@ export default function NCCPage({ supplierName }: NCCPageProps) {
     const [filterType, setFilterType] = useState<"week" | "month">("week")
     const [selectedWeek, setSelectedWeek] = useState<string>("")
     const [selectedMonth, setSelectedMonth] = useState<string>("")
+    const [showGuideModal, setShowGuideModal] = useState(false)
 
     // Hàm lấy số tuần từ ngày
     const getWeekNumber = (dateStr: string) => {
@@ -202,7 +204,7 @@ export default function NCCPage({ supplierName }: NCCPageProps) {
     }, [allDetails, filterType, selectedWeek, selectedMonth])
 
     return (
-        <div className="space-y-3">
+        <div>
             {/* Beautiful Compact Filter Section */}
             <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200 shadow-sm">
                 <div className="px-6 py-4">
@@ -302,7 +304,7 @@ export default function NCCPage({ supplierName }: NCCPageProps) {
                             </div>
                         </div>
 
-                        {/* Right Section - Info */}
+                        {/* Right Section - Info and Help Button */}
                         <div className="flex items-center gap-6">
                             {/* Supplier Info */}
                             <div className="flex items-center gap-3">
@@ -320,6 +322,15 @@ export default function NCCPage({ supplierName }: NCCPageProps) {
                                     <span className="text-lg font-bold">{filteredOrders.length}</span>
                                 </div>
                             </div>
+
+                            {/* Help Button */}
+                            <button
+                                onClick={() => setShowGuideModal(true)}
+                                className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-4 py-2.5 rounded-lg shadow-sm transition-all duration-200 hover:shadow-md transform hover:scale-105"
+                            >
+                                <HelpCircle className="w-4 h-4" />
+                                <span className="font-medium">Hướng dẫn</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -329,6 +340,186 @@ export default function NCCPage({ supplierName }: NCCPageProps) {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <PageBody supplierName={supplierName} order={filteredOrders} hiddenColumns={[6, 11]} />
             </div>
+
+            {/* Guide Modal */}
+            {showGuideModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2000]">
+                    <div style={{ scrollbarWidth: "none" }} className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        {/* Modal Header */}
+                        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-2xl">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+                                        <HelpCircle className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-2xl font-bold">Hướng dẫn sử dụng</h2>
+                                        <p className="text-blue-100 text-sm">Quy trình xử lý đơn hàng</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowGuideModal(false)}
+                                    className="w-8 h-8 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg flex items-center justify-center transition-all duration-200"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="p-6 space-y-6">
+                            {/* GP Orders Section */}
+                            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                                        <Link className="w-6 h-6 text-white" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="text-lg font-bold text-green-800 mb-2">Trả kết quả cho đơn GP</h3>
+                                        <p className="text-green-700 mb-3">Cập nhật kết quả cho đơn hàng GP</p>
+                                        <div className="bg-white border border-green-200 rounded-lg p-4">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-sm">
+                                                    1
+                                                </div>
+                                                <span className="text-gray-800 font-medium">Nhập đường dẫn kết quả vào cột "Link KQ"</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Text Orders Section */}
+                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                                        <MousePointer className="w-6 h-6 text-white" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="text-lg font-bold text-blue-800 mb-2">Trả kết quả cho đơn Text</h3>
+                                        <p className="text-blue-700 mb-3">Xác nhận hoàn thành đơn hàng Text</p>
+                                        <div className="bg-white border border-blue-200 rounded-lg p-4">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm">
+                                                    1
+                                                </div>
+                                                <span className="text-gray-800 font-medium">Nhấn chuột phải vào đơn hàng cần xử lý</span>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm">
+                                                    2
+                                                </div>
+                                                <span className="text-gray-800 font-medium">
+                                                    Chọn tùy chọn{" "}
+                                                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded font-semibold">"Đơn OK"</span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Cancel Orders Section */}
+                            <div className="bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-xl p-5">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                                        <XCircle className="w-6 h-6 text-white" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="text-lg font-bold text-red-800 mb-2">Hủy đơn hàng</h3>
+                                        <p className="text-red-700 mb-3">Thực hiện hủy đơn hàng khi cần thiết</p>
+                                        <div className="bg-white border border-red-200 rounded-lg p-4">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center text-red-600 font-bold text-sm">
+                                                    1
+                                                </div>
+                                                <span className="text-gray-800 font-medium">Nhấn chuột phải vào đơn hàng cần hủy</span>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center text-red-600 font-bold text-sm">
+                                                    2
+                                                </div>
+                                                <span className="text-gray-800 font-medium">
+                                                    Chọn tùy chọn{" "}
+                                                    <span className="bg-red-100 text-red-800 px-2 py-1 rounded font-semibold">"Hủy đơn"</span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Communication Section */}
+                            <div className="bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-xl p-5">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                                        <MessageSquare className="w-6 h-6 text-white" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="text-lg font-bold text-purple-800 mb-2">Trao đổi thông tin</h3>
+                                        <p className="text-purple-700 mb-3">Liên hệ và trao đổi về đơn hàng cụ thể</p>
+                                        <div className="bg-white border border-purple-200 rounded-lg p-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold text-sm">
+                                                    !
+                                                </div>
+                                                <span className="text-gray-800 font-medium">
+                                                    Sử dụng nút{" "}
+                                                    <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded font-semibold">
+                                                        "Trao đổi"
+                                                    </span>{" "}
+                                                    để gửi tin nhắn hoặc yêu cầu hỗ trợ cho từng đơn hàng
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Important Notes */}
+                            <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl p-5">
+                                <h3 className="text-lg font-bold text-amber-800 mb-3 flex items-center gap-2">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                                        />
+                                    </svg>
+                                    Lưu ý quan trọng
+                                </h3>
+                                <ul className="space-y-2 text-amber-800">
+                                    <li className="flex items-start gap-2">
+                                        <div className="w-1.5 h-1.5 bg-amber-500 rounded-full mt-2 flex-shrink-0"></div>
+                                        <span>Luôn kiểm tra kỹ thông tin trước khi xác nhận hoặc hủy đơn hàng</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <div className="w-1.5 h-1.5 bg-amber-500 rounded-full mt-2 flex-shrink-0"></div>
+                                        <span>Sử dụng chức năng trao đổi khi cần làm rõ thông tin đơn hàng</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <div className="w-1.5 h-1.5 bg-amber-500 rounded-full mt-2 flex-shrink-0"></div>
+                                        <span>Đảm bảo đường dẫn kết quả GP chính xác và có thể truy cập được</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="bg-gray-50 px-6 py-4 rounded-b-2xl">
+                            <div className="flex justify-end">
+                                <button
+                                    onClick={() => setShowGuideModal(false)}
+                                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                                >
+                                    Đã hiểu
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
