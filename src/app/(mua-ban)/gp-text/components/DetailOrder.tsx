@@ -1216,7 +1216,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
     useEffect(() => {
         if (order) {
             setOrders(order.map(o => ({ ...o })));
-            setOrderKeys(order.map((_, index) => index.toString()))
+            setOrderKeys(order.map((_: any, idx: number) => idx.toString()))
         }
     }, [order]);
 
@@ -2603,7 +2603,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
             }
             if (userInfo?.role === "NCC") {
                 message.supplierName = supplierName || userInfo?.name || userInfo?.displayName || ""
-            } else if (userInfo?.role === "Khách hàng") {
+            } else {
                 message.name = userInfo?.username || userInfo?.name || userInfo?.displayName || "Khách ẩn danh"
             }
         }
@@ -2618,38 +2618,35 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
 
                 // Handle both array and object structures
                 let ordersArray: any[] = []
+                let orderKeys: string[] = []
                 if (Array.isArray(ordersData)) {
                     ordersArray = ordersData
+                    orderKeys = ordersData.map((_: any, idx: number) => String(idx))
                 } else if (ordersData.orders && Array.isArray(ordersData.orders)) {
                     ordersArray = ordersData.orders
+                    orderKeys = ordersData.orders.map((_: any, idx: number) => String(idx))
                 } else {
                     // If it's an object with numeric keys, convert to array
                     ordersArray = Object.values(ordersData)
+                    orderKeys = Object.keys(ordersData)
                 }
 
                 // Find the order with matching MaDon
-                const orderIndex = ordersArray.findIndex((order: any) => order.MaDon === currentChatOrderId)
+                const foundIndex = ordersArray.findIndex((order: any) => order.MaDon === currentChatOrderId)
 
-                if (orderIndex !== -1) {
-                    // Create or update the chat array for this order
-                    const updatedOrder = {
-                        ...ordersArray[orderIndex],
-                        chat: [...(ordersArray[orderIndex].chat || []), message],
-                    }
-
-                    // Update the order in the array
-                    ordersArray[orderIndex] = updatedOrder
-                    // Send notification based on sender role
-                    if (userInfo?.role === "Khách hàng") {
-                        // sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `KH đơn ${currentChatOrderId} - ` + newChatMessage.trim())
-                    } else if (userInfo?.role === "NCC") {
-                        // sheetApiRequest.getIDKH(updatedOrder.TenKH, `NCC đơn ${currentChatOrderId} - ` + newChatMessage.trim())
-                    }
-                    // Save the updated orders array back to Firebase
-                    await update(ordersRef, ordersArray)
+                if (foundIndex !== -1) {
+                    const orderKey = orderKeys[foundIndex]
+                    const orderChatRef = ref(database, `orders/${orderIndex}/ChiTietDonHang/${orderKey}`)
+                    const oldChat = ordersArray[foundIndex].chat || []
+                    // Chỉ update trường chat
+                    await update(orderChatRef, { chat: [...oldChat, message] })
                     setNewChatMessage("")
-
-
+                    // Gửi notification nếu cần
+                    if (userInfo?.role === "NCC") {
+                        sheetApiRequest.getIDKH(ordersArray[foundIndex].TenKH, `NCC đơn ${currentChatOrderId} - ` + newChatMessage.trim())
+                    } else {
+                        sheetApiRequest.getIDNCC(ordersArray[foundIndex].TenNCC, `KH đơn ${currentChatOrderId} - ` + newChatMessage.trim())
+                    }
                 } else {
                     console.error("Order not found:", currentChatOrderId)
                 }
