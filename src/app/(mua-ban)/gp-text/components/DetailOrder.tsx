@@ -2906,15 +2906,16 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                     updatedOrder.BaiViet = value;
                                     if (updatedOrder.Loai === "GP") {
                                         if (updatedOrder.BaiViet) {
-                                            updatedOrder.TinhTrangKH = "Đã nhập";
+                                            updatedOrder.TinhTrangKH = "Đã nhập"
                                             // Add NgayOrder when BaiViet is entered
-                                            const now = new Date();
-                                            const day = String(now.getDate()).padStart(2, "0");
-                                            const month = String(now.getMonth() + 1).padStart(2, "0");
-                                            const year = now.getFullYear();
-                                            updatedOrder.NgayOrder = `${day}/${month}/${year}`;
+                                            const now = new Date()
+                                            const day = String(now.getDate()).padStart(2, "0")
+                                            const month = String(now.getMonth() + 1).padStart(2, "0")
+                                            const year = now.getFullYear()
+                                            updatedOrder.NgayOrder = `${day}/${month}/${year}`
+                                            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/gp-text để xử lý đơn hàng ${updatedOrder.MaDon}`)
                                         } else {
-                                            updatedOrder.TinhTrangKH = "Chưa nhập";
+                                            updatedOrder.TinhTrangKH = "Chưa nhập"
                                         }
                                     }
                                     break;
@@ -2949,6 +2950,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                     if (updatedOrder.Loai !== "GP") {
                                         if (updatedOrder.Anchor1 && updatedOrder.Link1) {
                                             updatedOrder.TinhTrangKH = "Đã nhập";
+                                            sheetApiRequest.getIDNCC(updatedOrder.TenNCC, `Vui lòng truy cập vào https://www.ylink.shop/gp-text để xử lý đơn hàng ${updatedOrder.MaDon}`)
                                         } else {
                                             updatedOrder.TinhTrangKH = "Chưa nhập";
                                         }
