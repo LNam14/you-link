@@ -1415,7 +1415,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                 const now = new Date()
                                 const day = String(now.getDate()).padStart(2, "0")
                                 const month = String(now.getMonth() + 1).padStart(2, "0")
-                                updatedOrder.NgayBan = `${day}/${month}`
+                                const year = now.getFullYear();
+                                updatedOrder.NgayBan = `${day}/${month}/${year}`;
                                 // sheetApiRequest.getIDKH(updatedOrder.TenKH, `Đơn hàng ${updatedOrder.MaDon} đã được xử lý, kiểm tra tại https://www.ylink.shop/gp-text/${updatedOrder.MaDon.split("-")[0]}`)
                             } else {
                                 updatedOrder.TinhTrangNCC = "Chưa nhận đơn"
@@ -2925,7 +2926,8 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                             const now = new Date();
                                             const day = String(now.getDate()).padStart(2, "0");
                                             const month = String(now.getMonth() + 1).padStart(2, "0");
-                                            updatedOrder.NgayBan = `${day}/${month}`;
+                                            const year = now.getFullYear();
+                                            updatedOrder.NgayBan = `${day}/${month}/${year}`;
                                         } else {
                                             updatedOrder.TinhTrangNCC = "Chưa nhận đơn";
                                             updatedOrder.NgayBan = "";

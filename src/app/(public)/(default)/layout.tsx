@@ -64,7 +64,7 @@ export default function ClientLayout({
   // Get the effective username (either customer name for admin/staff or user's username)
   const getEffectiveUsername = () => {
     if (isAdminOrStaff && customerName.trim()) {
-      return customerName.trim()
+      return customerName.trim().toUpperCase()
     }
     return user?.username || ""
   }
@@ -602,7 +602,8 @@ export default function ClientLayout({
                       type="text"
                       placeholder="Nhập tên khách hàng..."
                       value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
+                      onChange={(e) => setCustomerName(e.target.value.toUpperCase())}
+                      style={{ textTransform: "uppercase" }}
                       className={`w-full pl-10 pr-4 py-2 border ${customerNameError ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm uppercase`}
                     />
                   </div>
@@ -870,7 +871,7 @@ export default function ClientLayout({
                 <div className="mb-3 p-3 bg-green-50 rounded-lg border border-green-200">
                   <div className="flex items-center text-sm text-green-800">
                     <User className="w-4 h-4 mr-2" />
-                    <span>Khách hàng: <strong>{customerName.trim()}</strong></span>
+                    <span>Khách hàng: <strong>{customerName.trim().toUpperCase()}</strong></span>
                   </div>
                 </div>
               )}
