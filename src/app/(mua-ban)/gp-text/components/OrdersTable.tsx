@@ -1019,6 +1019,83 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                     style={{ boxShadow: '0 1px 2px 0 rgba(16,30,54,0.04)' }}
                                 />
                             </div>
+
+                            {/* Nút Đơn hủy */}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    // Lọc các đơn hủy từ toàn bộ database, không phụ thuộc filter
+                                    const filteredOrders = orders.filter((order) => {
+                                        if (!order.ChiTietDonHang) return false
+                                        return order.ChiTietDonHang.some((detail: any) => {
+                                            // TinhTrangKH bắt đầu bằng 'Hủy' hoặc TinhTrangNCC bắt đầu bằng 'Hủy'
+                                            return (
+                                                (typeof detail.TinhTrangKH === "string" && detail.TinhTrangKH.startsWith("Hủy")) ||
+                                                (typeof detail.TinhTrangNCC === "string" && detail.TinhTrangNCC.startsWith("Hủy"))
+                                            )
+                                        })
+                                    })
+                                    // Gộp chi tiết đơn hàng thỏa điều kiện
+                                    const allDetails = filteredOrders.flatMap((order) => {
+                                        const originalOrderIndex = orders.findIndex((o) => o.MaDon === order.MaDon)
+                                        return (order.ChiTietDonHang || [])
+                                            .map((item: any, detailIndex: number) => ({ item, originalIndex: detailIndex }))
+                                            .filter(({ item }: { item: any }) => {
+                                                return (
+                                                    (typeof item.TinhTrangKH === "string" && item.TinhTrangKH.startsWith("Hủy")) ||
+                                                    (typeof item.TinhTrangNCC === "string" && item.TinhTrangNCC.startsWith("Hủy"))
+                                                )
+                                            })
+                                            .map(({ item, originalIndex }: { item: any; originalIndex: number }) => ({
+                                                ...item,
+                                                _dbIndex: originalIndex,
+                                                _parentIndex: originalOrderIndex,
+                                                _orderInfo: {
+                                                    MaDon: order.MaDon,
+                                                    Ngay: item.NgayBan || order.Ngay,
+                                                    NDD: order.NDD,
+                                                },
+                                            }))
+                                    })
+                                    if (allDetails.length === 0) {
+                                        toast.error("Không có đơn hủy")
+                                        return
+                                    }
+                                    setMultiOrderDetails(allDetails)
+                                    setIsModalOpen(true)
+                                }}
+                                className="group relative px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium text-sm flex items-center gap-2"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                <span>Đơn hủy</span>
+                                {(() => {
+                                    // Check if there's data for cancelled orders
+                                    const hasCancelledData = allOrders.some((order) => {
+                                        if (!order.ChiTietDonHang) return false
+                                        return order.ChiTietDonHang.some((detail: any) => {
+                                            return (
+                                                (typeof detail.TinhTrangKH === "string" && detail.TinhTrangKH.startsWith("Hủy")) ||
+                                                (typeof detail.TinhTrangNCC === "string" && detail.TinhTrangNCC.startsWith("Hủy"))
+                                            )
+                                        })
+                                    })
+                                    return hasCancelledData ? (
+                                        <span className="absolute top-1 right-1 flex items-center justify-center">
+                                            <span className="ripple-pulse absolute w-4 h-4 rounded-full bg-red-500 opacity-60"></span>
+                                            <span className="ripple-pulse2 absolute w-6 h-6 rounded-full bg-red-500 opacity-30"></span>
+                                            <span className="w-2 h-2 bg-red-500 rounded-full relative z-10"></span>
+                                        </span>
+                                    ) : (
+                                        <span className="absolute top-1 right-1 flex items-center justify-center">
+                                            <span className="w-2 h-2 bg-gray-300 rounded-full relative z-10"></span>
+                                        </span>
+                                    )
+                                })()}
+                            </button>
+
+
                             {/* Nút Chưa index */}
                             <button
                                 type="button"

@@ -1157,6 +1157,10 @@ export default function PageBody() {
     }
 
     const isEditable = (col: number, row: number) => {
+        // Allow Admin to edit TinhTrangKH (19) and TinhTrangNCC (20)
+        if (userInfo?.role === "Admin") {
+            if (col === 19 || col === 20) return true;
+        }
         // First check role-based permissions
         if (userInfo?.role === "NCC") {
             const tinhTrangKH = tableData[row]?.[19]
@@ -1289,29 +1293,12 @@ export default function PageBody() {
             return style;
         }
 
-        // LinkKQ column (col 10) - Check for duplicates
-        if (col === 10) {
-            const currentLinkKQ = tableData[row]?.[10];
-            if (currentLinkKQ && currentLinkKQ.trim() !== "") {
-                // Count how many times this LinkKQ appears
-                const duplicateCount = tableData.filter(row =>
-                    row[10] && row[10].trim() !== "" && row[10] === currentLinkKQ
-                ).length;
-
-                // If there are duplicates, apply a background color
-                if (duplicateCount > 1) {
-                    style.backgroundColor = "#FFE4E1"; // Light pink color for duplicates
-                }
-            }
-        }
-
         // Status columns (19, 20) have their own colors
         if (col === 19 || col === 20) {
             const status = tableData[row]?.[col];
             const colors = getStatusColor(status);
             style.backgroundColor = colors.bg;
             style.color = colors.text;
-            style.isReadOnly = true;
             return style;
         }
 

@@ -212,10 +212,10 @@ export default function NCCPage({ supplierName }: NCCPageProps) {
             const ncc = typeof item.TinhTrangNCC === "string" ? item.TinhTrangNCC : ""
             const index = typeof item.Index === "string" ? item.Index : ""
             const validKH = kh === "Đã nhập" || kh === "Đơn OK"
-            const validNCC = ncc === "Đã lên bài" || ncc === "Từ chối hủy"
+            const validNCC = ncc === "Đã lên bài"
             const validIndex = index === "Indexed"
 
-            if (!validKH && !validNCC) return sum
+            if (!validKH || !validNCC) return sum
             if (item.Loai === "GP" && !validIndex) return sum // Bỏ qua đơn GP chưa index
             if (item.MaDon) includedOrderCodes.push(item.MaDon)
             // Determine price field by type
