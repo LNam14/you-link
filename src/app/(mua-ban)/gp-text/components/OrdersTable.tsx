@@ -1883,7 +1883,20 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                     const allDetails = allOrders.flatMap((order, orderIndex) => {
                                         return (order.ChiTietDonHang || [])
                                             .map((item: any, detailIndex: any) => ({ item, originalIndex: detailIndex }))
-                                            .filter(({ item }: { item: any }) => selectedNccForView && item.TenNCC === selectedNccForView)
+                                            .filter(({ item }: { item: any }) => {
+                                                if (!(selectedNccForView && item.TenNCC === selectedNccForView)) return false;
+
+
+                                                // Kiểm tra điều kiện TTKH
+                                                const validTTKH = ["Đã nhập", "Đơn OK", "Hủy đơn - đã lên bài"].includes(item.TinhTrangKH);
+                                                if (!validTTKH) return false;
+                                                // Kiểm tra điều kiện TTNCC
+                                                const validTTNCC = ["Đã lên bài", "Từ chối hủy"].includes(item.TinhTrangNCC);
+                                                if (!validTTNCC) return false;
+                                                // Kiểm tra điều kiện Loại và Index cho GP
+                                                if (item.Loai === "GP" && item.Index === "No") return false;
+                                                return true;
+                                            })
                                             .map(({ item, originalIndex }: { item: any; originalIndex: any }) => ({
                                                 ...item,
                                                 _dbIndex: originalIndex,

@@ -772,21 +772,32 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
     const [mergeMode, setMergeMode] = useState<boolean>(supplierName ? false : true) // Thay đổi mặc định thành true
     // --- FILTER TUẦN KHI XEM THEO NCC ---
     const [selectedWeeks, setSelectedWeeks] = useState<string[]>([])
+    // Function to get week number from date string (DD/MM/YYYY)
+    const getWeekNumber = (dateStr: string) => {
+        const [day, month, year] = dateStr.split("/").map(Number)
+        const date = new Date(year, month - 1, day)
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+        const dayNum = d.getUTCDay() || 7
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+        return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+    }
+
+    // Function to get week range string
+    const getWeekRange = (dateStr: string) => {
+        const weekNumber = getWeekNumber(dateStr)
+        return `Tuần ${weekNumber}`
+    }
+
     // Lấy danh sách tuần duy nhất từ orders (dùng NgayBan hoặc NgayKT)
     const uniqueWeeks = useMemo(() => {
         const weeks = new Set<string>()
         orders.forEach((item: any) => {
             const dateStr = item.Loai === "GP" ? item.NgayKT : item.NgayBan
             if (dateStr) {
-                const [day, month, year] = dateStr.split("/").map(Number)
-                if (day && month && year) {
-                    const d = new Date(year, month - 1, day)
-                    // Lấy số tuần ISO
-                    const dayNum = d.getUTCDay() || 7
-                    d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-                    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-                    const weekNumber = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
-                    weeks.add(`Tuần ${weekNumber}`)
+                const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
+                if (dateRegex.test(dateStr)) {
+                    weeks.add(getWeekRange(dateStr))
                 }
             }
         })
@@ -799,7 +810,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
 
     // Khi orders hoặc uniqueWeeks thay đổi, mặc định chọn tuần hiện tại nếu có
     useEffect(() => {
-        if (uniqueWeeks.length > 0) {
+        if (showSelectDate && uniqueWeeks.length > 0) {
             // Tính tuần hiện tại
             const today = new Date();
             const dayNum = today.getUTCDay() || 7;
@@ -814,7 +825,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                 setSelectedWeeks([uniqueWeeks[0]]);
             }
         }
-    }, [supplierName, uniqueWeeks]);
+    }, [showSelectDate, uniqueWeeks]);
 
     // Lọc orders theo tuần nếu đang xem theo NCC
     const filteredOrdersByWeek = useMemo(() => {
@@ -822,14 +833,9 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
         return orders.filter((item: any) => {
             const dateStr = item.Loai === "GP" ? item.NgayKT : item.NgayBan;
             if (!dateStr) return false;
-            const [day, month, year] = dateStr.split("/").map(Number);
-            if (!day || !month || !year) return false;
-            const d = new Date(year, month - 1, day);
-            const dayNum = d.getUTCDay() || 7;
-            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-            const weekNumber = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-            const weekLabel = `Tuần ${weekNumber}`;
+            const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
+            if (!dateRegex.test(dateStr)) return false;
+            const weekLabel = getWeekRange(dateStr);
             return selectedWeeks.includes(weekLabel);
         });
     }, [orders, selectedWeeks]);
@@ -1716,13 +1722,11 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                 nonIndexedOrders.totalTTNCC += Number(ttncc) || 0
             } else if (order.NgayKT) {
                 // Group by week based on NgayKT
-                // Format: DD/MM
-                const [day, month] = order.NgayKT.split("/")
-                if (day && month) {
-                    const date = new Date(2023, Number(month) - 1, Number(day))
-                    const weekNumber = getWeekNumber(date)
-                    const weekKey = `Tổng`
-
+                // Format: DD/MM/YYYY
+                const dateStr = order.NgayKT;
+                const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+                if (dateRegex.test(dateStr)) {
+                    const weekKey = `Tổng`;
                     if (!weeklyOrders[weekKey]) {
                         weeklyOrders[weekKey] = {
                             count: 0,
@@ -1734,7 +1738,6 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                             totalTTNCC: 0,
                         }
                     }
-
                     weeklyOrders[weekKey].count++
                     weeklyOrders[weekKey].totalGiaBan += Number(giaBan) || 0
                     weeklyOrders[weekKey].totalGiaMua += Number(giaMua) || 0
@@ -1758,13 +1761,6 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
             weeklyOrders: weeklyOrdersArray,
         }
     }, [])
-
-    // Helper function to get week number
-    const getWeekNumber = (date: Date) => {
-        const firstDayOfYear = new Date(date.getFullYear(), 0, 1)
-        const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000
-        return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)
-    }
 
     const data = useMemo(() => {
         // Calculate summary data
@@ -1839,16 +1835,12 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                 // Group by week based on NgayKT for GP orders and NgayBan for non-GP orders
                 const dateStr = order.Loai === "GP" ? order.NgayKT : order.NgayBan
                 if (dateStr) {
-                    const [day, month, year] = dateStr.split("/")
-                    if (day && month && year) {
-                        const date = new Date(Number(year), Number(month) - 1, Number(day))
-                        const weekNumber = getWeekNumber(date)
-                        const weekKey = `Tổng`
-
+                    const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+                    if (dateRegex.test(dateStr)) {
+                        const weekKey = `Tổng`;
                         if (!weeklyOrders[weekKey]) {
                             weeklyOrders[weekKey] = []
                         }
-
                         weeklyOrders[weekKey].push(order)
                     }
                 }
