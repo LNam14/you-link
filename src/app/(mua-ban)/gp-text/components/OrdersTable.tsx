@@ -72,6 +72,8 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
     const [searchTerm, setSearchTerm] = useState<string>("")
     const [searchAllTerm, setSearchAllTerm] = useState<string>("")
     const [selectedWeeks, setSelectedWeeks] = useState<string[]>([])
+    const [showNccModal, setShowNccModal] = useState(false)
+    const [selectedNccForView, setSelectedNccForView] = useState<string>("")
 
     // Only get userInfo if maKH is not provided
     const userInfo = !maKH ? getUserInfo() : undefined
@@ -1175,7 +1177,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                             </button>
 
                             {/* Nút Thanh Toán NCC */}
-                            <button
+                            {/* <button
                                 type="button"
                                 onClick={() => setShowFilterModal(true)}
                                 className="group relative px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg hover:from-emerald-600 hover:to-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium text-sm flex items-center gap-2"
@@ -1199,6 +1201,21 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                         </span>
                                     )
                                 })()}
+                            </button> */}
+
+                            {/* Nút Xem đơn theo NCC */}
+                            <button
+                                type="button"
+                                onClick={() => setShowNccModal(true)}
+                                className="group relative px-4 py-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg hover:from-yellow-600 hover:to-yellow-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium text-sm flex items-center gap-2"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 01-8 0M12 3v4m0 0a4 4 0 01-4 4H4m8-4a4 4 0 014 4h4" />
+                                </svg>
+                                <span>Xem đơn theo NCC</span>
+                                <span className="absolute top-1 right-1 flex items-center justify-center">
+                                    <span className="w-2 h-2 bg-yellow-400 rounded-full relative z-10"></span>
+                                </span>
                             </button>
                         </div>
                     </div>
@@ -1522,8 +1539,8 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                             <div className="bg-[#2563eb] text-white flex items-center justify-center py-2 rounded-t-lg relative shrink-0 z-10">
                                 <h3 className="font-semibold w-full text-center">
                                     {multiOrderDetails
-                                        ? `Chi tiết đơn hàng trong ${filterType === "week" ? selectedWeek : selectedMonth}`
-                                        : `Chi tiết đơn hàng: ${selectedOrder.MaDon}`}
+                                        ? `Chi tiết đơn hàng ${filterType === "week" ? selectedWeek : selectedMonth}`
+                                        : `Chi tiết đơn hàng ${selectedOrder.MaDon}`}
                                 </h3>
                                 <div className="absolute top-5 right-0 -translate-y-1/2 z-[1002]">
                                     <button
@@ -1600,6 +1617,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                                 { onlyOnce: true },
                                             )
                                         }}
+                                        showSelectDate={true}
                                     />
                                 )}
                             </div>
@@ -1794,6 +1812,111 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                 setSelectedTenNCC("")
                             }}
                             className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal xem đơn theo NCC */}
+            {showNccModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[1001] p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 px-6 py-4 text-white">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <Users className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold">Xem đơn theo nhà cung cấp</h3>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Content */}
+                        <div className="p-6 space-y-6">
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <FileText className="h-4 w-4" />
+                                    <span>Chọn nhà cung cấp để xem tất cả đơn</span>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Nhà cung cấp ({uniqueTenNCCs.length})
+                                    </label>
+                                    <div className="relative">
+                                        <select
+                                            value={selectedNccForView}
+                                            onChange={e => setSelectedNccForView(e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors appearance-none bg-white"
+                                        >
+                                            <option value="">-- Chọn nhà cung cấp --</option>
+                                            {uniqueTenNCCs.map((ncc) => (
+                                                <option key={ncc} value={ncc}>{ncc}</option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Footer */}
+                        <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowNccModal(false)
+                                    setSelectedNccForView("")
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowNccModal(false)
+                                    // Lọc chi tiết đơn hàng theo NCC
+                                    const allDetails = allOrders.flatMap((order, orderIndex) => {
+                                        return (order.ChiTietDonHang || [])
+                                            .map((item: any, detailIndex: any) => ({ item, originalIndex: detailIndex }))
+                                            .filter(({ item }: { item: any }) => selectedNccForView && item.TenNCC === selectedNccForView)
+                                            .map(({ item, originalIndex }: { item: any; originalIndex: any }) => ({
+                                                ...item,
+                                                _dbIndex: originalIndex,
+                                                _parentIndex: orderIndex,
+                                                _orderInfo: {
+                                                    MaDon: order.MaDon,
+                                                    Ngay: item.NgayBan || order.Ngay,
+                                                    NDD: order.NDD,
+                                                },
+                                            }))
+                                    })
+                                    if (allDetails.length === 0) {
+                                        toast.error(`Không có đơn nào cho nhà cung cấp này`)
+                                        return
+                                    }
+                                    setMultiOrderDetails(allDetails)
+                                    setIsModalOpen(true)
+                                    setSelectedNccForView("")
+                                }}
+                                disabled={!selectedNccForView}
+                                className="px-6 py-2 text-sm font-medium text-white bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg hover:from-yellow-600 hover:to-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
+                            >
+                                <Users className="h-4 w-4" />
+                                Xem đơn NCC
+                            </button>
+                        </div>
+                        {/* Close button */}
+                        <button
+                            onClick={() => {
+                                setShowNccModal(false)
+                                setSelectedNccForView("")
+                            }}
+                            className="absolute top-4 right-4 text-yellow-500 hover:text-yellow-700 transition-colors"
                         >
                             <X className="h-5 w-5" />
                         </button>

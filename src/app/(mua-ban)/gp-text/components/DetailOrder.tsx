@@ -14,6 +14,7 @@ import { Modal, Button, message as antdMessage } from "antd"
 import { toast } from "sonner"
 import { Merge, Split } from "lucide-react"
 import sheetApiRequest from "@/apiRequests/sheet"
+import { Select } from "antd"
 
 type PageBodyProps = {
     supplierName: string | null,
@@ -22,6 +23,7 @@ type PageBodyProps = {
     order?: any[], // Add order prop
     hiddenColumns?: number[], // Thêm prop để ẩn cột
     chietKhau?: number, // Thêm prop chiết khấu
+    showSelectDate?: boolean, // New prop to control date selection UI
 }
 // register Handsontable's modules
 registerAllModules()
@@ -753,7 +755,7 @@ const ChatDialog = memo(
 
 ChatDialog.displayName = "ChatDialog"
 
-export default function PageBody({ supplierName, orderIndex, onOrderUpdate, order, hiddenColumns, chietKhau }: PageBodyProps) {
+export default function PageBody({ supplierName, orderIndex, onOrderUpdate, order, hiddenColumns, chietKhau, showSelectDate }: PageBodyProps) {
     const [orders, setOrders] = useState<any[]>([])
     const [orderKeys, setOrderKeys] = useState<string[]>([])
     // Lấy userInfo, nhưng nếu là khách hàng thì để null
@@ -768,6 +770,69 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
     const [uniqueMaKHList, setUniqueMaKHList] = useState<string[]>([])
     const [uniqueTenNCCList, setUniqueTenNCCList] = useState<string[]>([])
     const [mergeMode, setMergeMode] = useState<boolean>(supplierName ? false : true) // Thay đổi mặc định thành true
+    // --- FILTER TUẦN KHI XEM THEO NCC ---
+    const [selectedWeeks, setSelectedWeeks] = useState<string[]>([])
+    // Lấy danh sách tuần duy nhất từ orders (dùng NgayBan hoặc NgayKT)
+    const uniqueWeeks = useMemo(() => {
+        const weeks = new Set<string>()
+        orders.forEach((item: any) => {
+            const dateStr = item.Loai === "GP" ? item.NgayKT : item.NgayBan
+            if (dateStr) {
+                const [day, month, year] = dateStr.split("/").map(Number)
+                if (day && month && year) {
+                    const d = new Date(year, month - 1, day)
+                    // Lấy số tuần ISO
+                    const dayNum = d.getUTCDay() || 7
+                    d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+                    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+                    const weekNumber = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+                    weeks.add(`Tuần ${weekNumber}`)
+                }
+            }
+        })
+        return Array.from(weeks).sort((a, b) => {
+            const weekA = Number(a.match(/Tuần (\d+)/)?.[1] || "0")
+            const weekB = Number(b.match(/Tuần (\d+)/)?.[1] || "0")
+            return weekB - weekA
+        })
+    }, [orders])
+
+    // Khi orders hoặc uniqueWeeks thay đổi, mặc định chọn tuần hiện tại nếu có
+    useEffect(() => {
+        if (uniqueWeeks.length > 0) {
+            // Tính tuần hiện tại
+            const today = new Date();
+            const dayNum = today.getUTCDay() || 7;
+            today.setUTCDate(today.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
+            const weekNumber = Math.ceil(((today.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+            const currentWeekLabel = `Tuần ${weekNumber}`;
+            // Nếu tuần hiện tại có trong uniqueWeeks thì chọn, không thì chọn tuần đầu tiên
+            if (uniqueWeeks.includes(currentWeekLabel)) {
+                setSelectedWeeks([currentWeekLabel]);
+            } else {
+                setSelectedWeeks([uniqueWeeks[0]]);
+            }
+        }
+    }, [supplierName, uniqueWeeks]);
+
+    // Lọc orders theo tuần nếu đang xem theo NCC
+    const filteredOrdersByWeek = useMemo(() => {
+        if (selectedWeeks.length === 0) return orders;
+        return orders.filter((item: any) => {
+            const dateStr = item.Loai === "GP" ? item.NgayKT : item.NgayBan;
+            if (!dateStr) return false;
+            const [day, month, year] = dateStr.split("/").map(Number);
+            if (!day || !month || !year) return false;
+            const d = new Date(year, month - 1, day);
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            const weekNumber = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+            const weekLabel = `Tuần ${weekNumber}`;
+            return selectedWeeks.includes(weekLabel);
+        });
+    }, [orders, selectedWeeks]);
 
     const updateOrderSummary = useCallback(async () => {
         if (orderIndex === undefined) return
@@ -879,6 +944,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
 
     // Filter orders based on filters
     const filteredOrders = useMemo(() => {
+        if (selectedWeeks.length > 0) return filteredOrdersByWeek;
         if (!maKHFilter && !tenNCCFilter || (userInfo?.role !== "Admin" && userInfo?.role !== "Nhân viên")) {
             return orders;
         }
@@ -888,7 +954,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
             const matchesTenNCC = !tenNCCFilter || order.TenNCC === tenNCCFilter;
             return matchesMaKH && matchesTenNCC;
         });
-    }, [orders, maKHFilter, tenNCCFilter, userInfo?.role]);
+    }, [orders, filteredOrdersByWeek, selectedWeeks, maKHFilter, tenNCCFilter, userInfo?.role]);
 
     const handleContextMenuAction = async (row: number, action: string) => {
         // Skip if this is a summary row
@@ -2603,7 +2669,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                 ngayChat: ngayChat,
             }
             if (userInfo?.role === "NCC") {
-                message.supplierName = supplierName || userInfo?.name || userInfo?.displayName || ""
+                message.supplierName = supplierName || userInfo?.name || userInfo?.displayName || ''
             } else {
                 message.name = userInfo?.username || userInfo?.name || userInfo?.displayName || "Khách ẩn danh"
             }
@@ -2752,7 +2818,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
         <>
             {/* Floating toggle button for merge mode */}
             {userInfo?.role !== "NCC" && (
-                <div className="fixed top-1 left-1 z-50">
+                <div className="fixed top-1 left-1 z-50 flex items-center gap-2 mb-10">
                     <button
                         onClick={() => setMergeMode(!mergeMode)}
                         className={`px-3 py-2 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2 text-white font-medium ${mergeMode
@@ -2770,6 +2836,20 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                             <Merge size={16} />
                         )}
                     </button>
+                    {/* Filter tuần khi xem theo NCC */}
+                    {showSelectDate && (
+                        <div className="flex items-center gap-2">
+                            <Select
+                                mode="multiple"
+                                allowClear
+                                value={selectedWeeks}
+                                onChange={setSelectedWeeks}
+                                style={{ minWidth: 180 }}
+                                placeholder="Chọn tuần"
+                                options={uniqueWeeks.map((period) => ({ value: period, label: period }))}
+                            />
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -2962,7 +3042,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                         if (updatedOrder.Anchor2 && updatedOrder.Link2) {
                                             updatedOrder.TinhTrangKH = "Đã nhập";
                                         } else {
-                                            updatedOrder.TinhTrangKH = "Chưa nhập";
+                                            updatedOrder.TinhTrangKH = "Chưa nhập"
                                         }
                                     }
                                     break;
@@ -2972,7 +3052,7 @@ export default function PageBody({ supplierName, orderIndex, onOrderUpdate, orde
                                         if (updatedOrder.Anchor2 && updatedOrder.Link2) {
                                             updatedOrder.TinhTrangKH = "Đã nhập";
                                         } else {
-                                            updatedOrder.TinhTrangKH = "Chưa nhập";
+                                            updatedOrder.TinhTrangKH = "Chưa nhập"
                                         }
                                     }
                                     break;
