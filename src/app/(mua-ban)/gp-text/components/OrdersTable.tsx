@@ -300,24 +300,8 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                     // Kiểm tra điều kiện Loại và Index cho GP
                     if (detail.Loai === "GP" && detail.Index === "No") return
 
-                    // Tính giá cuối
-                    const giaMua =
-                        Number(
-                            detail.Loai === "GP"
-                                ? detail.GiaMuaGP
-                                : detail.Loai === "Text"
-                                    ? detail.GiaMuaText
-                                    : detail.Loai === "TextHome"
-                                        ? detail.GiaMuaTextHome
-                                        : detail.GiaMuaTextHeader,
-                        ) || 0
-                    const hoaHong = Number(detail.Loai === "GP" ? detail.HoaHongGP : detail.HoaHongText) || 0
-                    const giaCuoi = Math.round(giaMua - (giaMua * hoaHong) / 100)
-
-                    // Chỉ thêm NCC nếu có ít nhất 1 đơn có TTNCC khác Giá cuối
-                    if (Number(detail.TTNCC) !== Number(giaCuoi)) {
-                        tenNCCs.add(detail.TenNCC)
-                    }
+                    // Luôn thêm NCC nếu qua các điều kiện trên
+                    tenNCCs.add(detail.TenNCC)
                 })
             }
         })
@@ -1769,21 +1753,8 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                                 // Kiểm tra điều kiện Loại và Index cho GP
                                                 if (item.Loai === "GP" && item.Index === "No") return false
 
-                                                // Tính và so sánh TTNCC với Giá cuối
-                                                const giaMua =
-                                                    Number(
-                                                        item.Loai === "GP"
-                                                            ? item.GiaMuaGP
-                                                            : item.Loai === "Text"
-                                                                ? item.GiaMuaText
-                                                                : item.Loai === "TextHome"
-                                                                    ? item.GiaMuaTextHome
-                                                                    : item.GiaMuaTextHeader,
-                                                    ) || 0
-                                                const hoaHong = Number(item.Loai === "GP" ? item.HoaHongGP : item.HoaHongText) || 0
-                                                const giaCuoi = Math.round(giaMua - (giaMua * hoaHong) / 100)
 
-                                                return Number(item.TTNCC) !== Number(giaCuoi)
+                                                return true
                                             })
                                             .map(({ item, originalIndex }: { item: any; originalIndex: number }) => ({
                                                 ...item,
