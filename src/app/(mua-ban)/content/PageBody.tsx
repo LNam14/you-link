@@ -351,8 +351,8 @@ export default function PageBody() {
             "",
             "",
             "",
+            "Tổng", // Move label to Deadline (index 11)
             "",
-            "Tổng",
             summary.totalGiaBan.toFixed(2),
             summary.totalGiaMua.toFixed(2),
             summary.totalLN.toFixed(2),
@@ -376,8 +376,8 @@ export default function PageBody() {
             "",
             "",
             "",
+            "Chưa nhập", // Move label to Deadline (index 11)
             "",
-            "Chưa nhập",
             summary.pendingGiaBan.toFixed(2),
             summary.pendingGiaMua.toFixed(2),
             summary.pendingLN.toFixed(2),
@@ -401,8 +401,8 @@ export default function PageBody() {
             "",
             "",
             "",
+            "Đơn hủy", // Move label to Deadline (index 11)
             "",
-            "Đơn hủy",
             summary.cancelledGiaBan.toFixed(2),
             summary.cancelledGiaMua.toFixed(2),
             summary.cancelledLN.toFixed(2),
@@ -534,12 +534,12 @@ export default function PageBody() {
                     "",
                     "",
                     "",
+                    "Tổng", // Move label to Deadline (index 11)
                     "",
-                    "Tổng",
-                    summary.totalGiaBan,
-                    summary.totalGiaMua,
-                    summary.totalLN,
-                    summary.totalTTNCC,
+                    summary.totalGiaBan.toFixed(2),
+                    summary.totalGiaMua.toFixed(2),
+                    summary.totalLN.toFixed(2),
+                    summary.totalTTNCC.toFixed(2),
                     "",
                     "",
                     "",
@@ -559,12 +559,12 @@ export default function PageBody() {
                     "",
                     "",
                     "",
+                    "Đơn hủy", // Move label to Deadline (index 11)
                     "",
-                    "Đơn hủy",
-                    summary.cancelledGiaBan,
-                    summary.cancelledGiaMua,
-                    summary.cancelledLN,
-                    summary.cancelledTTNCC,
+                    summary.cancelledGiaBan.toFixed(2),
+                    summary.cancelledGiaMua.toFixed(2),
+                    summary.cancelledLN.toFixed(2),
+                    summary.cancelledTTNCC.toFixed(2),
                     "",
                     "",
                     "",
@@ -584,12 +584,12 @@ export default function PageBody() {
                     "",
                     "",
                     "",
+                    "Chưa nhập", // Move label to Deadline (index 11)
                     "",
-                    "Chưa nhập",
-                    summary.pendingGiaBan,
-                    summary.pendingGiaMua,
-                    summary.pendingLN,
-                    summary.pendingTTNCC,
+                    summary.pendingGiaBan.toFixed(2),
+                    summary.pendingGiaMua.toFixed(2),
+                    summary.pendingLN.toFixed(2),
+                    summary.pendingTTNCC.toFixed(2),
                     "",
                     "",
                     "",
@@ -621,17 +621,17 @@ export default function PageBody() {
                 // If isMerged is true, merge the data
                 if (isMerged) {
                     // Get the cancelled orders section
-                    const cancelledSection = filteredData.filter(row => row[12] === "Đơn hủy" ||
+                    const cancelledSection = filteredData.filter(row => row[11] === "Đơn hủy" ||
                         (row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn")));
 
                     // Get the total row
-                    const totalRow = filteredData.find(row => row[12] === "Tổng");
+                    const totalRow = filteredData.find(row => row[11] === "Tổng");
 
                     // Get all non-cancelled orders
                     const nonCancelledOrders = filteredData.filter(row =>
-                        row[12] !== "Tổng" &&
-                        row[12] !== "Đơn hủy" &&
-                        row[12] !== "Chưa nhập" &&
+                        row[11] !== "Tổng" &&
+                        row[11] !== "Đơn hủy" &&
+                        row[11] !== "Chưa nhập" &&
                         !(row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"))
                     );
 
@@ -1142,7 +1142,7 @@ export default function PageBody() {
     const getHiddenColumns = () => {
         if (userInfo?.role === "NCC") {
             return {
-                columns: [13, 15], // Giá Bán (13), LN (14)
+                columns: [1, 12, 13, 15, 16, 17, 18], // Giá Bán (13), LN (14)
                 indicators: true,
             }
         } else if (userInfo?.role === "Khách hàng") {
@@ -1152,6 +1152,7 @@ export default function PageBody() {
             }
         }
         return {
+            columns: [1, 12, 15, 16, 17],
             indicators: true,
         }
     }
@@ -1328,7 +1329,7 @@ export default function PageBody() {
         // Check if this is a summary row
         const isSummaryRow =
             row < tableData.length &&
-            (tableData[row][12] === "Tổng" || tableData[row][12] === "Đơn hủy" || tableData[row][12] === "Chưa nhập")
+            (tableData[row][11] === "Tổng" || tableData[row][11] === "Đơn hủy" || tableData[row][11] === "Chưa nhập")
 
         if (isSummaryRow) {
             cellProperties.renderer = function (
@@ -1463,17 +1464,17 @@ export default function PageBody() {
         setIsMerged(!isMerged)
         if (!isMerged) {
             // Get the cancelled orders section
-            const cancelledSection = tableData.filter(row => row[12] === "Đơn hủy" ||
+            const cancelledSection = tableData.filter(row => row[11] === "Đơn hủy" ||
                 (row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn")));
 
             // Get the total row
-            const totalRow = tableData.find(row => row[12] === "Tổng");
+            const totalRow = tableData.find(row => row[11] === "Tổng");
 
             // Get all non-cancelled orders
             const nonCancelledOrders = tableData.filter(row =>
-                row[12] !== "Tổng" &&
-                row[12] !== "Đơn hủy" &&
-                row[12] !== "Chưa nhập" &&
+                row[11] !== "Tổng" &&
+                row[11] !== "Đơn hủy" &&
+                row[11] !== "Chưa nhập" &&
                 !(row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"))
             );
 
@@ -1587,18 +1588,18 @@ export default function PageBody() {
                         "",
                         "",
                         "",
+                        "Tổng", // Move label to Deadline (index 11)
                         "",
-                        "Tổng",
-                        summary.totalGiaBan,
-                        summary.totalGiaMua,
-                        summary.totalLN,
-                        summary.totalTTNCC,
-                        "",
-                        "",
+                        summary.totalGiaBan.toFixed(2),
+                        summary.totalGiaMua.toFixed(2),
+                        summary.totalLN.toFixed(2),
+                        summary.totalTTNCC.toFixed(2),
                         "",
                         "",
                         "",
-                    ];
+                        "",
+                        "",
+                    ]
 
                     const cancelledRow = [
                         "",
@@ -1612,18 +1613,18 @@ export default function PageBody() {
                         "",
                         "",
                         "",
+                        "Đơn hủy", // Move label to Deadline (index 11)
                         "",
-                        "Đơn hủy",
-                        summary.cancelledGiaBan,
-                        summary.cancelledGiaMua,
-                        summary.cancelledLN,
-                        summary.cancelledTTNCC,
-                        "",
-                        "",
+                        summary.cancelledGiaBan.toFixed(2),
+                        summary.cancelledGiaMua.toFixed(2),
+                        summary.cancelledLN.toFixed(2),
+                        summary.cancelledTTNCC.toFixed(2),
                         "",
                         "",
                         "",
-                    ];
+                        "",
+                        "",
+                    ]
 
                     const pendingRow = [
                         "",
@@ -1637,18 +1638,18 @@ export default function PageBody() {
                         "",
                         "",
                         "",
+                        "Chưa nhập", // Move label to Deadline (index 11)
                         "",
-                        "Chưa nhập",
-                        summary.pendingGiaBan,
-                        summary.pendingGiaMua,
-                        summary.pendingLN,
-                        summary.pendingTTNCC,
-                        "",
-                        "",
+                        summary.pendingGiaBan.toFixed(2),
+                        summary.pendingGiaMua.toFixed(2),
+                        summary.pendingLN.toFixed(2),
+                        summary.pendingTTNCC.toFixed(2),
                         "",
                         "",
                         "",
-                    ];
+                        "",
+                        "",
+                    ]
 
                     // Combine all data with summary rows
                     const finalData = [
@@ -1870,14 +1871,14 @@ export default function PageBody() {
                             {isMerged ? "Tách dữ liệu" : "Gộp dữ liệu"}
                         </button>
 
-                        {userInfo?.role === "NCC" && (
+                        {/* {userInfo?.role === "NCC" && (
                             <button
                                 onClick={handleWithdrawRequest}
                                 className="px-4 py-2 rounded-md text-sm font-medium bg-green-500 hover:bg-green-600 text-white transition-colors"
                             >
                                 Y/C Thanh toán
                             </button>
-                        )}
+                        )} */}
                         <div className="ml-auto">
                             <button
                                 onClick={() => setIsFullscreen(!isFullscreen)}

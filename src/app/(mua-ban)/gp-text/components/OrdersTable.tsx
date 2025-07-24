@@ -28,6 +28,7 @@ import {
     Wallet,
 } from "lucide-react"
 import { toast, Toaster } from "sonner"
+import { Select } from "antd"
 
 registerAllModules()
 
@@ -70,6 +71,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
     const [showOnlyTTNCCGreaterThanGiaCuoi, setShowOnlyTTNCCGreaterThanGiaCuoi] = useState(false)
     const [searchTerm, setSearchTerm] = useState<string>("")
     const [searchAllTerm, setSearchAllTerm] = useState<string>("")
+    const [selectedWeeks, setSelectedWeeks] = useState<string[]>([])
 
     // Only get userInfo if maKH is not provided
     const userInfo = !maKH ? getUserInfo() : undefined
@@ -361,11 +363,14 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                 }
 
                 // Apply period filter if selected
-                if (filterType === "week" && selectedWeek) {
+                if (filterType === "week" && selectedWeeks.length > 0) {
                     filteredOrders = filteredOrders.filter((order: any) => {
                         if (!order.Ngay) return false
                         const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
-                        return dateRegex.test(order.Ngay) && getWeekRange(order.Ngay) === selectedWeek
+                        return (
+                            dateRegex.test(order.Ngay) &&
+                            selectedWeeks.includes(getWeekRange(order.Ngay))
+                        )
                     })
                 } else if (filterType === "month" && selectedMonth) {
                     filteredOrders = filteredOrders.filter((order: any) => {
@@ -440,7 +445,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
         calculateOrderSummary,
         // Only include userInfo deps if maKH is not present
         ...(maKH ? [] : [userInfo?.role, userInfo?.username, selectedNDD]),
-        selectedWeek,
+        selectedWeeks,
         selectedMonth,
         selectedCustomer,
         filterType,
@@ -453,11 +458,11 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
     useEffect(() => {
         const currentPeriod = getCurrentPeriod()
         if (filterType === "week") {
-            setSelectedWeek(currentPeriod)
+            setSelectedWeeks([currentPeriod])
             setSelectedMonth("")
         } else {
             setSelectedMonth(currentPeriod)
-            setSelectedWeek("")
+            setSelectedWeeks([])
         }
     }, [filterType])
 
@@ -1262,23 +1267,25 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                         {/* Period Selection */}
                         <div className="flex items-center gap-2">
                             <Clock className="h-3 w-3 text-purple-500" />
-                            <select
-                                value={filterType === "week" ? selectedWeek : selectedMonth}
-                                onChange={(e) => {
-                                    if (filterType === "week") {
-                                        setSelectedWeek(e.target.value)
-                                    } else {
-                                        setSelectedMonth(e.target.value)
-                                    }
-                                }}
-                                className="text-xs border-gray-300 rounded px-2 py-1 focus:border-blue-500 focus:ring-blue-500"
-                            >
-                                {(filterType === "week" ? uniqueWeeks : uniqueMonths).map((period) => (
-                                    <option key={period} value={period}>
-                                        {period}
-                                    </option>
-                                ))}
-                            </select>
+                            {filterType === "week" ? (
+                                <Select
+                                    mode="multiple"
+                                    allowClear
+                                    value={selectedWeeks}
+                                    onChange={setSelectedWeeks}
+                                    style={{ minWidth: 180 }}
+                                    placeholder="Chọn tuần"
+                                    options={uniqueWeeks.map((period) => ({ value: period, label: period }))}
+                                />
+                            ) : (
+                                <Select
+                                    value={selectedMonth}
+                                    onChange={setSelectedMonth}
+                                    style={{ minWidth: 140 }}
+                                    placeholder="Chọn tháng"
+                                    options={uniqueMonths.map((period) => ({ value: period, label: period }))}
+                                />
+                            )}
                         </div>
 
                         {/* Customer Filter */}
@@ -1740,7 +1747,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                                                     const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/
                                                     if (dateRegex.test(dateToCheck)) {
                                                         if (filterType === "week") {
-                                                            if (getWeekRange(dateToCheck) !== selectedWeek) {
+                                                            if (!selectedWeeks.includes(getWeekRange(dateToCheck))) {
                                                                 return false
                                                             }
                                                         } else {
