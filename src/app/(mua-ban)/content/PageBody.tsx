@@ -1163,16 +1163,6 @@ export default function PageBody() {
         }
         // First check role-based permissions
         if (userInfo?.role === "NCC") {
-            const tinhTrangKH = tableData[row]?.[19]
-            const tinhTrangNCC = tableData[row]?.[20]
-
-            // Check if the order is in a completed state
-            const isCompletedOrder =
-                (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
-                (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
-            if (isCompletedOrder) {
-                return null
-            }
             return col === 10 // Only LinkKQ is editable for NCC
         } else if (userInfo?.role === "Khách hàng") {
             const tinhTrangKH = tableData[row]?.[19]
@@ -1299,6 +1289,7 @@ export default function PageBody() {
             const colors = getStatusColor(status);
             style.backgroundColor = colors.bg;
             style.color = colors.text;
+            style.isReadOnly = true;
             return style;
         }
 
