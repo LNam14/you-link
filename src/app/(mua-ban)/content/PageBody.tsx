@@ -803,16 +803,17 @@ export default function PageBody() {
                 }
 
                 // Kiểm tra và cập nhật TinhTrangKH khi thay đổi các trường liên quan
-                if (["Anchor1", "Anchor2"].includes(fieldName)) {
+                if (["Anchor1", "Anchor2", "URL1", "URL2"].includes(fieldName)) {
                     const currentData = tableData[row]
                     const currentStatus = currentData[19] // Get current TinhTrangKH
                     console.log(currentStatus)
 
                     // Chỉ cập nhật TinhTrangKH nếu chưa ở trạng thái hủy
                     const hasAnchor1 = currentData[6] && currentData[6].trim() !== ""
+                    const hasUrl1 = currentData[7] && currentData[7].trim() !== ""
                     const hasAnchor2 = currentData[8] && currentData[8].trim() !== ""
-
-                    if (hasAnchor1 || hasAnchor2) {
+                    const hasUrl2 = currentData[9] && currentData[9].trim() !== ""
+                    if (hasAnchor1 || hasAnchor2 || hasUrl1 || hasUrl2) {
                         if (currentStatus === "Chưa nhập") {
                             updates[`${orderId}/TinhTrangKH`] = "Đã nhập"
                             const MaNCC = tableData[row][18]
@@ -969,9 +970,10 @@ export default function PageBody() {
 
                 // Kiểm tra và cập nhật Tình trạng sau khi dán
                 const hasAnchor1 = updates[orderId].Anchor1 && updates[orderId].Anchor1.trim() !== ""
+                const hasUrl1 = updates[orderId].URL1 && updates[orderId].URL1.trim() !== ""
                 const hasAnchor2 = updates[orderId].Anchor2 && updates[orderId].Anchor2.trim() !== ""
-
-                if (hasAnchor1 || hasAnchor2) {
+                const hasUrl2 = updates[orderId].URL2 && updates[orderId].URL2.trim() !== ""
+                if (hasAnchor1 || hasAnchor2 || hasUrl1 || hasUrl2) {
                     if (updates[orderId].TinhTrangKH === "Chưa nhập") {
                         updates[orderId].TinhTrangKH = "Đã nhập"
                         const MaNCC = updates[orderId].MaNCC
