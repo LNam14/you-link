@@ -100,7 +100,7 @@ export default function NCCPage({ supplierName }: NCCPageProps) {
         let filtered = allDetails.filter((item: any) => {
             const kh = typeof item.TinhTrangKH === "string" ? item.TinhTrangKH : ""
             const ncc = typeof item.TinhTrangNCC === "string" ? item.TinhTrangNCC : ""
-            return !kh.startsWith("Hủy") && !ncc.startsWith("Hủy") && kh !== "" && kh !== "Chưa nhập"
+            return kh !== "" && kh !== "Chưa nhập"
         })
 
         if (filterType === "week" && selectedWeek) {
@@ -146,7 +146,7 @@ export default function NCCPage({ supplierName }: NCCPageProps) {
                     .filter((item: any) => {
                         const kh = typeof item.TinhTrangKH === "string" ? item.TinhTrangKH : ""
                         const ncc = typeof item.TinhTrangNCC === "string" ? item.TinhTrangNCC : ""
-                        return !kh.startsWith("Hủy đơn") && !ncc.startsWith("Hủy đơn") && kh !== "" && kh !== "Chưa nhập"
+                        return kh !== "" && kh !== "Chưa nhập"
                     })
                 const ids = new Set(filtered.map((i: any) => i._dbIndex + "-" + i._parentIndex))
                 filtered = [...filtered, ...invalids.filter((i: any) => !ids.has(i._dbIndex + "-" + i._parentIndex))]
@@ -194,7 +194,7 @@ export default function NCCPage({ supplierName }: NCCPageProps) {
                     .filter((item: any) => {
                         const kh = typeof item.TinhTrangKH === "string" ? item.TinhTrangKH : ""
                         const ncc = typeof item.TinhTrangNCC === "string" ? item.TinhTrangNCC : ""
-                        return !kh.startsWith("Hủy đơn") && !ncc.startsWith("Hủy đơn") && kh !== "" && kh !== "Chưa nhập"
+                        return kh !== "" && kh !== "Chưa nhập"
                     })
                 const ids = new Set(filtered.map((i: any) => i._dbIndex + "-" + i._parentIndex))
                 filtered = [...filtered, ...invalids.filter((i: any) => !ids.has(i._dbIndex + "-" + i._parentIndex))]
