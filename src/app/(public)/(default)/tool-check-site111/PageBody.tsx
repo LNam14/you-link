@@ -672,7 +672,7 @@ export default function PageBody() {
         if (currency === "VND" && price) {
             const priceValue = Number.parseFloat(price.toString().replace(",", ".")) // Convert to number
             if (!isNaN(priceValue)) {
-                const vndPrice = priceValue * 26
+                const vndPrice = priceValue * 27
                 return vndPrice.toFixed(0) // No decimal places
             }
         }

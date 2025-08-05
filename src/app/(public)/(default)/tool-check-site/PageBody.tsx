@@ -336,7 +336,7 @@ export default function PageBody() {
                         const value = newItem[sellPriceField as keyof SiteData]?.toString() || ""
                         const numericValue = Number.parseFloat(value)
                         if (!isNaN(numericValue)) {
-                            newItem[sellPriceField as keyof SiteData] = (numericValue * 26).toString()
+                            newItem[sellPriceField as keyof SiteData] = (numericValue * 27).toString()
                         }
                     }
                     return newItem
@@ -376,7 +376,7 @@ export default function PageBody() {
     const convertPrice = (price: string): string => {
         if (selectedCurrency === "VND") {
             const numericPrice = Number.parseFloat(price || "0") || 0
-            return (numericPrice * 26).toString()
+            return (numericPrice * 27).toString()
         }
         return price
     }
