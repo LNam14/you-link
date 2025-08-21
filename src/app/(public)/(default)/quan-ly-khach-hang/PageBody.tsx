@@ -11,7 +11,7 @@ import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
 import Handsontable from "handsontable"
 import { toast, Toaster } from "sonner"
-import { RefreshCw, Search, Plus, X, Expand, Minimize } from 'lucide-react'
+import { RefreshCw, Search, Plus, X } from 'lucide-react'
 import { debounce } from "lodash"
 import getUserInfo from "@/components/userInfo"
 import { database } from "@/lib/firebase"
@@ -223,7 +223,6 @@ export default function AccountTracker() {
     const hotTableRef = useRef<any>(null)
     const [isPasting, setIsPasting] = useState(false)
     const pasteTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-    const [isFullScreen, setIsFullScreen] = useState(false)
 
     // Batch update system
     const [pendingUpdates, setPendingUpdates] = useState<PendingUpdate[]>([])
@@ -370,24 +369,6 @@ export default function AccountTracker() {
                 clearTimeout(pasteTimeoutRef.current)
             }
         }
-    }, [])
-
-    // Toggle full screen function
-    const toggleFullScreen = () => {
-        setIsFullScreen(!isFullScreen)
-    }
-
-    // Keyboard shortcut for full screen
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'F11') {
-                event.preventDefault()
-                toggleFullScreen()
-            }
-        }
-
-        document.addEventListener('keydown', handleKeyDown)
-        return () => document.removeEventListener('keydown', handleKeyDown)
     }, [])
 
     // Batch update helper functions
@@ -1895,7 +1876,7 @@ export default function AccountTracker() {
         <div className="min-h-screen py-6 px-4 relative">
             <Toaster position="top-right" expand={true} richColors />
             <AddRowsModal />
-            <div className={`w-full ${isFullScreen ? 'w-full' : 'max-w-7xl'} mx-auto relative z-0 transition-all duration-300`}>
+            <div className="w-full max-w-7xl mx-auto relative z-0">
                 {/* Header */}
                 <div className="bg-white rounded-t-xl shadow-xl overflow-hidden border border-blue-100">
                     <div className="p-4 border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900">
@@ -1981,20 +1962,6 @@ export default function AccountTracker() {
                                 >
                                     <Plus className="h-4 w-4" />
                                     Thêm dòng
-                                </button>
-
-                                {/* Full Screen Toggle Button */}
-                                <button
-                                    onClick={toggleFullScreen}
-                                    className="flex items-center gap-2 px-4 py-1 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 shadow-md font-medium whitespace-nowrap"
-                                    title={`${isFullScreen ? "Thu nhỏ màn hình" : "Mở rộng màn hình"} (F11)`}
-                                >
-                                    {isFullScreen ? (
-                                        <Minimize className="h-4 w-4" />
-                                    ) : (
-                                        <Expand className="h-4 w-4" />
-                                    )}
-                                    {isFullScreen ? "Thu nhỏ" : "Mở rộng"}
                                 </button>
 
                                 {/* Batch Update Status */}
