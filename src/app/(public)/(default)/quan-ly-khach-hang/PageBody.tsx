@@ -1415,7 +1415,12 @@ export default function AccountTracker() {
         }
 
         return (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div
+                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                onKeyDown={(e) => { e.stopPropagation() }}
+                onKeyUp={(e) => { e.stopPropagation() }}
+                onKeyPress={(e) => { e.stopPropagation() }}
+            >
                 <div className="bg-white rounded-lg p-6 w-96 relative">
                     <button
                         onClick={() => setShowAddModal(false)}
@@ -1429,24 +1434,57 @@ export default function AccountTracker() {
                             <label htmlFor="rows" className="block text-sm font-medium text-gray-700 mb-1">
                                 Số lượng dòng cần thêm
                             </label>
-                            <input
-                                type="number"
-                                id="rows"
-                                value={numberOfRows}
-                                onChange={(e) => setNumberOfRows(e.target.value)}
-                                onKeyDown={(e) => { e.stopPropagation() }}
-                                onKeyUp={(e) => { e.stopPropagation() }}
-                                onKeyPress={(e) => { e.stopPropagation() }}
-                                onFocus={(e) => { e.stopPropagation() }}
-                                onClick={(e) => { e.stopPropagation() }}
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                step="1"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Nhập số dòng"
-                                min="1"
-                                required
-                            />
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    id="rows"
+                                    value={numberOfRows}
+                                    onChange={(e) => setNumberOfRows(e.target.value.replace(/[^0-9]/g, ''))}
+                                    onKeyDown={(e) => { e.stopPropagation() }}
+                                    onKeyUp={(e) => { e.stopPropagation() }}
+                                    onKeyPress={(e) => { e.stopPropagation() }}
+                                    onFocus={(e) => { e.stopPropagation() }}
+                                    onClick={(e) => { e.stopPropagation() }}
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    autoFocus
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Nhập số dòng"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setNumberOfRows(prev => {
+                                        const current = Number.parseInt(prev || '0') || 0
+                                        return String(Math.max(1, current - 1))
+                                    })}
+                                    className="px-3 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                                >
+                                    -1
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setNumberOfRows(prev => {
+                                        const current = Number.parseInt(prev || '0') || 0
+                                        return String(Math.max(1, current + 1))
+                                    })}
+                                    className="px-3 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                                >
+                                    +1
+                                </button>
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                                {['5', '10', '20', '50', '100'].map((n) => (
+                                    <button
+                                        key={n}
+                                        type="button"
+                                        onClick={() => setNumberOfRows(n)}
+                                        className="px-2 py-1 bg-blue-50 text-blue-700 rounded hover:bg-blue-100"
+                                    >
+                                        {n}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                         <div className="flex justify-end gap-2">
                             <button
@@ -1751,73 +1789,75 @@ export default function AccountTracker() {
                 </div>
 
                 {/* Table */}
-                <div className="bg-white rounded-b-xl shadow-xl overflow-hidden">
-                    <HotTable
-                        ref={hotTableRef}
-                        themeName="ht-theme-main"
-                        colHeaders={RowHeader2}
-                        data={tableDataWithTotal}
-                        width="100%"
-                        autoColumnSize={true}
-                        manualColumnResize={true}
-                        height="calc(100vh - 320px)"
-                        stretchH="all"
-                        manualRowMove={true}
-                        manualColumnMove={true}
-                        manualRowResize={true}
-                        className="custom-table"
-                        licenseKey="non-commercial-and-evaluation"
-                        rowHeaders={false}
-                        cells={function (this: Handsontable.CellProperties, row, col, prop) {
-                            // Hàng tổng (row === 0)
-                            if (row === 0) {
-                                return {
-                                    readOnly: true,
-                                    className: 'htMiddle htCenter bg-blue-100 font-bold',
-                                    renderer: (instance, td, row, col, prop, value, cellProperties) => {
-                                        if (prop === 'congNo') {
-                                            td.textContent = sumCongNo.toString();
-                                            td.style.background = '#FFDEDE';
-                                            td.style.fontWeight = 'bold';
-                                            td.style.color = 'red';
-                                        } else if (prop === 'tinDung') {
-                                            td.textContent = sumTinDung.toString();
-                                            td.style.background = '#FFDEDE';
-                                            td.style.fontWeight = 'bold';
-                                            td.style.color = 'red';
-                                        } else if (col === 17) {
-                                            td.textContent = 'TỔNG';
-                                            td.style.background = '#FFDEDE';
-                                            td.style.fontWeight = 'bold';
-                                            td.style.color = 'red';
-                                        } else {
-                                            td.textContent = '';
-                                            td.style.background = '#FFDEDE';
+                <div className="bg-white rounded-b-xl shadow-xl">
+                    <div className="overflow-x-auto">
+                        <HotTable
+                            ref={hotTableRef}
+                            themeName="ht-theme-main"
+                            colHeaders={RowHeader2}
+                            data={tableDataWithTotal}
+                            width="100%"
+                            autoColumnSize={false}
+                            manualColumnResize={true}
+                            height="calc(100vh - 320px)"
+                            stretchH="none"
+                            manualRowMove={true}
+                            manualColumnMove={true}
+                            manualRowResize={true}
+                            className="custom-table"
+                            licenseKey="non-commercial-and-evaluation"
+                            rowHeaders={false}
+                            cells={function (this: Handsontable.CellProperties, row, col, prop) {
+                                // Hàng tổng (row === 0)
+                                if (row === 0) {
+                                    return {
+                                        readOnly: true,
+                                        className: 'htMiddle htCenter bg-blue-100 font-bold',
+                                        renderer: (instance, td, row, col, prop, value, cellProperties) => {
+                                            if (prop === 'congNo') {
+                                                td.textContent = sumCongNo.toString();
+                                                td.style.background = '#FFDEDE';
+                                                td.style.fontWeight = 'bold';
+                                                td.style.color = 'red';
+                                            } else if (prop === 'tinDung') {
+                                                td.textContent = sumTinDung.toString();
+                                                td.style.background = '#FFDEDE';
+                                                td.style.fontWeight = 'bold';
+                                                td.style.color = 'red';
+                                            } else if (col === 17) {
+                                                td.textContent = 'TỔNG';
+                                                td.style.background = '#FFDEDE';
+                                                td.style.fontWeight = 'bold';
+                                                td.style.color = 'red';
+                                            } else {
+                                                td.textContent = '';
+                                                td.style.background = '#FFDEDE';
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            // ... giữ nguyên cells cũ cho các hàng khác ...
-                            return cells.call(this, row - 1, col, prop);
-                        }}
-                        dropdownMenu={false}
-                        columnSorting={true}
-                        columnHeaderHeight={30}
-                        afterChange={handleAfterChange}
-                        afterPaste={handleAfterPaste}
-                        contextMenu={contextMenuItems}
-                        columns={columns}
-                        hiddenColumns={{
-                            columns: hiddenColumns,
-                            indicators: true
-                        }}
-                        hiddenRows={{
-                            rows: hiddenRows,
-                            indicators: true
-                        }}
-                        fixedColumnsLeft={1}
-                        fixedRowsTop={1}
-                    />
+                                // ... giữ nguyên cells cũ cho các hàng khác ...
+                                return cells.call(this, row - 1, col, prop);
+                            }}
+                            dropdownMenu={false}
+                            columnSorting={true}
+                            columnHeaderHeight={30}
+                            afterChange={handleAfterChange}
+                            afterPaste={handleAfterPaste}
+                            contextMenu={contextMenuItems}
+                            columns={columns}
+                            hiddenColumns={{
+                                columns: hiddenColumns,
+                                indicators: true
+                            }}
+                            hiddenRows={{
+                                rows: hiddenRows,
+                                indicators: true
+                            }}
+                            fixedColumnsLeft={1}
+                            fixedRowsTop={1}
+                        />
+                    </div>
                 </div>
             </div>
         </div>
