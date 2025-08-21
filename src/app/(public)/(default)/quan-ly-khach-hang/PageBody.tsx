@@ -1388,6 +1388,8 @@ export default function AccountTracker() {
         try {
             // Set flag để ngăn handleAfterChange chạy
             setIsPasting(true)
+            // Hiển thị overlay loading trong suốt quá trình lưu
+            setIsLoading(true)
 
             // Clear timeout cũ nếu có
             if (pasteTimeoutRef.current) {
@@ -1511,6 +1513,8 @@ export default function AccountTracker() {
             pasteTimeoutRef.current = setTimeout(() => {
                 setIsPasting(false)
             }, 500)
+            // Tắt overlay loading khi đã hoàn tất
+            setIsLoading(false)
         }
     }
 
