@@ -27,6 +27,7 @@ import {
   ExternalLink,
   Inbox,
   Wallet2,
+  UserPlus,
 } from "lucide-react"
 import DepositModal from "@/app/(public)/(default)/components/DepositModal"
 import WithdrawModal from "@/app/(public)/(default)/components/WithdrawModal"
@@ -290,21 +291,31 @@ export default function Header() {
   const adminSpecificTools = [
     {
       name: "Quản Lý Tài Khoản",
-      icon: <Users className="w-5 h-5" />,
+      icon: <UserPlus className="w-5 h-5" />,
       href: "/quan-ly-tai-khoan",
-      color: "bg-gradient-to-r from-violet-500 to-purple-600",
+      color: "bg-gradient-to-r from-pink-500 to-purple-600",
+      description: "Quản lý người dùng và phân quyền",
     },
     {
       name: "Quản Lý Nạp Rút",
       icon: <Inbox className="w-5 h-5" />,
       href: "/quan-ly-nap-rut",
-      color: "bg-gradient-to-r from-emerald-500 to-green-600",
+      color: "bg-gradient-to-r from-yellow-500 to-green-600",
+      description: "Quản lý nạp tiền và rút tiền",
     },
     {
       name: "Quản Lý Số Dư",
       icon: <Wallet2 className="w-5 h-5" />,
       href: "/quan-ly-so-du",
-      color: "bg-gradient-to-r from-red-500 to-blue-600"
+      color: "bg-gradient-to-r from-red-500 to-blue-600",
+      description: "Quản lý số dư của người dùng",
+    },
+    {
+      name: "Quản Lý Khách Hàng",
+      icon: <Users className="w-5 h-5" />,
+      href: "/quan-ly-khach-hang",
+      color: "bg-gradient-to-r from-purple-500 to-orange-600",
+      description: "Quản lý khách hàng",
     }
   ]
 

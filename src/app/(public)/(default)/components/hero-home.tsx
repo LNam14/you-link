@@ -27,6 +27,7 @@ import {
   Shield,
   Inbox,
   Wallet2,
+  UserPlus,
 } from "lucide-react"
 import { Wallet } from "lucide-react"
 import DepositModal from "@/app/(public)/(default)/components/DepositModal"
@@ -282,16 +283,16 @@ export default function HeroHome() {
   const adminSpecificTools = [
     {
       name: "Quản Lý Tài Khoản",
-      icon: <Users className="w-5 h-5" />,
+      icon: <UserPlus className="w-5 h-5" />,
       href: "/quan-ly-tai-khoan",
-      color: "bg-gradient-to-r from-violet-500 to-purple-600",
+      color: "bg-gradient-to-r from-pink-500 to-purple-600",
       description: "Quản lý người dùng và phân quyền",
     },
     {
       name: "Quản Lý Nạp Rút",
       icon: <Inbox className="w-5 h-5" />,
       href: "/quan-ly-nap-rut",
-      color: "bg-gradient-to-r from-emerald-500 to-green-600",
+      color: "bg-gradient-to-r from-yellow-500 to-green-600",
       description: "Quản lý nạp tiền và rút tiền",
     },
     {
@@ -300,7 +301,15 @@ export default function HeroHome() {
       href: "/quan-ly-so-du",
       color: "bg-gradient-to-r from-red-500 to-blue-600",
       description: "Quản lý số dư của người dùng",
-    }
+    },
+    {
+      name: "Quản Lý Khách Hàng",
+      icon: <Users className="w-5 h-5" />,
+      href: "/quan-ly-khach-hang",
+      color: "bg-gradient-to-r from-purple-500 to-orange-600",
+      description: "Quản lý khách hàng",
+    },
+
   ]
 
   return (
@@ -549,7 +558,7 @@ export default function HeroHome() {
             <div className="mb-16 bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl shadow-xl p-8 border border-gray-100">
               <h3 className="text-xl font-bold text-gray-900 mb-8 text-center">
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
-                  Dành cho Admin
+                  DÀNH CHO ADMIN
                 </span>
               </h3>
 
