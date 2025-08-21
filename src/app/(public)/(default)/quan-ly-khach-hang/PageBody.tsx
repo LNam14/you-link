@@ -11,7 +11,7 @@ import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
 import Handsontable from "handsontable"
 import { toast, Toaster } from "sonner"
-import { RefreshCw, Search, Plus, X } from 'lucide-react'
+import { RefreshCw, Search, Plus, X, Expand, Minimize } from 'lucide-react'
 import { debounce } from "lodash"
 import getUserInfo from "@/components/userInfo"
 import { database } from "@/lib/firebase"
@@ -99,33 +99,17 @@ interface CreateCustomerResponse {
     customers: CustomerData[]
 }
 
-// Add new type for API data
-interface ApiCustomerData {
-    id?: number
-    ma_moi: string
-    ma_cu: string
-    phan_loai: string
-    phien_ban: string
-    oder: string
-    cty: string
-    team: string
-    chuc_vu: string
-    telegram: string
-    username: string
-    khac: string
-    link_nhom: string
-    id_nhom: string
-    info: string
-    nhom: string
-    nguoi_cham1: string
-    nguoi_cham2: string
-    tab_don: string
-    cong_no: string
-    tin_dung: string
-    tinh_trang: StatusType
-    ngay_check: string
-    note_kt: string
-    nguoi_xem: string
+// Add new interface for batch updates
+interface PendingUpdate {
+    customerId: string
+    field: string
+    value: any
+    timestamp: number
+}
+
+// Add new interface for batch create
+interface BatchCreateData {
+    customers: Omit<CustomerData, 'id'>[]
 }
 
 // Add utility functions before component
@@ -239,6 +223,14 @@ export default function AccountTracker() {
     const hotTableRef = useRef<any>(null)
     const [isPasting, setIsPasting] = useState(false)
     const pasteTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const [isFullScreen, setIsFullScreen] = useState(false)
+
+    // Batch update system
+    const [pendingUpdates, setPendingUpdates] = useState<PendingUpdate[]>([])
+    const [isBatchUpdating, setIsBatchUpdating] = useState(false)
+    const batchUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const batchUpdateQueueRef = useRef<Map<string, Map<string, any>>>(new Map())
+
     const userInfo = getUserInfo()
     const fetchCustomers = async () => {
         if (isLoading) return
@@ -368,7 +360,98 @@ export default function AccountTracker() {
         }
     }, [])
 
-    // Update transformToApiFormat function
+    // Cleanup timeouts on unmount
+    useEffect(() => {
+        return () => {
+            if (batchUpdateTimeoutRef.current) {
+                clearTimeout(batchUpdateTimeoutRef.current)
+            }
+            if (pasteTimeoutRef.current) {
+                clearTimeout(pasteTimeoutRef.current)
+            }
+        }
+    }, [])
+
+    // Toggle full screen function
+    const toggleFullScreen = () => {
+        setIsFullScreen(!isFullScreen)
+    }
+
+    // Keyboard shortcut for full screen
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'F11') {
+                event.preventDefault()
+                toggleFullScreen()
+            }
+        }
+
+        document.addEventListener('keydown', handleKeyDown)
+        return () => document.removeEventListener('keydown', handleKeyDown)
+    }, [])
+
+    // Batch update helper functions
+    const addToBatchQueue = useCallback((customerId: string, field: string, value: any) => {
+        if (!batchUpdateQueueRef.current.has(customerId)) {
+            batchUpdateQueueRef.current.set(customerId, new Map())
+        }
+        batchUpdateQueueRef.current.get(customerId)!.set(field, value)
+
+        // Schedule batch update after 500ms of inactivity
+        if (batchUpdateTimeoutRef.current) {
+            clearTimeout(batchUpdateTimeoutRef.current)
+        }
+        batchUpdateTimeoutRef.current = setTimeout(() => {
+            processBatchUpdates()
+        }, 500)
+    }, [])
+
+    const processBatchUpdates = useCallback(async () => {
+        if (isBatchUpdating || batchUpdateQueueRef.current.size === 0) return
+
+        setIsBatchUpdating(true)
+        try {
+            const updates: Record<string, any> = {}
+            const updatedCustomers = new Set<string>()
+
+            // Process all queued updates
+            for (const [customerId, fields] of batchUpdateQueueRef.current) {
+                if (fields.size > 0) {
+                    updates[`/customers/${customerId}`] = Object.fromEntries(fields)
+                    updatedCustomers.add(customerId)
+                }
+            }
+
+            if (Object.keys(updates).length > 0) {
+                console.log(`Processing batch update for ${updatedCustomers.size} customers`)
+                await dbUpdate(dbRef(database), updates)
+
+                // Update local state
+                setTableData(prevData =>
+                    prevData.map(customer => {
+                        if (updatedCustomers.has(customer.id!)) {
+                            const fields = batchUpdateQueueRef.current.get(customer.id!)
+                            if (fields) {
+                                return { ...customer, ...Object.fromEntries(fields) }
+                            }
+                        }
+                        return customer
+                    })
+                )
+
+                // Clear the queue
+                batchUpdateQueueRef.current.clear()
+                toast.success(`Đã cập nhật ${updatedCustomers.size} khách hàng`)
+            }
+        } catch (error) {
+            console.error("Error in batch update:", error)
+            toast.error("Lỗi cập nhật hàng loạt")
+        } finally {
+            setIsBatchUpdating(false)
+        }
+    }, [isBatchUpdating])
+
+    // Update transformToFirebaseFormat function
     const transformToFirebaseFormat = (data: CustomerData) => ({
         maMoi: data.maMoi,
         maCu: data.maCu,
@@ -1346,36 +1429,23 @@ export default function AccountTracker() {
 
                 const updatedCustomer: any = { ...customer }
 
-                try {
-                    // Normalize certain fields to store labels (so paste can use human-readable labels)
-                    if (prop === 'phanLoai') {
-                        (updatedCustomer as any)[prop] = mapToLabel(PHAN_LOAI_OPTIONS, newValue)
-                    } else if (prop === 'phienBan') {
-                        (updatedCustomer as any)[prop] = mapToLabel(PHIEN_BAN_OPTIONS, newValue)
-                    } else if (prop === 'oder') {
-                        (updatedCustomer as any)[prop] = mapToLabel(ORDER_OPTIONS, newValue)
-                    } else if (prop === 'tinhTrang') {
-                        (updatedCustomer as any)[prop] = mapToLabel(STATUS_OPTIONS, newValue)
-                    } else {
-                        ; (updatedCustomer as any)[prop] = newValue
-                    }
-                    // Update Firebase (only the changed field)
-                    const fieldKey = String(prop)
-                    const normalizedValue = (updatedCustomer as any)[prop]
-                    await dbUpdate(dbRef(database, `customers/${updatedCustomer.id}`), { [fieldKey]: normalizedValue })
-
-                    // Update local state directly
-                    updateTableData(updatedCustomer)
-                } catch (error) {
-                    const errorMessage = error instanceof Error ? error.message : "Không thể cập nhật dữ liệu"
-                    toast.error(errorMessage)
-                    console.error(`Error updating ${prop}:`, error)
-                    // Revert the change in the table
-                    const hotInstance = hotTableRef.current?.hotInstance
-                    if (hotInstance) {
-                        hotInstance.setDataAtCell(row, prop, oldValue)
-                    }
+                // Normalize certain fields to store labels (so paste can use human-readable labels)
+                let normalizedValue = newValue
+                if (prop === 'phanLoai') {
+                    normalizedValue = mapToLabel(PHAN_LOAI_OPTIONS, newValue)
+                } else if (prop === 'phienBan') {
+                    normalizedValue = mapToLabel(PHIEN_BAN_OPTIONS, newValue)
+                } else if (prop === 'oder') {
+                    normalizedValue = mapToLabel(ORDER_OPTIONS, newValue)
+                } else if (prop === 'tinhTrang') {
+                    normalizedValue = mapToLabel(STATUS_OPTIONS, newValue)
                 }
+
+                // Add to batch queue instead of immediate update
+                addToBatchQueue(updatedCustomer.id!, String(prop), normalizedValue)
+
+                // Update local state immediately for better UX
+                updateTableData(updatedCustomer)
             }
         } catch (error) {
             toast.error("Có lỗi xảy ra khi cập nhật dữ liệu")
@@ -1476,31 +1546,29 @@ export default function AccountTracker() {
                 }
             }
 
-            // Make single batch API call if there are updates
+            // Use batch queue system for paste operations
             if (updatedCustomers.length > 0) {
-                console.log(`Batch updating ${updatedCustomers.length} customers to Firebase...`)
+                console.log(`Adding ${updatedCustomers.length} customers to batch queue...`)
 
-                // Build multi-location update object
-                const updates: Record<string, any> = {}
+                // Add all changes to batch queue
                 updatedCustomers.forEach((uc) => {
                     if (!uc.id) return
-                    updates[`/customers/${uc.id}`] = transformToFirebaseFormat(uc)
-                })
-
-                await dbUpdate(dbRef(database), updates)
-
-                // Update local state with all changes at once
-                setTableData((prevData) => {
-                    return prevData.map((customer) => {
-                        if (customer.id && changedCustomerIds.has(String(customer.id))) {
-                            const updatedCustomer = updatedCustomers.find((uc) => uc.id === customer.id)
-                            return updatedCustomer || customer
+                    Object.entries(uc).forEach(([field, value]) => {
+                        if (field !== 'id' && value !== undefined) {
+                            addToBatchQueue(uc.id!, field, value)
                         }
-                        return customer
                     })
                 })
 
-                toast.success(`Đã cập nhật ${updatedCustomers.length} khách hàng`)
+                // Force immediate batch processing for paste operations
+                if (batchUpdateTimeoutRef.current) {
+                    clearTimeout(batchUpdateTimeoutRef.current)
+                }
+                setTimeout(() => {
+                    processBatchUpdates()
+                }, 100)
+
+                toast.success(`Đã thêm ${updatedCustomers.length} khách hàng vào hàng đợi cập nhật`)
             } else {
                 console.log("No changes detected in paste operation")
             }
@@ -1629,20 +1697,33 @@ export default function AccountTracker() {
         setShowAddModal(true)
     }
 
-    // Update handleAddMultipleRows
+    // Update handleAddMultipleRows with batch create
     const handleAddMultipleRows = async (numRows: number) => {
         try {
             setIsLoading(true)
             const baseData: Omit<CustomerData, 'id'> = {
                 maMoi: '', maCu: '', phanLoai: '', phienBan: '', oder: '', cty: '', team: '', chucVu: '', telegram: '', username: '', khac: '', linkNhom: '', idNhom: '', info: '', nhom: '', nguoiCham1: '', nguoiCham2: '', tabDon: '', congNo: '', tinDung: '', tinhTrang: '' as any, ngayCheck: '', noteKT: '', nguoiXem: ''
             }
+
+            // Create all customers in parallel using batch operations
             const customersRef = dbRef(database, 'customers')
+            const createPromises: Promise<any>[] = []
+            const newCustomers: CustomerData[] = []
+
             for (let i = 0; i < numRows; i++) {
                 const newRef = dbPush(customersRef)
                 const payload = { ...baseData, id: newRef.key || '' }
-                await dbSet(newRef, payload)
+                newCustomers.push(payload as CustomerData)
+                createPromises.push(dbSet(newRef, payload))
             }
-            await fetchCustomers()
+
+            // Wait for all creations to complete
+            await Promise.all(createPromises)
+
+            // Update local state immediately for better UX
+            setTableData(prevData => [...prevData, ...newCustomers])
+
+            toast.success(`Đã thêm ${numRows} dòng mới`)
         } catch (error) {
             console.error("Error creating customers in Firebase:", error)
             const errorMessage = error instanceof Error ? error.message : "Không thể thêm dòng mới"
@@ -1814,7 +1895,7 @@ export default function AccountTracker() {
         <div className="min-h-screen py-6 px-4 relative">
             <Toaster position="top-right" expand={true} richColors />
             <AddRowsModal />
-            <div className="w-full max-w-7xl mx-auto relative z-0">
+            <div className={`w-full ${isFullScreen ? 'w-full' : 'max-w-7xl'} mx-auto relative z-0 transition-all duration-300`}>
                 {/* Header */}
                 <div className="bg-white rounded-t-xl shadow-xl overflow-hidden border border-blue-100">
                     <div className="p-4 border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900">
@@ -1871,9 +1952,7 @@ export default function AccountTracker() {
                                 </span>
                                 <span>
                                     <b>Ẩn hàng:</b> {hiddenRows.length > 0
-                                        ? hiddenColumns.includes(0)
-                                            ? "Đã ẩn cột Mã Mới"
-                                            : hiddenRows.map(idx => filteredData[idx]?.maMoi || idx + 1).join(", ")
+                                        ? hiddenRows.map(idx => filteredData[idx]?.maMoi || idx + 1).join(", ")
                                         : "Không có"}
                                 </span>
                                 {isPasting && (
@@ -1903,13 +1982,48 @@ export default function AccountTracker() {
                                     <Plus className="h-4 w-4" />
                                     Thêm dòng
                                 </button>
+
+                                {/* Full Screen Toggle Button */}
+                                <button
+                                    onClick={toggleFullScreen}
+                                    className="flex items-center gap-2 px-4 py-1 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 shadow-md font-medium whitespace-nowrap"
+                                    title={`${isFullScreen ? "Thu nhỏ màn hình" : "Mở rộng màn hình"} (F11)`}
+                                >
+                                    {isFullScreen ? (
+                                        <Minimize className="h-4 w-4" />
+                                    ) : (
+                                        <Expand className="h-4 w-4" />
+                                    )}
+                                    {isFullScreen ? "Thu nhỏ" : "Mở rộng"}
+                                </button>
+
+                                {/* Batch Update Status */}
+                                {isBatchUpdating && (
+                                    <div className="flex items-center gap-2 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-sm">
+                                        <RefreshCw className="h-4 w-4 animate-spin" />
+                                        Đang cập nhật...
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Table */}
-                <div className="bg-white rounded-b-xl shadow-xl">
+                <div className="bg-white rounded-b-xl shadow-xl relative">
+                    {/* Batch Update Loading Overlay */}
+                    {isBatchUpdating && (
+                        <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-b-xl">
+                            <div className="flex items-center gap-3 bg-white px-6 py-4 rounded-lg shadow-lg">
+                                <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
+                                <div className="text-center">
+                                    <div className="font-medium text-gray-900">Đang cập nhật dữ liệu</div>
+                                    <div className="text-sm text-gray-600">Vui lòng đợi...</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="overflow-x-auto">
                         <HotTable
                             ref={hotTableRef}
@@ -1927,6 +2041,19 @@ export default function AccountTracker() {
                             className="custom-table"
                             licenseKey="non-commercial-and-evaluation"
                             rowHeaders={false}
+                            // Smooth scrolling optimizations
+                            renderAllRows={false}
+                            viewportRowRenderingOffset={300}
+                            viewportColumnRenderingOffset={150}
+                            // Performance optimizations
+                            outsideClickDeselects={false}
+                            autoWrapRow={false}
+                            autoWrapCol={false}
+                            // Additional performance settings
+                            minSpareRows={50}
+                            minSpareCols={10}
+                            // Optimize cell rendering
+                            cell={[]}
                             cells={function (this: Handsontable.CellProperties, row, col, prop) {
                                 // Hàng tổng (row === 0)
                                 if (row === 0) {
@@ -1974,7 +2101,7 @@ export default function AccountTracker() {
                                 rows: hiddenRows,
                                 indicators: true
                             }}
-                            fixedColumnsLeft={1}
+                            fixedColumnsLeft={0}
                             fixedRowsTop={1}
                         />
                     </div>

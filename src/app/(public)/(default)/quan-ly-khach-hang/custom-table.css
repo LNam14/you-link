@@ -22,11 +22,95 @@
 .custom-table .ht_master .wtHolder {
     overflow-x: auto;
     overflow-y: auto;
-    scrollbar-width: none;
+    scroll-behavior: smooth;
+    /* Smooth scrolling optimizations */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #CBD5E1 #F1F5F9;
 }
 
 .custom-table .ht_master .wtHolder::-webkit-scrollbar {
-    display: none;
+    width: 8px;
+    height: 8px;
+}
+
+.custom-table .ht_master .wtHolder::-webkit-scrollbar-track {
+    background: #F1F5F9;
+    border-radius: 4px;
+}
+
+.custom-table .ht_master .wtHolder::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.custom-table .ht_master .wtHolder::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+}
+
+/* Smooth cell transitions */
+.custom-table .htCore td {
+    transition: all 0.1s ease-in-out;
+}
+
+/* Optimize rendering during scroll */
+.custom-table .ht_master .wtHolder.scrolling {
+    scroll-behavior: auto;
+}
+
+/* Smooth row transitions */
+.custom-table .htCore tr {
+    transition: opacity 0.15s ease-in-out;
+}
+
+/* Optimize viewport rendering */
+.custom-table .ht_master .wtHolder {
+    will-change: scroll-position;
+    transform: translateZ(0);
+}
+
+/* Additional smooth scrolling optimizations */
+.custom-table .ht_master .wtHolder {
+    /* Hardware acceleration */
+    -webkit-transform: translateZ(0);
+    -moz-transform: translateZ(0);
+    -ms-transform: translateZ(0);
+    transform: translateZ(0);
+
+    /* Smooth scrolling on all devices */
+    -webkit-overflow-scrolling: touch;
+    -moz-overflow-scrolling: touch;
+    -ms-overflow-scrolling: touch;
+    overflow-scrolling: touch;
+}
+
+/* Optimize table container */
+.custom-table {
+    /* Prevent layout shifts during scroll */
+    contain: layout style paint;
+    /* Hardware acceleration */
+    transform: translateZ(0);
+    will-change: transform;
+}
+
+/* Smooth header transitions */
+.custom-table .ht_clone_top {
+    transition: transform 0.1s ease-out;
+}
+
+/* Optimize row rendering */
+.custom-table .htCore tbody tr {
+    /* Prevent layout shifts */
+    contain: layout style;
+    /* Smooth transitions */
+    transition: opacity 0.15s ease-in-out, transform 0.1s ease-out;
+}
+
+/* Loading state during scroll */
+.custom-table .ht_master .wtHolder.scrolling .htCore tbody tr {
+    opacity: 0.8;
+    transform: translateY(1px);
 }
 
 /* Add these styles to fix the header visibility issue */
@@ -47,6 +131,10 @@
     height: auto !important;
     white-space: normal;
     /* padding: 8px 4px; */
+    /* Smooth header rendering */
+    transition: background-color 0.1s ease-in-out;
+    backface-visibility: hidden;
+    transform: translateZ(0);
 }
 
 /* Fix for the specific header "Thông tin tài khoản" */
@@ -100,6 +188,10 @@
     text-align: center !important;
     font-weight: 500 !important;
     vertical-align: middle !important;
+    /* Smooth rendering optimizations */
+    backface-visibility: hidden;
+    transform: translateZ(0);
+    will-change: transform;
 }
 
 .custom-table .htCore td:hover {
