@@ -13,9 +13,8 @@ import Handsontable from "handsontable"
 import { toast, Toaster } from "sonner"
 import { RefreshCw, Search, Plus, X } from 'lucide-react'
 import { debounce } from "lodash"
+import customerApiRequest from "@/apiRequests/customer"
 import getUserInfo from "@/components/userInfo"
-import { database } from "@/lib/firebase"
-import { ref as dbRef, get as dbGet, update as dbUpdate, push as dbPush, remove as dbRemove, set as dbSet } from "firebase/database"
 
 registerAllModules()
 
@@ -56,7 +55,7 @@ type OrderType = keyof typeof ORDER_OPTIONS
 
 // Update interface to match API
 interface CustomerData {
-    id?: string
+    id?: number
     maMoi: string
     maCu: string
     phanLoai: string
@@ -219,51 +218,64 @@ export default function AccountTracker() {
     const pasteTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const userInfo = getUserInfo()
     const fetchCustomers = async () => {
+        // Prevent multiple simultaneous fetches
         if (isLoading) return
+
         try {
             setIsLoading(true)
-            const customersSnap = await dbGet(dbRef(database, "customers"))
-            const customersObj = customersSnap.exists() ? (customersSnap.val() as Record<string, any>) : {}
+            const response: any = await customerApiRequest.get()
+            console.log("API Response:", response)
 
-            const transformedData: CustomerData[] = Object.entries(customersObj).map(([id, customer]) => ({
-                id,
-                maMoi: (customer as any).maMoi || "",
-                maCu: (customer as any).maCu || "",
-                phanLoai: (customer as any).phanLoai || "",
-                phienBan: (customer as any).phienBan || "",
-                oder: (customer as any).oder || "",
-                cty: (customer as any).cty || "",
-                team: (customer as any).team || "",
-                chucVu: (customer as any).chucVu || "",
-                telegram: (customer as any).telegram || "",
-                username: (customer as any).username || "",
-                khac: (customer as any).khac || "",
-                linkNhom: (customer as any).linkNhom || "",
-                idNhom: (customer as any).idNhom || "",
-                info: (customer as any).info || "",
-                nhom: (customer as any).nhom || "",
-                nguoiCham1: (customer as any).nguoiCham1 || "",
-                nguoiCham2: (customer as any).nguoiCham2 || "",
-                tabDon: (customer as any).tabDon || "",
-                congNo: (customer as any).congNo || "",
-                tinDung: (customer as any).tinDung || "",
-                tinhTrang: (customer as any).tinhTrang || ("" as any),
-                ngayCheck: (customer as any).ngayCheck || "",
-                noteKT: (customer as any).noteKT || "",
-                nguoiXem: (customer as any).nguoiXem || "",
-            }))
+            // Store staff and team names
+            setStaffNames(response.staffNames || [])
+            setTeamNames(response.teamNames || [])
+
+            // Check if customers is an array before mapping
+            if (!Array.isArray(response.customers)) {
+                console.error("API did not return an array:", response.customers)
+                toast.error("Định dạng dữ liệu khách hàng không hợp lệ từ server")
+                setTableData([])
+                return
+            }
+
+            // Transform API data to match our table format
+            const transformedData = response.customers.map((customer: any) => ({
+                id: customer.id,
+                maMoi: customer.ma_moi,
+                maCu: customer.ma_cu,
+                phanLoai: customer.phan_loai,
+                phienBan: customer.phien_ban,
+                oder: customer.oder,
+                cty: customer.cty,
+                team: customer.team,
+                chucVu: customer.chuc_vu,
+                telegram: customer.telegram,
+                username: customer.username,
+                khac: customer.khac,
+                linkNhom: customer.link_nhom,
+                idNhom: customer.id_nhom,
+                info: customer.info,
+                nhom: customer.nhom,
+                nguoiCham1: customer.nguoi_cham1,
+                nguoiCham2: customer.nguoi_cham2,
+                tabDon: customer.tab_don,
+                congNo: customer.cong_no,
+                tinDung: customer.tin_dung,
+                tinhTrang: customer.tinh_trang as StatusType,
+                ngayCheck: customer.ngay_check,
+                noteKT: customer.note_kt,
+                nguoiXem: customer.nguoi_xem,
+            })) as CustomerData[]
 
             setTableData(transformedData)
-
-            // Derive team names from data if available
-            const uniqueTeams = Array.from(new Set(transformedData.map((c) => c.nhom).filter(Boolean))) as string[]
-            setTeamNames(uniqueTeams)
-            setStaffNames([])
         } catch (error) {
-            console.error("Error fetching customers from Firebase:", error)
+            console.error("Error fetching customers:", error)
             setTableData([])
         } finally {
-            setTimeout(() => setIsLoading(false), 100)
+            // Ensure loading state is always reset
+            setTimeout(() => {
+                setIsLoading(false)
+            }, 100) // Small delay to prevent flickering
         }
     }
 
@@ -287,31 +299,32 @@ export default function AccountTracker() {
     }
 
     // Update transformToApiFormat function
-    const transformToFirebaseFormat = (data: CustomerData) => ({
-        maMoi: data.maMoi,
-        maCu: data.maCu,
-        phanLoai: data.phanLoai,
-        phienBan: data.phienBan,
+    const transformToApiFormat = (data: CustomerData): ApiCustomerData => ({
+        id: data.id,
+        ma_moi: data.maMoi,
+        ma_cu: data.maCu,
+        phan_loai: data.phanLoai,
+        phien_ban: data.phienBan,
         oder: data.oder,
         cty: data.cty,
         team: data.team,
-        chucVu: data.chucVu,
+        chuc_vu: data.chucVu,
         telegram: data.telegram,
         username: data.username,
         khac: data.khac,
-        linkNhom: data.linkNhom,
-        idNhom: data.idNhom,
+        link_nhom: data.linkNhom,
+        id_nhom: data.idNhom,
         info: data.info,
         nhom: data.nhom,
-        nguoiCham1: data.nguoiCham1,
-        nguoiCham2: data.nguoiCham2,
-        tabDon: data.tabDon,
-        congNo: data.congNo,
-        tinDung: data.tinDung,
-        tinhTrang: data.tinhTrang,
-        ngayCheck: data.ngayCheck,
-        noteKT: data.noteKT,
-        nguoiXem: data.nguoiXem,
+        nguoi_cham1: data.nguoiCham1,
+        nguoi_cham2: data.nguoiCham2,
+        tab_don: data.tabDon,
+        cong_no: data.congNo,
+        tin_dung: data.tinDung,
+        tinh_trang: data.tinhTrang,
+        ngay_check: data.ngayCheck,
+        note_kt: data.noteKT,
+        nguoi_xem: data.nguoiXem,
     })
 
     // Update filteredData to remove header logic
@@ -380,7 +393,7 @@ export default function AccountTracker() {
         ngayCheck: '',
         noteKT: '',
         nguoiXem: '',
-        id: 'total',
+        id: -1,
     };
     // Data truyền vào HotTable: hàng tổng + filteredData
     const tableDataWithTotal = [totalRow, ...filteredData];
@@ -1251,9 +1264,8 @@ export default function AccountTracker() {
 
                 try {
                     ; (updatedCustomer as any)[prop] = newValue
-                    // Update Firebase (only the changed field)
-                    const fieldKey = String(prop)
-                    await dbUpdate(dbRef(database, `customers/${updatedCustomer.id}`), { [fieldKey]: newValue })
+                    // Update API
+                    await customerApiRequest.update(transformToApiFormat(updatedCustomer))
 
                     // Update local state directly
                     updateTableData(updatedCustomer)
@@ -1292,7 +1304,7 @@ export default function AccountTracker() {
             }
 
             const updatedCustomers: CustomerData[] = []
-            const changedCustomerIds = new Set<string>()
+            const changedCustomerIds = new Set<number>()
 
             const range = coords[0]
             const startRow = range.from.row
@@ -1354,27 +1366,38 @@ export default function AccountTracker() {
                 // Only add to update list if there are actual changes
                 if (hasUpdates && customer.id) {
                     updatedCustomers.push(updatedCustomer)
-                    changedCustomerIds.add(String(customer.id))
+                    changedCustomerIds.add(customer.id)
                 }
             }
 
             // Make single batch API call if there are updates
             if (updatedCustomers.length > 0) {
-                console.log(`Batch updating ${updatedCustomers.length} customers to Firebase...`)
+                console.log(`Batch updating ${updatedCustomers.length} customers...`)
 
-                // Build multi-location update object
-                const updates: Record<string, any> = {}
-                updatedCustomers.forEach((uc) => {
-                    if (!uc.id) return
-                    updates[`/customers/${uc.id}`] = transformToFirebaseFormat(uc)
+                // Transform to API format
+                const apiCustomers = updatedCustomers.map(transformToApiFormat)
+
+                // Make single API call using PATCH method for batch update
+                const response = await fetch("/api/customer", {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ customers: apiCustomers }),
                 })
 
-                await dbUpdate(dbRef(database), updates)
+                if (!response.ok) {
+                    const errorData = await response.json()
+                    throw new Error(errorData.error || "Failed to update customers")
+                }
+
+                const result = await response.json()
+                console.log("Batch update result:", result)
 
                 // Update local state with all changes at once
                 setTableData((prevData) => {
                     return prevData.map((customer) => {
-                        if (customer.id && changedCustomerIds.has(String(customer.id))) {
+                        if (customer.id && changedCustomerIds.has(customer.id)) {
                             const updatedCustomer = updatedCustomers.find((uc) => uc.id === customer.id)
                             return updatedCustomer || customer
                         }
@@ -1382,7 +1405,7 @@ export default function AccountTracker() {
                     })
                 })
 
-                toast.success(`Đã cập nhật ${updatedCustomers.length} khách hàng`)
+                toast.success(`Đã cập nhật ${updatedCustomers.length} khách hàng trong 1 lần gọi API`)
             } else {
                 console.log("No changes detected in paste operation")
             }
@@ -1434,14 +1457,6 @@ export default function AccountTracker() {
                                 id="rows"
                                 value={numberOfRows}
                                 onChange={(e) => setNumberOfRows(e.target.value)}
-                                onKeyDown={(e) => { e.stopPropagation() }}
-                                onKeyUp={(e) => { e.stopPropagation() }}
-                                onKeyPress={(e) => { e.stopPropagation() }}
-                                onFocus={(e) => { e.stopPropagation() }}
-                                onClick={(e) => { e.stopPropagation() }}
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                step="1"
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 placeholder="Nhập số dòng"
                                 min="1"
@@ -1475,18 +1490,15 @@ export default function AccountTracker() {
     const handleAddMultipleRows = async (numRows: number) => {
         try {
             setIsLoading(true)
-            const baseData: Omit<CustomerData, 'id'> = {
-                maMoi: '', maCu: '', phanLoai: '', phienBan: '', oder: '', cty: '', team: '', chucVu: '', telegram: '', username: '', khac: '', linkNhom: '', idNhom: '', info: '', nhom: '', nguoiCham1: '', nguoiCham2: '', tabDon: '', congNo: '', tinDung: '', tinhTrang: '' as any, ngayCheck: '', noteKT: '', nguoiXem: ''
-            }
-            const customersRef = dbRef(database, 'customers')
-            for (let i = 0; i < numRows; i++) {
-                const newRef = dbPush(customersRef)
-                const payload = { ...baseData, id: newRef.key || '' }
-                await dbSet(newRef, payload)
-            }
+            // Create new rows using the API
+            const createResponse = (await customerApiRequest.create({
+                numberOfRows: numRows,
+            })) as unknown as CreateCustomerResponse
+
+            // Add new rows directly to state
             await fetchCustomers()
         } catch (error) {
-            console.error("Error creating customers in Firebase:", error)
+            console.error("Error creating customers:", error)
             const errorMessage = error instanceof Error ? error.message : "Không thể thêm dòng mới"
             toast.error(errorMessage)
         } finally {
@@ -1514,7 +1526,7 @@ export default function AccountTracker() {
                         const customer = rowData as CustomerData
                         if (customer.id) {
                             try {
-                                await dbRemove(dbRef(database, `customers/${customer.id}`))
+                                await customerApiRequest.delete(customer.id)
                                 setTableData((prevData) => prevData.filter((c) => c.id !== customer.id))
                                 toast.success("Xóa khách hàng thành công")
                             } catch (error) {
