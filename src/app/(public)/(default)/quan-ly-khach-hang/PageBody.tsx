@@ -15,7 +15,7 @@ import { RefreshCw, Search, Plus, X } from 'lucide-react'
 import { debounce } from "lodash"
 import getUserInfo from "@/components/userInfo"
 import { database } from "@/lib/firebase"
-import { ref as dbRef, get as dbGet, update as dbUpdate, push as dbPush, remove as dbRemove, set as dbSet } from "firebase/database"
+import { ref as dbRef, get as dbGet, update as dbUpdate, push as dbPush, remove as dbRemove, set as dbSet, onValue as dbOnValue, off as dbOff } from "firebase/database"
 
 registerAllModules()
 
@@ -39,6 +39,7 @@ const PHIEN_BAN_OPTIONS = {
     pb1: { label: "PB1", color: "#059669", bgColor: "#D1FAE5" }, // green
     pb2: { label: "PB2", color: "#D97706", bgColor: "#FEF3C7" }, // amber
     pb3: { label: "PB3", color: "#DC2626", bgColor: "#FEE2E2" }, // red
+    pb4: { label: "PB4", color: "#2563EB", bgColor: "#DBEAFE" }, // blue
 } as const
 
 // Add order options and colors
@@ -47,6 +48,9 @@ const ORDER_OPTIONS = {
     hai_tuan_km: { label: "2 Tuần KM", color: "#2563EB", bgColor: "#DBEAFE" }, // blue
     bon_tuan_km: { label: "4 Tuần KM", color: "#D97706", bgColor: "#FEF3C7" }, // amber
     lau_ko_mua: { label: "Lâu Ko Mua", color: "#DC2626", bgColor: "#FEE2E2" }, // red
+    minh_nghi_choi: { label: "Mình Nghỉ Chơi", color: "#6B7280", bgColor: "#F3F4F6" }, // gray
+    ho_nghi_choi: { label: "Họ Nghỉ Chơi", color: "#374151", bgColor: "#E5E7EB" }, // dark gray
+    seo_off: { label: "SEO OFF", color: "#111827", bgColor: "#E5E7EB" }, // near-black
 } as const
 
 type StatusType = keyof typeof STATUS_OPTIONS
@@ -196,6 +200,24 @@ const safeClearElement = (element: HTMLElement) => {
     }
 }
 
+// Resolve an option object from either its key or label (case-insensitive for label)
+const resolveOptionByValue = <T extends Record<string, { label: string; color: string; bgColor: string }>>(options: T, value?: string | null) => {
+    if (!value) return null
+    if (value in options) return (options as any)[value]
+    const lower = String(value).toLowerCase()
+    const found = Object.values(options).find((opt) => opt.label.toLowerCase() === lower)
+    return found || null
+}
+
+// Map an incoming value (key or label) to the canonical label stored in options
+const mapToLabel = <T extends Record<string, { label: string; color: string; bgColor: string }>>(options: T, value: any): string => {
+    if (value == null) return value
+    const str = String(value)
+    if (str in options) return (options as any)[str].label
+    const found = Object.values(options).find((opt) => opt.label.toLowerCase() === str.toLowerCase())
+    return found ? found.label : str
+}
+
 // Remove type definition for header
 type NestedColumnHeader = {
     label: string
@@ -285,6 +307,66 @@ export default function AccountTracker() {
             debouncedFetchCustomers()
         }
     }
+
+    // Realtime subscription to customers
+    useEffect(() => {
+        const customersRef = dbRef(database, "customers")
+        const handleSnapshot = (customersSnap: any) => {
+            try {
+                const customersObj = customersSnap.exists() ? (customersSnap.val() as Record<string, any>) : {}
+
+                const transformedData: CustomerData[] = Object.entries(customersObj).map(([id, customer]) => ({
+                    id,
+                    maMoi: (customer as any).maMoi || "",
+                    maCu: (customer as any).maCu || "",
+                    phanLoai: (customer as any).phanLoai || "",
+                    phienBan: (customer as any).phienBan || "",
+                    oder: (customer as any).oder || "",
+                    cty: (customer as any).cty || "",
+                    team: (customer as any).team || "",
+                    chucVu: (customer as any).chucVu || "",
+                    telegram: (customer as any).telegram || "",
+                    username: (customer as any).username || "",
+                    khac: (customer as any).khac || "",
+                    linkNhom: (customer as any).linkNhom || "",
+                    idNhom: (customer as any).idNhom || "",
+                    info: (customer as any).info || "",
+                    nhom: (customer as any).nhom || "",
+                    nguoiCham1: (customer as any).nguoiCham1 || "",
+                    nguoiCham2: (customer as any).nguoiCham2 || "",
+                    tabDon: (customer as any).tabDon || "",
+                    congNo: (customer as any).congNo || "",
+                    tinDung: (customer as any).tinDung || "",
+                    tinhTrang: (customer as any).tinhTrang || ("" as any),
+                    ngayCheck: (customer as any).ngayCheck || "",
+                    noteKT: (customer as any).noteKT || "",
+                    nguoiXem: (customer as any).nguoiXem || "",
+                }))
+
+                setTableData(transformedData)
+
+                const uniqueTeams = Array.from(new Set(transformedData.map((c) => c.nhom).filter(Boolean))) as string[]
+                setTeamNames(uniqueTeams)
+                setStaffNames([])
+            } catch (error) {
+                console.error("Error transforming realtime customers:", error)
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
+        setIsLoading(true)
+        dbOnValue(customersRef, handleSnapshot, (error) => {
+            console.error("Realtime subscription error:", error)
+            setIsLoading(false)
+        })
+
+        return () => {
+            try {
+                dbOff(customersRef, "value", handleSnapshot as any)
+            } catch (_) { }
+        }
+    }, [])
 
     // Update transformToApiFormat function
     const transformToFirebaseFormat = (data: CustomerData) => ({
@@ -435,6 +517,9 @@ export default function AccountTracker() {
                     link.style.overflow = "hidden"
                     link.style.textOverflow = "ellipsis"
                     link.style.whiteSpace = "nowrap"
+                    // Allow cell to be editable by preventing the link from capturing pointer events
+                    link.style.pointerEvents = "none"
+                    link.tabIndex = -1
                     link.title = value
                     link.textContent = value
 
@@ -460,7 +545,7 @@ export default function AccountTracker() {
                 row: number,
                 col: number,
                 prop: string | number,
-                value: OrderType,
+                value: string,
                 cellProperties: Handsontable.CellProperties,
             ) => {
                 const select = document.createElement("select")
@@ -469,15 +554,16 @@ export default function AccountTracker() {
                 select.style.padding = "4px 8px"
                 select.style.borderRadius = "4px"
                 select.style.border = "1px solid #E5E7EB"
-                select.style.backgroundColor = value ? ORDER_OPTIONS[value]?.bgColor : "white"
-                select.style.color = value ? ORDER_OPTIONS[value]?.color : "#6B7280"
+                const resolved = resolveOptionByValue(ORDER_OPTIONS, value)
+                select.style.backgroundColor = resolved ? resolved.bgColor : "white"
+                select.style.color = resolved ? resolved.color : "#6B7280"
                 select.style.cursor = "pointer"
                 select.style.textAlign = "center"
                 select.style.fontSize = "11px"
                 select.style.appearance = "none"
                 select.style.webkitAppearance = "none"
                 select.style.transition = "all 0.2s ease"
-                select.style.fontWeight = value ? "500" : "normal"
+                select.style.fontWeight = resolved ? "500" : "normal"
                 select.style.pointerEvents = "auto"
 
                 // Add empty option first
@@ -489,9 +575,9 @@ export default function AccountTracker() {
                 // Add order options
                 Object.entries(ORDER_OPTIONS).forEach(([key, order]) => {
                     const option = document.createElement("option")
-                    option.value = key
+                    option.value = order.label
                     option.textContent = order.label
-                    if (value === key) {
+                    if (resolved && resolved.label === order.label) {
                         option.selected = true
                     }
                     select.appendChild(option)
@@ -503,17 +589,19 @@ export default function AccountTracker() {
                 })
 
                 select.addEventListener("change", (e) => {
-                    const newValue = (e.target as HTMLSelectElement).value as OrderType
+                    const newValue = (e.target as HTMLSelectElement).value
                     instance.setDataAtCell(row, col, newValue)
                 })
 
                 select.addEventListener("mouseover", () => {
-                    select.style.backgroundColor = value ? ORDER_OPTIONS[value]?.bgColor : "#F9FAFB"
+                    const r = resolveOptionByValue(ORDER_OPTIONS, select.value)
+                    select.style.backgroundColor = r ? r.bgColor : "#F9FAFB"
                     select.style.borderColor = "#93C5FD"
                 })
 
                 select.addEventListener("mouseout", () => {
-                    select.style.backgroundColor = value ? ORDER_OPTIONS[value]?.bgColor : "white"
+                    const r = resolveOptionByValue(ORDER_OPTIONS, select.value)
+                    select.style.backgroundColor = r ? r.bgColor : "white"
                     select.style.borderColor = "#E5E7EB"
                 })
 
@@ -539,7 +627,7 @@ export default function AccountTracker() {
                 row: number,
                 col: number,
                 prop: string | number,
-                value: PhienBanType,
+                value: string,
                 cellProperties: Handsontable.CellProperties,
             ) => {
                 const select = document.createElement("select")
@@ -548,15 +636,16 @@ export default function AccountTracker() {
                 select.style.padding = "4px 8px"
                 select.style.borderRadius = "4px"
                 select.style.border = "1px solid #E5E7EB"
-                select.style.backgroundColor = value ? PHIEN_BAN_OPTIONS[value]?.bgColor : "white"
-                select.style.color = value ? PHIEN_BAN_OPTIONS[value]?.color : "#6B7280"
+                const resolved = resolveOptionByValue(PHIEN_BAN_OPTIONS, value)
+                select.style.backgroundColor = resolved ? resolved.bgColor : "white"
+                select.style.color = resolved ? resolved.color : "#6B7280"
                 select.style.cursor = "pointer"
                 select.style.textAlign = "center"
                 select.style.fontSize = "11px"
                 select.style.appearance = "none"
                 select.style.webkitAppearance = "none"
                 select.style.transition = "all 0.2s ease"
-                select.style.fontWeight = value ? "500" : "normal"
+                select.style.fontWeight = resolved ? "500" : "normal"
                 select.style.pointerEvents = "auto"
 
                 // Add empty option first
@@ -568,9 +657,9 @@ export default function AccountTracker() {
                 // Add phien ban options
                 Object.entries(PHIEN_BAN_OPTIONS).forEach(([key, phienBan]) => {
                     const option = document.createElement("option")
-                    option.value = key
+                    option.value = phienBan.label
                     option.textContent = phienBan.label
-                    if (value === key) {
+                    if (resolved && resolved.label === phienBan.label) {
                         option.selected = true
                     }
                     select.appendChild(option)
@@ -582,17 +671,19 @@ export default function AccountTracker() {
                 })
 
                 select.addEventListener("change", (e) => {
-                    const newValue = (e.target as HTMLSelectElement).value as PhienBanType
+                    const newValue = (e.target as HTMLSelectElement).value
                     instance.setDataAtCell(row, col, newValue)
                 })
 
                 select.addEventListener("mouseover", () => {
-                    select.style.backgroundColor = value ? PHIEN_BAN_OPTIONS[value]?.bgColor : "#F9FAFB"
+                    const r = resolveOptionByValue(PHIEN_BAN_OPTIONS, select.value)
+                    select.style.backgroundColor = r ? r.bgColor : "#F9FAFB"
                     select.style.borderColor = "#93C5FD"
                 })
 
                 select.addEventListener("mouseout", () => {
-                    select.style.backgroundColor = value ? PHIEN_BAN_OPTIONS[value]?.bgColor : "white"
+                    const r = resolveOptionByValue(PHIEN_BAN_OPTIONS, select.value)
+                    select.style.backgroundColor = r ? r.bgColor : "white"
                     select.style.borderColor = "#E5E7EB"
                 })
 
@@ -618,7 +709,7 @@ export default function AccountTracker() {
                 row: number,
                 col: number,
                 prop: string | number,
-                value: PhanLoaiType,
+                value: string,
                 cellProperties: Handsontable.CellProperties,
             ) => {
                 const select = document.createElement("select")
@@ -627,15 +718,16 @@ export default function AccountTracker() {
                 select.style.padding = "4px 8px"
                 select.style.borderRadius = "4px"
                 select.style.border = "1px solid #E5E7EB"
-                select.style.backgroundColor = value ? PHAN_LOAI_OPTIONS[value]?.bgColor : "white"
-                select.style.color = value ? PHAN_LOAI_OPTIONS[value]?.color : "#6B7280"
+                const resolved = resolveOptionByValue(PHAN_LOAI_OPTIONS, value)
+                select.style.backgroundColor = resolved ? resolved.bgColor : "white"
+                select.style.color = resolved ? resolved.color : "#6B7280"
                 select.style.cursor = "pointer"
                 select.style.textAlign = "center"
                 select.style.fontSize = "11px"
                 select.style.appearance = "none"
                 select.style.webkitAppearance = "none"
                 select.style.transition = "all 0.2s ease"
-                select.style.fontWeight = value ? "500" : "normal"
+                select.style.fontWeight = resolved ? "500" : "normal"
                 select.style.pointerEvents = "auto"
 
                 // Add empty option first
@@ -647,9 +739,9 @@ export default function AccountTracker() {
                 // Add phan loai options
                 Object.entries(PHAN_LOAI_OPTIONS).forEach(([key, phanLoai]) => {
                     const option = document.createElement("option")
-                    option.value = key
+                    option.value = phanLoai.label
                     option.textContent = phanLoai.label
-                    if (value === key) {
+                    if (resolved && resolved.label === phanLoai.label) {
                         option.selected = true
                     }
                     select.appendChild(option)
@@ -661,17 +753,19 @@ export default function AccountTracker() {
                 })
 
                 select.addEventListener("change", (e) => {
-                    const newValue = (e.target as HTMLSelectElement).value as PhanLoaiType
+                    const newValue = (e.target as HTMLSelectElement).value
                     instance.setDataAtCell(row, col, newValue)
                 })
 
                 select.addEventListener("mouseover", () => {
-                    select.style.backgroundColor = value ? PHAN_LOAI_OPTIONS[value]?.bgColor : "#F9FAFB"
+                    const r = resolveOptionByValue(PHAN_LOAI_OPTIONS, select.value)
+                    select.style.backgroundColor = r ? r.bgColor : "#F9FAFB"
                     select.style.borderColor = "#93C5FD"
                 })
 
                 select.addEventListener("mouseout", () => {
-                    select.style.backgroundColor = value ? PHAN_LOAI_OPTIONS[value]?.bgColor : "white"
+                    const r = resolveOptionByValue(PHAN_LOAI_OPTIONS, select.value)
+                    select.style.backgroundColor = r ? r.bgColor : "white"
                     select.style.borderColor = "#E5E7EB"
                 })
 
@@ -776,7 +870,7 @@ export default function AccountTracker() {
                 row: number,
                 col: number,
                 prop: string | number,
-                value: StatusType,
+                value: string,
                 cellProperties: Handsontable.CellProperties,
             ) => {
                 const select = document.createElement("select")
@@ -785,15 +879,16 @@ export default function AccountTracker() {
                 select.style.padding = "4px 8px"
                 select.style.borderRadius = "4px"
                 select.style.border = "1px solid #E5E7EB"
-                select.style.backgroundColor = value ? STATUS_OPTIONS[value]?.bgColor : "white"
-                select.style.color = value ? STATUS_OPTIONS[value]?.color : "#6B7280"
+                const resolved = resolveOptionByValue(STATUS_OPTIONS, value)
+                select.style.backgroundColor = resolved ? resolved.bgColor : "white"
+                select.style.color = resolved ? resolved.color : "#6B7280"
                 select.style.cursor = "pointer"
                 select.style.textAlign = "center"
                 select.style.fontSize = "11px"
                 select.style.appearance = "none"
                 select.style.webkitAppearance = "none"
                 select.style.transition = "all 0.2s ease"
-                select.style.fontWeight = value ? "500" : "normal"
+                select.style.fontWeight = resolved ? "500" : "normal"
                 select.style.pointerEvents = "auto"
 
                 // Add empty option first
@@ -805,9 +900,9 @@ export default function AccountTracker() {
                 // Add status options
                 Object.entries(STATUS_OPTIONS).forEach(([key, status]) => {
                     const option = document.createElement("option")
-                    option.value = key
+                    option.value = status.label
                     option.textContent = status.label
-                    if (value === key) {
+                    if (resolved && resolved.label === status.label) {
                         option.selected = true
                     }
                     select.appendChild(option)
@@ -819,17 +914,19 @@ export default function AccountTracker() {
                 })
 
                 select.addEventListener("change", (e) => {
-                    const newValue = (e.target as HTMLSelectElement).value as StatusType
+                    const newValue = (e.target as HTMLSelectElement).value
                     instance.setDataAtCell(row, col, newValue)
                 })
 
                 select.addEventListener("mouseover", () => {
-                    select.style.backgroundColor = value ? STATUS_OPTIONS[value]?.bgColor : "#F9FAFB"
+                    const r = resolveOptionByValue(STATUS_OPTIONS, select.value)
+                    select.style.backgroundColor = r ? r.bgColor : "#F9FAFB"
                     select.style.borderColor = "#93C5FD"
                 })
 
                 select.addEventListener("mouseout", () => {
-                    select.style.backgroundColor = value ? STATUS_OPTIONS[value]?.bgColor : "white"
+                    const r = resolveOptionByValue(STATUS_OPTIONS, select.value)
+                    select.style.backgroundColor = r ? r.bgColor : "white"
                     select.style.borderColor = "#E5E7EB"
                 })
 
@@ -1022,7 +1119,7 @@ export default function AccountTracker() {
             width: 60,
             className: "htMiddle htCenter",
             renderer: "text",
-            readOnly: true,
+            readOnly: false,
         },
         {
             data: "maCu",
@@ -1250,10 +1347,22 @@ export default function AccountTracker() {
                 const updatedCustomer: any = { ...customer }
 
                 try {
-                    ; (updatedCustomer as any)[prop] = newValue
+                    // Normalize certain fields to store labels (so paste can use human-readable labels)
+                    if (prop === 'phanLoai') {
+                        (updatedCustomer as any)[prop] = mapToLabel(PHAN_LOAI_OPTIONS, newValue)
+                    } else if (prop === 'phienBan') {
+                        (updatedCustomer as any)[prop] = mapToLabel(PHIEN_BAN_OPTIONS, newValue)
+                    } else if (prop === 'oder') {
+                        (updatedCustomer as any)[prop] = mapToLabel(ORDER_OPTIONS, newValue)
+                    } else if (prop === 'tinhTrang') {
+                        (updatedCustomer as any)[prop] = mapToLabel(STATUS_OPTIONS, newValue)
+                    } else {
+                        ; (updatedCustomer as any)[prop] = newValue
+                    }
                     // Update Firebase (only the changed field)
                     const fieldKey = String(prop)
-                    await dbUpdate(dbRef(database, `customers/${updatedCustomer.id}`), { [fieldKey]: newValue })
+                    const normalizedValue = (updatedCustomer as any)[prop]
+                    await dbUpdate(dbRef(database, `customers/${updatedCustomer.id}`), { [fieldKey]: normalizedValue })
 
                     // Update local state directly
                     updateTableData(updatedCustomer)
@@ -1344,8 +1453,15 @@ export default function AccountTracker() {
                         const fieldName = columnConfig.data as keyof CustomerData
 
                         // Only update if the value is different
-                        if (updatedCustomer[fieldName] !== newValue) {
-                            ; (updatedCustomer as any)[fieldName] = typeof newValue === "string" ? newValue.trim() : newValue
+                        let normalized
+                        if (fieldName === 'phanLoai') normalized = mapToLabel(PHAN_LOAI_OPTIONS, newValue)
+                        else if (fieldName === 'phienBan') normalized = mapToLabel(PHIEN_BAN_OPTIONS, newValue)
+                        else if (fieldName === 'oder') normalized = mapToLabel(ORDER_OPTIONS, newValue)
+                        else if (fieldName === 'tinhTrang') normalized = mapToLabel(STATUS_OPTIONS, newValue)
+                        else normalized = typeof newValue === "string" ? newValue.trim() : newValue
+
+                        if (updatedCustomer[fieldName] !== normalized) {
+                            ; (updatedCustomer as any)[fieldName] = normalized
                             hasUpdates = true
                         }
                     }
