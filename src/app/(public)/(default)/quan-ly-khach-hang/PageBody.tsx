@@ -622,8 +622,8 @@ export default function PageBody() {
                                         disabled={selectedRows.length === 0}
                                         className="group flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed rounded-md transition-colors duration-200 text-sm"
                                     >
-                                        <Trash2 className="h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-200 text-white" />
-                                        <span className="leading-none text-white">Xóa {selectedRows.length > 0 && `(${selectedRows.length})`}</span>
+                                        <Trash2 className={`h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-200  ${selectedRows.length === 0 ? "text-gray-500" : "text-white"}`} />
+                                        <span className={`leading-none ${selectedRows.length === 0 ? "text-gray-500" : "text-white"} `}>Xóa {selectedRows.length > 0 && `(${selectedRows.length})`}</span>
                                     </button>
                                 </div>
                             </div>
