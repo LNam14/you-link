@@ -585,11 +585,11 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
             // Try to delete cookies with various configurations to ensure they're removed
             // Delete with default path
             document.cookie = "userInfo=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
-            document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+            document.cookie = "NewAccessTokenDisV1=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
 
             // Delete with secure and SameSite attributes in case they were set with these
             document.cookie = "userInfo=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; SameSite=Strict;"
-            document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; SameSite=Strict;"
+            document.cookie = "NewAccessTokenDisV1=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; SameSite=Strict;"
 
             // If the above client-side approach doesn't work for httpOnly cookies,
             // make a server request to clear the cookies

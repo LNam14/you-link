@@ -58,9 +58,9 @@ export default function HeroHome() {
   const handleLogout = async () => {
     try {
       document.cookie = "userInfo=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
-      document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+      document.cookie = "NewAccessTokenDisV1=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
       document.cookie = "userInfo=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; SameSite=Strict;"
-      document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; SameSite=Strict;"
+      document.cookie = "NewAccessTokenDisV1=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; SameSite=Strict;"
 
       try {
         await authApiRequest.logout()

@@ -403,7 +403,7 @@ export default function AccountTracker() {
 
             for (let row = startRow; row <= endRow; row++) {
                 // Get id from the filtered data
-                const id = filteredData[row][8] // Get id from 9th column
+                const id = filteredData[row][9] // Get id from 9th column
                 if (!id) continue
 
                 for (let col = startCol; col <= endCol; col++) {
@@ -415,11 +415,11 @@ export default function AccountTracker() {
                         try {
                             let updateValue = newValue
 
-                            // If updating team column (col 7), convert team name to team
-                            if (col === 7 && activeTab === "NV") {
-                                const selectedTeam = teams.find((team) => team.name === newValue)
-                                updateValue = selectedTeam ? selectedTeam.id : null
-                            }
+                            // // If updating team column (col 7), convert team name to team
+                            // if (col === 7 && activeTab === "NV") {
+                            //     const selectedTeam = teams.find((team) => team.name === newValue)
+                            //     updateValue = selectedTeam ? selectedTeam.id : null
+                            // }
 
                             const result: any = await authApiRequest.update({
                                 id: id,

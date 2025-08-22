@@ -58,7 +58,7 @@ export default function Header() {
 
       if (!user) {
         document.cookie = "userInfo=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
-        document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+        document.cookie = "NewAccessTokenDisV1=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
       }
     } catch (error) {
       console.error("Auth check error:", error)
@@ -166,7 +166,7 @@ export default function Header() {
 
       // Clear cookies on client side
       document.cookie = "userInfo=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
-      document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+      document.cookie = "NewAccessTokenDisV1=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
 
       // Notify other tabs about logout
       localStorage.setItem("logout", Date.now().toString())

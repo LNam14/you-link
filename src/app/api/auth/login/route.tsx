@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 const JWT_SECRET = process.env.NEXT_PRIVATE_TOKEN || "123"
 
 // Cache hàm tạo token để tránh tạo lại nhiều lần
-const createAccessToken = cache((payload: object) => {
+const createNewAccessTokenDisV1 = cache((payload: object) => {
     return jwt.sign(payload, JWT_SECRET, { expiresIn: "30d", algorithm: "HS256" })
 })
 
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
         }
 
         // Tạo Access Token (sử dụng hàm đã cache)
-        const accessToken = createAccessToken(tokenPayload)
+        const NewAccessTokenDisV1 = createNewAccessTokenDisV1(tokenPayload)
 
         // Tạo đối tượng thông tin người dùng (chỉ lấy các trường cần thiết)
         const userInfo = {
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
         })
 
         // Thiết lập cookie với Access Token
-        response.cookies.set("accessToken", accessToken, {
+        response.cookies.set("NewAccessTokenDisV1", NewAccessTokenDisV1, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             maxAge: 60 * 60 * 24 * 30, // 30 ngày (tính bằng giây)

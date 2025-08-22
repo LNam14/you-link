@@ -34,15 +34,15 @@ function clearAllCookies(request: NextRequest) {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const accessToken = request.cookies.get("accessToken")?.value
+  const NewAccessTokenDisV1 = request.cookies.get("NewAccessTokenDisV1")?.value
   const userInfo = getUserInfoFromCookie(request.cookies.get("userInfo")?.value)
 
   // Check for inconsistent cookie state
-  const hasAccessToken = !!accessToken
+  const hasNewAccessTokenDisV1 = !!NewAccessTokenDisV1
   const hasUserInfo = !!userInfo
 
   // If only one of the cookies exists (inconsistent state), clear all cookies
-  if ((hasAccessToken && !hasUserInfo) || (!hasAccessToken && hasUserInfo)) {
+  if ((hasNewAccessTokenDisV1 && !hasUserInfo) || (!hasNewAccessTokenDisV1 && hasUserInfo)) {
     return clearAllCookies(request)
   }
 
@@ -52,12 +52,12 @@ export function middleware(request: NextRequest) {
   const isPublicPath = publicPaths.some((path) => pathname.startsWith(path))
 
   // If not logged in and not accessing a public or unAuth path, redirect to login
-  if (!accessToken && !isPublicPath && !isUnAuthPath) {
+  if (!NewAccessTokenDisV1 && !isPublicPath && !isUnAuthPath) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
   // Prevent logged-in users from accessing login page
-  if (isUnAuthPath && accessToken) {
+  if (isUnAuthPath && NewAccessTokenDisV1) {
     return NextResponse.redirect(new URL("/", request.url))
   }
 

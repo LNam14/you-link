@@ -46,9 +46,21 @@ export async function POST(request: Request) {
         const updateData: any = {}
         updateData[columnName] = value
 
+        // Coerce id to number and validate
+        const numericId = Number(id)
+        if (!Number.isInteger(numericId)) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: `Invalid id: expected integer, received ${id}`,
+                },
+                { status: 400 },
+            )
+        }
+
         // Update the account using Prisma
         const updatedAccount = await prisma.account.update({
-            where: { id },
+            where: { id: numericId },
             data: updateData,
         })
 

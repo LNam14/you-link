@@ -4,9 +4,9 @@ export async function GET(request: Request) {
     try {
         // Xác thực tình trạng đăng nhập
         const cookies = request.headers.get('cookie') || '';
-        const hasAccessToken = cookies.includes('accessToken');
+        const hasNewAccessTokenDisV1 = cookies.includes('NewAccessTokenDisV1');
 
-        if (!hasAccessToken) {
+        if (!hasNewAccessTokenDisV1) {
             return new Response(JSON.stringify({
                 success: false,
                 message: "Not authenticated. Please log in again."
@@ -19,8 +19,8 @@ export async function GET(request: Request) {
             message: "Logout successful."
         });
 
-        // Xóa cookie chứa accessToken và userInfo
-        response.cookies.set('accessToken', '', {
+        // Xóa cookie chứa NewAccessTokenDisV1 và userInfo
+        response.cookies.set('NewAccessTokenDisV1', '', {
             path: '/',
             expires: new Date(0) // Thời gian hết hạn đã qua
         });
