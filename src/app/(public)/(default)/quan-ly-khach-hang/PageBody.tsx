@@ -1,1354 +1,54 @@
 "use client"
-
-import type React from "react"
-
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect } from "react"
 import { HotTable } from "@handsontable/react-wrapper"
 import { registerAllModules } from "handsontable/registry"
 import "./custom-table.css"
 import "handsontable/styles/handsontable.css"
 import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
-import Handsontable from "handsontable"
-import { toast, Toaster } from "sonner"
-import { RefreshCw, Search, Plus, X } from 'lucide-react'
-import { debounce } from "lodash"
+import { Toaster, toast } from "sonner"
+import { useFirebaseData } from "@/firebase/hooks/useFirebaseData"
+import { Search, Plus, Trash2, RefreshCw, Users, UserPlus, Check, X } from "lucide-react"
+import { Modal } from "antd"
 import getUserInfo from "@/components/userInfo"
-import { database } from "@/lib/firebase"
-import { ref as dbRef, get as dbGet, update as dbUpdate, push as dbPush, remove as dbRemove, set as dbSet, onValue as dbOnValue, off as dbOff } from "firebase/database"
 
 registerAllModules()
 
-// Add status options and colors
-const STATUS_OPTIONS = {
-    binh_thuong: { label: "Bình thường", color: "#16A34A", bgColor: "#DCFCE7" }, // green
-    rui_ro: { label: "Rủi ro", color: "#D97706", bgColor: "#FEF3C7" }, // amber
-    rui_ro_cao: { label: "Rủi ro cao", color: "#DC2626", bgColor: "#FEE2E2" }, // red
-    scam: { label: "Scam", color: "#7F1D1D", bgColor: "#FEE2E2" }, // dark red
-} as const
+export default function PageBody() {
+    const {
+        data,
+        loading,
+        searchTerm,
+        setSearchTerm,
+        saveRow,
+        saveMultipleRows,
+        addNewRow,
+        addMultipleRows,
+        deleteRow,
+        deleteMultipleRows,
+    } = useFirebaseData()
 
-// Add phan loai options and colors
-const PHAN_LOAI_OPTIONS = {
-    vip: { label: "VIP", color: "#7C3AED", bgColor: "#EDE9FE" }, // purple
-    mua_nhieu: { label: "Mua nhiều", color: "#2563EB", bgColor: "#DBEAFE" }, // blue
-    binh_thuong: { label: "Bình thường", color: "#6B7280", bgColor: "#F3F4F6" }, // gray
-} as const
-
-// Add phien ban options and colors
-const PHIEN_BAN_OPTIONS = {
-    pb1: { label: "PB1", color: "#059669", bgColor: "#D1FAE5" }, // green
-    pb2: { label: "PB2", color: "#D97706", bgColor: "#FEF3C7" }, // amber
-    pb3: { label: "PB3", color: "#DC2626", bgColor: "#FEE2E2" }, // red
-    pb4: { label: "PB4", color: "#2563EB", bgColor: "#DBEAFE" }, // blue
-} as const
-
-// Add order options and colors
-const ORDER_OPTIONS = {
-    dang_mh: { label: "Đang MH", color: "#16A34A", bgColor: "#DCFCE7" }, // green
-    hai_tuan_km: { label: "2 Tuần KM", color: "#2563EB", bgColor: "#DBEAFE" }, // blue
-    bon_tuan_km: { label: "4 Tuần KM", color: "#D97706", bgColor: "#FEF3C7" }, // amber
-    lau_ko_mua: { label: "Lâu Ko Mua", color: "#DC2626", bgColor: "#FEE2E2" }, // red
-    minh_nghi_choi: { label: "Mình Nghỉ Chơi", color: "#6B7280", bgColor: "#F3F4F6" }, // gray
-    ho_nghi_choi: { label: "Họ Nghỉ Chơi", color: "#374151", bgColor: "#E5E7EB" }, // dark gray
-    seo_off: { label: "SEO OFF", color: "#111827", bgColor: "#E5E7EB" }, // near-black
-} as const
-
-type StatusType = keyof typeof STATUS_OPTIONS
-type PhanLoaiType = keyof typeof PHAN_LOAI_OPTIONS
-type PhienBanType = keyof typeof PHIEN_BAN_OPTIONS
-type OrderType = keyof typeof ORDER_OPTIONS
-
-// Update interface to match API
-interface CustomerData {
-    id?: string
-    maMoi: string
-    maCu: string
-    phanLoai: string
-    phienBan: string
-    oder: string
-    cty: string
-    team: string
-    chucVu: string
-    telegram: string
-    username: string
-    khac: string
-    linkNhom: string
-    idNhom: string
-    info: string
-    nhom: string
-    nguoiCham1: string
-    nguoiCham2: string
-    tabDon: string
-    congNo: string
-    tinDung: string
-    tinhTrang: StatusType
-    ngayCheck: string
-    noteKT: string
-    nguoiXem: string
-}
-
-// Add new type for API response
-interface CustomerApiResponse {
-    customers: CustomerData[]
-    staffNames: string[]
-    teamNames: string[]
-}
-
-// Add new type for create API response
-interface CreateCustomerResponse {
-    customers: CustomerData[]
-}
-
-// Add new interface for batch updates
-interface PendingUpdate {
-    customerId: string
-    field: string
-    value: any
-    timestamp: number
-}
-
-// Add new interface for batch create
-interface BatchCreateData {
-    customers: Omit<CustomerData, 'id'>[]
-}
-
-// Add utility functions before component
-const calculateDaysDifference = (checkDate: string) => {
-    if (!checkDate) return ""
-
-    try {
-        const [day, month, year] = checkDate.split("/").map(Number)
-        if (!day || !month || !year) return ""
-
-        const checkDateObj = new Date(year, month - 1, day)
-
-        // Sử dụng múi giờ Việt Nam
-        const today = new Date()
-        const vietnamTime = new Date(today.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }))
-
-        // Reset time part for accurate day calculation
-        checkDateObj.setHours(0, 0, 0, 0)
-        vietnamTime.setHours(0, 0, 0, 0)
-
-        const diffTime = vietnamTime.getTime() - checkDateObj.getTime()
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-
-        return diffDays.toString()
-    } catch (error) {
-        console.error("Error calculating days difference:", error)
-        return ""
-    }
-}
-
-const getCurrentDateFormatted = () => {
-    const today = new Date()
-    const vietnamTime = new Date(today.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }))
-    const day = String(vietnamTime.getDate()).padStart(2, "0")
-    const month = String(vietnamTime.getMonth() + 1).padStart(2, "0")
-    const year = vietnamTime.getFullYear()
-    return `${day}/${month}/${year}`
-}
-
-// Helper function to safely set element content
-const safeSetElementContent = (element: HTMLElement, content: string, useInnerHTML = false) => {
-    try {
-        // Check if element is still connected to the DOM
-        if (!element.isConnected) {
-            console.warn("Attempted to modify disconnected DOM element")
-            return false
-        }
-
-        if (useInnerHTML) {
-            element.innerHTML = content
-        } else {
-            element.textContent = content
-        }
-        return true
-    } catch (error) {
-        console.warn("Failed to set element content:", error)
-        return false
-    }
-}
-
-// Helper function to safely clear element content
-const safeClearElement = (element: HTMLElement) => {
-    try {
-        if (!element.isConnected) {
-            return false
-        }
-        element.innerHTML = ""
-        return true
-    } catch (error) {
-        console.warn("Failed to clear element:", error)
-        return false
-    }
-}
-
-// Resolve an option object from either its key or label (case-insensitive for label)
-const resolveOptionByValue = <T extends Record<string, { label: string; color: string; bgColor: string }>>(options: T, value?: string | null) => {
-    if (!value) return null
-    if (value in options) return (options as any)[value]
-    const lower = String(value).toLowerCase()
-    const found = Object.values(options).find((opt) => opt.label.toLowerCase() === lower)
-    return found || null
-}
-
-// Map an incoming value (key or label) to the canonical label stored in options
-const mapToLabel = <T extends Record<string, { label: string; color: string; bgColor: string }>>(options: T, value: any): string => {
-    if (value == null) return value
-    const str = String(value)
-    if (str in options) return (options as any)[str].label
-    const found = Object.values(options).find((opt) => opt.label.toLowerCase() === str.toLowerCase())
-    return found ? found.label : str
-}
-
-// Remove type definition for header
-type NestedColumnHeader = {
-    label: string
-    colspan: number
-}
-
-export default function AccountTracker() {
-    const [tableData, setTableData] = useState<CustomerData[]>([])
-    const [isLoading, setIsLoading] = useState(false)
-    const [searchTerm, setSearchTerm] = useState("")
-    const [selectedTeam, setSelectedTeam] = useState("")
-    const [showAddModal, setShowAddModal] = useState(false)
-    const [numberOfRows, setNumberOfRows] = useState("")
-    const [staffNames, setStaffNames] = useState<string[]>([])
-    const [teamNames, setTeamNames] = useState<string[]>([])
-    const [hiddenColumns, setHiddenColumns] = useState<number[]>([])
-    const [hiddenRows, setHiddenRows] = useState<number[]>([])
-    const [didInitHidden, setDidInitHidden] = useState(false)
-    const hotTableRef = useRef<any>(null)
-    const [isPasting, setIsPasting] = useState(false)
-    const pasteTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-    // Batch update system
-    const [pendingUpdates, setPendingUpdates] = useState<PendingUpdate[]>([])
-    const [isBatchUpdating, setIsBatchUpdating] = useState(false)
-    const batchUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-    const batchUpdateQueueRef = useRef<Map<string, Map<string, any>>>(new Map())
-
+    const [selectedRows, setSelectedRows] = useState<number[]>([])
+    const [showBulkAddModal, setShowBulkAddModal] = useState(false)
+    const [bulkAddCount, setBulkAddCount] = useState(5)
+    const hotRef = useRef<any>(null)
+    const [tableReady, setTableReady] = useState(false)
     const userInfo = getUserInfo()
-    const fetchCustomers = async () => {
-        if (isLoading) return
-        try {
-            setIsLoading(true)
-            const customersSnap = await dbGet(dbRef(database, "customers"))
-            const customersObj = customersSnap.exists() ? (customersSnap.val() as Record<string, any>) : {}
-
-            const transformedData: CustomerData[] = Object.entries(customersObj).map(([id, customer]) => ({
-                id,
-                maMoi: (customer as any).maMoi || "",
-                maCu: (customer as any).maCu || "",
-                phanLoai: (customer as any).phanLoai || "",
-                phienBan: (customer as any).phienBan || "",
-                oder: (customer as any).oder || "",
-                cty: (customer as any).cty || "",
-                team: (customer as any).team || "",
-                chucVu: (customer as any).chucVu || "",
-                telegram: (customer as any).telegram || "",
-                username: (customer as any).username || "",
-                khac: (customer as any).khac || "",
-                linkNhom: (customer as any).linkNhom || "",
-                idNhom: (customer as any).idNhom || "",
-                info: (customer as any).info || "",
-                nhom: (customer as any).nhom || "",
-                nguoiCham1: (customer as any).nguoiCham1 || "",
-                nguoiCham2: (customer as any).nguoiCham2 || "",
-                tabDon: (customer as any).tabDon || "",
-                congNo: (customer as any).congNo || "",
-                tinDung: (customer as any).tinDung || "",
-                tinhTrang: (customer as any).tinhTrang || ("" as any),
-                ngayCheck: (customer as any).ngayCheck || "",
-                noteKT: (customer as any).noteKT || "",
-                nguoiXem: (customer as any).nguoiXem || "",
-            }))
-
-            setTableData(transformedData)
-
-            // Derive team names from data if available
-            const uniqueTeams = Array.from(new Set(transformedData.map((c) => c.nhom).filter(Boolean))) as string[]
-            setTeamNames(uniqueTeams)
-            setStaffNames([])
-        } catch (error) {
-            console.error("Error fetching customers from Firebase:", error)
-            setTableData([])
-        } finally {
-            setTimeout(() => setIsLoading(false), 100)
-        }
-    }
-
-    // Add debounce to prevent rapid clicks
-    const debouncedFetchCustomers = useCallback(
-        debounce(() => {
-            fetchCustomers()
-        }, 300),
-        [],
-    )
-
-    useEffect(() => {
-        fetchCustomers()
-    }, [])
-
-    // Update the refresh button click handler
-    const handleRefresh = () => {
-        if (!isLoading) {
-            debouncedFetchCustomers()
-        }
-    }
-
-    // Realtime subscription to customers
-    useEffect(() => {
-        const customersRef = dbRef(database, "customers")
-        const handleSnapshot = (customersSnap: any) => {
-            try {
-                const customersObj = customersSnap.exists() ? (customersSnap.val() as Record<string, any>) : {}
-
-                const transformedData: CustomerData[] = Object.entries(customersObj).map(([id, customer]) => ({
-                    id,
-                    maMoi: (customer as any).maMoi || "",
-                    maCu: (customer as any).maCu || "",
-                    phanLoai: (customer as any).phanLoai || "",
-                    phienBan: (customer as any).phienBan || "",
-                    oder: (customer as any).oder || "",
-                    cty: (customer as any).cty || "",
-                    team: (customer as any).team || "",
-                    chucVu: (customer as any).chucVu || "",
-                    telegram: (customer as any).telegram || "",
-                    username: (customer as any).username || "",
-                    khac: (customer as any).khac || "",
-                    linkNhom: (customer as any).linkNhom || "",
-                    idNhom: (customer as any).idNhom || "",
-                    info: (customer as any).info || "",
-                    nhom: (customer as any).nhom || "",
-                    nguoiCham1: (customer as any).nguoiCham1 || "",
-                    nguoiCham2: (customer as any).nguoiCham2 || "",
-                    tabDon: (customer as any).tabDon || "",
-                    congNo: (customer as any).congNo || "",
-                    tinDung: (customer as any).tinDung || "",
-                    tinhTrang: (customer as any).tinhTrang || ("" as any),
-                    ngayCheck: (customer as any).ngayCheck || "",
-                    noteKT: (customer as any).noteKT || "",
-                    nguoiXem: (customer as any).nguoiXem || "",
-                }))
-
-                setTableData(transformedData)
-
-                const uniqueTeams = Array.from(new Set(transformedData.map((c) => c.nhom).filter(Boolean))) as string[]
-                setTeamNames(uniqueTeams)
-                setStaffNames([])
-            } catch (error) {
-                console.error("Error transforming realtime customers:", error)
-            } finally {
-                setIsLoading(false)
-            }
-        }
-
-        setIsLoading(true)
-        dbOnValue(customersRef, handleSnapshot, (error) => {
-            console.error("Realtime subscription error:", error)
-            setIsLoading(false)
+    const isAdmin = userInfo?.role === "Admin"
+    const visibleData = isAdmin
+        ? data
+        : data.filter((row) => {
+            const raw = (row?.[23] || "").toString()
+            const viewers = raw
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter((s: string) => s.length > 0)
+            return viewers.includes(userInfo?.username || "")
         })
-
-        return () => {
-            try {
-                dbOff(customersRef, "value", handleSnapshot as any)
-            } catch (_) { }
-        }
-    }, [])
-
-    // Cleanup timeouts on unmount
-    useEffect(() => {
-        return () => {
-            if (batchUpdateTimeoutRef.current) {
-                clearTimeout(batchUpdateTimeoutRef.current)
-            }
-            if (pasteTimeoutRef.current) {
-                clearTimeout(pasteTimeoutRef.current)
-            }
-        }
-    }, [])
-
-    // Batch update helper functions
-    const addToBatchQueue = useCallback((customerId: string, field: string, value: any) => {
-        if (!batchUpdateQueueRef.current.has(customerId)) {
-            batchUpdateQueueRef.current.set(customerId, new Map())
-        }
-        batchUpdateQueueRef.current.get(customerId)!.set(field, value)
-
-        // Schedule batch update after 500ms of inactivity
-        if (batchUpdateTimeoutRef.current) {
-            clearTimeout(batchUpdateTimeoutRef.current)
-        }
-        batchUpdateTimeoutRef.current = setTimeout(() => {
-            processBatchUpdates()
-        }, 500)
-    }, [])
-
-    const processBatchUpdates = useCallback(async () => {
-        if (isBatchUpdating || batchUpdateQueueRef.current.size === 0) return
-
-        setIsBatchUpdating(true)
-        try {
-            const updates: Record<string, any> = {}
-            const updatedCustomers = new Set<string>()
-
-            // Process all queued updates
-            for (const [customerId, fields] of batchUpdateQueueRef.current) {
-                if (fields.size > 0) {
-                    updates[`/customers/${customerId}`] = Object.fromEntries(fields)
-                    updatedCustomers.add(customerId)
-                }
-            }
-
-            if (Object.keys(updates).length > 0) {
-                console.log(`Processing batch update for ${updatedCustomers.size} customers`)
-                await dbUpdate(dbRef(database), updates)
-
-                // Update local state
-                setTableData(prevData =>
-                    prevData.map(customer => {
-                        if (updatedCustomers.has(customer.id!)) {
-                            const fields = batchUpdateQueueRef.current.get(customer.id!)
-                            if (fields) {
-                                return { ...customer, ...Object.fromEntries(fields) }
-                            }
-                        }
-                        return customer
-                    })
-                )
-
-                // Clear the queue
-                batchUpdateQueueRef.current.clear()
-                toast.success(`Đã cập nhật ${updatedCustomers.size} khách hàng`)
-            }
-        } catch (error) {
-            console.error("Error in batch update:", error)
-            toast.error("Lỗi cập nhật hàng loạt")
-        } finally {
-            setIsBatchUpdating(false)
-        }
-    }, [isBatchUpdating])
-
-    // Update transformToFirebaseFormat function
-    const transformToFirebaseFormat = (data: CustomerData) => ({
-        maMoi: data.maMoi,
-        maCu: data.maCu,
-        phanLoai: data.phanLoai,
-        phienBan: data.phienBan,
-        oder: data.oder,
-        cty: data.cty,
-        team: data.team,
-        chucVu: data.chucVu,
-        telegram: data.telegram,
-        username: data.username,
-        khac: data.khac,
-        linkNhom: data.linkNhom,
-        idNhom: data.idNhom,
-        info: data.info,
-        nhom: data.nhom,
-        nguoiCham1: data.nguoiCham1,
-        nguoiCham2: data.nguoiCham2,
-        tabDon: data.tabDon,
-        congNo: data.congNo,
-        tinDung: data.tinDung,
-        tinhTrang: data.tinhTrang,
-        ngayCheck: data.ngayCheck,
-        noteKT: data.noteKT,
-        nguoiXem: data.nguoiXem,
-    })
-
-    // Update filteredData to remove header logic
-    const filteredData = (() => {
-        // First filter by search term
-        const searchFiltered = tableData.filter((row: CustomerData) => {
-            const searchFields = ["maMoi", "phanLoai", "cty", "team", "nhom", "nguoiCham1"] as const
-            return (
-                searchTerm === "" ||
-                searchFields.some((field) => {
-                    const value = row[field]
-                    if (Array.isArray(value)) {
-                        return value.some((item) => item.toLowerCase().includes(searchTerm.toLowerCase()))
-                    }
-                    return (value?.toString().toLowerCase() || "").includes(searchTerm.toLowerCase())
-                })
-            )
-        })
-
-        // Filter by selected team
-        const teamFiltered = selectedTeam === "" ? searchFiltered : searchFiltered.filter((row) => row.nhom === selectedTeam)
-
-        // Filter by user role and username
-        if (userInfo.role === "Nhân viên") {
-            return teamFiltered.filter((row) => {
-                // Check if nguoiXem contains the username
-                if (!row.nguoiXem) return false
-
-                // Split nguoiXem by space to handle multiple viewers
-                const viewers = row.nguoiXem.split(" ")
-
-                // Check if any viewer matches the username
-                return viewers.some(viewer => viewer === userInfo.username)
-            })
-        }
-
-        return teamFiltered
-    })()
-
-    // Tính tổng Công Nợ và Tín Dụng
-    const sumCongNo = filteredData.reduce((acc, row) => acc + (parseFloat((row.congNo || '0').toString().replace(/[^0-9.-]+/g, '')) || 0), 0);
-    const sumTinDung = filteredData.reduce((acc, row) => acc + (parseFloat((row.tinDung || '0').toString().replace(/[^0-9.-]+/g, '')) || 0), 0);
-    // Tạo hàng tổng
-    const totalRow: CustomerData = {
-        maMoi: '',
-        maCu: '',
-        phanLoai: '',
-        phienBan: '',
-        oder: '',
-        cty: '',
-        team: '',
-        chucVu: '',
-        telegram: '',
-        username: '',
-        khac: '',
-        linkNhom: '',
-        idNhom: '',
-        info: '',
-        nhom: '',
-        nguoiCham1: '',
-        nguoiCham2: '',
-        tabDon: '',
-        congNo: sumCongNo.toLocaleString('vi-VN'),
-        tinDung: sumTinDung.toLocaleString('vi-VN'),
-        tinhTrang: '' as any,
-        ngayCheck: '',
-        noteKT: '',
-        nguoiXem: '',
-        id: 'total',
-    };
-    // Data truyền vào HotTable: hàng tổng + filteredData
-    const tableDataWithTotal = [totalRow, ...filteredData];
-
-    // Fix cells function
-    const cells = function (
-        this: Handsontable.CellProperties,
-        row: number,
-        col: number,
-        prop: string | number,
-    ): Handsontable.CellMeta {
-        const cellProperties: Handsontable.CellMeta = {
-            className: "htMiddle htCenter",
-            wordWrap: false,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            renderer: function (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: any,
-                cellProperties: Handsontable.CellProperties,
-            ) {
-                // For regular rows, allow editing based on the column
-                cellProperties.readOnly = ["congNo"].includes(prop as string)
-
-                // Regular cell rendering
-                Handsontable.renderers.TextRenderer.apply(this, [instance, td, row, col, prop, value, cellProperties])
-                td.style.textAlign = "center"
-                td.style.verticalAlign = "middle"
-            },
-        }
-
-        if (prop === "maMoi") {
-            cellProperties.renderer = (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: string,
-                cellProperties: Handsontable.CellProperties,
-            ) => {
-                if (value) {
-                    const link = document.createElement("a")
-                    link.href = value
-                    link.style.color = "red"
-                    link.style.display = "block"
-                    link.style.overflow = "hidden"
-                    link.style.textOverflow = "ellipsis"
-                    link.style.whiteSpace = "nowrap"
-                    // Allow cell to be editable by preventing the link from capturing pointer events
-                    link.style.pointerEvents = "none"
-                    link.tabIndex = -1
-                    link.title = value
-                    link.textContent = value
-
-                    try {
-                        if (safeClearElement(td)) {
-                            td.appendChild(link)
-                        }
-                    } catch (error) {
-                        console.warn("Failed to append link element:", error)
-                        safeSetElementContent(td, value)
-                    }
-                } else {
-                    safeSetElementContent(td, "")
-                }
-            }
-        }
-
-        // Format Order column
-        if (prop === "oder") {
-            cellProperties.renderer = (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: string,
-                cellProperties: Handsontable.CellProperties,
-            ) => {
-                const select = document.createElement("select")
-                select.style.width = "100%"
-                select.style.height = "100%"
-                select.style.padding = "4px 8px"
-                select.style.borderRadius = "4px"
-                select.style.border = "1px solid #E5E7EB"
-                const resolved = resolveOptionByValue(ORDER_OPTIONS, value)
-                select.style.backgroundColor = resolved ? resolved.bgColor : "white"
-                select.style.color = resolved ? resolved.color : "#6B7280"
-                select.style.cursor = "pointer"
-                select.style.textAlign = "center"
-                select.style.fontSize = "11px"
-                select.style.appearance = "none"
-                select.style.webkitAppearance = "none"
-                select.style.transition = "all 0.2s ease"
-                select.style.fontWeight = resolved ? "500" : "normal"
-                select.style.pointerEvents = "auto"
-
-                // Add empty option first
-                const emptyOption = document.createElement("option")
-                emptyOption.value = ""
-                emptyOption.textContent = "---"
-                select.appendChild(emptyOption)
-
-                // Add order options
-                Object.entries(ORDER_OPTIONS).forEach(([key, order]) => {
-                    const option = document.createElement("option")
-                    option.value = order.label
-                    option.textContent = order.label
-                    if (resolved && resolved.label === order.label) {
-                        option.selected = true
-                    }
-                    select.appendChild(option)
-                })
-
-                // Prevent direct input
-                select.addEventListener("keydown", (e) => {
-                    e.preventDefault()
-                })
-
-                select.addEventListener("change", (e) => {
-                    const newValue = (e.target as HTMLSelectElement).value
-                    instance.setDataAtCell(row, col, newValue)
-                })
-
-                select.addEventListener("mouseover", () => {
-                    const r = resolveOptionByValue(ORDER_OPTIONS, select.value)
-                    select.style.backgroundColor = r ? r.bgColor : "#F9FAFB"
-                    select.style.borderColor = "#93C5FD"
-                })
-
-                select.addEventListener("mouseout", () => {
-                    const r = resolveOptionByValue(ORDER_OPTIONS, select.value)
-                    select.style.backgroundColor = r ? r.bgColor : "white"
-                    select.style.borderColor = "#E5E7EB"
-                })
-
-                try {
-                    if (safeClearElement(td)) {
-                        td.style.padding = "0"
-                        td.appendChild(select)
-                        td.style.textAlign = "center"
-                        td.style.verticalAlign = "middle"
-                        td.contentEditable = "false"
-                    }
-                } catch (error) {
-                    console.warn("Failed to append select element:", error)
-                }
-            }
-        }
-
-        // Format Phiên Bản column
-        if (prop === "phienBan") {
-            cellProperties.renderer = (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: string,
-                cellProperties: Handsontable.CellProperties,
-            ) => {
-                const select = document.createElement("select")
-                select.style.width = "100%"
-                select.style.height = "100%"
-                select.style.padding = "4px 8px"
-                select.style.borderRadius = "4px"
-                select.style.border = "1px solid #E5E7EB"
-                const resolved = resolveOptionByValue(PHIEN_BAN_OPTIONS, value)
-                select.style.backgroundColor = resolved ? resolved.bgColor : "white"
-                select.style.color = resolved ? resolved.color : "#6B7280"
-                select.style.cursor = "pointer"
-                select.style.textAlign = "center"
-                select.style.fontSize = "11px"
-                select.style.appearance = "none"
-                select.style.webkitAppearance = "none"
-                select.style.transition = "all 0.2s ease"
-                select.style.fontWeight = resolved ? "500" : "normal"
-                select.style.pointerEvents = "auto"
-
-                // Add empty option first
-                const emptyOption = document.createElement("option")
-                emptyOption.value = ""
-                emptyOption.textContent = "---"
-                select.appendChild(emptyOption)
-
-                // Add phien ban options
-                Object.entries(PHIEN_BAN_OPTIONS).forEach(([key, phienBan]) => {
-                    const option = document.createElement("option")
-                    option.value = phienBan.label
-                    option.textContent = phienBan.label
-                    if (resolved && resolved.label === phienBan.label) {
-                        option.selected = true
-                    }
-                    select.appendChild(option)
-                })
-
-                // Prevent direct input
-                select.addEventListener("keydown", (e) => {
-                    e.preventDefault()
-                })
-
-                select.addEventListener("change", (e) => {
-                    const newValue = (e.target as HTMLSelectElement).value
-                    instance.setDataAtCell(row, col, newValue)
-                })
-
-                select.addEventListener("mouseover", () => {
-                    const r = resolveOptionByValue(PHIEN_BAN_OPTIONS, select.value)
-                    select.style.backgroundColor = r ? r.bgColor : "#F9FAFB"
-                    select.style.borderColor = "#93C5FD"
-                })
-
-                select.addEventListener("mouseout", () => {
-                    const r = resolveOptionByValue(PHIEN_BAN_OPTIONS, select.value)
-                    select.style.backgroundColor = r ? r.bgColor : "white"
-                    select.style.borderColor = "#E5E7EB"
-                })
-
-                try {
-                    if (safeClearElement(td)) {
-                        td.style.padding = "0"
-                        td.appendChild(select)
-                        td.style.textAlign = "center"
-                        td.style.verticalAlign = "middle"
-                        td.contentEditable = "false"
-                    }
-                } catch (error) {
-                    console.warn("Failed to append select element:", error)
-                }
-            }
-        }
-
-        // Format Phân Loại column
-        if (prop === "phanLoai") {
-            cellProperties.renderer = (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: string,
-                cellProperties: Handsontable.CellProperties,
-            ) => {
-                const select = document.createElement("select")
-                select.style.width = "100%"
-                select.style.height = "100%"
-                select.style.padding = "4px 8px"
-                select.style.borderRadius = "4px"
-                select.style.border = "1px solid #E5E7EB"
-                const resolved = resolveOptionByValue(PHAN_LOAI_OPTIONS, value)
-                select.style.backgroundColor = resolved ? resolved.bgColor : "white"
-                select.style.color = resolved ? resolved.color : "#6B7280"
-                select.style.cursor = "pointer"
-                select.style.textAlign = "center"
-                select.style.fontSize = "11px"
-                select.style.appearance = "none"
-                select.style.webkitAppearance = "none"
-                select.style.transition = "all 0.2s ease"
-                select.style.fontWeight = resolved ? "500" : "normal"
-                select.style.pointerEvents = "auto"
-
-                // Add empty option first
-                const emptyOption = document.createElement("option")
-                emptyOption.value = ""
-                emptyOption.textContent = "---"
-                select.appendChild(emptyOption)
-
-                // Add phan loai options
-                Object.entries(PHAN_LOAI_OPTIONS).forEach(([key, phanLoai]) => {
-                    const option = document.createElement("option")
-                    option.value = phanLoai.label
-                    option.textContent = phanLoai.label
-                    if (resolved && resolved.label === phanLoai.label) {
-                        option.selected = true
-                    }
-                    select.appendChild(option)
-                })
-
-                // Prevent direct input
-                select.addEventListener("keydown", (e) => {
-                    e.preventDefault()
-                })
-
-                select.addEventListener("change", (e) => {
-                    const newValue = (e.target as HTMLSelectElement).value
-                    instance.setDataAtCell(row, col, newValue)
-                })
-
-                select.addEventListener("mouseover", () => {
-                    const r = resolveOptionByValue(PHAN_LOAI_OPTIONS, select.value)
-                    select.style.backgroundColor = r ? r.bgColor : "#F9FAFB"
-                    select.style.borderColor = "#93C5FD"
-                })
-
-                select.addEventListener("mouseout", () => {
-                    const r = resolveOptionByValue(PHAN_LOAI_OPTIONS, select.value)
-                    select.style.backgroundColor = r ? r.bgColor : "white"
-                    select.style.borderColor = "#E5E7EB"
-                })
-
-                try {
-                    if (safeClearElement(td)) {
-                        td.style.padding = "0"
-                        td.appendChild(select)
-                        td.style.textAlign = "center"
-                        td.style.verticalAlign = "middle"
-                        td.contentEditable = "false"
-                    }
-                } catch (error) {
-                    console.warn("Failed to append select element:", error)
-                }
-            }
-        }
-
-        // Format Team (nhom) column
-        if (prop === "nhom") {
-            cellProperties.renderer = (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: string,
-                cellProperties: Handsontable.CellProperties,
-            ) => {
-                const select = document.createElement("select")
-                select.style.width = "100%"
-                select.style.height = "100%"
-                select.style.padding = "4px 8px"
-                select.style.borderRadius = "4px"
-                select.style.border = "1px solid #E5E7EB"
-                select.style.backgroundColor = value ? "#EFF6FF" : "white"
-                select.style.color = value ? "#1E40AF" : "#6B7280"
-                select.style.cursor = "pointer"
-                select.style.textAlign = "center"
-                select.style.fontSize = "11px"
-                select.style.appearance = "none"
-                select.style.webkitAppearance = "none"
-                select.style.transition = "all 0.2s ease"
-                select.style.fontWeight = value ? "500" : "normal"
-                select.style.pointerEvents = "auto"
-
-                // Add empty option first
-                const emptyOption = document.createElement("option")
-                emptyOption.value = ""
-                emptyOption.textContent = "---"
-                select.appendChild(emptyOption)
-
-                // Add team options
-                teamNames.forEach((team) => {
-                    const option = document.createElement("option")
-                    option.value = team
-                    option.textContent = team
-                    if (value === team) {
-                        option.selected = true
-                    }
-                    select.appendChild(option)
-                })
-
-                // Prevent direct input
-                select.addEventListener("keydown", (e) => {
-                    e.preventDefault()
-                })
-
-                select.addEventListener("change", (e) => {
-                    const newValue = (e.target as HTMLSelectElement).value
-                    instance.setDataAtCell(row, col, newValue)
-                })
-
-                select.addEventListener("mouseover", () => {
-                    select.style.backgroundColor = value ? "#DBEAFE" : "#F9FAFB"
-                    select.style.borderColor = "#93C5FD"
-                })
-
-                select.addEventListener("mouseout", () => {
-                    select.style.backgroundColor = value ? "#EFF6FF" : "white"
-                    select.style.borderColor = "#E5E7EB"
-                })
-
-                try {
-                    if (safeClearElement(td)) {
-                        td.style.padding = "0"
-                        td.appendChild(select)
-                        td.style.textAlign = "center"
-                        td.style.verticalAlign = "middle"
-                        td.contentEditable = "false"
-                    }
-                } catch (error) {
-                    console.warn("Failed to append select element:", error)
-                }
-            }
-        }
-
-        // Format Tình Trạng column
-        if (prop === "tinhTrang") {
-            cellProperties.renderer = (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: string,
-                cellProperties: Handsontable.CellProperties,
-            ) => {
-                const select = document.createElement("select")
-                select.style.width = "100%"
-                select.style.height = "100%"
-                select.style.padding = "4px 8px"
-                select.style.borderRadius = "4px"
-                select.style.border = "1px solid #E5E7EB"
-                const resolved = resolveOptionByValue(STATUS_OPTIONS, value)
-                select.style.backgroundColor = resolved ? resolved.bgColor : "white"
-                select.style.color = resolved ? resolved.color : "#6B7280"
-                select.style.cursor = "pointer"
-                select.style.textAlign = "center"
-                select.style.fontSize = "11px"
-                select.style.appearance = "none"
-                select.style.webkitAppearance = "none"
-                select.style.transition = "all 0.2s ease"
-                select.style.fontWeight = resolved ? "500" : "normal"
-                select.style.pointerEvents = "auto"
-
-                // Add empty option first
-                const emptyOption = document.createElement("option")
-                emptyOption.value = ""
-                emptyOption.textContent = "---"
-                select.appendChild(emptyOption)
-
-                // Add status options
-                Object.entries(STATUS_OPTIONS).forEach(([key, status]) => {
-                    const option = document.createElement("option")
-                    option.value = status.label
-                    option.textContent = status.label
-                    if (resolved && resolved.label === status.label) {
-                        option.selected = true
-                    }
-                    select.appendChild(option)
-                })
-
-                // Prevent direct input
-                select.addEventListener("keydown", (e) => {
-                    e.preventDefault()
-                })
-
-                select.addEventListener("change", (e) => {
-                    const newValue = (e.target as HTMLSelectElement).value
-                    instance.setDataAtCell(row, col, newValue)
-                })
-
-                select.addEventListener("mouseover", () => {
-                    const r = resolveOptionByValue(STATUS_OPTIONS, select.value)
-                    select.style.backgroundColor = r ? r.bgColor : "#F9FAFB"
-                    select.style.borderColor = "#93C5FD"
-                })
-
-                select.addEventListener("mouseout", () => {
-                    const r = resolveOptionByValue(STATUS_OPTIONS, select.value)
-                    select.style.backgroundColor = r ? r.bgColor : "white"
-                    select.style.borderColor = "#E5E7EB"
-                })
-
-                try {
-                    if (safeClearElement(td)) {
-                        td.style.padding = "0"
-                        td.appendChild(select)
-                        td.style.textAlign = "center"
-                        td.style.verticalAlign = "middle"
-                        td.contentEditable = "false"
-                    }
-                } catch (error) {
-                    console.warn("Failed to append select element:", error)
-                }
-            }
-        }
-
-        // Format Tab Đơn column
-        if (prop === "tabDon") {
-            cellProperties.renderer = (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: string,
-                cellProperties: Handsontable.CellProperties,
-            ) => {
-                if (value) {
-                    const link = document.createElement("a")
-                    link.href = value
-                    link.target = "_blank"
-                    link.style.color = "#2563EB"
-                    link.style.textDecoration = "underline"
-                    link.style.cursor = "pointer"
-                    link.style.display = "block"
-                    link.style.overflow = "hidden"
-                    link.style.textOverflow = "ellipsis"
-                    link.style.whiteSpace = "nowrap"
-                    link.title = value
-                    link.textContent = value
-
-                    try {
-                        if (safeClearElement(td)) {
-                            td.appendChild(link)
-                        }
-                    } catch (error) {
-                        console.warn("Failed to append link element:", error)
-                        safeSetElementContent(td, value)
-                    }
-                } else {
-                    safeSetElementContent(td, "")
-                }
-            }
-        }
-
-        // Format Công Nợ column
-        if (prop === "congNo") {
-            cellProperties.renderer = (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: string,
-                cellProperties: Handsontable.CellProperties,
-            ) => {
-                Handsontable.renderers.TextRenderer.apply(this, [instance, td, row, col, prop, value, cellProperties])
-
-                // Get Tín Dụng value from the same row
-                const tinDungValue = instance.getDataAtCell(row, instance.propToCol("tinDung")) as string
-
-                // Convert both values to numbers, handling empty or invalid values
-                const congNoNum = Number.parseFloat(value?.replace(/[^0-9.-]+/g, "") || "0")
-                const tinDungNum = Number.parseFloat(tinDungValue?.replace(/[^0-9.-]+/g, "") || "0")
-
-                // Compare values and set color
-                if (congNoNum - tinDungNum > 0) {
-                    td.style.color = "#DC2626" // Red for positive difference
-                    td.style.backgroundColor = "#FEE2E2" // Light red background
-                } else {
-                    td.style.color = "#16A34A" // Green for zero or negative difference
-                    td.style.backgroundColor = "#DCFCE7" // Light green background
-                }
-
-                td.style.fontWeight = "500"
-                td.style.textAlign = "center"
-                td.style.verticalAlign = "middle"
-                td.style.borderRadius = "4px"
-                td.style.padding = "4px 8px"
-            }
-        }
-
-        if (prop === "ngayCheck") {
-            cellProperties.renderer = (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: string,
-                cellProperties: Handsontable.CellProperties,
-            ) => {
-                const displayValue = value ? value.substring(0, 5) : "Check"
-
-                const button = document.createElement("button")
-                button.textContent = `${displayValue} 📅`
-                button.style.borderRadius = "0"
-                button.style.border = "none"
-                button.style.backgroundColor = value ? "#EFF6FF" : "#2563EB"
-                button.style.color = value ? "#1E40AF" : "white"
-                button.style.cursor = "pointer"
-                button.style.fontSize = "12px"
-                button.style.display = "flex"
-                button.style.alignItems = "center"
-                button.style.justifyContent = "center"
-                button.style.gap = "4px"
-                button.style.width = "100%"
-                button.style.height = "100%"
-                button.style.padding = "0"
-
-                button.addEventListener("click", (e) => {
-                    e.stopPropagation()
-                    const currentDate = getCurrentDateFormatted()
-                    instance.setDataAtCell(row, col, currentDate)
-                    instance.render()
-                    toast.success("Đã cập nhật ngày check")
-                })
-
-                if (safeClearElement(td)) {
-                    td.style.padding = "0"
-                    try {
-                        td.appendChild(button)
-                        td.style.textAlign = "center"
-                        td.style.verticalAlign = "middle"
-                    } catch (error) {
-                        console.warn("Failed to append button element:", error)
-                    }
-                }
-            }
-        }
-
-        if (prop === "demNgay") {
-            cellProperties.renderer = (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: any,
-                cellProperties: Handsontable.CellProperties,
-            ) => {
-                const checkDate = instance.getDataAtCell(row, instance.propToCol("ngayCheck")) as string
-                const daysDiff = calculateDaysDifference(checkDate)
-
-                // Hiển thị số ngày với màu sắc tùy theo giá trị
-                const daysNum = parseInt(daysDiff) || 0
-
-                if (daysNum > 30) {
-                    td.style.backgroundColor = "#FEE2E2" // Light red
-                    td.style.color = "#DC2626" // Red
-                } else if (daysNum > 14) {
-                    td.style.backgroundColor = "#FEF3C7" // Light amber
-                    td.style.color = "#D97706" // Amber
-                } else if (daysNum > 7) {
-                    td.style.backgroundColor = "#DBEAFE" // Light blue
-                    td.style.color = "#2563EB" // Blue
-                } else {
-                    td.style.backgroundColor = "#DCFCE7" // Light green
-                    td.style.color = "#16A34A" // Green
-                }
-
-                td.style.fontWeight = "500"
-                td.style.textAlign = "center"
-                td.style.verticalAlign = "middle"
-                td.style.borderRadius = "4px"
-                td.style.padding = "4px 8px"
-
-                safeSetElementContent(td, daysDiff ? `${daysDiff} ngày` : "")
-            }
-        }
-
-        return cellProperties
-    }
-
-    // Update columns configuration
-    const columns = [
-        {
-            data: "maMoi",
-            width: 60,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: false,
-        },
-        {
-            data: "maCu",
-            width: 70,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: true,
-        },
-        {
-            data: "phanLoai",
-            width: 80,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: false,
-        },
-        {
-            data: "phienBan",
-            width: 70,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: false,
-        },
-        {
-            data: "oder",
-            width: 80,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: false,
-        },
-        {
-            data: "cty",
-            width: 60,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: false,
-        },
-        {
-            data: "team",
-            width: 80,
-            className: "htMiddle htCenter",
-            readOnly: true,
-        },
-        {
-            data: "chucVu",
-            width: 80,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: false,
-        },
-        {
-            data: "telegram",
-            width: 70,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: false,
-        },
-        {
-            data: "username",
-            width: 80,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: false,
-        },
-        {
-            data: "khac",
-            width: 70,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: false,
-        },
-        {
-            data: "linkNhom",
-            width: 80,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: false,
-        },
-        {
-            data: "idNhom",
-            width: 70,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: true,
-        },
-        {
-            data: "info",
-            width: 80,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: false,
-        },
-        {
-            data: "nhom",
-            width: 80,
-            className: "htMiddle htCenter",
-            readOnly: true,
-        },
-        {
-            data: "nguoiCham1",
-            width: 100,
-            className: "htMiddle htCenter",
-            readOnly: true,
-        },
-        {
-            data: "nguoiCham2",
-            width: 100,
-            className: "htMiddle htCenter",
-            readOnly: true,
-        },
-        {
-            data: "tabDon",
-            width: 80,
-            className: "htMiddle htCenter",
-            renderer: "html",
-            readOnly: false,
-        },
-        {
-            data: "congNo",
-            width: 70,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: true,
-        },
-        {
-            data: "tinDung",
-            width: 70,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: false,
-        },
-        {
-            data: "tinhTrang",
-            width: 90,
-            className: "htMiddle htCenter",
-            readOnly: true,
-        },
-        {
-            data: "ngayCheck",
-            width: 90,
-            className: "htMiddle htCenter",
-            readOnly: true,
-        },
-        {
-            data: "demNgay",
-            width: 80,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: true,
-        },
-        {
-            data: "noteKT",
-            width: 80,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: false,
-        },
-        {
-            data: "nguoiXem",
-            width: 100,
-            className: "htMiddle htCenter",
-            renderer: "text",
-            readOnly: false,
-        },
-    ]
-
+    // Modal state for multi-select Người Xem (Admin only)
+    const [viewerModalOpen, setViewerModalOpen] = useState(false)
+    const [viewerModalRow, setViewerModalRow] = useState<number | null>(null)
+    const [selectedViewers, setSelectedViewers] = useState<string[]>([])
     const RowHeader2 = [
         "Mã Mới",
         "Mã Cũ",
@@ -1362,718 +62,808 @@ export default function AccountTracker() {
         "ID Tele",
         "Liên hệ 2",
         "Link Nhóm",
-        "ID nhóm",
+        "ID Nhóm",
         "Info",
-        "Nhóm",
         "Ng Chăm 1",
         "Ng Chăm 2",
         "Tab Đơn",
         "Công Nợ",
         "Tín Dụng",
         "Tình Trạng",
-        "Ngày check",
-        "Đếm ngày",
+        "Ngày Check",
+        "Đếm Ngày",
         "Note KT",
-        "Người xem",
+        "Người Xem",
     ]
 
-    // Update handleAfterChange
-    const handleAfterChange = async (changes: any[] | null, source: string) => {
-        // Skip nếu đang paste hoặc source là loadData
-        if (!changes || source === "loadData" || isPasting) {
-            return
+    const dropdownOptions = {
+        2: ["====", "Bình thường", "Mua nhiều", "VIP"], // Phân Loại
+        3: ["====", "PB1", "PB2", "PB3", "PB4"], // Phiên Bản
+        4: ["====", "Đang MH", "2 Tuần KM", "4 Tuần KM", "Lâu K MH", "Mình nghỉ chơi", "Họ nghỉ chơi", "SEO OFF"], // Order
+        19: ["====", "Bình thường", "Rủi ro", "Rủi ro cao", "Scam"], // Tình Trạng
+    }
+    const viewerOptions = Array.from({ length: 30 }, (_, i) => `BH${i + 1}`) // Người Xem options for Admin modal
+
+    // Parse date from DD/MM/YYYY or ISO
+    const parseDate = (dateString: string) => {
+        if (!dateString) return null as any
+        if (dateString.includes("/")) {
+            const [dd, mm, yyyy] = dateString.split("/")
+            const day = Number(dd)
+            const month = Number(mm) - 1
+            const year = Number(yyyy)
+            const d = new Date(year, month, day)
+            return isNaN(d.getTime()) ? null : d
+        }
+        const d = new Date(dateString)
+        return isNaN(d.getTime()) ? null : d
+    }
+
+    // Format date to DD/MM/YYYY
+    const formatDate = (dateString: string) => {
+        if (!dateString) return ""
+        const date = parseDate(dateString)
+        if (!date) return ""
+
+        const day = date.getDate().toString().padStart(2, "0")
+        const month = (date.getMonth() + 1).toString().padStart(2, "0")
+        const year = date.getFullYear()
+
+        return `${day}/${month}/${year}`
+    }
+
+    // Format date to DD/MM for display
+    const formatDateShort = (dateString: string) => {
+        if (!dateString) return ""
+        const date = parseDate(dateString)
+        if (!date) return ""
+
+        const day = date.getDate().toString().padStart(2, "0")
+        const month = (date.getMonth() + 1).toString().padStart(2, "0")
+
+        return `${day}/${month}`
+    }
+
+    // Get current date in DD/MM/YYYY format
+    const getCurrentDate = () => {
+        const today = new Date()
+        const day = today.getDate().toString().padStart(2, "0")
+        const month = (today.getMonth() + 1).toString().padStart(2, "0")
+        const year = today.getFullYear()
+        return `${day}/${month}/${year}`
+    }
+
+    const getOptionColors = (columnIndex: number, value: string) => {
+        const colorMaps: { [key: number]: { [key: string]: { bg: string; text: string } } } = {
+            2: {
+                // Phân Loại
+                "Bình thường": { bg: "#e0f2fe", text: "#0369a1" }, // blue light/dark
+                "Mua nhiều": { bg: "#dcfce7", text: "#166534" }, // green light/dark
+                VIP: { bg: "#fef3c7", text: "#d97706" }, // yellow light/dark
+            },
+            3: {
+                // Phiên Bản
+                PB1: { bg: "#f3e8ff", text: "#7c3aed" }, // purple light/dark
+                PB2: { bg: "#fce7f3", text: "#be185d" }, // pink light/dark
+                PB3: { bg: "#ecfdf5", text: "#059669" }, // emerald light/dark
+                PB4: { bg: "#fef2f2", text: "#dc2626" }, // red light/dark
+            },
+            4: {
+                // Order
+                "Đang MH": { bg: "#dcfce7", text: "#166534" }, // green
+                "2 Tuần KM": { bg: "#fef3c7", text: "#d97706" }, // yellow
+                "4 Tuần KM": { bg: "#fed7aa", text: "#ea580c" }, // orange
+                "Lâu K MH": { bg: "#fecaca", text: "#dc2626" }, // red
+                "Mình nghỉ chơi": { bg: "#e5e7eb", text: "#374151" }, // gray
+                "Họ nghỉ chơi": { bg: "#f3f4f6", text: "#6b7280" }, // light gray
+                "SEO OFF": { bg: "#fee2e2", text: "#991b1b" }, // red variant
+            },
+            19: {
+                // Tình Trạng
+                "Bình thường": { bg: "#dcfce7", text: "#166534" }, // green
+                "Rủi ro": { bg: "#fef3c7", text: "#d97706" }, // yellow
+                "Rủi ro cao": { bg: "#fed7aa", text: "#ea580c" }, // orange
+                Scam: { bg: "#fecaca", text: "#dc2626" }, // red
+            },
         }
 
-        // Skip nếu source là paste
-        if (source === "paste") {
-            return
-        }
+        return colorMaps[columnIndex]?.[value] || { bg: "#f9fafb", text: "#374151" }
+    }
 
-        try {
-            for (const [row, prop, oldValue, newValue] of changes) {
-                const actualRowIndex = findActualRowIndex(row)
-                if (actualRowIndex === -1) continue
+    const calculateDaysDifference = (checkDate: string) => {
+        if (!checkDate) return ""
+        const date = parseDate(checkDate)
+        if (!date) return ""
+        const today = new Date()
+        const diffTime = today.getTime() - date.getTime()
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+        return diffDays.toString()
+    }
 
-                // Get the actual data object for the edited row
-                const hotInstance = hotTableRef.current?.hotInstance
-                if (!hotInstance) continue
+    const getDebtCreditStyling = (debt: string, credit: string) => {
+        const debtNum = Number.parseFloat(debt) || 0
+        const creditNum = Number.parseFloat(credit) || 0
 
-                const rowData = hotInstance.getSourceDataAtRow(row)
-                if (!rowData) continue
-
-                // Now we know it's a customer data row
-                const customer = rowData as CustomerData
-                if (!customer || !customer.id) {
-                    console.warn("Attempted to update a row without a valid customer object or ID.", rowData)
-                    continue
-                }
-
-                const updatedCustomer: any = { ...customer }
-
-                // Normalize certain fields to store labels (so paste can use human-readable labels)
-                let normalizedValue = newValue
-                if (prop === 'phanLoai') {
-                    normalizedValue = mapToLabel(PHAN_LOAI_OPTIONS, newValue)
-                } else if (prop === 'phienBan') {
-                    normalizedValue = mapToLabel(PHIEN_BAN_OPTIONS, newValue)
-                } else if (prop === 'oder') {
-                    normalizedValue = mapToLabel(ORDER_OPTIONS, newValue)
-                } else if (prop === 'tinhTrang') {
-                    normalizedValue = mapToLabel(STATUS_OPTIONS, newValue)
-                }
-
-                // Add to batch queue instead of immediate update
-                addToBatchQueue(updatedCustomer.id!, String(prop), normalizedValue)
-
-                // Update local state immediately for better UX
-                updateTableData(updatedCustomer)
-            }
-        } catch (error) {
-            toast.error("Có lỗi xảy ra khi cập nhật dữ liệu")
-            console.error("Error in handleAfterChange:", error)
+        if (debtNum > creditNum) {
+            return { bg: "#fecaca", text: "#dc2626" } // red background/text
+        } else {
+            return { bg: "#dcfce7", text: "#166534" } // green background/text
         }
     }
 
-    // Update handleAfterPaste to batch all changes into single API call
-    const handleAfterPaste = async (data: any[][], coords: any[]) => {
-        try {
-            // Set flag để ngăn handleAfterChange chạy
-            setIsPasting(true)
-            // Hiển thị overlay loading trong suốt quá trình lưu
-            setIsLoading(true)
-
-            // Clear timeout cũ nếu có
-            if (pasteTimeoutRef.current) {
-                clearTimeout(pasteTimeoutRef.current)
+    const getColumnConfig = () => {
+        return RowHeader2.map((header, index) => {
+            const config: any = {
+                data: index,
+                title: header,
             }
 
-            // Kiểm tra coords có hợp lệ không
-            if (!coords || coords.length === 0 || !coords[0] || !coords[0].from || !coords[0].to) {
-                console.warn("Invalid coords in paste operation:", coords)
-                return
-            }
-
-            const updatedCustomers: CustomerData[] = []
-            const changedCustomerIds = new Set<string>()
-
-            const range = coords[0]
-            const startRow = range.from.row
-            const endRow = range.to.row
-            const startCol = range.from.col
-            const endCol = range.to.col
-
-            console.log("Paste range:", { startRow, endRow, startCol, endCol })
-
-            // Process each affected row
-            for (let row = startRow; row <= endRow; row++) {
-                // Kiểm tra row có hợp lệ không
-                if (row < 0 || row >= filteredData.length) {
-                    console.warn(`Row ${row} is out of bounds`)
-                    continue
-                }
-
-                const customer = filteredData[row]
-                if (!customer || !customer.id) {
-                    console.warn(`Customer at row ${row} is invalid:`, customer)
-                    continue
-                }
-
-                const updatedCustomer = { ...customer }
-                let hasUpdates = false
-
-                // Process each column in the paste range
-                for (let col = startCol; col <= endCol; col++) {
-                    // Kiểm tra column có hợp lệ không
-                    if (col < 0 || col >= columns.length) {
-                        console.warn(`Column ${col} is out of bounds`)
-                        continue
+            // Set dropdown for specific columns with strict validation
+            if (dropdownOptions[index as keyof typeof dropdownOptions] && index !== 23) {
+                config.type = "dropdown"
+                config.source = dropdownOptions[index as keyof typeof dropdownOptions]
+                config.strict = true
+                config.allowInvalid = false
+                config.allowEmpty = false
+                config.validator = (value: any, callback: any) => {
+                    if (value === null || value === undefined || value === "") {
+                        callback(false)
+                        return false
                     }
-
-                    const columnConfig = columns[col]
-                    if (!columnConfig || columnConfig.readOnly) continue
-
-                    const pasteRowIndex = row - startRow
-                    const pasteColIndex = col - startCol
-
-                    // Kiểm tra data có hợp lệ không
-                    if (!data[pasteRowIndex] || pasteColIndex >= data[pasteRowIndex].length) {
-                        continue
+                    if (dropdownOptions[index as keyof typeof dropdownOptions]?.includes(value)) {
+                        callback(true)
+                        return true
                     }
-
-                    const newValue = data[pasteRowIndex][pasteColIndex]
-
-                    if (newValue !== undefined && newValue !== null) {
-                        const fieldName = columnConfig.data as keyof CustomerData
-
-                        // Only update if the value is different
-                        let normalized
-                        if (fieldName === 'phanLoai') normalized = mapToLabel(PHAN_LOAI_OPTIONS, newValue)
-                        else if (fieldName === 'phienBan') normalized = mapToLabel(PHIEN_BAN_OPTIONS, newValue)
-                        else if (fieldName === 'oder') normalized = mapToLabel(ORDER_OPTIONS, newValue)
-                        else if (fieldName === 'tinhTrang') normalized = mapToLabel(STATUS_OPTIONS, newValue)
-                        else normalized = typeof newValue === "string" ? newValue.trim() : newValue
-
-                        if (updatedCustomer[fieldName] !== normalized) {
-                            ; (updatedCustomer as any)[fieldName] = normalized
-                            hasUpdates = true
-                        }
-                    }
+                    callback(false)
+                    return false
                 }
-
-                // Only add to update list if there are actual changes
-                if (hasUpdates && customer.id) {
-                    updatedCustomers.push(updatedCustomer)
-                    changedCustomerIds.add(String(customer.id))
+                // Make Người Xem readOnly for non-admin (safety)
+                if (index === 23 && !isAdmin) {
+                    config.readOnly = true
                 }
             }
 
-            // Use batch queue system for paste operations
-            if (updatedCustomers.length > 0) {
-                console.log(`Adding ${updatedCustomers.length} customers to batch queue...`)
+            // Renderer for Người Xem to show multiple badges (comma-separated values)
+            if (index === 23) {
+                config.renderer = (instance: any, td: any, row: any, col: any, prop: any, value: any) => {
+                    const text = (value || "").toString()
+                    const items = text
+                        .split(",")
+                        .map((s: string) => s.trim())
+                        .filter((s: string) => s.length > 0)
 
-                // Add all changes to batch queue
-                updatedCustomers.forEach((uc) => {
-                    if (!uc.id) return
-                    Object.entries(uc).forEach(([field, value]) => {
-                        if (field !== 'id' && value !== undefined) {
-                            addToBatchQueue(uc.id!, field, value)
-                        }
-                    })
+                    if (items.length === 0) {
+                        td.innerHTML = "===="
+                        td.style.color = "#9ca3af"
+                        td.style.fontStyle = "italic"
+                        td.style.textAlign = "center"
+                        return td
+                    }
+
+                    td.innerHTML = items
+                        .map(
+                            (v: string) =>
+                                `<span style="display:inline-block;margin:2px;padding:2px 6px;border-radius:9999px;background:#eef2ff;color:#3730a3;font-size:12px;">${v}</span>`,
+                        )
+                        .join("")
+                    td.style.textAlign = "left"
+                    td.style.fontStyle = "normal"
+                    td.style.color = "#111827"
+                    return td
+                }
+            }
+
+            // Date interaction for Ngày Check column (click-only to set today)
+            if (index === 20) {
+                // Disable editor and typing/picker
+                config.editor = false
+                config.readOnly = true
+                config.renderer = (instance: any, td: any, row: any, col: any, prop: any, value: any, cellProperties: any) => {
+                    const date = value || ""
+                    const formattedDate = formatDateShort(date)
+
+                    td.style.cursor = "pointer"
+                    td.onclick = () => {
+                        const today = getCurrentDate()
+                        instance.setDataAtCell(row, col, today)
+                        // Also trigger render for Đếm Ngày
+                        setTimeout(() => {
+                            // @ts-ignore
+                            instance.render()
+                        }, 0)
+                    }
+
+                    if (date) {
+                        td.innerHTML = `
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 4px; color: #1d4ed8; font-weight: 600;">
+                                <span style="font-size: 16px;">📅</span>
+                                <span>${formattedDate}</span>
+                            </div>
+                        `
+                    } else {
+                        td.innerHTML = `
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 4px; color: #9ca3af; font-weight: 500;">
+                                <span style="font-size: 16px;">📅</span>
+                                <span>${formatDateShort(getCurrentDate())}</span>
+                            </div>
+                        `
+                    }
+
+                    return td
+                }
+            }
+
+            if (index === 21) {
+                config.readOnly = true
+                config.renderer = (instance: any, td: any, row: any, col: any, prop: any, value: any, cellProperties: any) => {
+                    const checkDate = instance.getDataAtCell(row, 20) // Get Ngày Check value
+                    const daysDiff = calculateDaysDifference(checkDate)
+                    td.innerHTML = daysDiff || "0"
+                    td.style.backgroundColor = "#f3f4f6"
+                    td.style.color = "#6b7280"
+                    td.style.textAlign = "center"
+                    td.style.fontWeight = "500"
+                    return td
+                }
+            }
+
+            if (index === 16) {
+                config.renderer = (instance: any, td: any, row: any, col: any, prop: any, value: any, cellProperties: any) => {
+                    const url = value || ""
+                    // Force no-wrap and ellipsis
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.style.maxWidth = "100%"
+
+                    if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
+                        const safeUrl = url.replace(/"/g, "&quot;")
+                        td.innerHTML = `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: underline; cursor: pointer; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${safeUrl}</a>`
+                    } else {
+                        td.innerHTML = url
+                    }
+
+                    // Add tooltip for long URLs
+                    if (url.length > 15) {
+                        td.title = url
+                    }
+                    return td
+                }
+            }
+
+            if (index === 17) {
+                config.renderer = (instance: any, td: any, row: any, col: any, prop: any, value: any, cellProperties: any) => {
+                    const debt = value || "0"
+                    const credit = instance.getDataAtCell(row, 18) || "0" // Get Tín Dụng value
+                    const styling = getDebtCreditStyling(debt, credit)
+
+                    td.innerHTML = debt
+                    td.style.backgroundColor = styling.bg
+                    td.style.color = styling.text
+                    td.style.fontWeight = "500"
+                    td.style.borderRadius = "4px"
+                    td.style.padding = "4px 8px"
+                    td.style.textAlign = "center"
+
+                    return td
+                }
+            }
+
+            if (index === 18) {
+                config.renderer = (instance: any, td: any, row: any, col: any, prop: any, value: any, cellProperties: any) => {
+                    const credit = value || "0"
+                    const debt = instance.getDataAtCell(row, 17) || "0" // Get Công Nợ value
+                    const styling = getDebtCreditStyling(debt, credit)
+
+                    td.innerHTML = credit
+                    td.style.backgroundColor = styling.bg
+                    td.style.color = styling.text
+                    td.style.fontWeight = "500"
+                    td.style.borderRadius = "4px"
+                    td.style.padding = "4px 8px"
+                    td.style.textAlign = "center"
+
+                    return td
+                }
+            }
+
+            // Special styling for "Mã Mới" column
+            if (index === 0) {
+                config.renderer = (instance: any, td: any, row: any, col: any, prop: any, value: any, cellProperties: any) => {
+                    td.innerHTML = value || ""
+                    td.style.color = "#dc2626" // red-600
+                    td.style.fontWeight = "bold"
+                    return td
+                }
+            }
+
+            if (index !== 0 && index !== 16 && index !== 17 && index !== 18 && index !== 20 && index !== 21) {
+                config.renderer = (instance: any, td: any, row: any, col: any, prop: any, value: any, cellProperties: any) => {
+                    const text = value || ""
+
+                    // Show "====" for empty dropdown values
+                    if (dropdownOptions[index as keyof typeof dropdownOptions] && !text) {
+                        td.innerHTML = "===="
+                        td.style.color = "#9ca3af"
+                        td.style.fontStyle = "italic"
+                        td.style.textAlign = "center"
+                    } else {
+                        td.innerHTML = text
+                        td.style.color = "#374151"
+                        td.style.fontStyle = "normal"
+                    }
+
+                    // Add tooltip for long text
+                    if (text.length > 15) {
+                        td.title = text
+                        td.style.textOverflow = "ellipsis"
+                        td.style.overflow = "hidden"
+                        td.style.whiteSpace = "nowrap"
+                    }
+
+                    // Apply colors for dropdown columns
+                    if (dropdownOptions[index as keyof typeof dropdownOptions] && text) {
+                        const colors = getOptionColors(index, text)
+                        td.style.backgroundColor = colors.bg
+                        td.style.color = colors.text
+                        td.style.fontWeight = "500"
+                        td.style.borderRadius = "4px"
+                        td.style.padding = "4px 8px"
+                        td.style.textAlign = "center"
+                        td.style.userSelect = "none"
+                        td.style.cursor = "pointer"
+                    }
+
+                    return td
+                }
+            }
+
+            return config
+        })
+    }
+
+    const handleAfterChange = (changes: any) => {
+        if (changes && changes.length > 0) {
+            const validChanges = changes.filter(([row, col, oldVal, newVal]: any) => oldVal !== newVal && newVal !== null)
+
+            if (validChanges.length > 0) {
+                // Check if Ngày Check column was changed and update Đếm Ngày
+                validChanges.forEach(([row, col, oldVal, newVal]: any) => {
+                    if (col === 20) {
+                        // Ngày Check column
+                        // Force re-render of Đếm Ngày column
+                        setTimeout(() => {
+                            const hotInstance = document.querySelector(".handsontable")
+                            if (hotInstance) {
+                                // @ts-ignore
+                                hotInstance.hotInstance?.render()
+                            }
+                        }, 100)
+                    }
                 })
 
-                // Force immediate batch processing for paste operations
-                if (batchUpdateTimeoutRef.current) {
-                    clearTimeout(batchUpdateTimeoutRef.current)
-                }
-                setTimeout(() => {
-                    processBatchUpdates()
-                }, 100)
-
-                toast.success(`Đã thêm ${updatedCustomers.length} khách hàng vào hàng đợi cập nhật`)
-            } else {
-                console.log("No changes detected in paste operation")
+                saveMultipleRows(validChanges)
             }
-        } catch (error) {
-            console.error("Error in batch paste update:", error)
-            const errorMessage = error instanceof Error ? error.message : "Không thể cập nhật dữ liệu"
-            toast.error(`Lỗi cập nhật hàng loạt: ${errorMessage}`)
-        } finally {
-            // Reset paste flag sau một khoảng thời gian ngắn
-            pasteTimeoutRef.current = setTimeout(() => {
-                setIsPasting(false)
-            }, 500)
-            // Tắt overlay loading khi đã hoàn tất
-            setIsLoading(false)
         }
     }
 
-    // Add Modal Component
-    const AddRowsModal = () => {
-        if (!showAddModal) return null
-
-        const handleSubmit = (e: React.FormEvent) => {
-            e.preventDefault()
-            const numRows = Number.parseInt(numberOfRows)
-            if (isNaN(numRows) || numRows <= 0) {
-                toast.error("Vui lòng nhập số dòng hợp lệ")
-                return
+    const handleAfterPaste = (data: any, coords: any) => {
+        if (data && data.length > 0) {
+            const changes: any[] = []
+            for (let i = 0; i < data.length; i++) {
+                for (let j = 0; j < data[i].length; j++) {
+                    const row = coords[0].startRow + i
+                    const col = coords[0].startCol + j
+                    // Block pasting into "Ngày Check" column (index 20)
+                    if (col === 20) continue
+                    changes.push([row, col, null, data[i][j]])
+                }
             }
-            handleAddMultipleRows(numRows)
-            setShowAddModal(false)
-            setNumberOfRows("")
+            // Single batch update for all pasted data
+            if (changes.length > 0) {
+                saveMultipleRows(changes)
+            }
+        }
+    }
+
+    const handleAfterSelection = (row: number, column: number, row2: number, column2: number) => {
+        const selected = []
+        for (let i = Math.min(row, row2); i <= Math.max(row, row2); i++) {
+            selected.push(i)
+        }
+        setSelectedRows(selected)
+    }
+
+    const handleDeleteSelected = async () => {
+        if (selectedRows.length === 0) return
+
+        Modal.confirm({
+            title: "Xác nhận xóa",
+            content: `Bạn có chắc muốn xóa ${selectedRows.length} hàng đã chọn?`,
+            okText: "Xóa",
+            cancelText: "Hủy",
+            okType: "danger",
+            onOk: async () => {
+                // Sort from highest to lowest index to avoid shifting issues
+                const sortedRows = [...selectedRows].sort((a, b) => b - a)
+
+                // Use bulk delete function with single toast
+                await deleteMultipleRows(sortedRows)
+                setSelectedRows([])
+                toast.success("Đã xóa các hàng đã chọn")
+            },
+        })
+    }
+
+    const handleBulkAdd = async () => {
+        const today = new Date()
+        const formattedDate = `${today.getDate().toString().padStart(2, "0")}/${(today.getMonth() + 1).toString().padStart(2, "0")}/${today.getFullYear()}`
+
+        const newRowsData = Array(bulkAddCount)
+            .fill(null)
+            .map(() => {
+                const newRow = Array(24).fill("")
+                // Set Ngày Check to current date
+                newRow[20] = formattedDate
+                // Set empty dropdown values to "===="
+                newRow[2] = "====" // Phân Loại
+                newRow[3] = "====" // Phiên Bản
+                newRow[4] = "====" // Order
+                newRow[19] = "====" // Tình Trạng
+                // Set Người Xem for non-admin
+                if (!isAdmin) {
+                    newRow[23] = userInfo?.username || ""
+                }
+                return newRow
+            })
+
+        await addMultipleRows(newRowsData)
+        setShowBulkAddModal(false)
+        toast.success(`Đã thêm ${bulkAddCount} hàng mới`)
+    }
+
+    const handleSingleAdd = async () => {
+        const today = new Date()
+        const formattedDate = `${today.getDate().toString().padStart(2, "0")}/${(today.getMonth() + 1).toString().padStart(2, "0")}/${today.getFullYear()}`
+
+        const newRowData = Array(24).fill("")
+        // Set Ngày Check to current date
+        newRowData[20] = formattedDate
+        // Set empty dropdown values to "===="
+        newRowData[2] = "====" // Phân Loại
+        newRowData[3] = "====" // Phiên Bản
+        newRowData[4] = "====" // Order
+        newRowData[19] = "====" // Tình Trạng
+        // Set Người Xem for non-admin
+        if (!isAdmin) {
+            newRowData[23] = userInfo?.username || ""
         }
 
+        await addNewRow(newRowData)
+        toast.success("Đã thêm 1 hàng mới")
+    }
+
+    useEffect(() => {
+        if (!loading && data.length > 0) {
+            // Small delay to ensure table is fully rendered
+            const timer = setTimeout(() => {
+                setTableReady(true)
+                // Add initialized class to enable smooth transitions
+                const tableElement = document.querySelector(".handsontable")
+                if (tableElement) {
+                    tableElement.classList.add("initialized")
+                }
+            }, 100)
+            return () => clearTimeout(timer)
+        }
+    }, [loading, data])
+
+    if (loading) {
         return (
-            <div
-                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-                onKeyDown={(e) => { e.stopPropagation() }}
-                onKeyUp={(e) => { e.stopPropagation() }}
-                onKeyPress={(e) => { e.stopPropagation() }}
-            >
-                <div className="bg-white rounded-lg p-6 w-96 relative">
-                    <button
-                        onClick={() => setShowAddModal(false)}
-                        className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
-                    >
-                        <X className="h-5 w-5" />
-                    </button>
-                    <h3 className="text-lg font-semibold mb-4">Thêm dòng</h3>
-                    <form onSubmit={handleSubmit}>
-                        <div className="mb-4">
-                            <label htmlFor="rows" className="block text-sm font-medium text-gray-700 mb-1">
-                                Số lượng dòng cần thêm
-                            </label>
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="text"
-                                    id="rows"
-                                    value={numberOfRows}
-                                    onChange={(e) => setNumberOfRows(e.target.value.replace(/[^0-9]/g, ''))}
-                                    onKeyDown={(e) => { e.stopPropagation() }}
-                                    onKeyUp={(e) => { e.stopPropagation() }}
-                                    onKeyPress={(e) => { e.stopPropagation() }}
-                                    onFocus={(e) => { e.stopPropagation() }}
-                                    onClick={(e) => { e.stopPropagation() }}
-                                    inputMode="numeric"
-                                    pattern="[0-9]*"
-                                    autoFocus
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Nhập số dòng"
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setNumberOfRows(prev => {
-                                        const current = Number.parseInt(prev || '0') || 0
-                                        return String(Math.max(1, current - 1))
-                                    })}
-                                    className="px-3 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                                >
-                                    -1
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setNumberOfRows(prev => {
-                                        const current = Number.parseInt(prev || '0') || 0
-                                        return String(Math.max(1, current + 1))
-                                    })}
-                                    className="px-3 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                                >
-                                    +1
-                                </button>
-                            </div>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                                {['5', '10', '20', '50', '100'].map((n) => (
-                                    <button
-                                        key={n}
-                                        type="button"
-                                        onClick={() => setNumberOfRows(n)}
-                                        className="px-2 py-1 bg-blue-50 text-blue-700 rounded hover:bg-blue-100"
-                                    >
-                                        {n}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setShowAddModal(false)}
-                                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                            >
-                                Hủy
-                            </button>
-                            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                                Thêm
-                            </button>
-                        </div>
-                    </form>
+            <div className="min-h-screen py-6 px-4 flex items-center justify-center">
+                <div className="flex items-center gap-2">
+                    <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+                    <span className="text-foreground">Đang tải dữ liệu...</span>
                 </div>
             </div>
         )
     }
 
-    // Modify handleAddRow to show modal
-    const handleAddRow = () => {
-        setShowAddModal(true)
-    }
-
-    // Update handleAddMultipleRows with batch create
-    const handleAddMultipleRows = async (numRows: number) => {
-        try {
-            setIsLoading(true)
-            const baseData: Omit<CustomerData, 'id'> = {
-                maMoi: '', maCu: '', phanLoai: '', phienBan: '', oder: '', cty: '', team: '', chucVu: '', telegram: '', username: '', khac: '', linkNhom: '', idNhom: '', info: '', nhom: '', nguoiCham1: '', nguoiCham2: '', tabDon: '', congNo: '', tinDung: '', tinhTrang: '' as any, ngayCheck: '', noteKT: '', nguoiXem: ''
-            }
-
-            // Create all customers in parallel using batch operations
-            const customersRef = dbRef(database, 'customers')
-            const createPromises: Promise<any>[] = []
-            const newCustomers: CustomerData[] = []
-
-            for (let i = 0; i < numRows; i++) {
-                const newRef = dbPush(customersRef)
-                const payload = { ...baseData, id: newRef.key || '' }
-                newCustomers.push(payload as CustomerData)
-                createPromises.push(dbSet(newRef, payload))
-            }
-
-            // Wait for all creations to complete
-            await Promise.all(createPromises)
-
-            // Update local state immediately for better UX
-            setTableData(prevData => [...prevData, ...newCustomers])
-
-            toast.success(`Đã thêm ${numRows} dòng mới`)
-        } catch (error) {
-            console.error("Error creating customers in Firebase:", error)
-            const errorMessage = error instanceof Error ? error.message : "Không thể thêm dòng mới"
-            toast.error(errorMessage)
-        } finally {
-            setIsLoading(false)
-        }
-    }
-
-    // Update context menu items to use 'hidden' property for dynamic show/hide
-    const contextMenuItems = {
-        items: {
-            row_above: {
-                name: "Thêm dòng",
-                callback: handleAddRow,
-            },
-            remove_row: {
-                name: "Xóa dòng",
-                callback: async () => {
-                    const selected = hotTableRef.current?.hotInstance?.getSelected()
-                    if (selected) {
-                        const displayRowIndex = selected[0][0]
-                        const hotInstance = hotTableRef.current?.hotInstance
-                        if (!hotInstance) return
-                        const rowData = hotInstance.getSourceDataAtRow(displayRowIndex)
-                        if (!rowData) return
-                        const customer = rowData as CustomerData
-                        if (customer.id) {
-                            try {
-                                await dbRemove(dbRef(database, `customers/${customer.id}`))
-                                setTableData((prevData) => prevData.filter((c) => c.id !== customer.id))
-                                toast.success("Xóa khách hàng thành công")
-                            } catch (error) {
-                                toast.error("Không thể xóa khách hàng")
-                                console.error("Error deleting customer:", error)
-                            }
-                        } else {
-                            setTableData((prevData) => {
-                                const newData = [...prevData]
-                                const actualIndex = newData.findIndex((c) => c === customer)
-                                if (actualIndex !== -1) {
-                                    newData.splice(actualIndex, 1)
-                                }
-                                return newData
-                            })
-                            toast.success("Xóa dòng thành công")
-                        }
-                    }
-                },
-            },
-            hide_column: {
-                name: "Ẩn cột",
-                callback: function () {
-                    const selected = hotTableRef.current?.hotInstance?.getSelected()
-                    if (selected) {
-                        const columnIndex = selected[0][1]
-                        setHiddenColumns(prev => [...prev, columnIndex])
-                    }
-                }
-            },
-            show_all_columns: {
-                name: "Hiện tất cả cột",
-                callback: function () {
-                    setHiddenColumns([])
-                },
-                hidden: () => hiddenColumns.length === 0
-            },
-            hide_row: {
-                name: "Ẩn hàng",
-                callback: function () {
-                    const selected = hotTableRef.current?.hotInstance?.getSelected();
-                    if (selected) {
-                        // selected là mảng các vùng chọn, mỗi vùng: [rowStart, colStart, rowEnd, colEnd]
-                        let rowsToHide: number[] = [];
-                        selected.forEach((sel: any) => {
-                            const from = Math.min(sel[0], sel[2]);
-                            const to = Math.max(sel[0], sel[2]);
-                            for (let i = from; i <= to; i++) {
-                                rowsToHide.push(i);
-                            }
-                        });
-                        // Loại bỏ trùng lặp và cập nhật state
-                        setHiddenRows(prev => Array.from(new Set([...prev, ...rowsToHide])));
-                    }
-                }
-            },
-            show_all_rows: {
-                name: "Hiện tất cả hàng",
-                callback: function () {
-                    setHiddenRows([])
-                },
-                hidden: () => hiddenRows.length === 0
-            }
-        }
-    }
-
-    // Update findActualRowIndex to remove header check
-    const findActualRowIndex = (displayRowIndex: number): number => {
-        // Get the actual data row from the table instance
-        const hotInstance = hotTableRef.current?.hotInstance
-        if (!hotInstance) return -1
-
-        // Get the source data at the display row
-        const rowData = hotInstance.getSourceDataAtRow(displayRowIndex)
-        if (!rowData) return -1
-
-        // Find the index in filteredData that matches this customer's ID
-        const customer = rowData as CustomerData
-        return filteredData.findIndex((item) => (item as CustomerData).id === customer.id)
-    }
-
-    // Add new helper function to update table data
-    const updateTableData = (updatedCustomer: CustomerData) => {
-        setTableData((prevData) => {
-            return prevData.map((customer) => (customer.id === updatedCustomer.id ? updatedCustomer : customer))
-        })
-    }
-
-    // Add useEffect to handle hidden columns and rows changes
-    useEffect(() => {
-        const hotInstance = hotTableRef.current?.hotInstance
-        if (hotInstance) {
-            hotInstance.updateSettings({
-                hiddenColumns: {
-                    columns: hiddenColumns,
-                    indicators: true
-                },
-                hiddenRows: {
-                    rows: hiddenRows,
-                    indicators: true
-                }
-            })
-        }
-    }, [hiddenColumns, hiddenRows])
-
-    // Thêm useEffect để cleanup
-    useEffect(() => {
-        return () => {
-            if (pasteTimeoutRef.current) {
-                clearTimeout(pasteTimeoutRef.current)
-            }
-        }
-    }, [])
-
-    // Lấy trạng thái ẩn từ localStorage khi mount
-    useEffect(() => {
-        try {
-            const cols = localStorage.getItem('hiddenColumns');
-            const rows = localStorage.getItem('hiddenRows');
-            if (cols) setHiddenColumns(JSON.parse(cols));
-            if (rows) setHiddenRows(JSON.parse(rows));
-        } catch (e) {
-            setHiddenColumns([]);
-            setHiddenRows([]);
-        }
-        setDidInitHidden(true);
-    }, []);
-
-    // Lưu trạng thái ẩn vào localStorage khi thay đổi, chỉ khi đã init xong
-    useEffect(() => {
-        if (!didInitHidden) return;
-        try {
-            localStorage.setItem('hiddenColumns', JSON.stringify(hiddenColumns));
-            localStorage.setItem('hiddenRows', JSON.stringify(hiddenRows));
-        } catch (e) { }
-    }, [hiddenColumns, hiddenRows, didInitHidden]);
+    // Custom column widths: column 0 = 10, column 2 = 20, others = 120
+    const colWidthsConfig = Array(24).fill(90)
+    colWidthsConfig[0] = 70
+    colWidthsConfig[1] = 70
 
     return (
-        <div className="min-h-screen py-6 px-4 relative">
+        <div className="min-h-screen py-6 px-4 relative bg-background">
             <Toaster position="top-right" expand={true} richColors />
-            <AddRowsModal />
             <div className="w-full max-w-7xl mx-auto relative z-0">
-                {/* Header */}
                 <div className="bg-white rounded-t-xl shadow-xl overflow-hidden border border-blue-100">
                     <div className="p-4 border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <h2 className="text-2xl font-bold text-white">Quản Lý Khách Hàng</h2>
-                            <div className="flex items-center gap-2">
-                                {/* Team Filter */}
-                                <div className="relative w-full sm:w-48">
-                                    <select
-                                        value={selectedTeam}
-                                        onChange={(e) => setSelectedTeam(e.target.value)}
-                                        className="w-full px-4 py-1 text-blue-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 bg-white appearance-none cursor-pointer"
-                                        style={{
-                                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280'%3E%3Cpath strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-                                            backgroundRepeat: "no-repeat",
-                                            backgroundPosition: "right 0.75rem center",
-                                            backgroundSize: "1.25rem",
-                                            paddingRight: "2.5rem",
-                                        }}
-                                    >
-                                        <option value="">Tất cả Team</option>
-                                        {teamNames.map((team) => (
-                                            <option key={team} value={team}>
-                                                {team}
-                                            </option>
-                                        ))}
-                                    </select>
+                            <div className="flex items-center gap-3">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-white">Quản Lý Khách Hàng</h2>
+                                    <p className="text-white text-sm">Tổng: {visibleData.length} khách hàng</p>
                                 </div>
-                                <button
-                                    onClick={handleRefresh}
-                                    className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 shadow-md"
-                                    disabled={isLoading}
-                                >
-                                    <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-                                </button>
                             </div>
-                        </div>
-                    </div>
 
-                    {/* Loading indicator */}
-                    {isLoading && (
-                        <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                        </div>
-                    )}
-
-                    {/* Search and Add Section */}
-                    <div className="p-2 border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900">
-                        <div className="flex justify-between">
-                            {/* Thay thế phần hiển thị Team và số lượng khách hàng bằng thông tin ẩn cột/hàng */}
-                            <div className="text-sm text-white flex items-center gap-4">
-                                <span>
-                                    <b>Ẩn cột:</b> {hiddenColumns.length > 0 ? hiddenColumns.map(idx => RowHeader2[idx]).join(", ") : "Không có"}
-                                </span>
-                                <span>
-                                    <b>Ẩn hàng:</b> {hiddenRows.length > 0
-                                        ? hiddenRows.map(idx => filteredData[idx]?.maMoi || idx + 1).join(", ")
-                                        : "Không có"}
-                                </span>
-                                {isPasting && (
-                                    <span className="bg-yellow-500 text-yellow-900 px-2 py-1 rounded text-xs font-medium">
-                                        Đang xử lý paste...
-                                    </span>
-                                )}
-                            </div>
-                            <div className="flex flex-col sm:flex-row gap-3">
-                                {/* Search */}
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <div className="flex flex-col sm:flex-row gap-4">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-4 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                     <input
                                         type="text"
-                                        placeholder="Tìm kiếm..."
+                                        placeholder="Tìm kiếm khách hàng..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10 pr-4 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 w-full"
+                                        className="pl-10 pr-4 py-1 w-56 bg-background text-sm border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent outline-none transition-all duration-200 text-foreground placeholder:text-muted-foreground"
                                     />
                                 </div>
 
-                                {/* Add Button */}
-                                <button
-                                    onClick={handleAddRow}
-                                    className="flex items-center gap-2 px-4 py-1 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 shadow-md font-medium whitespace-nowrap"
-                                >
-                                    <Plus className="h-4 w-4" />
-                                    Thêm dòng
-                                </button>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={handleSingleAdd}
+                                        className="group flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md transition-all duration-200 text-sm shadow-sm"
+                                    >
+                                        <Plus className="h-3.5 w-3.5 group-hover:rotate-90 text-white transition-transform duration-200" />
+                                        <span className="leading-none text-white">Thêm 1</span>
+                                    </button>
 
-                                {/* Batch Update Status */}
-                                {isBatchUpdating && (
-                                    <div className="flex items-center gap-2 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-sm">
-                                        <RefreshCw className="h-4 w-4 animate-spin" />
-                                        Đang cập nhật...
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                                    <button
+                                        onClick={() => setShowBulkAddModal(true)}
+                                        className="group flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-all duration-200 text-sm"
+                                    >
+                                        <UserPlus className="h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-200 text-white" />
+                                        <span className="leading-none text-white">Thêm nhiều</span>
+                                    </button>
 
-                {/* Table */}
-                <div className="bg-white rounded-b-xl shadow-xl relative">
-                    {/* Batch Update Loading Overlay */}
-                    {isBatchUpdating && (
-                        <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-b-xl">
-                            <div className="flex items-center gap-3 bg-white px-6 py-4 rounded-lg shadow-lg">
-                                <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
-                                <div className="text-center">
-                                    <div className="font-medium text-gray-900">Đang cập nhật dữ liệu</div>
-                                    <div className="text-sm text-gray-600">Vui lòng đợi...</div>
+                                    <button
+                                        onClick={handleDeleteSelected}
+                                        disabled={selectedRows.length === 0}
+                                        className="group flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed rounded-md transition-colors duration-200 text-sm"
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-200 text-white" />
+                                        <span className="leading-none text-white">Xóa {selectedRows.length > 0 && `(${selectedRows.length})`}</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
-                    )}
+                    </div>
+                </div>
 
+                <div className="bg-card rounded-xl shadow-lg border border-border overflow-hidden">
                     <div className="overflow-x-auto">
-                        <HotTable
-                            ref={hotTableRef}
-                            themeName="ht-theme-main"
-                            colHeaders={RowHeader2}
-                            data={tableDataWithTotal}
-                            width="100%"
-                            autoColumnSize={false}
-                            manualColumnResize={true}
-                            height="calc(100vh - 320px)"
-                            stretchH="none"
-                            manualRowMove={true}
-                            manualColumnMove={true}
-                            manualRowResize={true}
-                            className="custom-table"
-                            licenseKey="non-commercial-and-evaluation"
-                            rowHeaders={false}
-                            // Smooth scrolling optimizations
-                            renderAllRows={false}
-                            viewportRowRenderingOffset={300}
-                            viewportColumnRenderingOffset={150}
-                            // Performance optimizations
-                            outsideClickDeselects={false}
-                            autoWrapRow={false}
-                            autoWrapCol={false}
-                            // Additional performance settings
-                            minSpareRows={50}
-                            minSpareCols={10}
-                            // Optimize cell rendering
-                            cell={[]}
-                            cells={function (this: Handsontable.CellProperties, row, col, prop) {
-                                // Hàng tổng (row === 0)
-                                if (row === 0) {
-                                    return {
-                                        readOnly: true,
-                                        className: 'htMiddle htCenter bg-blue-100 font-bold',
-                                        renderer: (instance, td, row, col, prop, value, cellProperties) => {
-                                            if (prop === 'congNo') {
-                                                td.textContent = sumCongNo.toString();
-                                                td.style.background = '#FFDEDE';
-                                                td.style.fontWeight = 'bold';
-                                                td.style.color = 'red';
-                                            } else if (prop === 'tinDung') {
-                                                td.textContent = sumTinDung.toString();
-                                                td.style.background = '#FFDEDE';
-                                                td.style.fontWeight = 'bold';
-                                                td.style.color = 'red';
-                                            } else if (col === 17) {
-                                                td.textContent = 'TỔNG';
-                                                td.style.background = '#FFDEDE';
-                                                td.style.fontWeight = 'bold';
-                                                td.style.color = 'red';
-                                            } else {
-                                                td.textContent = '';
-                                                td.style.background = '#FFDEDE';
-                                            }
-                                        }
+                        <div className={tableReady ? "table-ready" : "table-loading"}>
+                            <HotTable
+                                ref={hotRef}
+                                themeName="ht-theme-main"
+                                columns={getColumnConfig()}
+                                data={visibleData.map((row) => row.slice(0, 24))}
+                                width="100%"
+                                autoColumnSize={false}
+                                manualColumnResize={true}
+                                height="calc(100vh - 280px)"
+                                stretchH="all"
+                                className="custom-table"
+                                licenseKey="non-commercial-and-evaluation"
+                                colWidths={colWidthsConfig}
+                                wordWrap={false}
+                                hiddenColumns={!isAdmin ? { columns: [23], indicators: false } : undefined}
+                                afterChange={handleAfterChange}
+                                afterPaste={handleAfterPaste}
+                                afterSelection={handleAfterSelection}
+                                beforeOnCellMouseDown={(event: any, coords: any) => {
+                                    if (!coords) return
+                                    const { row, col } = coords
+                                    if (row >= 0 && col === 20) {
+                                        const today = getCurrentDate()
+                                        hotRef.current?.hotInstance?.setDataAtCell(row, col, today)
+                                        event.stopPropagation()
                                     }
-                                }
-                                // ... giữ nguyên cells cũ cho các hàng khác ...
-                                return cells.call(this, row - 1, col, prop);
-                            }}
-                            dropdownMenu={false}
-                            columnSorting={true}
-                            columnHeaderHeight={30}
-                            afterChange={handleAfterChange}
-                            afterPaste={handleAfterPaste}
-                            contextMenu={contextMenuItems}
-                            columns={columns}
-                            hiddenColumns={{
-                                columns: hiddenColumns,
-                                indicators: true
-                            }}
-                            hiddenRows={{
-                                rows: hiddenRows,
-                                indicators: true
-                            }}
-                            fixedColumnsLeft={0}
-                            fixedRowsTop={1}
-                        />
+                                    // Open multi-select modal for Người Xem (Admin only)
+                                    if (row >= 0 && col === 23 && isAdmin) {
+                                        const current = (hotRef.current?.hotInstance?.getDataAtCell(row, col) || "") as string
+                                        const items = current
+                                            .split(",")
+                                            .map((s) => s.trim())
+                                            .filter((s) => s.length > 0)
+                                        setSelectedViewers(items)
+                                        setViewerModalRow(row)
+                                        setViewerModalOpen(true)
+                                        event.stopPropagation()
+                                        event.preventDefault()
+                                        return
+                                    }
+                                }}
+                                contextMenu={true}
+                                columnSorting={true}
+                                filters={true}
+                                undo={true}
+                                comments={true}
+                                afterInit={() => {
+                                    setTimeout(() => setTableReady(true), 50)
+                                }}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="bg-muted/50 px-6 py-3 border-t border-border">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-4">
+                                <span className="font-medium">Tổng: {visibleData.length} khách hàng</span>
+                                {selectedRows.length > 0 && (
+                                    <span className="px-2 py-1 bg-primary/10 text-primary rounded-md font-medium">
+                                        Đã chọn: {selectedRows.length}
+                                    </span>
+                                )}
+                            </div>
+                            {searchTerm && (
+                                <span className="text-xs">
+                                    Hiển thị kết quả cho: <span className="font-medium">"{searchTerm}"</span>
+                                </span>
+                            )}
+                            <span className="text-xs">Chọn hàng để xóa • Nhấp đúp để chỉnh sửa</span>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <Modal
+                title={
+                    <div className="flex items-center gap-2 text-lg font-semibold">
+                        <UserPlus className="h-5 w-5 text-primary" />
+                        Thêm nhiều hàng
+                    </div>
+                }
+                open={showBulkAddModal}
+                onOk={handleBulkAdd}
+                onCancel={() => setShowBulkAddModal(false)}
+                okText="Thêm hàng"
+                cancelText="Hủy bỏ"
+                okButtonProps={{
+                    className: "bg-primary hover:bg-primary/90 border-primary text-primary-foreground",
+                }}
+                cancelButtonProps={{
+                    className: "border-border text-foreground hover:border-primary hover:text-primary",
+                }}
+            >
+                <div className="py-4">
+                    <label className="block text-sm font-medium mb-3 text-foreground">Số lượng hàng muốn thêm:</label>
+                    <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={bulkAddCount}
+                        onChange={(e) => setBulkAddCount(Number.parseInt(e.target.value) || 1)}
+                        className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent outline-none transition-all duration-200 text-foreground"
+                        placeholder="Nhập số lượng..."
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">Tối đa 100 hàng có thể được thêm cùng lúc</p>
+                </div>
+            </Modal>
+
+            {/* Modal chọn nhiều cho cột Người Xem (Admin only) */}
+            {isAdmin && (
+                <Modal
+                    title={
+                        <div className="flex items-center gap-3 text-lg font-semibold text-gray-800">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                                <Users className="w-5 h-5 text-blue-600" />
+                            </div>
+                            Chọn Người Xem
+                        </div>
+                    }
+                    open={viewerModalOpen}
+                    onOk={() => {
+                        if (viewerModalRow !== null) {
+                            const value = selectedViewers.join(", ")
+                            hotRef.current?.hotInstance?.setDataAtCell(viewerModalRow, 23, value)
+                        }
+                        setViewerModalOpen(false)
+                        setViewerModalRow(null)
+                    }}
+                    onCancel={() => {
+                        setViewerModalOpen(false)
+                        setViewerModalRow(null)
+                    }}
+                    okText={
+                        <div className="flex items-center gap-2">
+                            <Check className="w-4 h-4" />
+                            Lưu
+                        </div>
+                    }
+                    cancelText={
+                        <div className="flex items-center gap-2">
+                            <X className="w-4 h-4" />
+                            Hủy
+                        </div>
+                    }
+                    className="viewer-modal"
+                    width={800}
+                >
+                    <div className="space-y-4">
+                        {/* Search bar */}
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Tìm kiếm người xem..."
+                                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                                onChange={(e) => {
+                                    // Add search functionality if needed
+                                }}
+                            />
+                        </div>
+
+                        {/* Selected count */}
+                        <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <span className="text-sm font-medium text-blue-800">Đã chọn: {selectedViewers.length} người</span>
+                            {selectedViewers.length > 0 && (
+                                <button
+                                    onClick={() => setSelectedViewers([])}
+                                    className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                                >
+                                    Bỏ chọn tất cả
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Viewer options grid */}
+                        <div style={{ scrollbarWidth: "none" }} className="grid grid-cols-5 gap-3 max-h-90 overflow-auto p-1">
+                            {viewerOptions.map((opt: string) => {
+                                const isSelected = selectedViewers.includes(opt)
+                                return (
+                                    <label
+                                        key={opt}
+                                        className={`
+                                               relative flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md
+                                               ${isSelected
+                                                ? "border-blue-500 bg-blue-50 shadow-sm"
+                                                : "border-gray-200 bg-white hover:border-gray-300"
+                                            }
+                                           `}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedViewers((prev) => Array.from(new Set([...prev, opt])))
+                                                } else {
+                                                    setSelectedViewers((prev) => prev.filter((v) => v !== opt))
+                                                }
+                                            }}
+                                            className="sr-only"
+                                        />
+
+                                        {/* Custom checkbox design */}
+                                        <div
+                                            className={`
+                                               absolute top-2 right-2 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
+                                               ${isSelected ? "border-blue-500 bg-blue-500" : "border-gray-300 bg-white"}
+                                           `}
+                                        >
+                                            {isSelected && <Check className="w-3 h-3 text-white" />}
+                                        </div>
+
+                                        {/* User avatar   and name */}
+                                        <div className="flex flex-col items-center gap-2">
+                                            <span
+                                                className={`
+                                                   text-sm font-medium text-center
+                                                   ${isSelected ? "text-blue-700" : "text-gray-700"}
+                                               `}
+                                            >
+                                                {opt}
+                                            </span>
+                                        </div>
+                                    </label>
+                                )
+                            })}
+                        </div>
+                    </div>
+                </Modal>
+            )}
         </div>
     )
 }
