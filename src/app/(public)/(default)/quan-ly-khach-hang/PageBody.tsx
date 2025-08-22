@@ -795,6 +795,8 @@ export default function PageBody() {
                 onCancel={() => setShowBulkAddModal(false)}
                 okText="Thêm hàng"
                 cancelText="Hủy bỏ"
+                getContainer={() => containerRef.current || document.body}
+                zIndex={10000}
                 okButtonProps={{
                     className: "bg-primary hover:bg-primary/90 border-primary text-primary-foreground",
                 }}
@@ -855,6 +857,8 @@ export default function PageBody() {
                     }
                     className="viewer-modal"
                     width={800}
+                    getContainer={() => containerRef.current || document.body}
+                    zIndex={10000}
                 >
                     <div className="space-y-4">
                         {/* Search bar */}
