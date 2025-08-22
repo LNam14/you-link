@@ -1997,7 +1997,7 @@ export default function PageBody() {
                     </div>
                 </div>
             </div>
-            <div className={`${isFullscreen ? "fixed inset-0 z-50 bg-white" : "relative"}`}>
+            <div className={`${isFullscreen ? "fixed inset-0 z-50 bg-white p-0 m-0 w-screen h-screen" : "relative"}`}>
                 <HotTable
                     themeName="ht-theme-main"
                     nestedHeaders={[RowHeader1, RowHeader2]}
@@ -2006,7 +2006,7 @@ export default function PageBody() {
                     width="100%"
                     autoColumnSize={true}
                     manualColumnResize={true}
-                    height={isFullscreen ? "calc(100vh - 40px)" : "calc(100vh - 240px)"}
+                    height={isFullscreen ? "100vh" : "calc(100vh - 240px)"}
                     stretchH="all"
                     manualRowMove={true}
                     manualColumnMove={true}

@@ -8,7 +8,7 @@ import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
 import { Toaster, toast } from "sonner"
 import { useFirebaseData } from "@/firebase/hooks/useFirebaseData"
-import { Search, Plus, Trash2, RefreshCw, Users, UserPlus, Check, X } from "lucide-react"
+import { Search, Plus, Trash2, RefreshCw, Users, UserPlus, Check, X, Maximize, Minimize } from "lucide-react"
 import { Modal } from "antd"
 import getUserInfo from "@/components/userInfo"
 
@@ -33,6 +33,9 @@ export default function PageBody() {
     const [bulkAddCount, setBulkAddCount] = useState(5)
     const hotRef = useRef<any>(null)
     const [tableReady, setTableReady] = useState(false)
+    const [isFullscreen, setIsFullscreen] = useState(false)
+    const containerRef = useRef<HTMLDivElement>(null)
+
     const userInfo = getUserInfo()
     const isAdmin = userInfo?.role === "Admin"
     const visibleData = isAdmin
@@ -49,6 +52,57 @@ export default function PageBody() {
     const [viewerModalOpen, setViewerModalOpen] = useState(false)
     const [viewerModalRow, setViewerModalRow] = useState<number | null>(null)
     const [selectedViewers, setSelectedViewers] = useState<string[]>([])
+
+    const toggleFullscreen = async () => {
+        if (!containerRef.current) return
+
+        try {
+            if (!isFullscreen) {
+                // Enter fullscreen
+                if (containerRef.current.requestFullscreen) {
+                    await containerRef.current.requestFullscreen()
+                } else if ((containerRef.current as any).webkitRequestFullscreen) {
+                    await (containerRef.current as any).webkitRequestFullscreen()
+                } else if ((containerRef.current as any).msRequestFullscreen) {
+                    await (containerRef.current as any).msRequestFullscreen()
+                }
+            } else {
+                // Exit fullscreen
+                if (document.exitFullscreen) {
+                    await document.exitFullscreen()
+                } else if ((document as any).webkitExitFullscreen) {
+                    await (document as any).webkitExitFullscreen()
+                } else if ((document as any).msExitFullscreen) {
+                    await (document as any).msExitFullscreen()
+                }
+            }
+        } catch (error) {
+            console.error("Fullscreen error:", error)
+            toast.error("Không thể chuyển đổi chế độ toàn màn hình")
+        }
+    }
+
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            const isCurrentlyFullscreen = !!(
+                document.fullscreenElement ||
+                (document as any).webkitFullscreenElement ||
+                (document as any).msFullscreenElement
+            )
+            setIsFullscreen(isCurrentlyFullscreen)
+        }
+
+        document.addEventListener("fullscreenchange", handleFullscreenChange)
+        document.addEventListener("webkitfullscreenchange", handleFullscreenChange)
+        document.addEventListener("msfullscreenchange", handleFullscreenChange)
+
+        return () => {
+            document.removeEventListener("fullscreenchange", handleFullscreenChange)
+            document.removeEventListener("webkitfullscreenchange", handleFullscreenChange)
+            document.removeEventListener("msfullscreenchange", handleFullscreenChange)
+        }
+    }, [])
+
     const RowHeader2 = [
         "Mã Mới",
         "Mã Cũ",
@@ -575,10 +629,14 @@ export default function PageBody() {
     colWidthsConfig[1] = 70
 
     return (
-        <div className="min-h-screen py-6 px-4 relative bg-background">
+        <div
+            ref={containerRef}
+            className={`min-h-screen relative bg-background transition-all duration-300 ${isFullscreen ? "fixed inset-0 z-50 p-0 m-0 w-screen h-screen" : ""
+                }`}
+        >
             <Toaster position="top-right" expand={true} richColors />
-            <div className="w-full max-w-7xl mx-auto relative z-0">
-                <div className="bg-white rounded-t-xl shadow-xl overflow-hidden border border-blue-100">
+            <div className={`w-full ${isFullscreen ? "max-w-none mx-0 h-full" : "max-w-7xl mx-auto"} relative z-0`}>
+                <div className={`bg-white ${isFullscreen ? "" : "rounded-t-xl"} shadow-xl overflow-hidden border border-blue-100`}>
                     <div className="p-4 border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="flex items-center gap-3">
@@ -602,6 +660,19 @@ export default function PageBody() {
 
                                 <div className="flex gap-3">
                                     <button
+                                        onClick={toggleFullscreen}
+                                        className="group flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-all duration-200 text-sm shadow-sm"
+                                        title={isFullscreen ? "Thoát toàn màn hình" : "Chế độ toàn màn hình"}
+                                    >
+                                        {isFullscreen ? (
+                                            <Minimize className="h-3.5 w-3.5 text-white transition-transform duration-200" />
+                                        ) : (
+                                            <Maximize className="h-3.5 w-3.5 text-white transition-transform duration-200" />
+                                        )}
+                                        <span className="leading-none text-white">{isFullscreen ? "Thu nhỏ" : "Toàn màn hình"}</span>
+                                    </button>
+
+                                    <button
                                         onClick={handleSingleAdd}
                                         className="group flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md transition-all duration-200 text-sm shadow-sm"
                                     >
@@ -622,8 +693,12 @@ export default function PageBody() {
                                         disabled={selectedRows.length === 0}
                                         className="group flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed rounded-md transition-colors duration-200 text-sm"
                                     >
-                                        <Trash2 className={`h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-200  ${selectedRows.length === 0 ? "text-gray-500" : "text-white"}`} />
-                                        <span className={`leading-none ${selectedRows.length === 0 ? "text-gray-500" : "text-white"} `}>Xóa {selectedRows.length > 0 && `(${selectedRows.length})`}</span>
+                                        <Trash2
+                                            className={`h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-200  ${selectedRows.length === 0 ? "text-gray-500" : "text-white"}`}
+                                        />
+                                        <span className={`leading-none ${selectedRows.length === 0 ? "text-gray-500" : "text-white"} `}>
+                                            Xóa {selectedRows.length > 0 && `(${selectedRows.length})`}
+                                        </span>
                                     </button>
                                 </div>
                             </div>
@@ -642,7 +717,7 @@ export default function PageBody() {
                                 width="100%"
                                 autoColumnSize={false}
                                 manualColumnResize={true}
-                                height="calc(100vh - 280px)"
+                                height={isFullscreen ? "calc(100vh - 130px)" : "calc(100vh - 280px)"}
                                 stretchH="all"
                                 className="custom-table"
                                 licenseKey="non-commercial-and-evaluation"
