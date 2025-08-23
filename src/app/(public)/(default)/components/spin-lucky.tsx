@@ -103,15 +103,16 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     { option: "1 lời chúc may mắn", style: { backgroundColor: "#FF6B35", textColor: "white" } }, // 1 - Orange
     { option: "Quay thêm 1 lượt", style: { backgroundColor: "#8B5CF6", textColor: "white" } }, // 2 - Purple
     { option: "50.000 VND", style: { backgroundColor: "#EF4444", textColor: "white" } }, // 3 - Red
-    { option: "1 phân vàng", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 4 - Gold
-    { option: "20.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } }, // 5 - Blue
-    { option: "- 50.000 VND", style: { backgroundColor: "#111827", textColor: "white" } }, // 12 - Penalty
-    { option: "40.000 VND", style: { backgroundColor: "#EC4899", textColor: "white" } }, // 6 - Pink
-    { option: "10.000 VND", style: { backgroundColor: "#06B6D4", textColor: "white" } }, // 7 - Cyan
-    { option: "1 phân vàng", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 8 - Gold
-    { option: "5.000 VND", style: { backgroundColor: "#F59E0B", textColor: "white" } }, // 9 - Amber
-    { option: "2.000 VND", style: { backgroundColor: "#10B981", textColor: "white" } }, // 10 - Emerald
-    { option: "100.000 VND", style: { backgroundColor: "#7C3AED", textColor: "white" } }, // 11 - Violet
+    { option: "100.000 VND", style: { backgroundColor: "#7C3AED", textColor: "white" } }, // 4 - Violet
+    { option: "1 phân vàng", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 5 - Gold
+    { option: "20.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } }, // 6 - Blue
+    { option: "- 50.000 VND", style: { backgroundColor: "#111827", textColor: "white" } }, // 7 - Penalty
+    { option: "40.000 VND", style: { backgroundColor: "#EC4899", textColor: "white" } }, // 8 - Pink
+    { option: "10.000 VND", style: { backgroundColor: "#06B6D4", textColor: "white" } }, // 9 - Cyan
+    { option: "1 phân vàng", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 10 - Gold
+    { option: "5.000 VND", style: { backgroundColor: "#F59E0B", textColor: "white" } }, // 11 - Amber
+    { option: "2.000 VND", style: { backgroundColor: "#10B981", textColor: "white" } }, // 12 - Emerald
+    { option: "- 100.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } }, // 13 - Dark Red
   ]
 
   // Đưa hàm checkAndResetDailySpins ra ngoài useEffect để có thể gọi lại
