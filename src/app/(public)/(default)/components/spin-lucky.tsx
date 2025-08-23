@@ -117,6 +117,13 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
   // Đưa hàm checkAndResetDailySpins ra ngoài useEffect để có thể gọi lại
   const checkAndResetDailySpins = async () => {
+    // Check if userInfo exists before making API call
+    if (!userInfo?.username) {
+      console.log("No user info, skipping daily spins check")
+      setSpinCount(0)
+      return
+    }
+
     try {
       const response = await wheelApiRequest.get()
       const rewardsData = response.data || []
@@ -188,6 +195,13 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
   // Đưa fetchGoldWinners ra ngoài useEffect để có thể gọi lại với loading state
   const fetchGoldWinners = async (month?: string) => {
+    // Check if userInfo exists before making API call
+    if (!userInfo?.username) {
+      console.log("No user info, skipping gold winners fetch")
+      setGoldWinners([])
+      return
+    }
+
     try {
       setIsLoadingLeaderboard(true)
       const response = await wheelApiRequest.get()
@@ -225,6 +239,13 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
   // Hàm để lấy danh sách các tháng có dữ liệu
   const fetchAvailableMonths = async () => {
+    // Check if userInfo exists before making API call
+    if (!userInfo?.username) {
+      console.log("No user info, skipping available months fetch")
+      setAvailableMonths([])
+      return
+    }
+
     try {
       const response = await wheelApiRequest.get()
       const rewardsData: any = response.data || []
