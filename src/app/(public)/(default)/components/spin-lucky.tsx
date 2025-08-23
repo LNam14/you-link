@@ -333,6 +333,16 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   // Fetch rewards when showRewards changes
   useEffect(() => {
     const fetchRewards = async () => {
+      // Check if userInfo exists before making API call
+      if (!userInfo?.username) {
+        console.log("No user info, skipping rewards fetch")
+        setRewards([])
+        setTotalPages(1)
+        setCurrentPage(1)
+        setEmployees([])
+        return
+      }
+
       try {
         const response = await wheelApiRequest.get()
         const rewardsData: any = response.data || []
@@ -376,9 +386,12 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   }, [userInfo?.username, userInfo?.role, today])
 
   useEffect(() => {
-    fetchGoldWinners()
-    fetchAvailableMonths()
-  }, [])
+    // Only fetch data if userInfo exists
+    if (userInfo?.username) {
+      fetchGoldWinners()
+      fetchAvailableMonths()
+    }
+  }, [userInfo?.username])
 
   return (
     <section className="bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 py-8 relative overflow-hidden">
