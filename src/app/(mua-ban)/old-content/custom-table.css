@@ -3,7 +3,6 @@
     color: #eff6ff;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
-    font-size: 12px;
 }
 
 .handsontable tbody tr th .relative {
@@ -11,7 +10,6 @@
     color: #eff6ff;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
-    font-size: 12px;
 }
 
 .handsontable thead tr th .relative:hover,
@@ -19,20 +17,4 @@
     background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
     transform: translateY(-1px);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-/* Force 12px font for all Handsontable cells and headers */
-.handsontable,
-.handsontable table,
-.handsontable td,
-.handsontable th,
-.handsontable .wtHider,
-.handsontable .ht_clone_top th,
-.handsontable .ht_clone_top td {
-    font-size: 12px !important;
-}
-
-/* Ensure buttons inside cells follow 12px as well */
-.handsontable td button {
-    font-size: 12px !important;
 }

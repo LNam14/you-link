@@ -1,19 +1,19 @@
 "use client"
+import { useEffect, useMemo, useState } from "react"
 import { HotTable } from "@handsontable/react-wrapper"
 import { registerAllModules } from "handsontable/registry"
 import "./custom-table.css"
-import Handsontable from "handsontable"
+import type Handsontable from "handsontable"
 import "handsontable/styles/handsontable.css"
 import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
-import { useEffect, useState, useCallback } from "react"
-import { ref, onValue, update, get, set } from "firebase/database"
-import { database } from "@/lib/firebase"
+import { Toaster } from "sonner"
+import { Modal } from "antd"
+import { database, onValue, ref, set } from "@/lib/firebase"
+import { Users, Package, Filter, BarChart3, X, Home } from "lucide-react"
+import Link from "next/link"
 import getUserInfo from "@/components/userInfo"
-import ChatDialog from "./components/ChatDialog"
 import sheetApiRequest from "@/apiRequests/sheet"
-import { toast, Toaster } from "sonner"
-import transactionApiRequest from "@/apiRequests/transactions"
 
 registerAllModules()
 
@@ -22,2123 +22,1332 @@ type NestedColumnHeader = {
     colspan: number
 }
 
-interface ChatMessage {
-    text: string
-    sender: string
-    senderRole: string
-    timestamp: number
-    ngayChat: string
-    name?: string
-    supplierName?: string
+const getVietnamWeekDates = (date: Date) => {
+    // Tạo bản sao của date để không làm thay đổi date gốc
+    const dateCopy = new Date(date)
+    const day = dateCopy.getDay()
+
+    // Tính ngày thứ 2 của tuần (Monday = 1, Sunday = 0)
+    // Nếu là chủ nhật (day = 0), lùi về 6 ngày để đến thứ 2
+    // Nếu là thứ 2 đến thứ 7 (day = 1-6), lùi về (day - 1) ngày để đến thứ 2
+    const daysToMonday = day === 0 ? 6 : day - 1
+    const monday = new Date(dateCopy)
+    monday.setDate(dateCopy.getDate() - daysToMonday)
+
+    // Thứ 2 + 6 ngày = Chủ nhật
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+
+    return {
+        start: monday.toISOString().split("T")[0],
+        end: sunday.toISOString().split("T")[0],
+        label: `${monday.getDate()}/${monday.getMonth() + 1} - ${sunday.getDate()}/${sunday.getMonth() + 1}`,
+    }
 }
 
-// Add function to get ISO week number (Monday-Sunday, ISO-8601)
-function getISOWeek(date: Date): number {
-    const target = new Date(date.valueOf());
-    // Set to nearest Thursday: current date + 4 - current day number (Monday is 1, Sunday is 7)
-    const dayNr = (target.getDay() + 6) % 7;
-    target.setDate(target.getDate() - dayNr + 3);
-    // January 4th is always in week 1
-    const jan4 = new Date(target.getFullYear(), 0, 4);
-    // Set to nearest Thursday to January 4th
-    const jan4DayNr = (jan4.getDay() + 6) % 7;
-    jan4.setDate(jan4.getDate() - jan4DayNr + 3);
-    // Calculate full weeks to the target date
-    const weekNo = 1 + Math.round((target.getTime() - jan4.getTime()) / (7 * 24 * 60 * 60 * 1000));
-    return weekNo;
+// Hàm chuyển đổi format ngày từ DD/MM/YYYY sang Date object
+const parseDate = (dateStr: string): Date | null => {
+    if (!dateStr) return null
+
+    // Xử lý format DD/MM/YYYY
+    if (dateStr.includes("/")) {
+        const parts = dateStr.split("/")
+        if (parts.length === 3) {
+            const day = parseInt(parts[0])
+            const month = parseInt(parts[1]) - 1 // Month index từ 0-11
+            const year = parseInt(parts[2])
+
+            if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+                return new Date(year, month, day)
+            }
+        }
+    }
+
+    // Thử parse với Date constructor
+    const date = new Date(dateStr)
+    if (!isNaN(date.getTime())) {
+        return date
+    }
+
+    return null
+}
+
+const generateWeekOptions = (orders: any[]) => {
+    const weeks: Array<{
+        value: string
+        label: string
+        start: string
+        end: string
+        count: number
+    }> = []
+    const weekMap = new Map<string, number>() // Map để lưu trữ tuần và đếm đơn hàng
+
+    // Duyệt qua tất cả đơn hàng để tìm các tuần có dữ liệu
+    orders.forEach((order) => {
+        if (!order.NgayOrder) return
+
+        try {
+            const orderDate = parseDate(order.NgayOrder)
+            if (!orderDate) return
+
+            // Tìm tuần chứa ngày đơn hàng
+            const week = getVietnamWeekDates(orderDate)
+            const weekKey = `${week.start}_${week.end}`
+
+            // Debug: log để kiểm tra
+            console.log(`Order date: ${order.NgayOrder} -> Parsed: ${orderDate.toISOString()} -> Week: ${week.start} to ${week.end}`)
+            console.log(`Week key: ${weekKey}`)
+
+            if (weekMap.has(weekKey)) {
+                weekMap.set(weekKey, (weekMap.get(weekKey) || 0) + 1)
+            } else {
+                weekMap.set(weekKey, 1)
+            }
+        } catch (error) {
+            return
+        }
+    })
+
+    // Chuyển đổi map thành array và tạo options
+    weekMap.forEach((orderCount, weekKey) => {
+        const [start, end] = weekKey.split('_')
+
+        // Tính số tuần ISO của năm theo chuẩn ISO 8601
+        const weekStart = new Date(start)
+        const getISOWeek = (date: Date) => {
+            const target = new Date(date.valueOf())
+            const dayNr = (date.getDay() + 6) % 7
+            target.setDate(target.getDate() - dayNr + 3)
+            const firstThursday = target.valueOf()
+            const yearStart = new Date(target.getFullYear(), 0, 1)
+            const weekNr = 1 + Math.ceil((firstThursday - yearStart.valueOf()) / 604800000)
+            return weekNr
+        }
+
+        const weekNumber = getISOWeek(weekStart)
+
+        weeks.push({
+            value: weekKey,
+            label: `Tuần ${weekNumber}`,
+            start: start,
+            end: end,
+            count: orderCount,
+        })
+    })
+
+    // Sắp xếp theo thứ tự thời gian (mới nhất trước)
+    return weeks.sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
+}
+
+const getCurrentWeekKey = () => {
+    const today = new Date()
+    const week = getVietnamWeekDates(today)
+    return `${week.start}_${week.end}`
 }
 
 export default function PageBody() {
-    const [tableData, setTableData] = useState<any[]>([])
-    const [isMerged, setIsMerged] = useState(true)
-    const [viewOptions, setViewOptions] = useState({
-        total: true,
-        pending: true,
-        cancelled: true
-    });
-    const [selectedWeek, setSelectedWeek] = useState("")
-    const [selectedUser, setSelectedUser] = useState("")
-    const [selectedNCC, setSelectedNCC] = useState("")
-    const [users, setUsers] = useState<string[]>([])
-    const [nccs, setNCCs] = useState<string[]>([])
+    const RowHeader = [
+        "Mã ĐH",
+        "Ngày Order",
+        "Tên SP",
+        "Số Lượng",
+        "Mua",
+        "Bán",
+        "Mua",
+        "Bán",
+        "Lợi Nhuận",
+        "Mã NCC",
+        "Mã KH",
+        "Tình Trạng",
+        "Hành Động",
+    ]
+
+    const topHeader: NestedColumnHeader[] = [
+        { label: "", colspan: 2 },
+        { label: "Thông Tin ĐH", colspan: 2 },
+        { label: "Đơn Giá", colspan: 2 },
+        { label: "Thành Tiền", colspan: 3 },
+        { label: "Đối Tác", colspan: 2 },
+        { label: "", colspan: 1 },
+        { label: "", colspan: 1 },
+    ]
+
+    const nestedHeaders: (string | NestedColumnHeader)[][] = [topHeader, RowHeader]
     const userInfo = getUserInfo()
-    const [chatDialogOpen, setChatDialogOpen] = useState(false)
-    const [currentChatOrderId, setCurrentChatOrderId] = useState<string | null>(null)
-    const [currentChatMessages, setCurrentChatMessages] = useState<any[]>([])
-    const [newChatMessage, setNewChatMessage] = useState("")
-    const [blinkingChatOrders, setBlinkingChatOrders] = useState<Set<string>>(new Set())
-    const [isFullscreen, setIsFullscreen] = useState(false)
-    const [transactions, setTransactions] = useState<any[]>([])
-    const [withdrawModalOpen, setWithdrawModalOpen] = useState(false)
+    const [orders, setOrders] = useState<any[]>([])
+    const [showModal, setShowModal] = useState(false)
+    const [selectedItems, setSelectedItems] = useState<any[]>([])
+    const [selectedOrder, setSelectedOrder] = useState<any | null>(null)
 
+    const [filters, setFilters] = useState({
+        maNCC: "",
+        maKH: "",
+        week: "", // Khởi tạo trống, sẽ được set trong useEffect
+    })
+
+    // Tạo tuần hiện tại làm giá trị mặc định
+    const currentWeek = useMemo(() => {
+        const today = new Date()
+        const week = getVietnamWeekDates(today)
+        return `${week.start}_${week.end}`
+    }, [])
+
+    // Cập nhật filter mặc định khi component mount (chỉ chạy 1 lần)
     useEffect(() => {
+        let defaultFilters = { ...filters, week: currentWeek }
+
+        // Tự động lọc theo role và username
         if (userInfo?.role === "NCC") {
-            transactionApiRequest.getPayment().then((res: any) => {
-                setTransactions(res.transaction)
-
-            })
+            defaultFilters.maNCC = userInfo.username
+        } else if (userInfo?.role === "Nhân viên") {
+            defaultFilters.maKH = userInfo.username
         }
-    }, [])
 
-    const parseNumberWithComma = (value: any): number => {
-        if (typeof value === "number") return value
-        if (!value) return 0
-        // Thay thế dấu phẩy bằng dấu chấm và chuyển đổi thành số
-        return Number.parseFloat(value.toString().replace(/,/g, "")) || 0
-    }
+        setFilters(defaultFilters)
+    }, []) // Chỉ chạy 1 lần khi component mount
 
-    // Add function to get current week number
-    const getCurrentWeek = () => getISOWeek(new Date());
-
-    // Add function to get week number from date
-    const getWeekNumber = (dateStr: string) => {
-        if (!dateStr) return "";
-        let date: Date;
-        if (dateStr.includes("/")) {
-            // DD/MM/YYYY
-            const [day, month, year] = dateStr.split("/");
-            date = new Date(Number(year), Number(month) - 1, Number(day));
-        } else if (dateStr.includes("-")) {
-            // YYYY-MM-DD
-            const [year, month, day] = dateStr.split("-");
-            date = new Date(Number(year), Number(month) - 1, Number(day));
-        } else {
-            return "";
-        }
-        return getISOWeek(date);
-    }
-
-    // Set current week as default when component mounts
     useEffect(() => {
-        setSelectedWeek(getCurrentWeek().toString())
-    }, [])
-
-    // Add function to get statistics
-    const getStatistics = (data: any[]) => {
-        const stats = {
-            totalOrders: 0,
-            totalAmount: 0,
-            pendingOrders: 0,
-            pendingAmount: 0,
-            cancelledOrders: 0,
-            cancelledAmount: 0,
-        }
-
-        data.forEach((row) => {
-            if (row[0] && !row[0].includes("Tổng")) {
-                const giaBan = parseNumberWithComma(row[13]) || 0
-                const tinhTrangKH = row[19]
-                const tinhTrangNCC = row[20]
-
-                // Filter by week if selected
-                if (selectedWeek) {
-                    const orderDate = row[2]
-                    const weekNumber = getWeekNumber(orderDate)
-                    if (weekNumber.toString() !== selectedWeek) return
-                }
-
-                // Filter by user if selected
-                if (selectedUser) {
-                    const MaKH = row[0]
-                    const MaKHBeforeDash = MaKH.split("-")[0]
-                    if (MaKHBeforeDash !== selectedUser) return
-                }
-
-                // Filter by NCC if selected
-                if (selectedNCC && row[18] !== selectedNCC) return
-
-                // Count total orders
-                if (
-                    (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
-                    (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
-                ) {
-                    stats.totalOrders++
-                    stats.totalAmount += giaBan
-                }
-
-                // Count pending orders
-                if ((tinhTrangKH === "Chưa nhập" || tinhTrangKH === "Đã nhập") && tinhTrangNCC === "Chưa nhận") {
-                    stats.pendingOrders++
-                    stats.pendingAmount += giaBan
-                }
-
-                // Count cancelled orders
-                if (tinhTrangKH === "Hủy đơn" || (tinhTrangKH === "Y/C Hủy đơn" && tinhTrangNCC === "Đồng ý hoàn")) {
-                    stats.cancelledOrders++
-                    stats.cancelledAmount += giaBan
-                }
-            }
-        })
-
-        return stats
-    }
-
-    // Add useEffect to fetch users and NCCs
-    useEffect(() => {
-        if (userInfo?.role === "Admin") {
-            const ordersRef = ref(database, "content")
-
-            // Fetch orders to get unique MaKH and MaNCC
-            onValue(ordersRef, (snapshot) => {
-                const data = snapshot.val()
-                if (data) {
-                    const uniqueMaKH = new Set<string>()
-                    const uniqueMaNCC = new Set<string>()
-
-                    Object.entries(data).forEach(([orderId, order]: [string, any]) => {
-                        // Extract MaKH from order ID (e.g., "BH5-4" -> "BH5" or "KH1-2" -> "KH1")
-                        if (orderId) {
-                            const maKH = orderId.split("-")[0]
-                            if (maKH) {
-                                // Only add if it starts with BH or KH
-                                if (maKH.startsWith("BH") || maKH.startsWith("KH")) {
-                                    uniqueMaKH.add(maKH)
-                                }
-                            }
-                        }
-
-                        // Add MaNCC if exists
-                        if (order.MaNCC) uniqueMaNCC.add(order.MaNCC)
-                    })
-
-                    // Sort users by type (BH first, then KH) and then by number
-                    const sortedUsers = Array.from(uniqueMaKH).sort((a, b) => {
-                        const aType = a.startsWith("BH") ? 0 : 1
-                        const bType = b.startsWith("BH") ? 0 : 1
-                        if (aType !== bType) return aType - bType
-
-                        const aNum = Number.parseInt(a.replace(/[^0-9]/g, "")) || 0
-                        const bNum = Number.parseInt(b.replace(/[^0-9]/g, "")) || 0
-                        return aNum - bNum
-                    })
-
-                    // Update users and NCCs lists with unique value
-                    setUsers(sortedUsers)
-                    setNCCs(Array.from(uniqueMaNCC))
-                }
-            })
-        }
-    }, [userInfo?.role])
-
-    // Get current statistics
-    const stats = getStatistics(tableData)
-
-    // Add summary calculation function
-    const calculateSummary = (data: any[]) => {
-        const summary = {
-            totalGiaBan: 0,
-            totalGiaMua: 0,
-            totalLN: 0,
-            totalTTNCC: 0,
-            count: 0,
-            cancelledGiaBan: 0,
-            cancelledGiaMua: 0,
-            cancelledLN: 0,
-            cancelledTTNCC: 0,
-            cancelledCount: 0,
-            pendingGiaBan: 0,
-            pendingGiaMua: 0,
-            pendingLN: 0,
-            pendingTTNCC: 0,
-            pendingCount: 0,
-        }
-
-        data.forEach((row) => {
-            if (row[0] && !row[0].includes("Tổng")) {
-                // Skip summary rows
-                const giaBan = parseNumberWithComma(row[13]) || 0
-                const giaMua = parseNumberWithComma(row[14]) || 0
-                const ln = parseNumberWithComma(row[15]) || 0
-                const ttncc = parseNumberWithComma(row[16]) || 0
-                const tinhTrangKH = row[19]
-                const tinhTrangNCC = row[20]
-
-                // Calculate totals for all orders
-                if (
-                    (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
-                    (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
-                ) {
-                    summary.totalGiaBan += giaBan
-                    summary.totalGiaMua += giaMua
-                    summary.totalLN += ln
-                    summary.totalTTNCC += ttncc
-                    summary.count++
-                }
-
-                // Calculate totals for cancelled orders
-                if (tinhTrangKH === "Hủy đơn" || (tinhTrangKH === "Y/C Hủy đơn" && tinhTrangNCC === "Đồng ý hoàn")) {
-                    summary.cancelledGiaBan += giaBan
-                    summary.cancelledGiaMua += giaMua
-                    summary.cancelledLN += ln
-                    summary.cancelledTTNCC += ttncc
-                    summary.cancelledCount++
-                }
-
-                // Calculate totals for pending orders
-                if (
-                    (tinhTrangKH === "Chưa nhập" && tinhTrangNCC === "Đã nhận") ||
-                    ((tinhTrangKH === "Chưa nhập" || tinhTrangKH === "Đã nhập") &&
-                        (tinhTrangNCC === "Chưa nhận" || !tinhTrangNCC))
-                ) {
-                    summary.pendingGiaBan += giaBan
-                    summary.pendingGiaMua += giaMua
-                    summary.pendingLN += ln
-                    summary.pendingTTNCC += ttncc
-                    summary.pendingCount++
-                }
-            }
-        })
-
-        // Format numbers to 2 decimal places
-        summary.totalGiaBan = Number(summary.totalGiaBan.toFixed(2))
-        summary.totalGiaMua = Number(summary.totalGiaMua.toFixed(2))
-        summary.totalLN = Number(summary.totalLN.toFixed(2))
-        summary.totalTTNCC = Number(summary.totalTTNCC.toFixed(2))
-        summary.cancelledGiaBan = Number(summary.cancelledGiaBan.toFixed(2))
-        summary.cancelledGiaMua = Number(summary.cancelledGiaMua.toFixed(2))
-        summary.cancelledLN = Number(summary.cancelledLN.toFixed(2))
-        summary.cancelledTTNCC = Number(summary.cancelledTTNCC.toFixed(2))
-        summary.pendingGiaBan = Number(summary.pendingGiaBan.toFixed(2))
-        summary.pendingGiaMua = Number(summary.pendingGiaMua.toFixed(2))
-        summary.pendingLN = Number(summary.pendingLN.toFixed(2))
-        summary.pendingTTNCC = Number(summary.pendingTTNCC.toFixed(2))
-
-        return summary
-    }
-
-    // Add filter function
-    const filterTableData = (data: any[]) => {
-        // First filter by week
-        const weekFilteredData = data.filter((row) => {
-            if (!row[0] || row[0].includes("Tổng")) return false // Remove all summary rows
-            const orderDate = row[2]
-            const weekNumber = getWeekNumber(orderDate)
-            return weekNumber.toString() === selectedWeek
-        })
-
-        // Then filter by user (MaKH) if selected
-        const userFilteredData = selectedUser
-            ? weekFilteredData.filter((row) => {
-                const orderId = row[0]
-                if (!orderId) return false
-                const maKH = orderId.split("-")[0]
-                console.log("Filtering by user:", { orderId, maKH, selectedUser }) // Debug log
-                return maKH === selectedUser
-            })
-            : weekFilteredData
-
-        // Then filter by NCC if selected
-        const nccFilteredData = selectedNCC
-            ? userFilteredData.filter((row) => {
-                const maNCC = row[18] // MaNCC is at index 18
-                return maNCC === selectedNCC
-            })
-            : userFilteredData
-
-        // Calculate summary for filtered data
-        const summary = calculateSummary(nccFilteredData)
-
-        // Create summary rows
-        const totalRow = [
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "Tổng", // Move label to Deadline (index 11)
-            "",
-            summary.totalGiaBan.toFixed(2),
-            summary.totalGiaMua.toFixed(2),
-            summary.totalLN.toFixed(2),
-            summary.totalTTNCC.toFixed(2),
-            "",
-            "",
-            "",
-            "",
-            "",
-        ]
-
-        const pendingRow = [
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "Chưa nhập", // Move label to Deadline (index 11)
-            "",
-            summary.pendingGiaBan.toFixed(2),
-            summary.pendingGiaMua.toFixed(2),
-            summary.pendingLN.toFixed(2),
-            summary.pendingTTNCC.toFixed(2),
-            "",
-            "",
-            "",
-            "",
-            "",
-        ]
-
-        const cancelledRow = [
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "Đơn hủy", // Move label to Deadline (index 11)
-            "",
-            summary.cancelledGiaBan.toFixed(2),
-            summary.cancelledGiaMua.toFixed(2),
-            summary.cancelledLN.toFixed(2),
-            summary.cancelledTTNCC.toFixed(2),
-            "",
-            "",
-            "",
-            "",
-            "",
-        ]
-
-        // Create filtered data based on selected view options
-        const filteredData = [];
-
-        if (viewOptions.total) {
-            filteredData.push(
-                totalRow,
-                ...nccFilteredData.filter(
-                    (row) =>
-                        (row[19] === "Đã nhập" || row[19] === "Đơn OK" || row[19] === "Y/C Hủy đơn") &&
-                        (row[20] === "Đã lên bài" || row[20] === "Từ chối hoàn"),
-                )
-            );
-        }
-
-        if (viewOptions.pending) {
-            filteredData.push(
-                pendingRow,
-                ...nccFilteredData.filter(
-                    (row) => (row[19] === "Chưa nhập" || row[19] === "Đã nhập") && row[20] === "Chưa nhận",
-                )
-            );
-        }
-
-        if (viewOptions.cancelled) {
-            filteredData.push(
-                cancelledRow,
-                ...nccFilteredData.filter(
-                    (row) => row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"),
-                )
-            );
-        }
-
-        return filteredData;
-    };
-
-    // Modify useEffect to store all data and apply filters
-    useEffect(() => {
-        const ordersRef = ref(database, "content")
-        console.log(ordersRef, "ordersRef")
+        const ordersRef = ref(database, "orderContent")
         const unsubscribe = onValue(ordersRef, (snapshot) => {
-            const data = snapshot.val()
-            console.log(data, "data")
-            if (data) {
-                // Transform the data into table format
-                const formattedData = Object.entries(data)
-                    .map(([orderId, order]: [string, any]) => {
-                        const giaBan = parseNumberWithComma(order.GiaBan)
-                        const giaMua = parseNumberWithComma(order.GiaMua)
-                        const ln = giaBan - giaMua
-
-                        return [
-                            orderId,
-                            order.TenSP || "",
-                            order.NgayOrder || "",
-                            order.KHNote1 || "",
-                            order.KHNote2 || "",
-                            order.ChuDe || "",
-                            order.Anchor1 || "",
-                            order.URL1 || "",
-                            order.Anchor2 || "",
-                            order.URL2 || "",
-                            order.LinkKQ || "",
-                            order.Deadline || "",
-                            order.Note || "",
-                            giaBan,
-                            giaMua,
-                            ln,
-                            order.TTNCC || "",
-                            order.TenNCC || "",
-                            order.MaNCC || "",
-                            order.TinhTrangKH || "",
-                            order.TinhTrangNCC || "",
-                        ]
-                    })
-                    .filter((row) => {
-                        if (userInfo?.role === "NCC") {
-                            return row[18] === userInfo?.username
-                        } else if (userInfo?.role === "Khách hàng" || userInfo?.role === "Nhân viên") {
-                            const MaKH = row[0]
-                            const MaKHBeforeDash = MaKH.split("-")[0]
-                            return MaKHBeforeDash === userInfo?.username
-                        }
-                        return true
-                    })
-
-                // Sort the formatted data
-                formattedData.sort((a: any[], b: any[]) => {
-                    const orderIdA = a[0]
-                    const orderIdB = b[0]
-                    const partsA = orderIdA.split("-")
-                    const partsB = orderIdB.split("-")
-                    for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
-                        const numA = Number.parseInt(partsA[i].replace(/[^0-9]/g, ""))
-                        const numB = Number.parseInt(partsB[i].replace(/[^0-9]/g, ""))
-                        if (numA !== numB) {
-                            return numA - numB
-                        }
-                        if (partsA[i] !== partsB[i]) {
-                            return partsA[i].localeCompare(partsB[i])
-                        }
-                    }
-                    return partsA.length - partsB.length
-                })
-
-                // Calculate summary
-                const summary = calculateSummary(formattedData)
-
-                // Create summary rows
-                const totalRow = [
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "Tổng", // Move label to Deadline (index 11)
-                    "",
-                    summary.totalGiaBan.toFixed(2),
-                    summary.totalGiaMua.toFixed(2),
-                    summary.totalLN.toFixed(2),
-                    summary.totalTTNCC.toFixed(2),
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                ]
-
-                const cancelledRow = [
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "Đơn hủy", // Move label to Deadline (index 11)
-                    "",
-                    summary.cancelledGiaBan.toFixed(2),
-                    summary.cancelledGiaMua.toFixed(2),
-                    summary.cancelledLN.toFixed(2),
-                    summary.cancelledTTNCC.toFixed(2),
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                ]
-
-                const pendingRow = [
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "Chưa nhập", // Move label to Deadline (index 11)
-                    "",
-                    summary.pendingGiaBan.toFixed(2),
-                    summary.pendingGiaMua.toFixed(2),
-                    summary.pendingLN.toFixed(2),
-                    summary.pendingTTNCC.toFixed(2),
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                ]
-
-                // Combine all data with summary rows
-                const finalData = [
-                    totalRow,
-                    ...formattedData.filter(
-                        (row) =>
-                            (row[19] === "Đã nhập" || row[19] === "Đơn OK" || row[19] === "Y/C Hủy đơn") &&
-                            (row[20] === "Đã lên bài" || row[20] === "Từ chối hoàn"),
-                    ),
-                    pendingRow,
-                    ...formattedData.filter(
-                        (row) => (row[19] === "Chưa nhập" || row[19] === "Đã nhập") && row[20] === "Chưa nhận",
-                    ),
-                    cancelledRow,
-                    ...formattedData.filter(
-                        (row) => row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"),
-                    ),
-                ]
-
-                // Apply filters
-                const filteredData = filterTableData(finalData)
-
-                // If isMerged is true, merge the data
-                if (isMerged) {
-                    // Get the cancelled orders section
-                    const cancelledSection = filteredData.filter(row => row[11] === "Đơn hủy" ||
-                        (row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn")));
-
-                    // Get the total row
-                    const totalRow = filteredData.find(row => row[11] === "Tổng");
-
-                    // Get all non-cancelled orders
-                    const nonCancelledOrders = filteredData.filter(row =>
-                        row[11] !== "Tổng" &&
-                        row[11] !== "Đơn hủy" &&
-                        row[11] !== "Chưa nhập" &&
-                        !(row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"))
-                    );
-
-                    // Sort non-cancelled orders by order ID
-                    nonCancelledOrders.sort((a, b) => {
-                        const orderIdA = a[0];
-                        const orderIdB = b[0];
-                        const partsA = orderIdA.split("-");
-                        const partsB = orderIdB.split("-");
-                        for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
-                            const numA = Number.parseInt(partsA[i].replace(/[^0-9]/g, ""));
-                            const numB = Number.parseInt(partsB[i].replace(/[^0-9]/g, ""));
-                            if (numA !== numB) {
-                                return numA - numB;
-                            }
-                            if (partsA[i] !== partsB[i]) {
-                                return partsA[i].localeCompare(partsB[i]);
-                            }
-                        }
-                        return partsA.length - partsB.length;
-                    });
-
-                    // Create merged data array
-                    const mergedData = [
-                        totalRow,
-                        ...nonCancelledOrders,
-                        ...cancelledSection
-                    ];
-
-                    setTableData(mergedData);
-                } else {
-                    setTableData(filteredData);
-                }
+            if (snapshot.exists()) {
+                const data = snapshot.val() || {}
+                const list = Object.values(data) as any[]
+                setOrders(list)
             } else {
-                setTableData([])
+                setOrders([])
             }
         })
-
-        return () => unsubscribe()
-    }, [userInfo?.role, userInfo?.username, selectedWeek, viewOptions, selectedUser, selectedNCC, isMerged])
-
-    // Load chat messages when currentChatOrderId changes
-    useEffect(() => {
-        if (!currentChatOrderId) return
-
-        const ordersRef = ref(database, "content")
-
-        const onOrdersChange = (snapshot: any) => {
-            if (snapshot.exists()) {
-                const data = snapshot.val()
-                const order = data[currentChatOrderId]
-
-                if (order && order.chat) {
-                    const messages = Array.isArray(order.chat) ? order.chat : Object.values(order.chat)
-                    messages.sort((a: any, b: any) => a.timestamp - b.timestamp)
-                    setCurrentChatMessages(messages)
-                } else {
-                    setCurrentChatMessages([])
-                }
-            } else {
-                setCurrentChatMessages([])
-            }
-        }
-
-        const unsubscribe = onValue(ordersRef, onOrdersChange)
 
         return () => {
             unsubscribe()
         }
-    }, [currentChatOrderId])
+    }, [])
 
-    // Add useEffect to check for new messages
-    useEffect(() => {
-        if (!userInfo?.role) return
+    const filteredOrders = useMemo(() => {
+        let filtered = orders
 
-        const ordersRef = ref(database, "content")
-        const unsubscribe = onValue(ordersRef, (snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.val()
-                const newBlinkingOrders = new Set<string>()
+        // Debug: log filter hiện tại
+        console.log("Current filters:", filters)
+        console.log("Filter week:", filters.week)
 
-                Object.entries(data).forEach(([orderId, order]: [string, any]) => {
-                    if (order.chat && Array.isArray(order.chat)) {
-                        const lastMessage = order.chat[order.chat.length - 1]
-                        if (lastMessage) {
-                            // Check if the last message is from the other party
-                            const isFromOtherParty =
-                                (userInfo.role === "NCC" && lastMessage.senderRole === "Khách hàng") ||
-                                (userInfo.role === "Khách hàng" && lastMessage.senderRole === "NCC")
+        // Phân quyền dữ liệu theo role
+        if (userInfo?.role === "Nhân viên") {
+            filtered = filtered.filter((order) => order.MaKH === userInfo.username)
+        } else if (userInfo?.role === "NCC") {
+            filtered = filtered.filter(
+                (order) =>
+                    order.MaNCC === userInfo.username && (order.TinhTrang === "Đang chờ NCC" || order.TinhTrang === "Đã xong"),
+            )
+        }
 
-                            if (isFromOtherParty) {
-                                newBlinkingOrders.add(orderId)
-                            }
-                        }
-                    }
-                })
+        // Áp dụng các filter
+        return filtered.filter((order) => {
+            // Filter by Mã NCC
+            if (filters.maNCC && order.MaNCC !== filters.maNCC) return false
 
-                setBlinkingChatOrders(newBlinkingOrders)
-            }
-        })
+            // Filter by Mã KH
+            if (filters.maKH && order.MaKH !== filters.maKH) return false
 
-        return () => unsubscribe()
-    }, [userInfo?.role])
+            // Filter by week
+            if (filters.week) {
+                try {
+                    const [weekStart, weekEnd] = filters.week.split("_")
+                    if (!order.NgayOrder) return false
 
-    const handleAfterChange = async (changes: any, source: any) => {
-        // Chỉ xử lý khi thay đổi từ người dùng
-        if (source !== "edit" && source !== "paste") return
-        if (!changes) return
+                    const orderDate = parseDate(order.NgayOrder)
+                    if (!orderDate) return false
 
-        const ordersRef = ref(database, "content")
+                    const orderDateStr = orderDate.toISOString().split("T")[0]
 
-        changes.forEach(async ([row, prop, oldValue, newValue]: [number, string, any, any]) => {
-            const orderId = tableData[row][0] // Get the order ID from the first column
-            const updates: any = {}
+                    // Debug: log để kiểm tra filter tuần
+                    console.log(`Filtering order: ${order.MaDon}, Date: ${order.NgayOrder} -> ${orderDateStr}, Week: ${weekStart} to ${weekEnd}`)
+                    console.log(`Date comparison: ${orderDateStr} >= ${weekStart} = ${orderDateStr >= weekStart}, ${orderDateStr} <= ${weekEnd} = ${orderDateStr <= weekEnd}`)
 
-            // Map table columns to Firebase fields
-            const fieldMap: { [key: number]: string } = {
-                1: "TenSP",
-                2: "NgayOrder",
-                3: "KHNote1",
-                4: "KHNote2",
-                5: "ChuDe",
-                6: "Anchor1",
-                7: "URL1",
-                8: "Anchor2",
-                9: "URL2",
-                10: "LinkKQ",
-                11: "Deadline",
-                12: "Note",
-                13: "GiaBan",
-                14: "GiaMua",
-                16: "TTNCC",
-                17: "TenNCC",
-                18: "MaNCC",
-                19: "TinhTrangKH",
-                20: "TinhTrangNCC",
-                21: "Chat",
-            }
-
-            const fieldName = fieldMap[prop as unknown as number]
-            if (fieldName) {
-                // Convert values to appropriate types
-                let valueToUpdate = newValue
-                if (fieldName === "GiaBan" || fieldName === "GiaMua") {
-                    valueToUpdate = parseNumberWithComma(newValue)
-                } else if (fieldName === "NgayOrder" || fieldName === "Deadline") {
-                    // Xử lý ngày tháng
-                    if (typeof newValue === "string" && newValue.includes("/")) {
-                        const [day, month, year] = newValue.split("/")
-                        valueToUpdate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-                    }
-                } else if (fieldName === "Chat") {
-                    // Xử lý trường chat
-                    valueToUpdate = newValue || ""
-                }
-
-                updates[`${orderId}/${fieldName}`] = valueToUpdate
-
-                // Update TinhTrangNCC when LinkKQ is entered
-                if (fieldName === "LinkKQ" && newValue && newValue.trim() !== "") {
-                    const currentTinhTrangNCC = tableData[row][20] // Get current TinhTrangNCC
-                    if (currentTinhTrangNCC === "Chưa nhận") {
-                        updates[`${orderId}/TinhTrangNCC`] = "Đã lên bài"
-                        const MaKH = tableData[row][0]
-                        const MaKHBeforeDash = MaKH.split("-")[0]
-                        sheetApiRequest.getIDKH(MaKHBeforeDash, `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`)
-                    }
-
-                }
-
-                // Kiểm tra và cập nhật TinhTrangKH khi thay đổi các trường liên quan
-                if (["Anchor1", "Anchor2", "URL1", "URL2"].includes(fieldName)) {
-                    const currentData = tableData[row]
-                    const currentStatus = currentData[19] // Get current TinhTrangKH
-                    console.log(currentStatus)
-
-                    // Chỉ cập nhật TinhTrangKH nếu chưa ở trạng thái hủy
-                    const hasAnchor1 = currentData[6] && currentData[6].trim() !== ""
-                    const hasUrl1 = currentData[7] && currentData[7].trim() !== ""
-                    const hasAnchor2 = currentData[8] && currentData[8].trim() !== ""
-                    const hasUrl2 = currentData[9] && currentData[9].trim() !== ""
-                    if (hasAnchor1 || hasAnchor2 || hasUrl1 || hasUrl2) {
-                        if (currentStatus === "Chưa nhập") {
-                            updates[`${orderId}/TinhTrangKH`] = "Đã nhập"
-                            const MaNCC = tableData[row][18]
-                            sheetApiRequest.getIDNCC(
-                                MaNCC,
-                                `Đơn ${orderId} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`,
-                            )
-                        }
+                    // So sánh ngày chính xác hơn
+                    const isInWeek = orderDateStr >= weekStart && orderDateStr <= weekEnd
+                    if (!isInWeek) {
+                        console.log(`Order ${order.MaDon} excluded: ${orderDateStr} not in week ${weekStart}-${weekEnd}`)
+                        return false
                     } else {
-                        if (currentStatus === "Đã nhập") {
-                            updates[`${orderId}/TinhTrangKH`] = "Chưa nhập"
-                        }
+                        console.log(`Order ${order.MaDon} included: ${orderDateStr} is in week ${weekStart}-${weekEnd}`)
                     }
+                } catch (error) {
+                    console.error("Error filtering by week:", error)
+                    return false
                 }
             }
 
-            if (Object.keys(updates).length > 0) {
-                update(ordersRef, updates)
-                    .then(() => {
-                        console.log("Data updated successfully")
-                    })
-                    .catch((error) => {
-                        console.error("Error updating data:", error)
-                    })
-            }
+            return true
         })
-    }
+    }, [orders, filters, userInfo])
 
-    const handleAfterPaste = async (data: any[][], coords: any[]) => {
-        if (!data || !coords) return
 
-        // Check if pasted data has more rows than available
-        const startRow = coords[0].startRow
-        const availableRows = tableData.length - startRow
-        if (data.length > availableRows) {
-            toast.error(`Không thể dán ${data.length} hàng vì chỉ còn ${availableRows} hàng trống`)
-            return
+
+    const statistics = useMemo(() => {
+        const completedOrders = filteredOrders.filter((order) => order.TinhTrang === "Đã xong")
+        const cancelledOrders = filteredOrders.filter((order) => order.TinhTrang === "Đã hủy")
+        const waitingNCCOrders = filteredOrders.filter((order) => order.TinhTrang === "Đang chờ NCC")
+        const notEnteredOrders = filteredOrders.filter((order) => order.TinhTrang === "Chưa nhập")
+
+        return {
+            completedOrders: completedOrders.length,
+            completedAmount: completedOrders.reduce((sum, order) => sum + (Number(order.TongTienMua) || 0), 0),
+            cancelledOrders: cancelledOrders.length,
+            cancelledAmount: cancelledOrders.reduce((sum, order) => sum + (Number(order.TongTienMua) || 0), 0),
+            waitingNCCOrders: waitingNCCOrders.length,
+            waitingNCCAmount: waitingNCCOrders.reduce((sum, order) => sum + (Number(order.TongTienMua) || 0), 0),
+            notEnteredOrders: notEnteredOrders.length,
+            notEnteredAmount: notEnteredOrders.reduce((sum, order) => sum + (Number(order.TongTienMua) || 0), 0),
+        }
+    }, [filteredOrders])
+
+    const filterOptions = useMemo(() => {
+        // Sử dụng filteredOrders (đã được filter theo tuần) để hiển thị options phù hợp
+        const nccOptions = [...new Set(filteredOrders.map((order) => order.MaNCC).filter(Boolean))].sort()
+        const khOptions = [...new Set(filteredOrders.map((order) => order.MaKH).filter(Boolean))].sort()
+        const weekOptions = generateWeekOptions(orders) // Tuần vẫn lấy từ dữ liệu gốc để hiển thị tất cả
+
+        return { nccOptions, khOptions, weekOptions }
+    }, [filteredOrders, orders])
+
+    const tableData = useMemo(() => {
+        return filteredOrders.map((order: any) => [
+            order.MaDon || "",
+            order.NgayOrder || "",
+            order.TenSP || "",
+            order.SoLuong ?? "",
+            order.DonGiaMua ?? "",
+            order.DonGiaBan ?? "",
+            order.TongTienMua ?? "",
+            order.TongTienBan ?? "",
+            typeof order.TongTienBan === "number" && typeof order.TongTienMua === "number"
+                ? Number((order.TongTienBan - order.TongTienMua).toFixed(2))
+                : "",
+            order.MaNCC || "",
+            order.MaKH || "",
+            order.TinhTrang || "",
+            "Xem chi tiết",
+        ])
+    }, [filteredOrders])
+
+    const columnsSettings: Handsontable.ColumnSettings[] = useMemo(() => {
+        const base = RowHeader.map((): Handsontable.ColumnSettings => ({ readOnly: true }))
+
+        // Helper: money renderer with color
+        const moneyRenderer = (picker: (o: any) => number | string | undefined, colorPicker: (n: number) => string) => {
+            return (_i: any, td: HTMLTableCellElement, row: number) => {
+                const order = filteredOrders[row]
+                const raw = picker(order)
+                const val = Number(raw ?? 0)
+                if (!Number.isFinite(val)) {
+                    td.textContent = ""
+                    return
+                }
+                td.textContent = `$${val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                td.style.color = colorPicker(val)
+                td.style.fontWeight = "600"
+                td.style.textAlign = "center"
+            }
         }
 
-        const ordersRef = ref(database, "content")
-        const updates: { [key: string]: any } = {}
-        const nccUpdates: { [key: string]: number } = {} // Track NCC balance updates
-        const linkKQUpdates: { [key: string]: { orderId: string, MaKH: string, MaNCC: string, giaMua: number } } = {} // Track LinkKQ updates
-
-        coords.forEach(async (coord, index) => {
-            const startRow = coord.startRow
-            const startCol = coord.startCol
-            const endRow = coord.endRow
-            const endCol = coord.endCol
-
-            // Map table columns to Firebase fields
-            const fieldMap: { [key: number]: string } = {
-                1: "TenSP",
-                2: "NgayOrder",
-                3: "KHNote1",
-                4: "KHNote2",
-                5: "ChuDe",
-                6: "Anchor1",
-                7: "URL1",
-                8: "Anchor2",
-                9: "URL2",
-                10: "LinkKQ",
-                11: "Deadline",
-                12: "Note",
-                13: "GiaBan",
-                14: "GiaMua",
-                16: "TTNCC",
-                17: "TenNCC",
-                18: "MaNCC",
-                19: "TinhTrangKH",
-                20: "TinhTrangNCC",
-                21: "Chat",
-            }
-
-            // Xử lý từng ô trong vùng dán
-            for (let row = startRow; row <= endRow; row++) {
-                const orderId = tableData[row][0] // Get the order ID from the first column
-                if (!orderId) continue
-
-                if (!updates[orderId]) {
-                    updates[orderId] = {}
-                }
-
-                // Lấy dữ liệu hiện tại từ Firebase cho đơn hàng này
-                const currentOrderData = tableData[row]
-                const currentFirebaseData: { [key: string]: any } = {
-                    TenSP: currentOrderData[1] || "",
-                    NgayOrder: currentOrderData[2] || "",
-                    KHNote1: currentOrderData[3] || "",
-                    KHNote2: currentOrderData[4] || "",
-                    ChuDe: currentOrderData[5] || "",
-                    Anchor1: currentOrderData[6] || "",
-                    URL1: currentOrderData[7] || "",
-                    Anchor2: currentOrderData[8] || "",
-                    URL2: currentOrderData[9] || "",
-                    LinkKQ: currentOrderData[10] || "",
-                    Deadline: currentOrderData[11] || "",
-                    Note: currentOrderData[12] || "",
-                    GiaBan: parseNumberWithComma(currentOrderData[13]),
-                    GiaMua: parseNumberWithComma(currentOrderData[14]),
-                    TTNCC: currentOrderData[16] || "",
-                    TenNCC: currentOrderData[17] || "",
-                    MaNCC: currentOrderData[18] || "",
-                    TinhTrangKH: currentOrderData[19] || "",
-                    TinhTrangNCC: currentOrderData[20] || "",
-                    Chat: currentOrderData[21] || "",
-                }
-
-                // Sao chép dữ liệu hiện tại vào updates
-                updates[orderId] = { ...currentFirebaseData }
-
-                for (let col = startCol; col <= endCol; col++) {
-                    const fieldName = fieldMap[col]
-                    if (fieldName) {
-                        const dataRow = row - startRow
-                        const dataCol = col - startCol
-                        const newValue = data[dataRow]?.[dataCol]
-
-                        if (newValue !== undefined && newValue !== null && newValue !== "") {
-                            let valueToUpdate = newValue
-
-                            // Xử lý các trường đặc biệt
-                            if (fieldName === "GiaBan" || fieldName === "GiaMua") {
-                                valueToUpdate = parseNumberWithComma(newValue)
-                            } else if (fieldName === "NgayOrder" || fieldName === "Deadline") {
-                                // Xử lý ngày tháng
-                                if (typeof newValue === "string" && newValue.includes("/")) {
-                                    const [day, month, year] = newValue.split("/")
-                                    valueToUpdate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-                                }
-                            } else if (fieldName === "Chat") {
-                                // Xử lý trường chat
-                                valueToUpdate = newValue || ""
-                            }
-
-                            updates[orderId][fieldName] = valueToUpdate
-
-                            // Xử lý LinkKQ tương tự handleAfterChange
-                            if (fieldName === "LinkKQ" && newValue && newValue.trim() !== "") {
-                                const currentTinhTrangNCC = tableData[row][20] // Get current TinhTrangNCC
-                                if (currentTinhTrangNCC === "Chưa nhận") {
-                                    updates[orderId].TinhTrangNCC = "Đã lên bài"
-                                    const MaKH = tableData[row][0]
-                                    const MaKHBeforeDash = MaKH.split("-")[0]
-                                    const MaNCC = tableData[row][18]
-                                    const giaMua = parseNumberWithComma(tableData[row][14]) // Get GiaMua value
-
-                                    sheetApiRequest.getIDKH(MaKHBeforeDash, `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Kiểm tra và cập nhật Tình trạng sau khi dán
-                const hasAnchor1 = updates[orderId].Anchor1 && updates[orderId].Anchor1.trim() !== ""
-                const hasUrl1 = updates[orderId].URL1 && updates[orderId].URL1.trim() !== ""
-                const hasAnchor2 = updates[orderId].Anchor2 && updates[orderId].Anchor2.trim() !== ""
-                const hasUrl2 = updates[orderId].URL2 && updates[orderId].URL2.trim() !== ""
-                if (hasAnchor1 || hasAnchor2 || hasUrl1 || hasUrl2) {
-                    if (updates[orderId].TinhTrangKH === "Chưa nhập") {
-                        updates[orderId].TinhTrangKH = "Đã nhập"
-                        const MaNCC = updates[orderId].MaNCC
-                        if (MaNCC) {
-                            sheetApiRequest.getIDNCC(
-                                MaNCC,
-                                `Đơn ${orderId} đang chờ được xử lý, vui lòng vào http://ylink.shop/content`,
-                            )
-                        }
-                    }
-                } else {
-                    if (updates[orderId].TinhTrangKH === "Đã nhập") {
-                        updates[orderId].TinhTrangKH = "Chưa nhập"
-                    }
-                }
-            }
-        })
-
-        try {
-            // Send notifications for LinkKQ updates
-            for (const { orderId, MaKH, MaNCC } of Object.values(linkKQUpdates)) {
-                sheetApiRequest.getIDKH(
-                    MaKH,
-                    `Đơn ${orderId} đã xong, kiểm tra tại http://ylink.shop/content`
-                )
-            }
-
-            // Update all order data
-            if (Object.keys(updates).length > 0) {
-                // Convert updates object to the correct format for Firebase
-                const firebaseUpdates: { [key: string]: any } = {}
-                Object.entries(updates).forEach(([orderId, data]) => {
-                    firebaseUpdates[`${orderId}`] = data
-                })
-
-                await update(ordersRef, firebaseUpdates)
-                toast.success("Dữ liệu đã được cập nhật thành công")
-            }
-        } catch (error) {
-            console.error("Error updating data after paste:", error)
-            toast.error("Có lỗi xảy ra khi cập nhật dữ liệu")
+        // Mã ĐH (red, bold)
+        base[0] = {
+            readOnly: true,
+            renderer: (_i, td, row) => {
+                td.textContent = filteredOrders[row]?.MaDon || ""
+                td.style.color = "#ef4444" // red-500
+                td.style.fontWeight = "700"
+                td.style.textAlign = "center"
+            },
         }
-    }
 
-    const handleContextMenuAction = async (row: number, action: string) => {
-        const orderId = tableData[row][0]
-        const ordersRef = ref(database, `content/${orderId}`)
-        const linkKQ = tableData[row][10] // Get LinkKQ value
-        const MaNCC = tableData[row][18]
-        const MaKH = tableData[row][0]
-        const MaKHBeforeDash = MaKH.split("-")[0]
-        const giaBan = parseNumberWithComma(tableData[row][13]) // Get GiaBan value
-        const giaMua = parseNumberWithComma(tableData[row][14]) // Get GiaMua value
-
-        try {
-            if (action === "cancelOrder") {
-                const newStatus = linkKQ && linkKQ.trim() !== "" ? "Y/C Hủy đơn" : "Hủy đơn"
-
-                if (newStatus === "Hủy đơn") {
-                    // Get crrent balance for customer only
-                    sheetApiRequest.getIDKH(
-                        MaKHBeforeDash,
-                        `Đơn hàng ${orderId} đã bị hủy, kiểm tra tại http://ylink.shop/content`,
-                    )
-                } else {
-                    // Just update status for cancellation request
-                    await update(ordersRef, {
-                        TinhTrangKH: newStatus,
-                    })
-                    sheetApiRequest.getIDNCC(
-                        MaNCC,
-                        `Khách hàng đã yêu cầu hủy đơn ${orderId}, xử lý tại http://ylink.shop/content`,
-                    )
+        // Ngày Order: show DD/MM with calendar icon
+        base[1] = {
+            readOnly: true,
+            renderer: (_i, td, row) => {
+                const raw = String(filteredOrders[row]?.NgayOrder || "")
+                let ddmm = raw
+                if (raw.includes("/")) {
+                    const p = raw.split("/")
+                    // try dd/mm(/yyyy)
+                    ddmm = `${p[0] || ""}/${p[1] || ""}`
                 }
-            } else if (action === "approveRefund") {
-                await Promise.all([
-                    update(ordersRef, {
-                        TinhTrangNCC: "Đồng ý hoàn",
-                    })
-                ])
-
-                sheetApiRequest.getIDKH(
-                    MaKHBeforeDash,
-                    `NCC đã đồng ý hoàn tiền cho đơn ${orderId}, kiểm tra tại http://ylink.shop/content`,
-                )
-            } else if (action === "rejectRefund") {
-                await update(ordersRef, {
-                    TinhTrangNCC: "Từ chối hoàn",
-                })
-                sheetApiRequest.getIDKH(
-                    MaKHBeforeDash,
-                    `NCC đã từ chối hoàn tiền cho đơn ${orderId}, kiểm tra tại http://ylink.shop/content`,
-                )
-            } else if (action === "okOrder") {
-                await update(ordersRef, {
-                    TinhTrangKH: "Đơn OK",
-                })
-            }
-        } catch (error) {
-            console.error("Error updating order status:", error)
+                td.textContent = `📅 ${ddmm}`.trim()
+                td.style.color = "#0f172a" // slate-900
+                td.style.fontWeight = "500"
+                td.style.textAlign = "center"
+            },
         }
-    }
 
-    const RowHeader1: NestedColumnHeader[] = [
-        { label: `Đơn Hàng`, colspan: 3 },
-        { label: "INFO Bài", colspan: 7 },
-        { label: "Kểt Quả", colspan: 2 },
-        { label: "", colspan: 1 },
-        { label: "TIỀN NÈ", colspan: 4 },
-        { label: "", colspan: 2 },
-        { label: "Trạng Thái", colspan: 2 },
-        { label: "Trao đổi", colspan: 1 },
-    ]
+        // Default black centered text for common columns
+        const blackCenterRenderer = (
+            _i: any,
+            td: HTMLTableCellElement,
+            row: number,
+            _col: number,
+            _p?: any,
+            value?: any,
+        ) => {
+            // Keep default text via value if provided
+            if (value !== undefined && value !== null) td.textContent = String(value)
+            td.style.color = "#111827" // slate-900
+            td.style.textAlign = "center"
+            td.style.fontWeight = "500"
+        }
 
-    const RowHeader2 = [
-        "Mã ĐH",
-        "Loại",
-        "Ngày order",
+        base[2] = { readOnly: true, renderer: blackCenterRenderer }
+        base[3] = { readOnly: true, renderer: blackCenterRenderer }
+        base[9] = { readOnly: true, renderer: blackCenterRenderer }
+        base[10] = { readOnly: true, renderer: blackCenterRenderer }
+
+        // Đơn Giá Mua (red), Đơn Giá Bán (green)
+        base[4] = {
+            readOnly: true,
+            renderer: moneyRenderer(
+                (o) => o?.DonGiaMua,
+                () => "#ef4444",
+            ),
+        }
+        base[5] = {
+            readOnly: true,
+            renderer: moneyRenderer(
+                (o) => o?.DonGiaBan,
+                () => "#16a34a",
+            ),
+        }
+        // Tổng Tiền Mua (red), Tổng Tiền Bán (green)
+        base[6] = {
+            readOnly: true,
+            renderer: moneyRenderer(
+                (o) => o?.TongTienMua,
+                () => "#ef4444",
+            ),
+        }
+        base[7] = {
+            readOnly: true,
+            renderer: moneyRenderer(
+                (o) => o?.TongTienBan,
+                () => "#16a34a",
+            ),
+        }
+        // Lợi Nhuận: green if >=0 else red
+        base[8] = {
+            readOnly: true,
+            renderer: moneyRenderer(
+                (o) => {
+                    const buy = Number(o?.TongTienMua ?? 0)
+                    const sell = Number(o?.TongTienBan ?? 0)
+                    return Number((sell - buy).toFixed(2))
+                },
+                (n) => (n >= 0 ? "#16a34a" : "#ef4444"),
+            ),
+        }
+
+        // Tình Trạng color
+        base[11] = {
+            readOnly: true,
+            renderer: (_i, td, row) => {
+                const status = filteredOrders[row]?.TinhTrang || "Chưa nhập"
+                td.textContent = status
+                let color = "#f59e0b" // amber-500 for default
+                let bg = "#fef3c7" // amber-100
+                if (status === "Đã hủy") {
+                    color = "#ef4444"
+                    bg = "#fee2e2"
+                } else if (status === "Đang chờ NCC") {
+                    color = "#3b82f6"
+                    bg = "#dbeafe"
+                } else if (status === "Đã xong") {
+                    color = "#16a34a"
+                    bg = "#dcfce7"
+                }
+                td.style.color = color
+                td.style.fontWeight = "700"
+                td.style.textAlign = "center"
+                td.style.backgroundColor = bg
+                td.style.borderRadius = "4px"
+                td.style.padding = "2px 6px"
+            },
+        }
+
+        // Action column with button
+        base[RowHeader.length - 1] = {
+            readOnly: true,
+            renderer: (_instance, td, row) => {
+                td.textContent = ""
+                td.style.padding = "0"
+                const btn = document.createElement("button")
+
+                // Tạo icon mắt SVG
+                const eyeIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+                eyeIcon.setAttribute("width", "16")
+                eyeIcon.setAttribute("height", "16")
+                eyeIcon.setAttribute("viewBox", "0 0 24 24")
+                eyeIcon.setAttribute("fill", "none")
+                eyeIcon.style.marginRight = "6px"
+
+                // Tạo path cho icon mắt
+                const eyePath = document.createElementNS("http://www.w3.org/2000/svg", "path")
+                eyePath.setAttribute("d", "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z")
+                eyePath.setAttribute("stroke", "currentColor")
+                eyePath.setAttribute("stroke-width", "2")
+                eyePath.setAttribute("stroke-linecap", "round")
+                eyePath.setAttribute("stroke-linejoin", "round")
+
+                // Tạo path cho con ngươi
+                const pupilPath = document.createElementNS("http://www.w3.org/2000/svg", "circle")
+                pupilPath.setAttribute("cx", "12")
+                pupilPath.setAttribute("cy", "12")
+                pupilPath.setAttribute("r", "3")
+                pupilPath.setAttribute("stroke", "currentColor")
+                pupilPath.setAttribute("stroke-width", "2")
+                pupilPath.setAttribute("fill", "currentColor")
+
+                eyeIcon.appendChild(eyePath)
+                eyeIcon.appendChild(pupilPath)
+
+                // Tạo text
+                const text = document.createElement("span")
+                text.textContent = "Xem"
+                text.style.fontSize = "12px"
+                text.style.fontWeight = "500"
+
+                btn.appendChild(eyeIcon)
+                btn.appendChild(text)
+
+                btn.style.width = "100%"
+                btn.style.height = "100%"
+                btn.style.display = "flex"
+                btn.style.alignItems = "center"
+                btn.style.justifyContent = "center"
+                btn.style.backgroundColor = "#3b82f6"
+                btn.style.color = "white"
+                btn.style.border = "none"
+                btn.style.cursor = "pointer"
+                btn.style.transition = "all 0.2s ease"
+
+                // Hiệu ứng hover
+                btn.onmouseover = () => {
+                    btn.style.backgroundColor = "#2563eb"
+                    btn.style.transform = "scale(1.02)"
+                }
+                btn.onmouseout = () => {
+                    btn.style.backgroundColor = "#3b82f6"
+                    btn.style.transform = "scale(1)"
+                }
+
+                btn.onclick = () => {
+                    const order = filteredOrders[row]
+                    const items = Array.isArray(order?.items) ? order.items : []
+                    setSelectedOrder(order)
+                    setSelectedItems(items)
+                    setShowModal(true)
+                }
+                td.appendChild(btn)
+            },
+        }
+
+        return base
+    }, [RowHeader, filteredOrders])
+
+    const itemHeaders = [
+        "Mã đơn",
         "KH Note 1",
         "KH Note 2",
-        "Chủ Đề",
+        "Deadline",
+        "Chủ đề",
         "Anchor 1",
         "URL 1",
         "Anchor 2",
         "URL 2",
-        "LINK KQ",
-        "Deadline",
-        "NOTE",
-        "Giá Bán",
-        "Giá Mua",
-        "LN",
-        "TT NCC",
-        "Tên NCC",
-        "Mã NCC",
-        "Khách Hàng",
-        "NCC",
-        "Chat",
+        "Link KQ",
+        "Hành động",
     ]
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            // Khách hàng statuses
-            case "Chưa nhập":
-                return { bg: "#FFA500", text: "#FFF7ED" } // Orange bg, orange-50 text
-            case "Đơn OK":
-                return { bg: "#16A34A", text: "#F0FDF4" } // Green-600 bg, green-50 text
-            case "Hủy đơn":
-            case "Y/C Hủy đơn":
-                return { bg: "#DC2626", text: "#FEF2F2" } // Red-600 bg, red-50 text
-            case "Đã nhập":
-                return { bg: "#9333EA", text: "#FAF5FF" } // Purple-600 bg, purple-50 text
+    const itemsTableData = useMemo(() => {
+        return (selectedItems || []).map((it: any) => [
+            it.MaDon || "",
+            it.KHNote1 || "",
+            it.KHNote2 || "",
+            it.Deadline || "",
+            it.ChuDe || "",
+            it.Anchor1 || "",
+            it.URL1 || "",
+            it.Anchor2 || "",
+            it.URL2 || "",
+            it.LinkKQ || "",
+            "Xóa",
+        ])
+    }, [selectedItems])
 
-            // NCC statuses
-            case "Chưa nhận":
-                return { bg: "#FFA500", text: "#FFF7ED" } // Orange bg, orange-50 text
-            case "Đã lên bài":
-                return { bg: "#16A34A", text: "#F0FDF4" } // Green-600 bg, green-50 text
-            case "Từ chối hoàn":
-                return { bg: "#DC2626", text: "#FEF2F2" } // Red-600 bg, red-50 text
-            case "Đồng ý hoàn":
-                return { bg: "#DC2626", text: "#FEF2F2" } // Red-600 bg, red-50 text
+    // Map only editable columns (exclude col 0: MaDon and last action col)
+    const colIndexToKey = useMemo(
+        () =>
+            ({
+                1: "KHNote1",
+                2: "KHNote2",
+                3: "Deadline",
+                4: "ChuDe",
+                5: "Anchor1",
+                6: "URL1",
+                7: "Anchor2",
+                8: "URL2",
+                9: "LinkKQ",
+            }) as Record<number, string>,
+        [],
+    )
 
-            default:
-                return { bg: "", text: "" }
-        }
-    }
+    // Keys that, when edited, should set TinhTrangKH to "Đã nhập"
+    const khKeys = useMemo(() => new Set(["ChuDe", "Anchor1", "Anchor2", "URL1", "URL2"]), [])
 
-    const getHiddenColumns = () => {
-        if (userInfo?.role === "NCC") {
-            return {
-                columns: [1, 12, 13, 15, 16, 17, 18], // Giá Bán (13), LN (14)
-                indicators: true,
-            }
-        } else if (userInfo?.role === "Khách hàng") {
-            return {
-                columns: [14, 15, 16, 17, 18], // Giá Mua (14), LN (15), TT NCC (16), Tên NCC (17)
-                indicators: true,
-            }
-        }
-        return {
-            columns: [1, 12, 15, 16, 17],
-            indicators: true,
-        }
-    }
-
-    const isEditable = (col: number, row: number) => {
-        // Allow Admin to edit TinhTrangKH (19) and TinhTrangNCC (20)
-        if (userInfo?.role === "Admin") {
-            if (col === 19 || col === 20) return true;
-        }
-        // First check role-based permissions
-        if (userInfo?.role === "NCC") {
-            return col === 10 // Only LinkKQ is editable for NCC
-        } else if (userInfo?.role === "Khách hàng") {
-            const tinhTrangKH = tableData[row]?.[19]
-            const tinhTrangNCC = tableData[row]?.[20]
-            const isCompletedOrder =
-                (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
-                (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
-            if (isCompletedOrder) {
-                return null
-            }
-            const editableColumns = [2, 3, 4, 5, 6, 7, 8, 9, 11] // Ngày order, KH Note 1, KH Note 2, Chủ Đề, Anchor 1, URL 1, Anchor 2, URL 2, Deadline
-            return editableColumns.includes(col)
-        }
-
-        return true // All columns editable for other roles and non-completed orders
-    }
-
-    // Function to send a new chat message
-    const sendChatMessage = useCallback(async () => {
-        if (!currentChatOrderId || !newChatMessage.trim()) return
-
-        // Get current date in DD/MM/YYYY format
-        const now = new Date()
-        const day = String(now.getDate()).padStart(2, "0")
-        const month = String(now.getMonth() + 1).padStart(2, "0")
-        const year = now.getFullYear()
-        const ngayChat = `${day}/${month}/${year}`
-
-        // Create the message object with the appropriate name fields
-        const message: ChatMessage = {
-            text: newChatMessage.trim(),
-            sender: userInfo?.displayName || userInfo?.username || "Unknown User",
-            senderRole: userInfo?.role || "NCC",
-            timestamp: Date.now(),
-            ngayChat: ngayChat,
-        }
-
-        // Add the appropriate name field based on role
-        if (userInfo?.role === "NCC") {
-            message.supplierName = userInfo?.name || userInfo?.displayName || ""
-        } else if (userInfo?.role === "Khách hàng") {
-            message.name = userInfo?.username || userInfo?.name || userInfo?.displayName || ""
-        }
-
-        try {
-            const ordersRef = ref(database, `content/${currentChatOrderId}`)
-            const snapshot = await get(ordersRef)
-
-            if (snapshot.exists()) {
-                const order = snapshot.val()
-                const updatedOrder = {
-                    ...order,
-                    chat: [...(order.chat || []), message],
-                }
-
-                await set(ordersRef, updatedOrder)
-                setNewChatMessage("")
-
-                // Send notification based on sender role
-                const MaKH = currentChatOrderId.split("-")[0]
-                const MaNCC = order.MaNCC
-
-                if (userInfo?.role === "NCC") {
-                    // If NCC sends message, notify customer
-                    sheetApiRequest.getIDKH(
-                        MaKH,
-                        `NCC ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
-                    )
-                } else if (userInfo?.role === "Khách hàng") {
-                    // If customer sends message, notify NCC
-                    sheetApiRequest.getIDNCC(
-                        MaNCC,
-                        `Khách hàng ${userInfo?.username || userInfo?.displayName} đã gửi tin nhắn cho đơn ${currentChatOrderId}: "${newChatMessage.trim()}"`,
-                    )
-                }
-            }
-        } catch (error) {
-            console.error("Error sending message:", error)
-        }
-    }, [currentChatOrderId, newChatMessage, userInfo])
-
-    // Add function to stop blinking when chat is opened
-    const handleChatOpen = (orderId: string) => {
-        setCurrentChatOrderId(orderId)
-        setChatDialogOpen(true)
-        setBlinkingChatOrders((prev) => {
-            const newSet = new Set(prev)
-            newSet.delete(orderId)
-            return newSet
+    // Duplicate detector for columns: Anchor1, URL1, Anchor2, URL2, LinkKQ
+    const duplicateSets = useMemo(() => {
+        const keys = ["Anchor1", "URL1", "Anchor2", "URL2", "LinkKQ"] as const
+        const counts: Record<string, Map<string, number>> = {}
+        const dups: Record<string, Set<string>> = {}
+        keys.forEach((k) => {
+            counts[k] = new Map()
+            dups[k] = new Set()
         })
+        for (const it of selectedItems || []) {
+            keys.forEach((k) => {
+                const raw = (it?.[k] ?? "") as string
+                const norm = raw.trim().toLowerCase()
+                if (!norm) return
+                counts[k].set(norm, (counts[k].get(norm) || 0) + 1)
+            })
+        }
+        keys.forEach((k) => {
+            for (const [val, cnt] of counts[k].entries()) {
+                if (cnt > 1) dups[k].add(val)
+            }
+        })
+        return dups
+    }, [selectedItems])
+
+    const persistSelectedOrder = async (newItems: any[]) => {
+        if (!selectedOrder?.MaDon) return
+        // Always renumber MaDon for items based on outer MaDon and index
+        const normalizedItems = newItems.map((it, idx) => {
+            const item = {
+                ...it,
+                MaDon: `${selectedOrder.MaDon}-${idx + 1}`,
+            } as any
+            // Derive KH status from key fields to be robust for first-row edits/pastes
+            const hasKHInput = Boolean(
+                (item.ChuDe && item.ChuDe !== "") ||
+                (item.Anchor1 && item.Anchor1 !== "") ||
+                (item.Anchor2 && item.Anchor2 !== "") ||
+                (item.URL1 && item.URL1 !== "") ||
+                (item.URL2 && item.URL2 !== ""),
+            )
+            if (hasKHInput) item.TinhTrangKH = "Đã nhập"
+            // Derive NCC status from LinkKQ
+            if (item.LinkKQ && item.LinkKQ !== "") item.TinhTrangNCC = "Đã nhập"
+            return item
+        })
+
+        const soLuong = normalizedItems.length
+        const donGiaMua = Number(selectedOrder.DonGiaMua || 0)
+        const donGiaBan = Number(selectedOrder.DonGiaBan || 0)
+        const tongTienMua = Number((donGiaMua * soLuong).toFixed(2))
+        const tongTienBan = Number((donGiaBan * soLuong).toFixed(2))
+
+        // Derive outer status
+        let outerStatus = selectedOrder.TinhTrang || "Chưa nhập"
+        const allKH = normalizedItems.length > 0 && normalizedItems.every((i: any) => i.TinhTrangKH === "Đã nhập")
+        const allNCC = normalizedItems.length > 0 && normalizedItems.every((i: any) => i.TinhTrangNCC === "Đã nhập")
+
+        // Chỉ gọi API khi trạng thái thực sự thay đổi
+        let shouldCallAPI = false
+
+        if (allNCC && outerStatus !== "Đã xong") {
+            outerStatus = "Đã xong"
+            shouldCallAPI = true
+            const message = `Mã đơn ${selectedOrder.MaDon} : NCC ${selectedOrder.MaNCC} đã hoàn thành ${normalizedItems.length} bài.`
+            sheetApiRequest.getIDKH(selectedOrder.MaKH, message)
+        } else if (allKH && outerStatus !== "Đang chờ NCC") {
+            outerStatus = "Đang chờ NCC"
+            shouldCallAPI = true
+            const message = `Mã đơn ${selectedOrder.MaDon} : ${selectedOrder.MaKH} đã gửi yêu cầu ${normalizedItems.length} bài. Vui lòng truy cập https://www.ylink.shop/content để xử lý.`
+            sheetApiRequest.getIDNCC(selectedOrder.MaNCC, message)
+        }
+
+        const updatedOrder = {
+            ...selectedOrder,
+            SoLuong: soLuong,
+            TongTienMua: tongTienMua,
+            TongTienBan: tongTienBan,
+            items: normalizedItems,
+            TinhTrang: outerStatus,
+        }
+
+        await set(ref(database, `orderContent/${selectedOrder.MaDon}`), updatedOrder)
+
+        setSelectedOrder(updatedOrder)
+        setSelectedItems(normalizedItems)
     }
-
-    const formatDate = (dateStr: string) => {
-        if (!dateStr) return "";
-        // Handle both DD/MM/YYYY and YYYY-MM-DD formats
-        if (dateStr.includes("/")) {
-            const [day, month] = dateStr.split("/");
-            return `${day}/${month}`;
-        } else if (dateStr.includes("-")) {
-            const [year, month, day] = dateStr.split("-");
-            return `${day}/${month}`;
-        }
-        return dateStr;
-    };
-
-    // Add helper function to determine cell styling and editability
-    const getCellStyle = (col: number, row: number, isCompletedOrder: boolean, tableData: any[]): { backgroundColor: string; color: string; isReadOnly: boolean } => {
-        const style: { backgroundColor: string; color: string; isReadOnly: boolean } = {
-            backgroundColor: "",
-            color: "#000000",
-            isReadOnly: false
-        };
-
-        // Mã ĐH column (col 0) is always gray and read-only
-        if (col === 0) {
-            style.backgroundColor = "#d3d3d3";
-            style.isReadOnly = true;
-            return style;
-        }
-
-        // Status columns (19, 20) have their own colors
-        if (col === 19 || col === 20) {
-            const status = tableData[row]?.[col];
-            const colors = getStatusColor(status);
-            style.backgroundColor = colors.bg;
-            style.color = colors.text;
-            style.isReadOnly = true;
-            return style;
-        }
-
-        // Chat column (21) is always read-only
-        if (col === 21) {
-            style.isReadOnly = true;
-            return style;
-        }
-
-        // For completed orders, certain columns are gray and read-only
-        if (isCompletedOrder && [6, 8].includes(col)) { // Anchor1, Anchor2
-            style.backgroundColor = "#d3d3d3";
-            style.isReadOnly = true;
-            return style;
-        }
-
-        // Check if cell should be editable based on role and permissions
-        const isEditableCell = isEditable(col, row);
-        if (!isEditableCell) {
-            style.backgroundColor = "#d3d3d3";
-            style.isReadOnly = true;
-            return style;
-        }
-
-        return style;
-    };
-
-    const cells = function (
-        this: Handsontable.CellProperties,
-        row: number,
-        col: number,
-        prop: string | number,
-    ): Handsontable.CellMeta {
-        const cellProperties: Handsontable.CellMeta = {}
-
-        // Check if this is a summary row
-        const isSummaryRow =
-            row < tableData.length &&
-            (tableData[row][11] === "Tổng" || tableData[row][11] === "Đơn hủy" || tableData[row][11] === "Chưa nhập")
-
-        if (isSummaryRow) {
-            cellProperties.renderer = function (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: any,
-                cellProperties: Handsontable.CellProperties,
-            ) {
-                Handsontable.renderers.TextRenderer.apply(this, [instance, td, row, col, prop, value, cellProperties])
-                td.style.backgroundColor = "#ffb3b3"
-                td.style.color = "#991b1b" // red-800
-                td.style.fontWeight = "600"
-                if (col >= 13 && col <= 16) {
-                    // Giá Bán, Giá Mua, LN, TT NCC
-                    td.style.textAlign = "right"
-                    // Format number to 2 decimal places
-                    if (value !== undefined && value !== null && value !== "") {
-                        td.textContent = Number(value).toFixed(2)
-                    }
-                }
-            }
-            cellProperties.readOnly = true
-            return cellProperties
-        }
-
-        // Get the current row's status
-        const tinhTrangKH = tableData[row]?.[19]
-        const tinhTrangNCC = tableData[row]?.[20]
-
-        // Check if the order is in a completed state
-        const isCompletedOrder =
-            (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
-            (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
-
-        // Get cell style and editability
-        const cellStyle = getCellStyle(col, row, isCompletedOrder, tableData);
-
-        // Apply cell styling and editability
-        if (cellStyle) {
-            cellProperties.readOnly = cellStyle.isReadOnly;
-        }
-
-        if (col === 21) {
-            // Chat column
-            cellProperties.renderer = (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: any,
-                cellProperties: Handsontable.CellProperties,
-            ) => {
-                // Clear existing content and set styles for td
-                td.innerHTML = ""
-                td.style.padding = "0"
-                td.style.textAlign = "center"
-
-                // Add chat button
-                const button = document.createElement("button")
-                const orderId = instance.getDataAtCell(row, 0)
-                button.textContent = "Chat"
-                button.className = `w-full px-4 py-2 text-xs font-semibold rounded transition-colors duration-200 ${blinkingChatOrders.has(orderId)
-                    ? "bg-green-500 hover:bg-green-600 text-white animate-pulse"
-                    : "bg-green-600 hover:bg-green-700 text-green-50"
-                    }`
-                button.onclick = (e) => {
-                    e.stopPropagation()
-                    handleChatOpen(orderId)
-                }
-
-                td.appendChild(button)
-            }
-        } else {
-            // For all other cells
-            cellProperties.renderer = function (
-                instance: Handsontable.Core,
-                td: HTMLTableCellElement,
-                row: number,
-                col: number,
-                prop: string | number,
-                value: any,
-                cellProperties: Handsontable.CellProperties,
-            ) {
-                Handsontable.renderers.TextRenderer.apply(this, [instance, td, row, col, prop, value, cellProperties])
-
-                // Apply cell style
-                if (cellStyle) {
-                    td.style.backgroundColor = cellStyle.backgroundColor;
-                    td.style.color = cellStyle.color;
-                }
-
-                // Format date for NgayOrder column (col 2)
-                if (col === 2) {
-                    td.textContent = formatDate(value)
-                }
-
-                // Apply fixed width styling
-                const fixedWidthColumns = [10, 12] // LinkKQ, Note
-                if (fixedWidthColumns.includes(col)) {
-                    td.style.width = "150px"
-                    td.style.maxWidth = "150px"
-                    td.style.whiteSpace = "nowrap"
-                    td.style.overflow = "hidden"
-                    td.style.textOverflow = "ellipsis"
-                    td.title = value || "" // Add tooltip with full text
-                } else if (col === 0) {
-                    td.style.width = "70px"
-                    td.style.maxWidth = "70px"
-                    td.style.whiteSpace = "nowrap"
-                    td.style.overflow = "hidden"
-                    td.style.textOverflow = "ellipsis"
-                } else {
-                    td.style.width = "80px"
-                    td.style.maxWidth = "80px"
-                    td.style.whiteSpace = "nowrap"
-                    td.style.overflow = "hidden"
-                    td.style.textOverflow = "ellipsis"
-                    td.title = value || "" // Add tooltip with full text
-                }
-            }
-        }
-
-        return cellProperties
-    }
-
-    // Add merge function
-    const handleMergeData = () => {
-        setIsMerged(!isMerged)
-        if (!isMerged) {
-            // Get the cancelled orders section
-            const cancelledSection = tableData.filter(row => row[11] === "Đơn hủy" ||
-                (row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn")));
-
-            // Get the total row
-            const totalRow = tableData.find(row => row[11] === "Tổng");
-
-            // Get all non-cancelled orders
-            const nonCancelledOrders = tableData.filter(row =>
-                row[11] !== "Tổng" &&
-                row[11] !== "Đơn hủy" &&
-                row[11] !== "Chưa nhập" &&
-                !(row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"))
-            );
-
-            // Sort non-cancelled orders by order ID
-            nonCancelledOrders.sort((a, b) => {
-                const orderIdA = a[0];
-                const orderIdB = b[0];
-                const partsA = orderIdA.split("-");
-                const partsB = orderIdB.split("-");
-                for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
-                    const numA = Number.parseInt(partsA[i].replace(/[^0-9]/g, ""));
-                    const numB = Number.parseInt(partsB[i].replace(/[^0-9]/g, ""));
-                    if (numA !== numB) {
-                        return numA - numB;
-                    }
-                    if (partsA[i] !== partsB[i]) {
-                        return partsA[i].localeCompare(partsB[i]);
-                    }
-                }
-                return partsA.length - partsB.length;
-            });
-
-            // Create merged data array
-            const mergedData = [
-                totalRow,
-                ...nonCancelledOrders,
-                ...cancelledSection
-            ];
-
-            setTableData(mergedData);
-        } else {
-            // Reset to original data
-            const ordersRef = ref(database, "content");
-            onValue(ordersRef, (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    // Transform the data into table format
-                    const formattedData = Object.entries(data)
-                        .map(([orderId, order]: [string, any]) => {
-                            const giaBan = parseNumberWithComma(order.GiaBan);
-                            const giaMua = parseNumberWithComma(order.GiaMua);
-                            const ln = giaBan - giaMua;
-
-                            return [
-                                orderId,
-                                order.TenSP || "",
-                                order.NgayOrder || "",
-                                order.KHNote1 || "",
-                                order.KHNote2 || "",
-                                order.ChuDe || "",
-                                order.Anchor1 || "",
-                                order.URL1 || "",
-                                order.Anchor2 || "",
-                                order.URL2 || "",
-                                order.LinkKQ || "",
-                                order.Deadline || "",
-                                order.Note || "",
-                                giaBan,
-                                giaMua,
-                                ln,
-                                order.TTNCC || "",
-                                order.TenNCC || "",
-                                order.MaNCC || "",
-                                order.TinhTrangKH || "",
-                                order.TinhTrangNCC || "",
-                            ];
-                        })
-                        .filter((row) => {
-                            if (userInfo?.role === "NCC") {
-                                return row[18] === userInfo?.username;
-                            } else if (userInfo?.role === "Khách hàng" || userInfo?.role === "Nhân viên") {
-                                const MaKH = row[0];
-                                const MaKHBeforeDash = MaKH.split("-")[0];
-                                return MaKHBeforeDash === userInfo?.username;
-                            }
-                            return true;
-                        });
-
-                    // Sort the formatted data
-                    formattedData.sort((a: any[], b: any[]) => {
-                        const orderIdA = a[0];
-                        const orderIdB = b[0];
-                        const partsA = orderIdA.split("-");
-                        const partsB = orderIdB.split("-");
-                        for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
-                            const numA = Number.parseInt(partsA[i].replace(/[^0-9]/g, ""));
-                            const numB = Number.parseInt(partsB[i].replace(/[^0-9]/g, ""));
-                            if (numA !== numB) {
-                                return numA - numB;
-                            }
-                            if (partsA[i] !== partsB[i]) {
-                                return partsA[i].localeCompare(partsB[i]);
-                            }
-                        }
-                        return partsA.length - partsB.length;
-                    });
-
-                    // Calculate summary
-                    const summary = calculateSummary(formattedData);
-
-                    // Create summary rows
-                    const totalRow = [
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "Tổng", // Move label to Deadline (index 11)
-                        "",
-                        summary.totalGiaBan.toFixed(2),
-                        summary.totalGiaMua.toFixed(2),
-                        summary.totalLN.toFixed(2),
-                        summary.totalTTNCC.toFixed(2),
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                    ]
-
-                    const cancelledRow = [
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "Đơn hủy", // Move label to Deadline (index 11)
-                        "",
-                        summary.cancelledGiaBan.toFixed(2),
-                        summary.cancelledGiaMua.toFixed(2),
-                        summary.cancelledLN.toFixed(2),
-                        summary.cancelledTTNCC.toFixed(2),
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                    ]
-
-                    const pendingRow = [
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "Chưa nhập", // Move label to Deadline (index 11)
-                        "",
-                        summary.pendingGiaBan.toFixed(2),
-                        summary.pendingGiaMua.toFixed(2),
-                        summary.pendingLN.toFixed(2),
-                        summary.pendingTTNCC.toFixed(2),
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                    ]
-
-                    // Combine all data with summary rows
-                    const finalData = [
-                        totalRow,
-                        ...formattedData.filter(
-                            (row) =>
-                                (row[19] === "Đã nhập" || row[19] === "Đơn OK" || row[19] === "Y/C Hủy đơn") &&
-                                (row[20] === "Đã lên bài" || row[20] === "Từ chối hoàn"),
-                        ),
-                        pendingRow,
-                        ...formattedData.filter(
-                            (row) => (row[19] === "Chưa nhập" || row[19] === "Đã nhập") && row[20] === "Chưa nhận",
-                        ),
-                        cancelledRow,
-                        ...formattedData.filter(
-                            (row) => row[19] === "Hủy đơn" || (row[19] === "Y/C Hủy đơn" && row[20] === "Đồng ý hoàn"),
-                        ),
-                    ];
-
-                    // Apply filters
-                    const filteredData = filterTableData(finalData);
-                    setTableData(filteredData);
-                } else {
-                    setTableData([]);
-                }
-            });
-        }
-    };
-
-    // Add this function to handle checkbox changes
-    const handleViewOptionChange = (option: string) => {
-        // If data is merged, don't allow disabling total or pending
-        if (isMerged && (option === 'total' || option === 'pending')) {
-            return;
-        }
-
-        setViewOptions(prev => ({
-            ...prev,
-            [option]: !prev[option as keyof typeof prev]
-        }));
-    };
-
-    // Add useEffect to ensure total and pending are enabled when data is merged
-    useEffect(() => {
-        if (isMerged) {
-            setViewOptions(prev => ({
-                ...prev,
-                total: true,
-                pending: true
-            }));
-        }
-    }, [isMerged]);
-
-    const handleWithdrawRequest = () => {
-        // Chuyển selectedWeek về dạng số để so sánh
-        const selectedWeekNum = parseInt(selectedWeek);
-
-        // Nếu đã có transaction cho tuần đang chọn thì hiển thị trạng thái và thoát
-        const selectedWeekTransaction = Array.isArray(transactions)
-            ? transactions.find(t => String(t.week) === String(selectedWeekNum))
-            : undefined;
-        if (selectedWeekTransaction) {
-            toast.info(
-                <>
-                    <div className="font-semibold">Yêu cầu thanh toán tuần {selectedWeek} đã được gửi</div>
-                    <div>Trạng thái: {selectedWeekTransaction.status}</div>
-                </>
-            );
-            return;
-        }
-
-        const currentWeek = getCurrentWeek();
-
-        // Không cho phép rút tiền cho tuần hiện tại
-        if (selectedWeekNum === currentWeek) {
-            toast.error(
-                <>
-                    <div className="font-semibold">Không thể yêu cầu thanh toán cho tuần hiện tại</div>
-                    <div>Vui lòng chỉ yêu cầu thanh toán cho các đơn hàng đã hoàn tất của tuần trước.</div>
-                </>
-            );
-            return;
-        }
-
-        // Đếm số đơn hoàn thành của tuần đang chọn
-        const completedOrders = tableData.filter((row: any) => {
-            const weekNumber = getWeekNumber(row[3]);
-
-            console.log("completedOrders", weekNumber);
-            const tinhTrangKH = row[19];
-            const tinhTrangNCC = row[20];
-            return (
-                String(weekNumber) === String(selectedWeekNum) &&
-                (tinhTrangKH === "Đã nhập" || tinhTrangKH === "Đơn OK" || tinhTrangKH === "Y/C Hủy đơn") &&
-                (tinhTrangNCC === "Đã lên bài" || tinhTrangNCC === "Từ chối hoàn")
-            );
-        });
-
-
-        if (completedOrders.length === 0) {
-            toast.error(
-                <>
-                    <div className="font-semibold">Không có đơn hàng hoàn tất trong tuần {selectedWeek}</div>
-                    <div>Tuần này không có đơn hàng đủ điều kiện để thanh toán.</div>
-                </>
-            );
-            return;
-        }
-
-        setWithdrawModalOpen(true);
-    };
 
     return (
         <>
             <Toaster position="top-right" expand={true} richColors />
-            <div className="mb-4 bg-white rounded-lg shadow-md p-4">
-                <div className="flex flex-col space-y-4">
-                    {/* Filter Controls Row */}
-                    <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex items-center space-x-4">
-                            <label className="text-sm font-medium text-gray-700">Hiển thị:</label>
-                            <div className="flex items-center space-x-2">
-                                <label className="inline-flex items-center">
-                                    <input
-                                        type="checkbox"
-                                        checked={viewOptions.total}
-                                        onChange={() => handleViewOptionChange('total')}
-                                        disabled={isMerged}
-                                        className={`form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500 ${isMerged ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    />
-                                    <span className={`ml-2 text-sm ${isMerged ? 'text-gray-500' : 'text-gray-700'}`}>Tổng</span>
-                                </label>
-                                <label className="inline-flex items-center">
-                                    <input
-                                        type="checkbox"
-                                        checked={viewOptions.pending}
-                                        onChange={() => handleViewOptionChange('pending')}
-                                        disabled={isMerged}
-                                        className={`form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500 ${isMerged ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    />
-                                    <span className={`ml-2 text-sm ${isMerged ? 'text-gray-500' : 'text-gray-700'}`}>Chưa nhập</span>
-                                </label>
-                                <label className="inline-flex items-center">
-                                    <input
-                                        type="checkbox"
-                                        checked={viewOptions.cancelled}
-                                        onChange={() => handleViewOptionChange('cancelled')}
-                                        className="form-checkbox h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
-                                    />
-                                    <span className="ml-2 text-sm text-gray-700">Đơn hủy</span>
-                                </label>
+
+            <div className="min-h-screen bg-slate-50 p-2">
+                <div className="max-w-7xl mx-auto">
+                    <div className="bg-gradient-to-r from-blue-500 to-blue-900 rounded-lg shadow-sm border border-slate-200 p-4">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <div className="p-2 bg-blue-100 rounded-lg">
+                                    <BarChart3 className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div>
+                                    <h1 className="text-xl font-bold text-blue-50">Quản Lý Đơn Hàng</h1>
+                                    <p className="text-sm text-blue-100">Theo dõi và quản lý đơn hàng hiệu quả</p>
+                                </div>
+                            </div>
+                            <Link
+                                href="/"
+                                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-200 border border-white/30 hover:border-white/50"
+                            >
+                                <Home className="w-4 h-4" />
+                                <span className="text-sm font-medium">Về Trang Chủ</span>
+                            </Link>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                            <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-100">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Package className="w-4 h-4 text-emerald-600" />
+                                        <div>
+                                            <p className="text-sm font-semibold text-emerald-600">Đã Xong</p>
+                                            <p className="text-xs text-emerald-600">{statistics.completedOrders} đơn hàng</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-2xl font-bold text-emerald-600">
+                                            ${statistics.completedAmount.toLocaleString()}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-red-50 rounded-lg p-3 border border-red-100">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <X className="w-4 h-4 text-red-600" />
+                                        <div>
+                                            <p className="text-sm font-semibold text-red-600">Đã Hủy</p>
+                                            <p className="text-xs text-red-600">{statistics.cancelledOrders} đơn hàng</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-2xl font-bold text-red-600">${statistics.cancelledAmount.toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Users className="w-4 h-4 text-amber-600" />
+                                        <div>
+                                            <p className="text-sm font-semibold text-amber-600">Chờ NCC</p>
+                                            <p className="text-xs text-amber-600">{statistics.waitingNCCOrders} đơn hàng</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-2xl font-bold text-amber-600">${statistics.waitingNCCAmount.toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Package className="w-4 h-4 text-slate-600" />
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-600">Chưa Nhập</p>
+                                            <p className="text-xs text-slate-600">{statistics.notEnteredOrders} đơn hàng</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-2xl font-bold text-slate-600">${statistics.notEnteredAmount.toLocaleString()}</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex items-center">
-                            <label className="text-sm font-medium text-gray-700 mr-2">Tuần:</label>
-                            <select
-                                value={selectedWeek}
-                                onChange={(e) => setSelectedWeek(e.target.value)}
-                                className="px-3 py-2 rounded-md border border-gray-300 bg-white text-gray-700 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                            >
-                                {Array.from({ length: getCurrentWeek() }, (_, i) => {
-                                    const weekNumber = getCurrentWeek() - i;
-                                    return (
-                                        <option key={weekNumber} value={weekNumber}>
-                                            Tuần {weekNumber}
-                                        </option>
-                                    );
-                                })}
-                            </select>
-                        </div>
-
-                        {userInfo?.role === "Admin" && (
-                            <>
-                                <div className="flex items-center">
-                                    <label className="text-sm font-medium text-gray-700 mr-2">Khách hàng:</label>
-                                    <select
-                                        value={selectedUser}
-                                        onChange={(e) => setSelectedUser(e.target.value)}
-                                        className="px-3 py-2 rounded-md border border-gray-300 bg-white text-gray-700 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                                    >
-                                        <option value="">Tất cả</option>
-                                        {users.map((user) => (
-                                            <option key={user} value={user}>
-                                                {user}
-                                            </option>
-                                        ))}
-                                    </select>
+                        <div className="flex flex-wrap items-center gap-3 rounded-lg">
+                            <div className="flex items-center gap-2">
+                                <div className="p-1.5 rounded-md">
+                                    <Filter className="w-4 h-4 text-blue-50" />
                                 </div>
+                                <span className="text-sm font-semibold text-blue-50">Bộ Lọc</span>
+                            </div>
 
-                                <div className="flex items-center">
-                                    <label className="text-sm font-medium text-gray-700 mr-2">NCC:</label>
+                            <div className="flex flex-wrap items-center gap-2">
+                                {/* Filter NCC - Chỉ Admin và Nhân viên mới thấy */}
+                                {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
                                     <select
-                                        value={selectedNCC}
-                                        onChange={(e) => setSelectedNCC(e.target.value)}
-                                        className="px-3 py-2 rounded-md border border-gray-300 bg-white text-gray-700 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                        className={`px-3 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-all duration-200 ${userInfo?.role === "NCC"
+                                            ? "border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
+                                            : "border-slate-300 bg-white hover:border-slate-400"
+                                            }`}
+                                        value={filters.maNCC}
+                                        onChange={(e) => setFilters((prev) => ({ ...prev, maNCC: e.target.value }))}
+                                        disabled={userInfo?.role === "NCC"}
                                     >
-                                        <option value="">Tất cả</option>
-                                        {nccs.map((ncc) => (
+                                        <option value="">Tất cả NCC</option>
+                                        {filterOptions.nccOptions.map((ncc) => (
                                             <option key={ncc} value={ncc}>
                                                 {ncc}
                                             </option>
                                         ))}
                                     </select>
-                                </div>
-                            </>
-                        )}
-
-                        <button
-                            onClick={handleMergeData}
-                            disabled={!viewOptions.total || !viewOptions.pending}
-                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${isMerged
-                                ? "bg-blue-500 hover:bg-blue-600 text-white"
-                                : !viewOptions.total || !viewOptions.pending
-                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-300"
-                                    : "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300"
-                                }`}
-                        >
-                            {isMerged ? "Tách dữ liệu" : "Gộp dữ liệu"}
-                        </button>
-
-                        {/* {userInfo?.role === "NCC" && (
-                            <button
-                                onClick={handleWithdrawRequest}
-                                className="px-4 py-2 rounded-md text-sm font-medium bg-green-500 hover:bg-green-600 text-white transition-colors"
-                            >
-                                Y/C Thanh toán
-                            </button>
-                        )} */}
-                        <div className="ml-auto">
-                            <button
-                                onClick={() => setIsFullscreen(!isFullscreen)}
-                                className="fixed flex items-center top-4 right-4 z-[9999] p-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
-                            >
-                                {isFullscreen ? (
-                                    <div className="hidden">
-                                    </div>
-                                ) : (
-                                    <>
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            className="h-4 w-4 mr-1"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"
-                                            />
-                                        </svg>
-                                        Toàn màn hình
-                                    </>
                                 )}
-                            </button>
+
+                                {/* Filter KH - Chỉ Admin và NCC mới thấy */}
+                                {(userInfo?.role === "Admin" || userInfo?.role === "NCC") && (
+                                    <select
+                                        className={`px-3 py-1.5 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-all duration-200 ${userInfo?.role === "Nhân viên"
+                                            ? "border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
+                                            : "border-slate-300 bg-white hover:border-slate-400"
+                                            }`}
+                                        value={filters.maKH}
+                                        onChange={(e) => setFilters((prev) => ({ ...prev, maKH: e.target.value }))}
+                                        disabled={userInfo?.role === "Nhân viên"}
+                                    >
+                                        <option value="">Tất cả KH</option>
+                                        {filterOptions.khOptions.map((kh) => (
+                                            <option key={kh} value={kh}>
+                                                {kh}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+
+                                <select
+                                    className="px-3 py-1.5 text-sm border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200 hover:border-slate-400"
+                                    value={filters.week}
+                                    onChange={(e) => setFilters((prev) => ({ ...prev, week: e.target.value }))}
+                                >
+
+                                    {filterOptions.weekOptions.map((week) => {
+                                        return (
+                                            <option key={week.value} value={week.value}>
+                                                {week.label}
+                                            </option>
+                                        )
+                                    })}
+                                </select>
+
+                                {/* Nút xóa bộ lọc - chỉ reset các filter có thể thay đổi */}
+                                {((userInfo?.role === "Admin" && (filters.maNCC || filters.maKH)) ||
+                                    (userInfo?.role === "Nhân viên" && filters.maNCC) ||
+                                    (userInfo?.role === "NCC" && filters.maKH)) && (
+                                        <button
+                                            onClick={() => {
+                                                if (userInfo?.role === "Admin") {
+                                                    setFilters((prev) => ({ ...prev, maNCC: "", maKH: "" }))
+                                                } else if (userInfo?.role === "Nhân viên") {
+                                                    setFilters((prev) => ({ ...prev, maNCC: "" }))
+                                                } else if (userInfo?.role === "NCC") {
+                                                    setFilters((prev) => ({ ...prev, maKH: "" }))
+                                                }
+                                            }}
+                                            className="flex items-center gap-1.5 px-3 py-2 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors duration-200 font-medium"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                            Xóa bộ lọc
+                                        </button>
+                                    )}
+                            </div>
                         </div>
                     </div>
-
-                    {/* Stats Cards Row */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
-                            <div className="flex items-center">
-                                <div className="p-2 bg-green-500 rounded-full mr-3">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        className="h-5 w-5 text-white"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                    >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-medium text-gray-700">Đơn hoàn thành</h3>
-                                    <div className="flex items-baseline">
-                                        <p className="text-2xl font-bold text-green-600">{stats.totalOrders}</p>
-                                        <p className="ml-2 text-sm text-gray-600">đơn</p>
-                                    </div>
-                                    <p className="text-sm font-medium text-green-600">{stats.totalAmount.toLocaleString("vi-VN")} USDT</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 p-4 rounded-lg border border-yellow-200">
-                            <div className="flex items-center">
-                                <div className="p-2 bg-yellow-500 rounded-full mr-3">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        className="h-5 w-5 text-white"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                        />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-medium text-gray-700">Đơn chờ xử lý</h3>
-                                    <div className="flex items-baseline">
-                                        <p className="text-2xl font-bold text-yellow-600">{stats.pendingOrders}</p>
-                                        <p className="ml-2 text-sm text-gray-600">đơn</p>
-                                    </div>
-                                    <p className="text-sm font-medium text-yellow-600">
-                                        {stats.pendingAmount.toLocaleString("vi-VN")} USDT
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-gradient-to-r from-red-50 to-red-100 p-4 rounded-lg border border-red-200">
-                            <div className="flex items-center">
-                                <div className="p-2 bg-red-500 rounded-full mr-3">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        className="h-5 w-5 text-white"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                    >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-medium text-gray-700">Đơn hủy</h3>
-                                    <div className="flex items-baseline">
-                                        <p className="text-2xl font-bold text-red-600">{stats.cancelledOrders}</p>
-                                        <p className="ml-2 text-sm text-gray-600">đơn</p>
-                                    </div>
-                                    <p className="text-sm font-medium text-red-600">
-                                        {stats.cancelledAmount.toLocaleString("vi-VN")} USDT
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
+                    <div>
+                        <HotTable
+                            themeName="ht-theme-main"
+                            colHeaders={RowHeader}
+                            nestedHeaders={nestedHeaders as any}
+                            columns={columnsSettings}
+                            data={tableData}
+                            filters={true}
+                            width="100%"
+                            autoColumnSize={true}
+                            manualColumnResize={true}
+                            stretchH="all"
+                            manualRowMove={true}
+                            manualColumnMove={true}
+                            manualRowResize={true}
+                            className="custom-table"
+                            licenseKey="non-commercial-and-evaluation"
+                            rowHeaders={false}
+                            dropdownMenu={false}
+                            columnSorting={false}
+                            hiddenColumns={{
+                                columns: userInfo?.role === "NCC" ? [4, 6, 8] : undefined,
+                            }}
+                        />
                     </div>
                 </div>
             </div>
-            <div className={`${isFullscreen ? "fixed inset-0 z-50 bg-white p-0 m-0 w-screen h-screen" : "relative"}`}>
-                <HotTable
-                    themeName="ht-theme-main"
-                    nestedHeaders={[RowHeader1, RowHeader2]}
-                    data={tableData}
-                    filters={true}
-                    width="100%"
-                    autoColumnSize={true}
-                    manualColumnResize={true}
-                    height={isFullscreen ? "100vh" : "calc(100vh - 240px)"}
-                    stretchH="all"
-                    manualRowMove={true}
-                    manualColumnMove={true}
-                    manualRowResize={true}
-                    className="custom-table"
-                    licenseKey="non-commercial-and-evaluation"
-                    rowHeaders={false}
-                    hiddenColumns={getHiddenColumns()}
-                    cells={cells}
-                    contextMenu={{
-                        items: {
-                            cancelOrder: {
-                                name: "Hủy Đơn",
-                                callback: function (this: any, key: string, selection: any, clickEvent: any) {
-                                    const row = selection[0].start.row
-                                    handleContextMenuAction(row, key)
-                                },
-                                hidden: function (this: any) {
-                                    if (userInfo?.role === "NCC") return true
-                                    const selected = this.getSelectedLast()
-                                    if (!selected || !Array.isArray(selected) || selected.length < 4) return true
-                                    const selectedRow = selected[0]
-                                    if (selectedRow < 0 || selectedRow >= tableData.length) return true
-                                    if (!tableData[selectedRow] || !tableData[selectedRow][19]) return true
-                                    const tinhTrang = tableData[selectedRow][19]
-                                    return tinhTrang === "Y/C Hủy đơn" || tinhTrang === "Hủy đơn" || tinhTrang === "Đơn OK"
-                                },
-                            },
-                            okOrder: {
-                                name: "Đơn OK",
-                                callback: function (this: any, key: string, selection: any, clickEvent: any) {
-                                    const row = selection[0].start.row
-                                    handleContextMenuAction(row, key)
-                                },
-                                hidden: function (this: any) {
-                                    if (userInfo?.role === "NCC") return true
-                                    const selected = this.getSelectedLast()
-                                    if (!selected || !Array.isArray(selected) || selected.length < 4) return true
-                                    const selectedRow = selected[0]
-                                    if (selectedRow < 0 || selectedRow >= tableData.length) return true
-                                    if (!tableData[selectedRow] || !tableData[selectedRow][19]) return true
-                                    const tinhTrang = tableData[selectedRow][19]
-                                    const tinhTrangNCC = tableData[selectedRow][20]
+
+            <Modal
+                open={showModal}
+                onCancel={() => setShowModal(false)}
+                footer={
+                    <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-xl">
+                        {userInfo?.role === "Admin" || userInfo?.role === "Nhân viên" ? (
+                            <div className="text-center">
+                                <p className="text-sm text-gray-700 font-medium">
+                                    📋 <strong>Hướng dẫn cho Bán hàng:</strong>
+                                </p>
+                                <p className="text-xs text-gray-600 mt-1">
+                                    Yêu cầu nhập đủ đơn, nếu không đủ thì phải xóa để thực hiện xong việc lên đơn.
+                                </p>
+                            </div>
+                        ) : userInfo?.role === "NCC" ? (
+                            <div className="text-center">
+                                <p className="text-sm text-gray-700 font-medium">
+                                    🔗 <strong>Hướng dẫn cho NCC:</strong>
+                                </p>
+                                <p className="text-xs text-gray-600 mt-1">Yêu cầu phải nhập đầy đủ Link KQ thì mới xong được.</p>
+                            </div>
+                        ) : null}
+                    </div>
+                }
+                width={"80%"}
+                styles={{
+                    body: { padding: 0, borderRadius: "16px" },
+                    content: { padding: 0, borderRadius: "16px" },
+                    mask: { borderRadius: "16px" },
+                }}
+                className="[&_.ant-modal-content]:overflow-hidden [&_.ant-modal-body]:overflow-hidden"
+                centered
+                closeIcon={
+                    <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors">
+                        <X className="w-5 h-5 text-white" />
+                    </div>
+                }
+            >
+                <div className="bg-gradient-to-r from-blue-500 to-blue-900 rounded-xl overflow-hidden">
+                    <div className="px-6 pt-3 border-t border-blue-400">
+                        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                            <Package className="w-5 h-5" />
+                            Danh sách chi tiết ({selectedItems.length} items)
+                        </h3>
+                        <p className="text-blue-100 text-sm mt-1">Quản lý thông tin chi tiết từng item trong đơn hàng</p>
+                    </div>
+                    <div className="px-6 py-1 space-y-3 [&_*]:scrollbar-hide">
+                        {(() => {
+                            const duplicateLinkKQItems = selectedItems.filter((item) => {
+                                const linkKQ = (item.LinkKQ || "").trim().toLowerCase()
+                                return linkKQ && duplicateSets.LinkKQ?.has(linkKQ)
+                            })
+                            if (duplicateLinkKQItems.length > 0) {
+                                return (
+                                    <div className="bg-gradient-to-r from-yellow-100 to-amber-100 border border-yellow-300 rounded-lg p-3 shadow-sm">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                                            <span className="text-sm font-medium text-yellow-800">
+                                                ⚠️ Phát hiện {duplicateLinkKQItems.length} Link KQ trùng lặp
+                                            </span>
+                                            <span className="text-xs text-yellow-700 bg-yellow-200 px-2 py-1 rounded-full">
+                                                Cần kiểm tra và sửa
+                                            </span>
+                                        </div>
+                                    </div>
+                                )
+                            }
+                            return null
+                        })()}
+
+                        {/* Warning for incomplete KH entries - Admin/Nhân viên only need ONE field filled */}
+                        {(() => {
+                            if (userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") {
+                                const incompleteKHItems = selectedItems.filter(
+                                    (item) => !item.ChuDe && !item.Anchor1 && !item.URL1 && !item.Anchor2 && !item.URL2,
+                                )
+                                if (incompleteKHItems.length > 0) {
                                     return (
-                                        tinhTrang === "Đơn OK" ||
-                                        tinhTrang === "Y/C Hủy đơn" ||
-                                        tinhTrang === "Chưa nhập" ||
-                                        tinhTrang === "Hủy đơn" ||
-                                        tinhTrangNCC === "Chưa nhận"
+                                        <div className="bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-300 rounded-lg p-3 shadow-sm">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                                                <span className="text-sm font-medium text-amber-800">
+                                                    ⚠️ {incompleteKHItems.length} đơn chưa nhập thông tin
+                                                </span>
+                                                <span className="text-xs text-amber-700 bg-amber-200 px-2 py-1 rounded-full">
+                                                    Cần ít nhất 1 trong: Chủ đề, Anchor, URL
+                                                </span>
+                                            </div>
+                                        </div>
                                     )
-                                },
-                            },
-                            approveRefund: {
-                                name: "Đồng ý hoàn",
-                                callback: function (this: any, key: string, selection: any, clickEvent: any) {
-                                    const row = selection[0].start.row
-                                    handleContextMenuAction(row, key)
-                                },
-                                hidden: function (this: any) {
-                                    if (userInfo?.role === "Khách hàng" || userInfo?.role === "Nhân viên") return true
-                                    const selected = this.getSelectedLast()
-                                    if (!selected || !Array.isArray(selected) || selected.length < 4) return true
-                                    const selectedRow = selected[0]
-                                    if (selectedRow < 0 || selectedRow >= tableData.length) return true
-                                    if (!tableData[selectedRow] || !tableData[selectedRow][19]) return true
-                                    const tinhTrangKH = tableData[selectedRow][19]
-                                    const tinhTrangNCC = tableData[selectedRow][20]
+                                }
+                            }
+                            return null
+                        })()}
+
+                        {/* Warning for missing LinkKQ from NCC */}
+                        {(() => {
+                            if (userInfo?.role === "NCC") {
+                                const missingLinkKQItems = selectedItems.filter((item) => !item.LinkKQ)
+                                if (missingLinkKQItems.length > 0) {
                                     return (
-                                        tinhTrangKH !== "Y/C Hủy đơn" || tinhTrangNCC === "Đồng ý hoàn" || tinhTrangNCC === "Từ chối hoàn"
+                                        <div className="bg-gradient-to-r from-red-100 to-pink-100 border border-red-300 rounded-lg p-3 shadow-sm">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                                                <span className="text-sm font-medium text-red-800">
+                                                    🔗 {missingLinkKQItems.length} đơn chưa có Link KQ
+                                                </span>
+                                                <span className="text-xs text-red-700 bg-red-200 px-2 py-1 rounded-full">
+                                                    NCC cần cung cấp Link KQ
+                                                </span>
+                                            </div>
+                                        </div>
                                     )
-                                },
-                            },
-                            rejectRefund: {
-                                name: "Từ chối hoàn",
-                                callback: function (this: any, key: string, selection: any, clickEvent: any) {
-                                    const row = selection[0].start.row
-                                    handleContextMenuAction(row, key)
-                                },
-                                hidden: function (this: any) {
-                                    if (userInfo?.role === "Khách hàng" || userInfo?.role === "Nhân viên") return true
-                                    const selected = this.getSelectedLast()
-                                    if (!selected || !Array.isArray(selected) || selected.length < 4) return true
-                                    const selectedRow = selected[0]
-                                    if (selectedRow < 0 || selectedRow >= tableData.length) return true
-                                    if (!tableData[selectedRow] || !tableData[selectedRow][19]) return true
-                                    const tinhTrangKH = tableData[selectedRow][19]
-                                    const tinhTrangNCC = tableData[selectedRow][20]
+                                }
+                            } else {
+                                // For Admin/Nhân viên - show items that have info but missing LinkKQ
+                                const missingLinkKQItems = selectedItems.filter(
+                                    (item) => !item.LinkKQ && (item.ChuDe || item.Anchor1 || item.URL1 || item.Anchor2 || item.URL2),
+                                )
+                                if (missingLinkKQItems.length > 0) {
                                     return (
-                                        tinhTrangKH !== "Y/C Hủy đơn" || tinhTrangNCC === "Đồng ý hoàn" || tinhTrangNCC === "Từ chối hoàn"
+                                        <div className="bg-gradient-to-r from-blue-100 to-indigo-100 border border-blue-300 rounded-lg p-3 shadow-sm">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                                                <span className="text-sm font-medium text-blue-800">
+                                                    ⏳ {missingLinkKQItems.length} đơn chờ NCC trả Link KQ
+                                                </span>
+                                                <span className="text-xs text-blue-700 bg-blue-200 px-2 py-1 rounded-full">
+                                                    Đã có thông tin KH
+                                                </span>
+                                            </div>
+                                        </div>
                                     )
-                                },
-                            },
-                        },
-                    }}
-                    dropdownMenu={false}
-                    columnSorting={false}
-                    columnHeaderHeight={30}
-                    afterChange={handleAfterChange}
-                    afterPaste={handleAfterPaste}
-                />
-                {/* Nút thu nhỏ màn hình luôn nổi trên cùng khi fullscreen */}
-            </div>
-            {isFullscreen && (
-                <button
-                    onClick={() => setIsFullscreen(false)}
-                    className="fixed top-4 right-4 z-[9999] p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                    >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            )}
-            <div className={isFullscreen ? "fixed bottom-4 right-4 z-50" : ""}>
-                <ChatDialog
-                    chatDialogOpen={chatDialogOpen}
-                    setChatDialogOpen={setChatDialogOpen}
-                    currentChatOrderId={currentChatOrderId}
-                    currentChatMessages={currentChatMessages}
-                    newChatMessage={newChatMessage}
-                    setNewChatMessage={setNewChatMessage}
-                    sendChatMessage={sendChatMessage}
-                    role={userInfo?.role}
-                    supplierName={userInfo?.name}
-                    user={userInfo}
-                />
-            </div>
+                                }
+                            }
+                            return null
+                        })()}
+
+                        {/* Success message when all complete */}
+                        {selectedItems.length > 0 &&
+                            selectedItems.every(
+                                (item) => item.ChuDe && item.Anchor1 && item.URL1 && item.Anchor2 && item.URL2 && item.LinkKQ,
+                            ) && (
+                                <div className="bg-green-100 border border-green-300 rounded-lg p-3 shadow-sm">
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-shrink-0">
+                                            <svg className="h-5 w-5 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+                                                <path
+                                                    fillRule="evenodd"
+                                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                    clipRule="evenodd"
+                                                />
+                                            </svg>
+                                        </div>
+                                        <div className="ml-3">
+                                            <h3 className="text-sm font-medium text-green-800">
+                                                ✅ Tất cả {selectedItems.length} đơn hàng đã hoàn thành đầy đủ thông tin
+                                            </h3>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                    </div>
+                    <div className="bg-white">
+                        <HotTable
+                            themeName="ht-theme-main"
+                            colHeaders={itemHeaders}
+                            columns={itemHeaders.map((_, idx): Handsontable.ColumnSettings => {
+                                // Check if order status is "Đã xong" to make all columns readonly
+                                const isOrderCompleted = selectedOrder?.TinhTrang === "Đã xong"
+
+                                // Last column is action (delete)
+                                if (idx === itemHeaders.length - 1) {
+                                    return {
+                                        readOnly: isOrderCompleted,
+                                        renderer: (_inst, td, row) => {
+                                            td.textContent = ""
+                                            td.style.textAlign = "center"
+                                            td.style.verticalAlign = "middle"
+                                            td.style.padding = "0.5px"
+                                            td.style.margin = "0"
+                                            td.style.border = "none"
+
+                                            const del = document.createElement("button")
+
+                                            // Create SVG icon
+                                            const svgIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+                                            svgIcon.setAttribute("width", "18")
+                                            svgIcon.setAttribute("height", "18")
+                                            svgIcon.setAttribute("viewBox", "0 0 24 24")
+                                            svgIcon.setAttribute("fill", "none")
+                                            svgIcon.style.marginRight = "6px"
+
+                                            const path = document.createElementNS("http://www.w3.org/2000/svg", "path")
+                                            path.setAttribute(
+                                                "d",
+                                                "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z",
+                                            )
+                                            path.setAttribute("fill", "currentColor")
+
+                                            svgIcon.appendChild(path)
+
+                                            // Create text
+                                            const text = document.createElement("span")
+                                            text.textContent = "Xóa"
+                                            text.style.fontWeight = "500"
+                                            text.style.fontSize = "13px"
+
+                                            del.appendChild(svgIcon)
+                                            del.appendChild(text)
+
+                                            del.style.width = "100%"
+                                            del.style.height = "100%"
+                                            del.style.borderRadius = "0"
+                                            del.style.display = "flex"
+                                            del.style.alignItems = "center"
+                                            del.style.justifyContent = "center"
+                                            del.style.backgroundColor = isOrderCompleted ? "#e5e7eb" : "#fee2e2"
+                                            del.style.color = isOrderCompleted ? "#9ca3af" : "#dc2626"
+                                            del.style.fontSize = "12px"
+                                            del.style.lineHeight = "1"
+                                            del.style.cursor = isOrderCompleted ? "not-allowed" : "pointer"
+                                            del.style.transition = "all 0.2s ease"
+                                            del.style.boxShadow = "none"
+                                            del.style.padding = "0"
+                                            del.style.margin = "0"
+                                            if (!isOrderCompleted) {
+                                                del.onmouseover = () => {
+                                                    del.style.backgroundColor = "#fecaca"
+                                                    del.style.color = "#b91c1c"
+                                                }
+                                                del.onmouseout = () => {
+                                                    del.style.backgroundColor = "#fee2e2"
+                                                    del.style.color = "#dc2626"
+                                                }
+                                            }
+
+                                            if (isOrderCompleted) {
+                                                del.onclick = null
+                                            } else {
+                                                del.onclick = async () => {
+                                                    const newItems = [...selectedItems]
+                                                    newItems.splice(row, 1)
+                                                    await persistSelectedOrder(newItems)
+                                                }
+                                            }
+                                            td.appendChild(del)
+                                        },
+                                    }
+                                }
+
+                                // Mã đơn column (idx 0) with enhanced styling
+                                if (idx === 0) {
+                                    return {
+                                        readOnly: true,
+                                        renderer: (_i, td, row) => {
+                                            td.textContent = selectedItems[row]?.MaDon || ""
+                                            td.style.color = "#dc2626"
+                                            td.style.fontWeight = "600"
+                                            td.style.textAlign = "center"
+                                            td.style.backgroundColor = "#fef2f2"
+                                        },
+                                    }
+                                }
+
+                                // Column key mapping
+                                const colIndexToKeyMap: Record<number, string> = {
+                                    1: "KHNote1",
+                                    2: "KHNote2",
+                                    3: "Deadline",
+                                    4: "ChuDe",
+                                    5: "Anchor1",
+                                    6: "URL1",
+                                    7: "Anchor2",
+                                    8: "URL2",
+                                    9: "LinkKQ",
+                                }
+
+                                const key = colIndexToKeyMap[idx]
+
+                                // Duplicate highlighting columns
+                                const dupKeyByIndex: Record<number, string> = {
+                                    5: "Anchor1",
+                                    6: "URL1",
+                                    7: "Anchor2",
+                                    8: "URL2",
+                                    9: "LinkKQ",
+                                }
+
+                                if (key) {
+                                    const isDuplicateColumn = dupKeyByIndex[idx]
+
+                                    return {
+                                        readOnly: isOrderCompleted || (userInfo?.role === "NCC" && key !== "LinkKQ"),
+                                        renderer: (_i, td, row) => {
+                                            const raw = (selectedItems[row]?.[key] ?? "") as string
+                                            const norm = raw.trim().toLowerCase()
+                                            td.textContent = raw
+                                            td.style.textAlign = "center"
+                                            td.style.fontSize = "13px"
+
+                                            // Enhanced styling based on content and column type
+                                            if (key === "LinkKQ") {
+                                                if (raw) {
+                                                    // Tạo link clickable
+                                                    const link = document.createElement("a")
+                                                    link.href = raw
+                                                    link.target = "_blank"
+                                                    link.textContent = raw
+                                                    link.style.color = "#2563eb"
+                                                    link.style.textDecoration = "underline"
+                                                    link.style.fontWeight = "600"
+                                                    link.style.padding = "2px 6px"
+                                                    link.style.borderRadius = "4px"
+                                                    // Xóa nội dung cũ và thêm link
+                                                    td.innerHTML = ""
+                                                    td.appendChild(link)
+                                                } else {
+                                                    td.textContent = raw
+                                                    td.style.color = "#dc2626"
+                                                    td.style.fontWeight = "400"
+                                                }
+                                                td.style.textAlign = "left"
+                                                td.style.backgroundColor = raw ? "#eff6ff" : "#f87171"
+                                            } else if (["ChuDe", "Anchor1", "Anchor2"].includes(key)) {
+                                                td.style.color = raw ? "#1f2937" : "#9ca3af"
+                                                td.style.backgroundColor = raw ? "#f8fafc" : "#f1f5f9"
+                                            } else if (["URL1", "URL2"].includes(key)) {
+                                                if (raw) {
+                                                    // Tạo link clickable cho URL
+                                                    const link = document.createElement("a")
+                                                    link.href = raw
+                                                    link.target = "_blank"
+                                                    link.textContent = raw
+                                                    link.style.color = "#1f2937"
+                                                    link.style.textDecoration = "underline"
+                                                    link.style.fontWeight = "500"
+                                                    // Xóa nội dung cũ và thêm link
+                                                    td.innerHTML = ""
+                                                    td.appendChild(link)
+                                                } else {
+                                                    td.textContent = raw
+                                                    td.style.color = "#9ca3af"
+                                                    td.style.fontWeight = "400"
+                                                }
+                                                td.style.textAlign = "left"
+                                                td.style.backgroundColor = raw ? "#f8fafc" : "#f1f5f9"
+                                            } else {
+                                                td.style.color = "#374151"
+                                                td.style.backgroundColor = "#f9fafb"
+                                            }
+
+                                            // Highlight duplicates with enhanced styling
+                                            if (isDuplicateColumn && norm && duplicateSets[key]?.has(norm)) {
+                                                const bgMap: Record<string, string> = {
+                                                    ChuDe: "#fef3c7", // amber-100
+                                                    Anchor1: "#fed7aa", // orange-200
+                                                    URL1: "#e9d5ff", // violet-200
+                                                    Anchor2: "#c7d2fe", // indigo-200
+                                                    URL2: "#bae6fd", // sky-200
+                                                    LinkKQ: "#a7f3d0", // emerald-200
+                                                }
+                                                td.style.backgroundColor = bgMap[key] || "#f3f4f6"
+                                                // Loại bỏ border và borderRadius
+                                            }
+                                        },
+                                    }
+                                }
+
+                                return {
+                                    readOnly: isOrderCompleted || userInfo?.role === "NCC",
+                                    renderer: (_i, td, row, _c, _p, value) => {
+                                        if (value !== undefined && value !== null) td.textContent = String(value)
+                                        td.style.textAlign = "center"
+                                        td.style.color = "#374151"
+                                        td.style.padding = "8px"
+                                        td.style.fontSize = "13px"
+                                        td.style.backgroundColor = "#f9fafb"
+                                    },
+                                }
+                            })}
+                            data={itemsTableData}
+                            licenseKey="non-commercial-and-evaluation"
+                            width="100%"
+                            stretchH="all"
+                            colWidths={[25, 20, 20, 20, 30, 30, 35, 30, 35, 40, 25]}
+                            height={450}
+                            hiddenColumns={
+                                userInfo?.role === "NCC"
+                                    ? {
+                                        columns: [10],
+                                    }
+                                    : undefined
+                            }
+                            afterChange={async (changes, source) => {
+                                if (!changes || !selectedOrder) return
+                                if (source === "loadData") return
+
+                                // Kiểm tra quyền của NCC
+                                if (userInfo?.role === "NCC") {
+                                    // NCC chỉ có thể thay đổi LinkKQ
+                                    const hasUnauthorizedChanges = changes.some(([row, col, _oldVal, newVal]) => {
+                                        const key = colIndexToKey[col as number]
+                                        return key && key !== "LinkKQ"
+                                    })
+
+                                    if (hasUnauthorizedChanges) {
+                                        // Nếu có thay đổi không được phép, bỏ qua
+                                        return
+                                    }
+                                }
+
+                                const newItems = [...selectedItems]
+                                // Ensure we apply each change even if multiple target the same row 0
+                                changes.forEach(([row, col, _oldVal, newVal]) => {
+                                    const key = colIndexToKey[col as number]
+                                    if (!key) return
+                                    const base: any = newItems[row]
+                                        ? { ...newItems[row] }
+                                        : { MaDon: `${selectedOrder.MaDon}-${(row as number) + 1}` }
+                                    const item: any = { ...base, [key]: newVal }
+                                    if (khKeys.has(key)) item.TinhTrangKH = "Đã nhập"
+                                    if (key === "LinkKQ" && newVal && newVal !== "") item.TinhTrangNCC = "Đã nhập"
+                                    newItems[row] = item
+                                })
+                                await persistSelectedOrder(newItems)
+                            }}
+                            afterPaste={async (data, coords) => {
+                                if (!coords?.length || !selectedOrder) return
+                                const { startRow, startCol } = coords[0]
+                                const newItems = [...selectedItems]
+
+                                for (let r = 0; r < data.length; r++) {
+                                    const rowIndex = startRow + r
+                                    if (!newItems[rowIndex]) newItems[rowIndex] = { MaDon: `${selectedOrder.MaDon}-${rowIndex + 1}` }
+                                    const rowData = data[r]
+
+                                    for (let c = 0; c < rowData.length; c++) {
+                                        const destCol = startCol + c
+                                        const key = colIndexToKey[destCol]
+                                        if (!key) continue // skip MaDon and action columns
+                                        const value = rowData[c]
+                                        const item: any = { ...newItems[rowIndex], [key]: value }
+                                        if (khKeys.has(key)) item.TinhTrangKH = "Đã nhập"
+                                        if (key === "LinkKQ" && value && value !== "") item.TinhTrangNCC = "Đã nhập"
+                                        newItems[rowIndex] = item
+                                    }
+                                }
+
+                                await persistSelectedOrder(newItems)
+                            }}
+                        />
+                    </div>
+                </div>
+            </Modal>
         </>
     )
 }

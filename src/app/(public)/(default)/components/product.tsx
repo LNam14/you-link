@@ -9,6 +9,7 @@ import { database } from "@/app/firebase/firebase"
 import { ref, onValue, set } from "firebase/database"
 import { toast } from "sonner"
 import Content from "./content"
+import Content1 from "./content copy"
 
 interface ProductType {
   id: string
@@ -130,6 +131,7 @@ const Product = ({ title }: { title: string }) => {
     { id: "GP-Text VN", label: "GP Text VN", icon: <Database className="w-4 h-4" /> },
     { id: "GP-Text NN", label: "GP Text NN", icon: <Globe className="w-4 h-4" /> },
     { id: "Content", label: "Content", icon: <BookOpen className="w-4 h-4" /> },
+    { id: "Content1", label: "Content1", icon: <BookOpen className="w-4 h-4" /> },
   ]
 
   if (loading) {
@@ -203,6 +205,7 @@ const Product = ({ title }: { title: string }) => {
               {tabs === "GP-Text VN" && <DataSite fetchData={fetchData} data={dataGPTextVN} loading={loading} />}
               {tabs === "GP-Text NN" && <DataSite fetchData={fetchData} data={dataGPTextNN} loading={loading} />}
               {tabs === "Content" && <Content fetchData={fetchData} data={dataContent} loading={loading} />}
+              {tabs === "Content1" && <Content1 fetchData={fetchData} data={dataContent} loading={loading} />}
             </div>
           )}
         </div>
