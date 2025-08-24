@@ -8,6 +8,7 @@ import { toast, Toaster } from "sonner"
 import getUserInfo from "@/components/userInfo"
 import { getDatabase, ref, push, set, get } from "firebase/database"
 import { database } from "@/lib/firebase"
+import { useRouter } from "next/navigation"
 
 interface ContentItem {
     TenSP: string
@@ -30,11 +31,12 @@ export default function Content({
     const [quantities, setQuantities] = useState<{ [key: string]: number }>({})
     const [orderCounts, setOrderCounts] = useState<{ [key: string]: number }>({})
     const userInfo = getUserInfo()
+    const router = useRouter()
 
     useEffect(() => {
         const countOrdersByTenKH = async () => {
             try {
-                const ordersRef = ref(database, 'content')
+                const ordersRef = ref(database, 'orderContent')
                 const snapshot = await get(ordersRef)
                 const orders = snapshot.val() || {}
 
@@ -92,12 +94,12 @@ export default function Content({
                 throw new Error("Thiếu thông tin sản phẩm bắt buộc")
             }
 
-            // Calculate total price for new orders, convert from comma to dot format
+            // Calculate prices (convert from comma to dot format)
             const giaBan = parseFloat(item.GiaBan.toString().replace(',', '.'))
-            const totalPrice = giaBan * quantity
+            const giaMua = parseFloat(item.GiaMua.toString().replace(',', '.'))
 
             // Get existing orders
-            const ordersRef = ref(database, 'content')
+            const ordersRef = ref(database, 'orderContent')
             const snapshot = await get(ordersRef)
             const orders = snapshot.val() || {}
 
@@ -112,42 +114,49 @@ export default function Content({
                 }
             })
 
-            // Create multiple orders based on quantity
-            for (let i = 0; i < quantity; i++) {
-                // Increment order number for each new order
-                maxOrderNumber++
-                const newOrderId = `${userInfo?.username}-${maxOrderNumber}`
+            // Create a single order containing items[] and top-level totals
+            maxOrderNumber++
+            const newOrderId = `${userInfo?.username}-${maxOrderNumber}`
 
-                const orderData = {
-                    TenSP: item.TenSP || "",
-                    KHNote1: "",
-                    KHNote2: "",
-                    ChuDe: "",
-                    Anchor1: "",
-                    URL1: "",
-                    Anchor2: "",
-                    URL2: "",
-                    LinkKQ: "",
-                    Deadline: "",
-                    TTNCC: "",
-                    TinhTrangKH: "Chưa nhập",
-                    TinhTrangNCC: "Chưa nhận",
-                    GiaBan: giaBan,
-                    GiaMua: parseFloat(item.GiaMua.toString().replace(',', '.')),
-                    IDNhom: item.IDNhom || "",
-                    MaNCC: item.MaNCC || "",
-                    Note: item.Note || "",
-                    TenKH: userInfo?.username || "",
-                    NgayOrder: new Date().toLocaleDateString('en-GB')
-                }
+            const itemsArray = Array.from({ length: quantity }, (_, index) => ({
+                MaDon: `${newOrderId}-${index + 1}`,
+                KHNote1: "",
+                KHNote2: "",
+                ChuDe: "",
+                Anchor1: "",
+                URL1: "",
+                Anchor2: "",
+                URL2: "",
+                LinkKQ: "",
+                Deadline: ""
+            }))
 
-                // Add new order with the generated ID
-                await set(ref(database, `content/${newOrderId}`), orderData)
+            const orderData = {
+                MaDon: newOrderId,
+                NgayOrder: new Date().toLocaleDateString('en-GB'),
+                TenSP: item.TenSP || "",
+                SoLuong: quantity,
+                DonGiaMua: giaMua,
+                DonGiaBan: giaBan,
+                TongTienMua: Number((giaMua * quantity).toFixed(2)),
+                TongTienBan: Number((giaBan * quantity).toFixed(2)),
+                IDNhom: item.IDNhom || "",
+                MaNCC: item.MaNCC || "",
+                Note: item.Note || "",
+                MaKH: userInfo?.username || "",
+                TinhTrang: "Chưa nhập",
+                items: itemsArray,
             }
+
+            // Add new order with the generated ID
+            await set(ref(database, `orderContent/${newOrderId}`), orderData)
 
             toast.success("Đặt hàng thành công", {
                 description: `Đã đặt ${quantity} ${item.TenSP}`,
             })
+
+            // Redirect to /content page after successful order
+            router.push('/content')
         } catch (error) {
             toast.error("Đặt hàng thất bại", {
                 description: error instanceof Error ? error.message : "Vui lòng thử lại sau",
