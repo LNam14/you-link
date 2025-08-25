@@ -156,7 +156,7 @@ export default function Content({
             })
 
             // Redirect to /content page after successful order
-            router.push('/content')
+            window.open('/content', '_blank')
         } catch (error) {
             toast.error("Đặt hàng thất bại", {
                 description: error instanceof Error ? error.message : "Vui lòng thử lại sau",

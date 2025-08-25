@@ -9,8 +9,8 @@ import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
 import { Toaster } from "sonner"
 import { Modal } from "antd"
-import { database, onValue, ref, set } from "@/lib/firebase"
-import { Users, Package, Filter, BarChart3, X, Home } from "lucide-react"
+import { database, onValue, ref, set, remove } from "@/lib/firebase"
+import { Users, Package, Filter, BarChart3, X, Home, Calendar, ShoppingCart } from "lucide-react"
 import Link from "next/link"
 import getUserInfo from "@/components/userInfo"
 import sheetApiRequest from "@/apiRequests/sheet"
@@ -22,29 +22,6 @@ type NestedColumnHeader = {
     colspan: number
 }
 
-const getVietnamWeekDates = (date: Date) => {
-    // Tạo bản sao của date để không làm thay đổi date gốc
-    const dateCopy = new Date(date)
-    const day = dateCopy.getDay()
-
-    // Tính ngày thứ 2 của tuần (Monday = 1, Sunday = 0)
-    // Nếu là chủ nhật (day = 0), lùi về 6 ngày để đến thứ 2
-    // Nếu là thứ 2 đến thứ 7 (day = 1-6), lùi về (day - 1) ngày để đến thứ 2
-    const daysToMonday = day === 0 ? 6 : day - 1
-    const monday = new Date(dateCopy)
-    monday.setDate(dateCopy.getDate() - daysToMonday)
-
-    // Thứ 2 + 6 ngày = Chủ nhật
-    const sunday = new Date(monday)
-    sunday.setDate(monday.getDate() + 6)
-
-    return {
-        start: monday.toISOString().split("T")[0],
-        end: sunday.toISOString().split("T")[0],
-        label: `${monday.getDate()}/${monday.getMonth() + 1} - ${sunday.getDate()}/${sunday.getMonth() + 1}`,
-    }
-}
-
 // Hàm chuyển đổi format ngày từ DD/MM/YYYY sang Date object
 const parseDate = (dateStr: string): Date | null => {
     if (!dateStr) return null
@@ -53,9 +30,9 @@ const parseDate = (dateStr: string): Date | null => {
     if (dateStr.includes("/")) {
         const parts = dateStr.split("/")
         if (parts.length === 3) {
-            const day = parseInt(parts[0])
-            const month = parseInt(parts[1]) - 1 // Month index từ 0-11
-            const year = parseInt(parts[2])
+            const day = Number.parseInt(parts[0])
+            const month = Number.parseInt(parts[1]) - 1 // Month index từ 0-11
+            const year = Number.parseInt(parts[2])
 
             if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
                 return new Date(year, month, day)
@@ -72,77 +49,83 @@ const parseDate = (dateStr: string): Date | null => {
     return null
 }
 
-const generateWeekOptions = (orders: any[]) => {
-    const weeks: Array<{
-        value: string
-        label: string
-        start: string
-        end: string
-        count: number
-    }> = []
-    const weekMap = new Map<string, number>() // Map để lưu trữ tuần và đếm đơn hàng
-
-    // Duyệt qua tất cả đơn hàng để tìm các tuần có dữ liệu
-    orders.forEach((order) => {
-        if (!order.NgayOrder) return
-
-        try {
-            const orderDate = parseDate(order.NgayOrder)
-            if (!orderDate) return
-
-            // Tìm tuần chứa ngày đơn hàng
-            const week = getVietnamWeekDates(orderDate)
-            const weekKey = `${week.start}_${week.end}`
-
-            // Debug: log để kiểm tra
-            console.log(`Order date: ${order.NgayOrder} -> Parsed: ${orderDate.toISOString()} -> Week: ${week.start} to ${week.end}`)
-            console.log(`Week key: ${weekKey}`)
-
-            if (weekMap.has(weekKey)) {
-                weekMap.set(weekKey, (weekMap.get(weekKey) || 0) + 1)
-            } else {
-                weekMap.set(weekKey, 1)
-            }
-        } catch (error) {
-            return
-        }
-    })
-
-    // Chuyển đổi map thành array và tạo options
-    weekMap.forEach((orderCount, weekKey) => {
-        const [start, end] = weekKey.split('_')
-
-        // Tính số tuần ISO của năm theo chuẩn ISO 8601
-        const weekStart = new Date(start)
-        const getISOWeek = (date: Date) => {
-            const target = new Date(date.valueOf())
-            const dayNr = (date.getDay() + 6) % 7
-            target.setDate(target.getDate() - dayNr + 3)
-            const firstThursday = target.valueOf()
-            const yearStart = new Date(target.getFullYear(), 0, 1)
-            const weekNr = 1 + Math.ceil((firstThursday - yearStart.valueOf()) / 604800000)
-            return weekNr
-        }
-
-        const weekNumber = getISOWeek(weekStart)
-
-        weeks.push({
-            value: weekKey,
-            label: `Tuần ${weekNumber}`,
-            start: start,
-            end: end,
-            count: orderCount,
-        })
-    })
-
-    // Sắp xếp theo thứ tự thời gian (mới nhất trước)
-    return weeks.sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
+const getWeekStart = (date: Date): Date => {
+    const d = new Date(date)
+    const day = d.getDay()
+    // Thứ 2 = 1, Thứ 3 = 2, ..., Chủ nhật = 0
+    // Nếu là Chủ nhật (day = 0), thì lùi về 6 ngày để về Thứ 2
+    // Nếu là Thứ 2 (day = 1), thì giữ nguyên
+    // Nếu là các ngày khác, thì lùi về Thứ 2 gần nhất
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    return new Date(d.setDate(diff))
 }
 
-const getCurrentWeekKey = () => {
-    const today = new Date()
-    const week = getVietnamWeekDates(today)
-    return `${week.start}_${week.end}`
+const getWeekEnd = (date: Date): Date => {
+    const weekStart = getWeekStart(date)
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekStart.getDate() + 6)
+    return weekEnd
+}
+
+const formatDate = (date: Date): string => {
+    return date.toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+    })
+}
+
+const parseVietnameseDate = (dateString: string): Date => {
+    const [day, month, year] = dateString.split("/").map(Number)
+    return new Date(year, month - 1, day)
+}
+
+// Hàm helper để tính số tuần trong năm theo chuẩn ISO (tuần bắt đầu từ Thứ 2)
+const getWeekNumber = (date: Date): number => {
+    const target = new Date(date.valueOf())
+    const dayNr = (date.getDay() + 6) % 7 // Chuyển đổi: Thứ 2 = 0, Thứ 3 = 1, ..., Chủ nhật = 6
+    target.setDate(target.getDate() - dayNr + 3) // Đưa về Thứ 4 của tuần đó
+    const firstThursday = target.valueOf()
+    target.setMonth(0, 1) // Đưa về ngày 1 tháng 1
+    if (target.getDay() !== 4) {
+        target.setMonth(0, 1 + ((4 - target.getDay() + 7) % 7))
+    }
+    return 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000)
+}
+
+const getCurrentWeek = () => {
+    const now = new Date()
+    const weekStart = getWeekStart(now)
+    const weekEnd = getWeekEnd(now)
+
+    const weekNumber = getWeekNumber(now)
+
+    return {
+        start: formatDate(weekStart),
+        end: formatDate(weekEnd),
+        label: `Tuần ${weekNumber}`,
+    }
+}
+
+// Hàm helper để xử lý text dài với dấu "..."
+const truncateText = (text: string, maxLength: number = 30): string => {
+    if (!text || text.length <= maxLength) return text
+    return text.substring(0, maxLength) + "..."
+}
+
+// Hàm helper để tạo tooltip cho text bị cắt
+const createTooltip = (text: string, element: HTMLElement) => {
+    if (text.length > 30) {
+        element.title = text
+        element.style.cursor = "help"
+    }
+}
+
+// Hàm helper để áp dụng CSS ngăn text wrap
+const applyNoWrapStyles = (element: HTMLElement) => {
+    element.style.whiteSpace = "nowrap"
+    element.style.overflow = "hidden"
+    element.style.textOverflow = "ellipsis"
 }
 
 export default function PageBody() {
@@ -182,19 +165,12 @@ export default function PageBody() {
     const [filters, setFilters] = useState({
         maNCC: "",
         maKH: "",
-        week: "", // Khởi tạo trống, sẽ được set trong useEffect
+        week: getCurrentWeek().label,
     })
-
-    // Tạo tuần hiện tại làm giá trị mặc định
-    const currentWeek = useMemo(() => {
-        const today = new Date()
-        const week = getVietnamWeekDates(today)
-        return `${week.start}_${week.end}`
-    }, [])
 
     // Cập nhật filter mặc định khi component mount (chỉ chạy 1 lần)
     useEffect(() => {
-        let defaultFilters = { ...filters, week: currentWeek }
+        const defaultFilters = { ...filters }
 
         // Tự động lọc theo role và username
         if (userInfo?.role === "NCC") {
@@ -228,7 +204,21 @@ export default function PageBody() {
 
         // Debug: log filter hiện tại
         console.log("Current filters:", filters)
-        console.log("Filter week:", filters.week)
+
+        if (filters.week && filters.week !== "Tất cả tuần") {
+            // Lấy số tuần từ "Tuần X"
+            const weekNumber = Number.parseInt(filters.week.replace("Tuần ", ""))
+            if (!isNaN(weekNumber)) {
+                filtered = filtered.filter((order) => {
+                    if (!order.NgayOrder) return false
+                    const orderDate = parseVietnameseDate(order.NgayOrder)
+
+                    const orderWeekNumber = getWeekNumber(orderDate)
+
+                    return orderWeekNumber === weekNumber
+                })
+            }
+        }
 
         // Phân quyền dữ liệu theo role
         if (userInfo?.role === "Nhân viên") {
@@ -248,40 +238,73 @@ export default function PageBody() {
             // Filter by Mã KH
             if (filters.maKH && order.MaKH !== filters.maKH) return false
 
-            // Filter by week
-            if (filters.week) {
-                try {
-                    const [weekStart, weekEnd] = filters.week.split("_")
-                    if (!order.NgayOrder) return false
-
-                    const orderDate = parseDate(order.NgayOrder)
-                    if (!orderDate) return false
-
-                    const orderDateStr = orderDate.toISOString().split("T")[0]
-
-                    // Debug: log để kiểm tra filter tuần
-                    console.log(`Filtering order: ${order.MaDon}, Date: ${order.NgayOrder} -> ${orderDateStr}, Week: ${weekStart} to ${weekEnd}`)
-                    console.log(`Date comparison: ${orderDateStr} >= ${weekStart} = ${orderDateStr >= weekStart}, ${orderDateStr} <= ${weekEnd} = ${orderDateStr <= weekEnd}`)
-
-                    // So sánh ngày chính xác hơn
-                    const isInWeek = orderDateStr >= weekStart && orderDateStr <= weekEnd
-                    if (!isInWeek) {
-                        console.log(`Order ${order.MaDon} excluded: ${orderDateStr} not in week ${weekStart}-${weekEnd}`)
-                        return false
-                    } else {
-                        console.log(`Order ${order.MaDon} included: ${orderDateStr} is in week ${weekStart}-${weekEnd}`)
-                    }
-                } catch (error) {
-                    console.error("Error filtering by week:", error)
-                    return false
-                }
-            }
-
             return true
         })
     }, [orders, filters, userInfo])
 
+    const filterOptions = useMemo(() => {
+        // First apply week filter to get base dataset
+        let weekFilteredOrders = orders
 
+        if (filters.week && filters.week !== "Tất cả tuần") {
+            // Lấy số tuần từ "Tuần X"
+            const weekNumber = Number.parseInt(filters.week.replace("Tuần ", ""))
+            if (!isNaN(weekNumber)) {
+                weekFilteredOrders = orders.filter((order) => {
+                    if (!order.NgayOrder) return false
+                    const orderDate = parseVietnameseDate(order.NgayOrder)
+
+                    const orderWeekNumber = getWeekNumber(orderDate)
+
+                    return orderWeekNumber === weekNumber
+                })
+            }
+        }
+
+        // Apply role-based filtering to week-filtered data
+        if (userInfo?.role === "Nhân viên") {
+            weekFilteredOrders = weekFilteredOrders.filter((order) => order.MaKH === userInfo.username)
+        } else if (userInfo?.role === "NCC") {
+            weekFilteredOrders = weekFilteredOrders.filter(
+                (order) =>
+                    order.MaNCC === userInfo.username && (order.TinhTrang === "Đang chờ NCC" || order.TinhTrang === "Đã xong"),
+            )
+        }
+
+        // Generate options from week-filtered data
+        const nccOptions = [...new Set(weekFilteredOrders.map((order) => order.MaNCC).filter(Boolean))].sort()
+        const khOptions = [...new Set(weekFilteredOrders.map((order) => order.MaKH).filter(Boolean))].sort()
+
+        return { nccOptions, khOptions }
+    }, [orders, filters.week, userInfo])
+
+    const weekOptions = useMemo(() => {
+        if (!orders.length) return []
+
+        // Get all unique weeks from orders
+        const weeks = new Map<number, { start: Date; end: Date }>()
+
+        orders.forEach((order) => {
+            if (order.NgayOrder) {
+                try {
+                    const orderDate = parseVietnameseDate(order.NgayOrder)
+                    const weekStart = getWeekStart(orderDate)
+                    const weekEnd = getWeekEnd(orderDate)
+
+                    const weekNumber = getWeekNumber(orderDate)
+
+                    weeks.set(weekNumber, { start: weekStart, end: weekEnd })
+                } catch (error) {
+                    console.warn("Invalid date format:", order.NgayOrder)
+                }
+            }
+        })
+
+        // Sort weeks by week number (newest first)
+        return Array.from(weeks.entries())
+            .sort(([a], [b]) => b - a)
+            .map(([weekNumber]) => `Tuần ${weekNumber}`)
+    }, [orders])
 
     const statistics = useMemo(() => {
         const completedOrders = filteredOrders.filter((order) => order.TinhTrang === "Đã xong")
@@ -300,15 +323,6 @@ export default function PageBody() {
             notEnteredAmount: notEnteredOrders.reduce((sum, order) => sum + (Number(order.TongTienMua) || 0), 0),
         }
     }, [filteredOrders])
-
-    const filterOptions = useMemo(() => {
-        // Sử dụng filteredOrders (đã được filter theo tuần) để hiển thị options phù hợp
-        const nccOptions = [...new Set(filteredOrders.map((order) => order.MaNCC).filter(Boolean))].sort()
-        const khOptions = [...new Set(filteredOrders.map((order) => order.MaKH).filter(Boolean))].sort()
-        const weekOptions = generateWeekOptions(orders) // Tuần vẫn lấy từ dữ liệu gốc để hiển thị tất cả
-
-        return { nccOptions, khOptions, weekOptions }
-    }, [filteredOrders, orders])
 
     const tableData = useMemo(() => {
         return filteredOrders.map((order: any) => [
@@ -354,10 +368,14 @@ export default function PageBody() {
         base[0] = {
             readOnly: true,
             renderer: (_i, td, row) => {
-                td.textContent = filteredOrders[row]?.MaDon || ""
+                const raw = filteredOrders[row]?.MaDon || ""
+                const truncated = truncateText(raw, 20)
+                td.textContent = truncated
                 td.style.color = "#ef4444" // red-500
                 td.style.fontWeight = "700"
                 td.style.textAlign = "center"
+                createTooltip(raw, td)
+                applyNoWrapStyles(td)
             },
         }
 
@@ -395,10 +413,49 @@ export default function PageBody() {
             td.style.fontWeight = "500"
         }
 
-        base[2] = { readOnly: true, renderer: blackCenterRenderer }
+        // TênSP column với text truncation
+        base[2] = {
+            readOnly: true,
+            renderer: (_i, td, row) => {
+                const raw = filteredOrders[row]?.TenSP || ""
+                const truncated = truncateText(raw, 25)
+                td.textContent = truncated
+                td.style.color = "#111827" // slate-900
+                td.style.textAlign = "center"
+                td.style.fontWeight = "500"
+                createTooltip(raw, td)
+                applyNoWrapStyles(td)
+            },
+        }
         base[3] = { readOnly: true, renderer: blackCenterRenderer }
-        base[9] = { readOnly: true, renderer: blackCenterRenderer }
-        base[10] = { readOnly: true, renderer: blackCenterRenderer }
+        // MaNCC column với text truncation
+        base[9] = {
+            readOnly: true,
+            renderer: (_i, td, row) => {
+                const raw = filteredOrders[row]?.MaNCC || ""
+                const truncated = truncateText(raw, 20)
+                td.textContent = truncated
+                td.style.color = "#111827" // slate-900
+                td.style.textAlign = "center"
+                td.style.fontWeight = "500"
+                createTooltip(raw, td)
+                applyNoWrapStyles(td)
+            },
+        }
+        // MaKH column với text truncation
+        base[10] = {
+            readOnly: true,
+            renderer: (_i, td, row) => {
+                const raw = filteredOrders[row]?.MaKH || ""
+                const truncated = truncateText(raw, 20)
+                td.textContent = truncated
+                td.style.color = "#111827" // slate-900
+                td.style.textAlign = "center"
+                td.style.fontWeight = "500"
+                createTooltip(raw, td)
+                applyNoWrapStyles(td)
+            },
+        }
 
         // Đơn Giá Mua (red), Đơn Giá Bán (green)
         base[4] = {
@@ -787,6 +844,31 @@ export default function PageBody() {
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2">
+                                {/*  Added Week Filter */}
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-blue-200" />
+                                    <select
+                                        className="px-3 py-1.5 text-sm border border-slate-300 bg-white rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-all duration-200 hover:border-slate-400"
+                                        value={filters.week}
+                                        onChange={(e) =>
+                                            setFilters((prev) => ({
+                                                ...prev,
+                                                week: e.target.value,
+                                                // Reset other filters when week changes to show fresh options
+                                                maNCC: userInfo?.role === "NCC" ? userInfo.username : "",
+                                                maKH: userInfo?.role === "Nhân viên" ? userInfo.username : "",
+                                            }))
+                                        }
+                                    >
+                                        <option value="Tất cả tuần">Tất cả tuần</option>
+                                        {weekOptions.map((week) => (
+                                            <option key={week} value={week}>
+                                                {week}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
                                 {/* Filter NCC - Chỉ Admin và Nhân viên mới thấy */}
                                 {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
                                     <select
@@ -827,33 +909,20 @@ export default function PageBody() {
                                     </select>
                                 )}
 
-                                <select
-                                    className="px-3 py-1.5 text-sm border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm transition-all duration-200 hover:border-slate-400"
-                                    value={filters.week}
-                                    onChange={(e) => setFilters((prev) => ({ ...prev, week: e.target.value }))}
-                                >
-
-                                    {filterOptions.weekOptions.map((week) => {
-                                        return (
-                                            <option key={week.value} value={week.value}>
-                                                {week.label}
-                                            </option>
-                                        )
-                                    })}
-                                </select>
-
-                                {/* Nút xóa bộ lọc - chỉ reset các filter có thể thay đổi */}
-                                {((userInfo?.role === "Admin" && (filters.maNCC || filters.maKH)) ||
-                                    (userInfo?.role === "Nhân viên" && filters.maNCC) ||
-                                    (userInfo?.role === "NCC" && filters.maKH)) && (
+                                {/*  Updated clear filters button to include week filter */}
+                                {((userInfo?.role === "Admin" &&
+                                    (filters.maNCC || filters.maKH || filters.week !== getCurrentWeek().label)) ||
+                                    (userInfo?.role === "Nhân viên" && (filters.maNCC || filters.week !== getCurrentWeek().label)) ||
+                                    (userInfo?.role === "NCC" && (filters.maKH || filters.week !== getCurrentWeek().label))) && (
                                         <button
                                             onClick={() => {
+                                                const currentWeek = getCurrentWeek().label
                                                 if (userInfo?.role === "Admin") {
-                                                    setFilters((prev) => ({ ...prev, maNCC: "", maKH: "" }))
+                                                    setFilters((prev) => ({ ...prev, maNCC: "", maKH: "", week: currentWeek }))
                                                 } else if (userInfo?.role === "Nhân viên") {
-                                                    setFilters((prev) => ({ ...prev, maNCC: "" }))
+                                                    setFilters((prev) => ({ ...prev, maNCC: "", week: currentWeek }))
                                                 } else if (userInfo?.role === "NCC") {
-                                                    setFilters((prev) => ({ ...prev, maKH: "" }))
+                                                    setFilters((prev) => ({ ...prev, maKH: "", week: currentWeek }))
                                                 }
                                             }}
                                             className="flex items-center gap-1.5 px-3 py-2 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors duration-200 font-medium"
@@ -866,29 +935,45 @@ export default function PageBody() {
                         </div>
                     </div>
                     <div>
-                        <HotTable
-                            themeName="ht-theme-main"
-                            colHeaders={RowHeader}
-                            nestedHeaders={nestedHeaders as any}
-                            columns={columnsSettings}
-                            data={tableData}
-                            filters={true}
-                            width="100%"
-                            autoColumnSize={true}
-                            manualColumnResize={true}
-                            stretchH="all"
-                            manualRowMove={true}
-                            manualColumnMove={true}
-                            manualRowResize={true}
-                            className="custom-table"
-                            licenseKey="non-commercial-and-evaluation"
-                            rowHeaders={false}
-                            dropdownMenu={false}
-                            columnSorting={false}
-                            hiddenColumns={{
-                                columns: userInfo?.role === "NCC" ? [4, 6, 8] : undefined,
-                            }}
-                        />
+                        {tableData.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 px-4">
+                                <div className="bg-gray-50 rounded-full p-6 mb-4">
+                                    <Package className="w-12 h-12 text-gray-400" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Chưa có đơn hàng nào</h3>
+                                <p className="text-gray-500 text-center max-w-sm">
+                                    Hiện tại chưa có đơn hàng nào trong hệ thống. Đơn hàng sẽ xuất hiện ở đây khi có dữ liệu.
+                                </p>
+                                <div className="mt-6 flex items-center gap-2 text-sm text-gray-400">
+                                    <ShoppingCart className="w-4 h-4" />
+                                    <span>Đang chờ đơn hàng đầu tiên...</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <HotTable
+                                themeName="ht-theme-main"
+                                colHeaders={RowHeader}
+                                nestedHeaders={nestedHeaders as any}
+                                columns={columnsSettings}
+                                data={tableData}
+                                filters={true}
+                                width="100%"
+                                autoColumnSize={true}
+                                manualColumnResize={true}
+                                stretchH="all"
+                                manualRowMove={true}
+                                manualColumnMove={true}
+                                manualRowResize={true}
+                                className="custom-table"
+                                licenseKey="non-commercial-and-evaluation"
+                                rowHeaders={false}
+                                dropdownMenu={false}
+                                columnSorting={false}
+                                hiddenColumns={{
+                                    columns: userInfo?.role === "NCC" ? [4, 6, 8] : undefined,
+                                }}
+                            />
+                        )}
                     </div>
                 </div>
             </div>
@@ -1067,7 +1152,15 @@ export default function PageBody() {
                                 // Last column is action (delete)
                                 if (idx === itemHeaders.length - 1) {
                                     return {
-                                        readOnly: isOrderCompleted,
+                                        readOnly: true, // Luôn readonly để không thể edit
+                                        editor: false, // Không có editor
+                                        allowInvalid: false,
+                                        allowEmpty: true,
+                                        allowDuplicate: false,
+                                        allowInsertRow: false,
+                                        allowRemoveRow: false,
+                                        type: "text", // Định nghĩa kiểu dữ liệu
+                                        data: "", // Dữ liệu mặc định
                                         renderer: (_inst, td, row) => {
                                             td.textContent = ""
                                             td.style.textAlign = "center"
@@ -1134,9 +1227,22 @@ export default function PageBody() {
                                                 del.onclick = null
                                             } else {
                                                 del.onclick = async () => {
-                                                    const newItems = [...selectedItems]
-                                                    newItems.splice(row, 1)
-                                                    await persistSelectedOrder(newItems)
+                                                    // Kiểm tra số lượng hiện tại
+                                                    if (selectedItems.length === 1) {
+                                                        // Nếu chỉ còn 1 item, xóa toàn bộ đơn hàng
+                                                        if (selectedOrder?.MaDon) {
+                                                            await remove(ref(database, `orderContent/${selectedOrder.MaDon}`))
+                                                            // Đóng modal và reset state
+                                                            setSelectedOrder(null)
+                                                            setSelectedItems([])
+                                                            setShowModal(false)
+                                                        }
+                                                    } else {
+                                                        // Nếu còn nhiều hơn 1 item, chỉ xóa item đó
+                                                        const newItems = [...selectedItems]
+                                                        newItems.splice(row, 1)
+                                                        await persistSelectedOrder(newItems)
+                                                    }
                                                 }
                                             }
                                             td.appendChild(del)
@@ -1149,11 +1255,15 @@ export default function PageBody() {
                                     return {
                                         readOnly: true,
                                         renderer: (_i, td, row) => {
-                                            td.textContent = selectedItems[row]?.MaDon || ""
+                                            const raw = selectedItems[row]?.MaDon || ""
+                                            const truncated = truncateText(raw, 20)
+                                            td.textContent = truncated
                                             td.style.color = "#dc2626"
                                             td.style.fontWeight = "600"
                                             td.style.textAlign = "center"
                                             td.style.backgroundColor = "#fef2f2"
+                                            createTooltip(raw, td)
+                                            applyNoWrapStyles(td)
                                         },
                                     }
                                 }
@@ -1190,18 +1300,20 @@ export default function PageBody() {
                                         renderer: (_i, td, row) => {
                                             const raw = (selectedItems[row]?.[key] ?? "") as string
                                             const norm = raw.trim().toLowerCase()
-                                            td.textContent = raw
+                                            const truncated = truncateText(raw, 25)
+                                            td.textContent = truncated
                                             td.style.textAlign = "center"
                                             td.style.fontSize = "13px"
+                                            createTooltip(raw, td)
 
                                             // Enhanced styling based on content and column type
                                             if (key === "LinkKQ") {
                                                 if (raw) {
-                                                    // Tạo link clickable
+                                                    // Tạo link clickable với text bị cắt
                                                     const link = document.createElement("a")
                                                     link.href = raw
                                                     link.target = "_blank"
-                                                    link.textContent = raw
+                                                    link.textContent = truncated
                                                     link.style.color = "#2563eb"
                                                     link.style.textDecoration = "underline"
                                                     link.style.fontWeight = "600"
@@ -1211,22 +1323,25 @@ export default function PageBody() {
                                                     td.innerHTML = ""
                                                     td.appendChild(link)
                                                 } else {
-                                                    td.textContent = raw
+                                                    td.textContent = truncated
                                                     td.style.color = "#dc2626"
                                                     td.style.fontWeight = "400"
                                                 }
                                                 td.style.textAlign = "left"
                                                 td.style.backgroundColor = raw ? "#eff6ff" : "#f87171"
+                                                applyNoWrapStyles(td)
                                             } else if (["ChuDe", "Anchor1", "Anchor2"].includes(key)) {
+                                                td.textContent = truncated
                                                 td.style.color = raw ? "#1f2937" : "#9ca3af"
                                                 td.style.backgroundColor = raw ? "#f8fafc" : "#f1f5f9"
+                                                applyNoWrapStyles(td)
                                             } else if (["URL1", "URL2"].includes(key)) {
                                                 if (raw) {
-                                                    // Tạo link clickable cho URL
+                                                    // Tạo link clickable cho URL với text bị cắt
                                                     const link = document.createElement("a")
                                                     link.href = raw
                                                     link.target = "_blank"
-                                                    link.textContent = raw
+                                                    link.textContent = truncated
                                                     link.style.color = "#1f2937"
                                                     link.style.textDecoration = "underline"
                                                     link.style.fontWeight = "500"
@@ -1234,15 +1349,18 @@ export default function PageBody() {
                                                     td.innerHTML = ""
                                                     td.appendChild(link)
                                                 } else {
-                                                    td.textContent = raw
+                                                    td.textContent = truncated
                                                     td.style.color = "#9ca3af"
                                                     td.style.fontWeight = "400"
                                                 }
                                                 td.style.textAlign = "left"
                                                 td.style.backgroundColor = raw ? "#f8fafc" : "#f1f5f9"
+                                                applyNoWrapStyles(td)
                                             } else {
+                                                td.textContent = truncated
                                                 td.style.color = "#374151"
                                                 td.style.backgroundColor = "#f9fafb"
+                                                applyNoWrapStyles(td)
                                             }
 
                                             // Highlight duplicates with enhanced styling
@@ -1265,12 +1383,16 @@ export default function PageBody() {
                                 return {
                                     readOnly: isOrderCompleted || userInfo?.role === "NCC",
                                     renderer: (_i, td, row, _c, _p, value) => {
-                                        if (value !== undefined && value !== null) td.textContent = String(value)
+                                        const raw = value !== undefined && value !== null ? String(value) : ""
+                                        const truncated = truncateText(raw, 25)
+                                        td.textContent = truncated
                                         td.style.textAlign = "center"
                                         td.style.color = "#374151"
                                         td.style.padding = "8px"
                                         td.style.fontSize = "13px"
                                         td.style.backgroundColor = "#f9fafb"
+                                        createTooltip(raw, td)
+                                        applyNoWrapStyles(td)
                                     },
                                 }
                             })}

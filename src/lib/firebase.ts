@@ -1,5 +1,5 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app'
-import { getDatabase, ref, set, onValue, Database } from 'firebase/database'
+import { getDatabase, ref, set, onValue, remove, Database } from 'firebase/database'
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -27,4 +27,4 @@ try {
     throw new Error('Failed to initialize Firebase. Please check your configuration.');
 }
 
-export { app, database, ref, set, onValue } 
+export { app, database, ref, set, onValue, remove } 
