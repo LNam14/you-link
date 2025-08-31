@@ -51,6 +51,11 @@ const luckyMessages = [
   "Chúc bạn luôn tràn đầy năng lượng tích cực! ⚡",
   "Mọi khó khăn sẽ qua đi, niềm vui sẽ đến! 🌅",
   "Chúc bạn luôn được yêu thương và trân trọng! 💖",
+  "Tài lộc và thịnh vượng sẽ tìm đến bạn! 💰",
+  "Chúc bạn luôn gặp được những người tốt trên đường đời! 🤝",
+  "Gia đình bạn sẽ luôn hạnh phúc và sum vầy! 🏠",
+  "Chúc bạn có một tương lai rực rỡ và đầy hy vọng! 🌟",
+  "Mọi kế hoạch của bạn đều sẽ thành công mỹ mãn! 🎯",
 ]
 
 export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
@@ -70,6 +75,9 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   const [employees, setEmployees] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [rewardsLoading, setRewardsLoading] = useState(false)
+  const [cachedRewardsData, setCachedRewardsData] = useState<any[]>([])
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0)
   const itemsPerPage = 10
   const windowSize = useWindowSize()
   const userInfo = getUserInfo()
@@ -79,22 +87,29 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
   // Enhanced prize data with unique colors for each prize
   const data = [
-    { option: "Chúc bạn may mắn lần sau!", style: { backgroundColor: "#6B7280", textColor: "white" } }, // 0 - Gray (cách đều vị trí 1)
+    { option: "Chúc bạn may mắn lần sau!", style: { backgroundColor: "#6B7280", textColor: "white" } }, // 0 - Gray
     { option: "Bánh trung thu (1 cái)", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 1 - Gold
     { option: "Hộp đựng quà", style: { backgroundColor: "#FF6B35", textColor: "white" } }, // 2 - Orange
     { option: "Tiền đô", style: { backgroundColor: "#8B5CF6", textColor: "white" } }, // 3 - Purple
     { option: "Socola", style: { backgroundColor: "#EF4444", textColor: "white" } }, // 4 - Red
     { option: "Hoa khô", style: { backgroundColor: "#7C3AED", textColor: "white" } }, // 5 - Violet
-    { option: "Chúc bạn may mắn lần sau!", style: { backgroundColor: "#6B7280", textColor: "white" } }, // 6 - Gray (cách đều vị trí 2)
+    { option: "Chúc bạn may mắn lần sau!", style: { backgroundColor: "#6B7280", textColor: "white" } }, // 6 - Gray
     { option: "Trà", style: { backgroundColor: "#3B82F6", textColor: "white" } }, // 7 - Blue
+    { option: "Bánh trung thu (1 cái)", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 1 - Gold
     { option: "Rượu vang", style: { backgroundColor: "#111827", textColor: "white" } }, // 8 - Dark
     { option: "Đồ thủ công", style: { backgroundColor: "#EC4899", textColor: "white" } }, // 9 - Pink
     { option: "Gấu bông", style: { backgroundColor: "#06B6D4", textColor: "white" } }, // 10 - Cyan
     { option: "Nước hoa 10ml nam", style: { backgroundColor: "#F59E0B", textColor: "white" } }, // 11 - Amber
-    { option: "Chúc bạn may mắn lần sau!", style: { backgroundColor: "#6B7280", textColor: "white" } }, // 12 - Gray (cách đều vị trí 3)
+    { option: "Chúc bạn may mắn lần sau!", style: { backgroundColor: "#6B7280", textColor: "white" } }, // 12 - Gray
     { option: "Nước hoa 10ml nữ", style: { backgroundColor: "#10B981", textColor: "white" } }, // 13 - Emerald
+    { option: "Bánh trung thu (1 cái)", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 1 - Gold
     { option: "Sách tự chọn", style: { backgroundColor: "#DC2626", textColor: "white" } }, // 14 - Dark Red
     { option: "Tô tranh", style: { backgroundColor: "#059669", textColor: "white" } }, // 15 - Green
+    { option: "Chúc bạn luôn vui vẻ!", style: { backgroundColor: "#F97316", textColor: "white" } }, // 16 - Orange
+    { option: "Thành công đang chờ bạn!", style: { backgroundColor: "#0EA5E9", textColor: "white" } }, // 17 - Sky Blue
+    { option: "Hạnh phúc mỗi ngày!", style: { backgroundColor: "#84CC16", textColor: "white" } }, // 18 - Lime
+    { option: "Sức khỏe dồi dào!", style: { backgroundColor: "#A855F7", textColor: "white" } }, // 19 - Purple
+    { option: "Tài lộc phát đạt!", style: { backgroundColor: "#EAB308", textColor: "black" } }, // 20 - Yellow
   ]
 
   // Đưa hàm checkAndResetDailySpins ra ngoài useEffect để có thể gọi lại
@@ -243,53 +258,105 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     }
   }
 
-  // Fetch rewards when showRewards changes
+  const fetchRewardsData = async () => {
+    // Check if userInfo exists before making API call
+    if (!userInfo?.username) {
+      console.log("No user info, skipping rewards fetch")
+      setRewards([])
+      setTotalPages(1)
+      setCurrentPage(1)
+      setEmployees([])
+      return
+    }
+
+    // Check cache validity (5 minutes)
+    const now = Date.now()
+    const cacheValidTime = 5 * 60 * 1000 // 5 minutes
+
+    if (cachedRewardsData.length > 0 && now - lastFetchTime < cacheValidTime) {
+      console.log("Using cached rewards data")
+      processRewardsData(cachedRewardsData)
+      return
+    }
+
+    setRewardsLoading(true)
+    try {
+      const response = await wheelApiRequest.get()
+      const rewardsData: any = response.data || []
+
+      // Cache the data
+      setCachedRewardsData(rewardsData)
+      setLastFetchTime(now)
+
+      processRewardsData(rewardsData)
+    } catch (error) {
+      console.error("Error fetching rewards:", error)
+    } finally {
+      setRewardsLoading(false)
+    }
+  }
+
+  const processRewardsData = (rewardsData: any[]) => {
+    const currentMonth = moment().tz("Asia/Ho_Chi_Minh").format("YYYY-MM")
+    const currentMonthRewards = rewardsData.filter((reward: any) => {
+      const rewardMonth = moment(reward.date || reward.created_at).format("YYYY-MM")
+      return rewardMonth === currentMonth
+    })
+
+    // Filter rewards based on role and selected employee
+    let filteredRewards: any = currentMonthRewards
+    if (userInfo?.role === "Admin" && selectedEmployee) {
+      filteredRewards = currentMonthRewards.filter((reward: any) => reward.username === selectedEmployee)
+    } else if (userInfo?.role === "Nhân viên") {
+      filteredRewards = currentMonthRewards
+    } else {
+      filteredRewards = currentMonthRewards.filter((reward: any) => reward.username === userInfo?.username)
+    }
+
+    setRewards(filteredRewards)
+    setTotalPages(Math.ceil(filteredRewards.length / itemsPerPage))
+    setCurrentPage(1) // Reset to first page when filters change
+
+    // Extract unique usernames for the select dropdown
+    if (userInfo?.role === "Admin") {
+      const uniqueUsernames = Array.from(new Set(currentMonthRewards.map((reward: any) => reward.username)))
+      const sortedUsernames = uniqueUsernames.sort((a: any, b: any) => {
+        // Extract letters and numbers from usernames
+        const aMatch = a.match(/^([A-Za-z]+)(\d*)$/)
+        const bMatch = b.match(/^([A-Za-z]+)(\d*)$/)
+
+        if (aMatch && bMatch) {
+          const [, aLetters, aNumbers] = aMatch
+          const [, bLetters, bNumbers] = bMatch
+
+          // First compare letters
+          const letterCompare = aLetters.localeCompare(bLetters, "vi-VN")
+          if (letterCompare !== 0) return letterCompare
+
+          // If letters are same, compare numbers
+          const aNum = Number.parseInt(aNumbers) || 0
+          const bNum = Number.parseInt(bNumbers) || 0
+          return aNum - bNum
+        }
+
+        // Fallback to regular string comparison
+        return a.localeCompare(b, "vi-VN")
+      })
+      setEmployees(sortedUsernames as unknown as string[])
+    }
+  }
+
   useEffect(() => {
-    const fetchRewards = async () => {
-      // Check if userInfo exists before making API call
-      if (!userInfo?.username) {
-        console.log("No user info, skipping rewards fetch")
-        setRewards([])
-        setTotalPages(1)
-        setCurrentPage(1)
-        setEmployees([])
-        return
-      }
-
-      try {
-        const response = await wheelApiRequest.get()
-        const rewardsData: any = response.data || []
-
-        // Filter rewards based on role and selected employee
-        let filteredRewards: any = rewardsData
-        if (userInfo?.role === "Admin" && selectedEmployee) {
-          filteredRewards = rewardsData.filter((reward: any) => reward.username === selectedEmployee)
-        } else if (userInfo?.role === "Nhân viên") {
-          filteredRewards = rewardsData
-        } else {
-          filteredRewards = rewardsData.filter((reward: any) => reward.username === userInfo?.username)
-        }
-
-        setRewards(filteredRewards)
-        setTotalPages(Math.ceil(filteredRewards.length / itemsPerPage))
-        setCurrentPage(1) // Reset to first page when filters change
-
-        // Extract unique usernames for the select dropdown
-        if (userInfo?.role === "Admin") {
-          const uniqueUsernames = Array.from(new Set(rewardsData.map((reward: any) => reward.username)))
-          // Sắp xếp theo thứ tự A-Z
-          const sortedUsernames = uniqueUsernames.sort((a: any, b: any) => a.localeCompare(b, "vi-VN"))
-          setEmployees(sortedUsernames as unknown as string[])
-        }
-      } catch (error) {
-        console.error("Error fetching rewards:", error)
-      }
-    }
-
     if (showRewards) {
-      fetchRewards()
+      fetchRewardsData()
     }
-  }, [showRewards, selectedEmployee, userInfo?.role, userInfo?.username])
+  }, [showRewards, userInfo?.role, userInfo?.username])
+
+  useEffect(() => {
+    if (showRewards && cachedRewardsData.length > 0) {
+      processRewardsData(cachedRewardsData)
+    }
+  }, [selectedEmployee])
 
   useEffect(() => {
     if (userInfo?.username) {
@@ -350,10 +417,10 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                 <h3 className="text-xl font-bold text-white">Phần Thưởng Hấp Dẫn</h3>
               </div>
 
-              {/* Prize Grid - 3 rows layout - more compact */}
+              {/* Prize Grid - 4 rows layout - more balanced */}
               <div className="space-y-2 mb-4">
-                <div className="grid grid-cols-3 gap-2">
-                  {data.slice(0, 3).map((prize, index) => (
+                <div className="grid grid-cols-4 gap-2">
+                  {data.slice(0, 4).map((prize, index) => (
                     <div
                       key={index}
                       className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
@@ -367,10 +434,10 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                     </div>
                   ))}
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {data.slice(3, 6).map((prize, index) => (
+                <div className="grid grid-cols-4 gap-2">
+                  {data.slice(4, 8).map((prize, index) => (
                     <div
-                      key={index + 3}
+                      key={index + 4}
                       className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
                     >
                       <div
@@ -383,9 +450,39 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                   ))}
                 </div>
                 <div className="grid grid-cols-4 gap-2">
-                  {data.slice(6, 10).map((prize, index) => (
+                  {data.slice(8, 12).map((prize, index) => (
                     <div
-                      key={index + 6}
+                      key={index + 8}
+                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
+                    >
+                      <div
+                        className="w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300"
+                        style={{ backgroundColor: prize.style.backgroundColor }}
+                      ></div>
+                      <span className="text-white font-medium text-xs text-center leading-tight">{prize.option}</span>
+                      {prize.option === "1 phân vàng" && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {data.slice(12, 16).map((prize, index) => (
+                    <div
+                      key={index + 12}
+                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
+                    >
+                      <div
+                        className="w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300"
+                        style={{ backgroundColor: prize.style.backgroundColor }}
+                      ></div>
+                      <span className="text-white font-medium text-xs text-center leading-tight">{prize.option}</span>
+                      {prize.option === "1 phân vàng" && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-5 gap-2">
+                  {data.slice(16, 21).map((prize, index) => (
+                    <div
+                      key={index + 16}
                       className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
                     >
                       <div
@@ -590,76 +687,105 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-10rem)]">
-              {/* Employee filter for Admin */}
-              {userInfo?.role === "Admin" && (
-                <div className="mb-6">
-                  <label htmlFor="employee-select" className="block text-sm font-semibold text-gray-700 mb-2">
-                    Chọn nhân viên
-                  </label>
-                  <select
-                    id="employee-select"
-                    value={selectedEmployee}
-                    onChange={(e) => setSelectedEmployee(e.target.value)}
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 text-sm bg-white/80 backdrop-blur-sm"
-                  >
-                    <option value="">Tất cả nhân viên</option>
-                    {employees.map((employee) => (
-                      <option key={employee} value={employee}>
-                        {employee}
-                      </option>
-                    ))}
-                  </select>
+              {rewardsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="flex items-center gap-3">
+                    <svg className="animate-spin h-6 w-6 text-purple-600" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                      />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    </svg>
+                    <span className="text-gray-600 font-medium">Đang tải dữ liệu phần thưởng...</span>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  {/* Employee filter for Admin */}
+                  {userInfo?.role === "Admin" && (
+                    <div className="mb-6">
+                      <label htmlFor="employee-select" className="block text-sm font-semibold text-gray-700 mb-2">
+                        Chọn nhân viên
+                      </label>
+                      <select
+                        id="employee-select"
+                        value={selectedEmployee}
+                        onChange={(e) => setSelectedEmployee(e.target.value)}
+                        className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 text-sm bg-white/80 backdrop-blur-sm"
+                      >
+                        <option value="">Tất cả nhân viên</option>
+                        {employees.map((employee) => (
+                          <option key={employee} value={employee}>
+                            {employee}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="mb-4 text-center">
+                    <span className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                      <Gift className="h-4 w-4" />
+                      Phần thưởng tháng {moment().tz("Asia/Ho_Chi_Minh").format("MM/YYYY")}
+                    </span>
+                  </div>
+
+                  {/* Rewards Summary - Hiển thị tất cả phần thưởng trong data */}
+                  <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-xl border border-purple-200">
+                    <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
+                      <Gift className="h-4 w-4 text-purple-600" />
+                      Thống kê phần thưởng tháng này
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                      {(() => {
+                        // Lọc để chỉ hiển thị 1 phần thưởng "Chúc bạn may mắn lần sau"
+                        const uniquePrizes = data.reduce((acc: typeof data, prize) => {
+                          if (prize.option === "Chúc bạn may mắn lần sau!") {
+                            // Chỉ thêm nếu chưa có
+                            if (!acc.some((p) => p.option === "Chúc bạn may mắn lần sau!")) {
+                              acc.push(prize)
+                            }
+                          } else {
+                            acc.push(prize)
+                          }
+                          return acc
+                        }, [])
+
+                        return uniquePrizes.map((prize, index) => {
+                          // Đếm số lần phần thưởng này đã được nhận
+                          const count = rewards.filter((reward) => reward.reward === prize.option).length
+
+                          return (
+                            <div
+                              key={index}
+                              className="bg-white p-3 rounded-lg border border-purple-100 shadow-sm hover:shadow-md transition-shadow"
+                            >
+                              <div className="text-xs text-gray-500 mb-2 text-center leading-tight min-h-[2.5rem] flex items-center justify-center">
+                                {prize.option}
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-purple-600 flex items-center justify-center gap-1">
+                                  {count}
+                                  {prize.option === "1 phân vàng" && <Coins className="h-4 w-4 text-yellow-500" />}
+                                </div>
+                                <div className="text-xs text-gray-400 mt-1">
+                                  {count === 0 ? "Chưa có" : count === 1 ? "1 lần" : `${count} lần`}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })
+                      })()}
+                    </div>
+                  </div>
+                </>
               )}
-
-              {/* Rewards Summary - Hiển thị tất cả phần thưởng trong data */}
-              <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-xl border border-purple-200">
-                <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-                  <Gift className="h-4 w-4 text-purple-600" />
-                  Thống kê phần thưởng
-                </h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                  {(() => {
-                    // Lọc để chỉ hiển thị 1 phần thưởng "Chúc bạn may mắn lần sau"
-                    const uniquePrizes = data.reduce((acc: typeof data, prize) => {
-                      if (prize.option === "Chúc bạn may mắn lần sau!") {
-                        // Chỉ thêm nếu chưa có
-                        if (!acc.some((p) => p.option === "Chúc bạn may mắn lần sau!")) {
-                          acc.push(prize)
-                        }
-                      } else {
-                        acc.push(prize)
-                      }
-                      return acc
-                    }, [])
-
-                    return uniquePrizes.map((prize, index) => {
-                      // Đếm số lần phần thưởng này đã được nhận
-                      const count = rewards.filter((reward) => reward.reward === prize.option).length
-
-                      return (
-                        <div
-                          key={index}
-                          className="bg-white p-3 rounded-lg border border-purple-100 shadow-sm hover:shadow-md transition-shadow"
-                        >
-                          <div className="text-xs text-gray-500 mb-2 text-center leading-tight min-h-[2.5rem] flex items-center justify-center">
-                            {prize.option}
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-purple-600 flex items-center justify-center gap-1">
-                              {count}
-                              {prize.option === "1 phân vàng" && <Coins className="h-4 w-4 text-yellow-500" />}
-                            </div>
-                            <div className="text-xs text-gray-400 mt-1">
-                              {count === 0 ? "Chưa có" : count === 1 ? "1 lần" : `${count} lần`}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })
-                  })()}
-                </div>
-              </div>
             </div>
           </div>
         </div>
