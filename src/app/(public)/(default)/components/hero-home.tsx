@@ -277,6 +277,20 @@ export default function HeroHome() {
         },
       ],
     },
+
+    {
+      title: "Quản lý",
+      icon: <Settings className="w-5 h-5 text-purple-600" />,
+      items: [
+        {
+          name: "Quản Lý Khách Hàng",
+          icon: <Users className="w-5 h-5" />,
+          href: "/quan-ly-khach-hang",
+          color: "bg-gradient-to-r from-purple-500 to-orange-600",
+          external: true,
+        },
+      ],
+    },
   ]
 
   // Admin specific tools
@@ -302,14 +316,6 @@ export default function HeroHome() {
       color: "bg-gradient-to-r from-red-500 to-blue-600",
       description: "Quản lý số dư của người dùng",
     },
-    {
-      name: "Quản Lý Khách Hàng",
-      icon: <Users className="w-5 h-5" />,
-      href: "/quan-ly-khach-hang",
-      color: "bg-gradient-to-r from-purple-500 to-orange-600",
-      description: "Quản lý khách hàng",
-    },
-
   ]
 
   return (

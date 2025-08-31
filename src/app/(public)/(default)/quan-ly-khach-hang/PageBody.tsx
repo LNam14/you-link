@@ -271,10 +271,7 @@ export default function PageBody() {
                     callback(false)
                     return false
                 }
-                // Make Người Xem readOnly for non-admin (safety)
-                if (index === 23 && !isAdmin) {
-                    config.readOnly = true
-                }
+
             }
 
             // Renderer for Người Xem to show multiple badges (comma-separated values)
@@ -723,7 +720,6 @@ export default function PageBody() {
                                 licenseKey="non-commercial-and-evaluation"
                                 colWidths={colWidthsConfig}
                                 wordWrap={false}
-                                hiddenColumns={!isAdmin ? { columns: [23], indicators: false } : undefined}
                                 afterChange={handleAfterChange}
                                 afterPaste={handleAfterPaste}
                                 afterSelection={handleAfterSelection}
@@ -736,7 +732,7 @@ export default function PageBody() {
                                         event.stopPropagation()
                                     }
                                     // Open multi-select modal for Người Xem (Admin only)
-                                    if (row >= 0 && col === 23 && isAdmin) {
+                                    if (row >= 0 && col === 23) {
                                         const current = (hotRef.current?.hotInstance?.getDataAtCell(row, col) || "") as string
                                         const items = current
                                             .split(",")
@@ -820,129 +816,127 @@ export default function PageBody() {
             </Modal>
 
             {/* Modal chọn nhiều cho cột Người Xem (Admin only) */}
-            {isAdmin && (
-                <Modal
-                    title={
-                        <div className="flex items-center gap-3 text-lg font-semibold text-gray-800">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                                <Users className="w-5 h-5 text-blue-600" />
-                            </div>
-                            Chọn Người Xem
+            <Modal
+                title={
+                    <div className="flex items-center gap-3 text-lg font-semibold text-gray-800">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                            <Users className="w-5 h-5 text-blue-600" />
                         </div>
+                        Chọn Người Xem
+                    </div>
+                }
+                open={viewerModalOpen}
+                onOk={() => {
+                    if (viewerModalRow !== null) {
+                        const value = selectedViewers.join(", ")
+                        hotRef.current?.hotInstance?.setDataAtCell(viewerModalRow, 23, value)
                     }
-                    open={viewerModalOpen}
-                    onOk={() => {
-                        if (viewerModalRow !== null) {
-                            const value = selectedViewers.join(", ")
-                            hotRef.current?.hotInstance?.setDataAtCell(viewerModalRow, 23, value)
-                        }
-                        setViewerModalOpen(false)
-                        setViewerModalRow(null)
-                    }}
-                    onCancel={() => {
-                        setViewerModalOpen(false)
-                        setViewerModalRow(null)
-                    }}
-                    okText={
-                        <div className="flex items-center gap-2">
-                            <Check className="w-4 h-4" />
-                            Lưu
-                        </div>
-                    }
-                    cancelText={
-                        <div className="flex items-center gap-2">
-                            <X className="w-4 h-4" />
-                            Hủy
-                        </div>
-                    }
-                    className="viewer-modal"
-                    width={800}
-                    getContainer={() => containerRef.current || document.body}
-                    zIndex={10000}
-                >
-                    <div className="space-y-4">
-                        {/* Search bar */}
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Tìm kiếm người xem..."
-                                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                                onChange={(e) => {
-                                    // Add search functionality if needed
-                                }}
-                            />
-                        </div>
+                    setViewerModalOpen(false)
+                    setViewerModalRow(null)
+                }}
+                onCancel={() => {
+                    setViewerModalOpen(false)
+                    setViewerModalRow(null)
+                }}
+                okText={
+                    <div className="flex items-center gap-2">
+                        <Check className="w-4 h-4" />
+                        Lưu
+                    </div>
+                }
+                cancelText={
+                    <div className="flex items-center gap-2">
+                        <X className="w-4 h-4" />
+                        Hủy
+                    </div>
+                }
+                className="viewer-modal"
+                width={800}
+                getContainer={() => containerRef.current || document.body}
+                zIndex={10000}
+            >
+                <div className="space-y-4">
+                    {/* Search bar */}
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm người xem..."
+                            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                            onChange={(e) => {
+                                // Add search functionality if needed
+                            }}
+                        />
+                    </div>
 
-                        {/* Selected count */}
-                        <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                            <span className="text-sm font-medium text-blue-800">Đã chọn: {selectedViewers.length} người</span>
-                            {selectedViewers.length > 0 && (
-                                <button
-                                    onClick={() => setSelectedViewers([])}
-                                    className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
-                                >
-                                    Bỏ chọn tất cả
-                                </button>
-                            )}
-                        </div>
+                    {/* Selected count */}
+                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <span className="text-sm font-medium text-blue-800">Đã chọn: {selectedViewers.length} người</span>
+                        {selectedViewers.length > 0 && (
+                            <button
+                                onClick={() => setSelectedViewers([])}
+                                className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                            >
+                                Bỏ chọn tất cả
+                            </button>
+                        )}
+                    </div>
 
-                        {/* Viewer options grid */}
-                        <div style={{ scrollbarWidth: "none" }} className="grid grid-cols-5 gap-3 max-h-90 overflow-auto p-1">
-                            {viewerOptions.map((opt: string) => {
-                                const isSelected = selectedViewers.includes(opt)
-                                return (
-                                    <label
-                                        key={opt}
-                                        className={`
+                    {/* Viewer options grid */}
+                    <div style={{ scrollbarWidth: "none" }} className="grid grid-cols-5 gap-3 max-h-90 overflow-auto p-1">
+                        {viewerOptions.map((opt: string) => {
+                            const isSelected = selectedViewers.includes(opt)
+                            return (
+                                <label
+                                    key={opt}
+                                    className={`
                                                relative flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md
                                                ${isSelected
-                                                ? "border-blue-500 bg-blue-50 shadow-sm"
-                                                : "border-gray-200 bg-white hover:border-gray-300"
-                                            }
+                                            ? "border-blue-500 bg-blue-50 shadow-sm"
+                                            : "border-gray-200 bg-white hover:border-gray-300"
+                                        }
                                            `}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={isSelected}
-                                            onChange={(e) => {
-                                                if (e.target.checked) {
-                                                    setSelectedViewers((prev) => Array.from(new Set([...prev, opt])))
-                                                } else {
-                                                    setSelectedViewers((prev) => prev.filter((v) => v !== opt))
-                                                }
-                                            }}
-                                            className="sr-only"
-                                        />
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setSelectedViewers((prev) => Array.from(new Set([...prev, opt])))
+                                            } else {
+                                                setSelectedViewers((prev) => prev.filter((v) => v !== opt))
+                                            }
+                                        }}
+                                        className="sr-only"
+                                    />
 
-                                        {/* Custom checkbox design */}
-                                        <div
-                                            className={`
+                                    {/* Custom checkbox design */}
+                                    <div
+                                        className={`
                                                absolute top-2 right-2 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
                                                ${isSelected ? "border-blue-500 bg-blue-500" : "border-gray-300 bg-white"}
                                            `}
-                                        >
-                                            {isSelected && <Check className="w-3 h-3 text-white" />}
-                                        </div>
+                                    >
+                                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                                    </div>
 
-                                        {/* User avatar   and name */}
-                                        <div className="flex flex-col items-center gap-2">
-                                            <span
-                                                className={`
+                                    {/* User avatar   and name */}
+                                    <div className="flex flex-col items-center gap-2">
+                                        <span
+                                            className={`
                                                    text-sm font-medium text-center
                                                    ${isSelected ? "text-blue-700" : "text-gray-700"}
                                                `}
-                                            >
-                                                {opt}
-                                            </span>
-                                        </div>
-                                    </label>
-                                )
-                            })}
-                        </div>
+                                        >
+                                            {opt}
+                                        </span>
+                                    </div>
+                                </label>
+                            )
+                        })}
                     </div>
-                </Modal>
-            )}
+                </div>
+            </Modal>
         </div>
     )
 }

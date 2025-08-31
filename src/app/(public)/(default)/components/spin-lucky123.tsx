@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import {
+  Trophy,
   Volume2,
   VolumeX,
   Sparkles,
@@ -9,10 +10,13 @@ import {
   DollarSign,
   Eye,
   X,
+  ChevronLeft,
+  ChevronRight,
   Calendar,
   Star,
   Gift,
   Crown,
+  Loader2,
 } from "lucide-react"
 import { Wheel } from "react-custom-roulette"
 import Confetti from "react-confetti"
@@ -82,6 +86,10 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   const [employees, setEmployees] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [goldWinners, setGoldWinners] = useState<{ username: string; count: number }[]>([])
+  const [selectedMonth, setSelectedMonth] = useState<string>(moment().tz("Asia/Ho_Chi_Minh").format("YYYY-MM"))
+  const [availableMonths, setAvailableMonths] = useState<string[]>([])
+  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false)
   const itemsPerPage = 10
   const windowSize = useWindowSize()
   const userInfo = getUserInfo()
@@ -91,22 +99,20 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
   // Enhanced prize data with unique colors for each prize
   const data = [
-    { option: "Chúc bạn may mắn lần sau!", style: { backgroundColor: "#6B7280", textColor: "white" } }, // 0 - Gray (cách đều vị trí 1)
-    { option: "Bánh trung thu (1 cái)", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 1 - Gold
-    { option: "Hộp đựng quà", style: { backgroundColor: "#FF6B35", textColor: "white" } }, // 2 - Orange
-    { option: "Tiền đô", style: { backgroundColor: "#8B5CF6", textColor: "white" } }, // 3 - Purple
-    { option: "Socola", style: { backgroundColor: "#EF4444", textColor: "white" } }, // 4 - Red
-    { option: "Hoa khô", style: { backgroundColor: "#7C3AED", textColor: "white" } }, // 5 - Violet
-    { option: "Chúc bạn may mắn lần sau!", style: { backgroundColor: "#6B7280", textColor: "white" } }, // 6 - Gray (cách đều vị trí 2)
-    { option: "Trà", style: { backgroundColor: "#3B82F6", textColor: "white" } }, // 7 - Blue
-    { option: "Rượu vang", style: { backgroundColor: "#111827", textColor: "white" } }, // 8 - Dark
-    { option: "Đồ thủ công", style: { backgroundColor: "#EC4899", textColor: "white" } }, // 9 - Pink
-    { option: "Gấu bông", style: { backgroundColor: "#06B6D4", textColor: "white" } }, // 10 - Cyan
-    { option: "Nước hoa 10ml nam", style: { backgroundColor: "#F59E0B", textColor: "white" } }, // 11 - Amber
-    { option: "Chúc bạn may mắn lần sau!", style: { backgroundColor: "#6B7280", textColor: "white" } }, // 12 - Gray (cách đều vị trí 3)
-    { option: "Nước hoa 10ml nữ", style: { backgroundColor: "#10B981", textColor: "white" } }, // 13 - Emerald
-    { option: "Sách tự chọn", style: { backgroundColor: "#DC2626", textColor: "white" } }, // 14 - Dark Red
-    { option: "Tô tranh", style: { backgroundColor: "#059669", textColor: "white" } }, // 15 - Green
+    { option: "1 phân vàng", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 0 - Gold
+    { option: "1 lời chúc may mắn", style: { backgroundColor: "#FF6B35", textColor: "white" } }, // 1 - Orange
+    { option: "Quay thêm 1 lượt", style: { backgroundColor: "#8B5CF6", textColor: "white" } }, // 2 - Purple
+    { option: "50.000 VND", style: { backgroundColor: "#EF4444", textColor: "white" } }, // 3 - Red
+    { option: "100.000 VND", style: { backgroundColor: "#7C3AED", textColor: "white" } }, // 4 - Violet
+    { option: "1 phân vàng", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 5 - Gold
+    { option: "20.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } }, // 6 - Blue
+    { option: "- 50.000 VND", style: { backgroundColor: "#111827", textColor: "white" } }, // 7 - Penalty
+    { option: "40.000 VND", style: { backgroundColor: "#EC4899", textColor: "white" } }, // 8 - Pink
+    { option: "10.000 VND", style: { backgroundColor: "#06B6D4", textColor: "white" } }, // 9 - Cyan
+    { option: "1 phân vàng", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 10 - Gold
+    { option: "5.000 VND", style: { backgroundColor: "#F59E0B", textColor: "white" } }, // 11 - Amber
+    { option: "2.000 VND", style: { backgroundColor: "#10B981", textColor: "white" } }, // 12 - Emerald
+    { option: "- 100.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } }, // 13 - Dark Red
   ]
 
   // Đưa hàm checkAndResetDailySpins ra ngoài useEffect để có thể gọi lại
@@ -187,7 +193,76 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     return possiblePrizes[randomIndex]
   }
 
+  // Đưa fetchGoldWinners ra ngoài useEffect để có thể gọi lại với loading state
+  const fetchGoldWinners = async (month?: string) => {
+    // Check if userInfo exists before making API call
+    if (!userInfo?.username) {
+      console.log("No user info, skipping gold winners fetch")
+      setGoldWinners([])
+      return
+    }
 
+    try {
+      setIsLoadingLeaderboard(true)
+      const response = await wheelApiRequest.get()
+      const rewardsData: any = response.data || []
+
+      // Lọc theo tháng được chọn
+      const targetMonth = month || selectedMonth
+      const filteredRewards = rewardsData.filter((reward: any) => {
+        if (!reward.date) return false
+        const rewardMonth = moment(reward.date).tz("Asia/Ho_Chi_Minh").format("YYYY-MM")
+        return rewardMonth === targetMonth
+      })
+
+      // Đếm số lần mỗi username trúng '1 phân vàng' trong tháng được chọn
+      const goldWins = filteredRewards
+        .filter((reward: any) => reward.reward === "1 phân vàng")
+        .reduce((acc: { [key: string]: number }, reward: any) => {
+          acc[reward.username] = (acc[reward.username] || 0) + 1
+          return acc
+        }, {})
+
+      // Convert to array and sort by count
+      const sortedGoldWinners = Object.entries(goldWins)
+        .map(([username, count]) => ({ username, count: count as number }))
+        .sort((a, b) => (b.count as number) - (a.count as number))
+        .slice(0, 10) // Top 10
+
+      setGoldWinners(sortedGoldWinners)
+    } catch (error) {
+      console.error("Error fetching gold winners:", error)
+    } finally {
+      setIsLoadingLeaderboard(false)
+    }
+  }
+
+  // Hàm để lấy danh sách các tháng có dữ liệu
+  const fetchAvailableMonths = async () => {
+    // Check if userInfo exists before making API call
+    if (!userInfo?.username) {
+      console.log("No user info, skipping available months fetch")
+      setAvailableMonths([])
+      return
+    }
+
+    try {
+      const response = await wheelApiRequest.get()
+      const rewardsData: any = response.data || []
+
+      // Lấy tất cả các tháng có dữ liệu
+      const monthStrings = rewardsData
+        .filter((reward: any) => reward.date)
+        .map((reward: any) => moment(reward.date).tz("Asia/Ho_Chi_Minh").format("YYYY-MM"))
+
+      const uniqueMonths = Array.from(new Set(monthStrings)) as string[]
+      const sortedMonths = uniqueMonths.sort((a, b) => b.localeCompare(a)) // Sắp xếp giảm dần (tháng mới nhất trước)
+
+      setAvailableMonths(sortedMonths)
+    } catch (error) {
+      console.error("Error fetching available months:", error)
+    }
+  }
 
   const handleStopSpinning = async () => {
     try {
@@ -223,6 +298,8 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
           })
           .then(() => {
             checkAndResetDailySpins()
+            fetchGoldWinners()
+            fetchAvailableMonths()
           })
           .catch((error) => {
             console.error("Error saving wheel result:", error)
@@ -287,12 +364,11 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
         // Extract unique usernames for the select dropdown
         if (userInfo?.role === "Admin") {
           const uniqueUsernames = Array.from(new Set(rewardsData.map((reward: any) => reward.username)))
-          // Sắp xếp theo thứ tự A-Z
-          const sortedUsernames = uniqueUsernames.sort((a: any, b: any) => a.localeCompare(b, 'vi-VN'))
-          setEmployees(sortedUsernames as unknown as string[])
+          setEmployees(uniqueUsernames as unknown as string[])
         }
 
-
+        // Calculate gold winners leaderboard cho tháng hiện tại
+        fetchGoldWinners()
       } catch (error) {
         console.error("Error fetching rewards:", error)
       }
@@ -309,7 +385,13 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     }
   }, [userInfo?.username, userInfo?.role, today])
 
-
+  useEffect(() => {
+    // Only fetch data if userInfo exists
+    if (userInfo?.username) {
+      fetchGoldWinners()
+      fetchAvailableMonths()
+    }
+  }, [userInfo?.username])
 
   return (
     <section className="bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 py-8 relative overflow-hidden">
@@ -450,7 +532,105 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                 </button>
               )}
 
+              {/* Gold Winners Leaderboard - more compact */}
+              <div className="mt-4 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 p-3 rounded-2xl border border-yellow-400/30">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-bold text-white text-base flex items-center gap-2">
+                    <div className="bg-gradient-to-r from-yellow-400 to-orange-500 p-1 rounded-full">
+                      <Trophy className="h-4 w-4 text-white" />
+                    </div>
+                    BXH 10 Phân vàng {moment(selectedMonth).format("MM/YYYY")}
+                  </h4>
 
+                  {/* Simplified Month Navigation with loading */}
+                  {availableMonths.length > 1 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          const currentIndex = availableMonths.indexOf(selectedMonth)
+                          if (currentIndex < availableMonths.length - 1) {
+                            const prevMonth = availableMonths[currentIndex + 1]
+                            setSelectedMonth(prevMonth)
+                            fetchGoldWinners(prevMonth)
+                          }
+                        }}
+                        disabled={
+                          availableMonths.indexOf(selectedMonth) >= availableMonths.length - 1 || isLoadingLeaderboard
+                        }
+                        className="group relative p-1.5 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-110 disabled:hover:scale-100"
+                        title="Tháng trước"
+                      >
+                        {isLoadingLeaderboard ? (
+                          <Loader2 className="h-3 w-3 text-white animate-spin" />
+                        ) : (
+                          <ChevronLeft className="h-3 w-3 text-white" />
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          const currentIndex = availableMonths.indexOf(selectedMonth)
+                          if (currentIndex > 0) {
+                            const nextMonth = availableMonths[currentIndex - 1]
+                            setSelectedMonth(nextMonth)
+                            fetchGoldWinners(nextMonth)
+                          }
+                        }}
+                        disabled={availableMonths.indexOf(selectedMonth) <= 0 || isLoadingLeaderboard}
+                        className="group relative p-1.5 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-110 disabled:hover:scale-100"
+                        title="Tháng sau"
+                      >
+                        {isLoadingLeaderboard ? (
+                          <Loader2 className="h-3 w-3 text-white animate-spin" />
+                        ) : (
+                          <ChevronRight className="h-3 w-3 text-white" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Leaderboard content with loading state */}
+                <div className="space-y-1.5">
+                  {isLoadingLeaderboard ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-6 w-6 text-yellow-400 animate-spin" />
+                      <span className="ml-2 text-white text-sm">Đang tải...</span>
+                    </div>
+                  ) : goldWinners.length > 0 ? (
+                    goldWinners.map((winner, index) => (
+                      <div
+                        key={winner.username}
+                        className="flex items-center justify-between p-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs ${index === 0
+                              ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-white"
+                              : index === 1
+                                ? "bg-gradient-to-r from-gray-300 to-gray-400 text-gray-800"
+                                : index === 2
+                                  ? "bg-gradient-to-r from-orange-400 to-orange-600 text-white"
+                                  : "bg-white/20 text-white"
+                              }`}
+                          >
+                            {index + 1}
+                          </div>
+                          <span className="text-white font-medium text-xs">{winner.username}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="font-bold text-yellow-400 text-sm">{winner.count}</span>
+                          <Coins className="h-3 w-3 text-yellow-400" />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-3">
+                      <p className="text-gray-400 text-xs">Chưa có người trúng phân vàng trong tháng này</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -510,7 +690,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                     innerRadius={12}
                     radiusLineColor="#FFFFFF"
                     radiusLineWidth={2}
-                    fontSize={11}
+                    fontSize={14}
                     perpendicularText={false}
                     textDistance={50}
                     spinDuration={1.0}
@@ -589,36 +769,36 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       {/* Rewards Modal */}
       {showRewards && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden border border-white/20">
+          <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-white/20">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-purple-600 to-blue-600">
-              <h3 className="text-xl font-bold text-white flex items-center gap-3">
-                <div className="bg-white/20 p-2 rounded-full">
-                  <Gift className="h-6 w-6 text-white" />
+            <div className="flex items-center justify-between p-8 border-b border-gray-200 bg-gradient-to-r from-purple-600 to-blue-600">
+              <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+                <div className="bg-white/20 p-3 rounded-full">
+                  <Trophy className="h-8 w-8 text-white" />
                 </div>
                 Danh sách phần thưởng
               </h3>
               <button
                 onClick={() => setShowRewards(false)}
-                className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                className="p-3 hover:bg-white/20 rounded-full transition-colors"
               >
-                <X className="h-5 w-5 text-white" />
+                <X className="h-6 w-6 text-white" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-10rem)]">
+            <div className="p-8 overflow-y-auto max-h-[calc(90vh-12rem)]">
               {/* Employee filter for Admin */}
               {userInfo?.role === "Admin" && (
-                <div className="mb-6">
-                  <label htmlFor="employee-select" className="block text-sm font-semibold text-gray-700 mb-2">
+                <div className="mb-8">
+                  <label htmlFor="employee-select" className="block text-lg font-semibold text-gray-700 mb-3">
                     Chọn nhân viên
                   </label>
                   <select
                     id="employee-select"
                     value={selectedEmployee}
                     onChange={(e) => setSelectedEmployee(e.target.value)}
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 text-sm bg-white/80 backdrop-blur-sm"
+                    className="w-full px-6 py-4 border-2 border-gray-300 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/50 focus:border-purple-500 text-lg bg-white/80 backdrop-blur-sm"
                   >
                     <option value="">Tất cả nhân viên</option>
                     {employees.map((employee) => (
@@ -630,51 +810,85 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                 </div>
               )}
 
-              {/* Rewards Summary - Hiển thị tất cả phần thưởng trong data */}
-              <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-xl border border-purple-200">
-                <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-                  <Gift className="h-4 w-4 text-purple-600" />
-                  Thống kê phần thưởng
-                </h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                  {(() => {
-                    // Lọc để chỉ hiển thị 1 phần thưởng "Chúc bạn may mắn lần sau"
-                    const uniquePrizes = data.reduce((acc: typeof data, prize) => {
-                      if (prize.option === "Chúc bạn may mắn lần sau!") {
-                        // Chỉ thêm nếu chưa có
-                        if (!acc.some(p => p.option === "Chúc bạn may mắn lần sau!")) {
-                          acc.push(prize);
-                        }
-                      } else {
-                        acc.push(prize);
-                      }
-                      return acc;
-                    }, []);
+              {/* Table */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden shadow-lg border border-gray-200">
+                {/* Table header */}
+                <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                  <div className="grid grid-cols-12 px-6 py-4 font-bold text-gray-700 text-lg">
+                    <div className="col-span-1">#</div>
+                    <div className="col-span-3">Nhân viên</div>
+                    <div className="col-span-4">Phần thưởng</div>
+                    <div className="col-span-4 flex items-center gap-2">
+                      <Calendar className="h-5 w-5" />
+                      <span>Ngày</span>
+                    </div>
+                  </div>
+                </div>
 
-                    return uniquePrizes.map((prize, index) => {
-                      // Đếm số lần phần thưởng này đã được nhận
-                      const count = rewards.filter(reward => reward.reward === prize.option).length;
-
-                      return (
-                        <div key={index} className="bg-white p-3 rounded-lg border border-purple-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="text-xs text-gray-500 mb-2 text-center leading-tight min-h-[2.5rem] flex items-center justify-center">
-                            {prize.option}
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-purple-600 flex items-center justify-center gap-1">
-                              {count}
-                              {prize.option === "1 phân vàng" && <Coins className="h-4 w-4 text-yellow-500" />}
-                            </div>
-                            <div className="text-xs text-gray-400 mt-1">
-                              {count === 0 ? "Chưa có" : count === 1 ? "1 lần" : `${count} lần`}
-                            </div>
-                          </div>
+                {/* Rewards list */}
+                <div className="divide-y divide-gray-200">
+                  {rewards.length > 0 ? (
+                    rewards.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((reward, index) => (
+                      <div
+                        key={index}
+                        className="grid grid-cols-12 px-6 py-4 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 transition-all duration-300"
+                      >
+                        <div className="col-span-1 text-gray-500 font-medium">
+                          {(currentPage - 1) * itemsPerPage + index + 1}
                         </div>
-                      );
-                    });
-                  })()}
+                        <div className="col-span-3 font-semibold text-gray-700">{reward.username}</div>
+                        <div className="col-span-4 font-bold text-purple-600 flex items-center gap-2">
+                          {reward.reward === "1 phân vàng" && <Coins className="h-5 w-5 text-yellow-500" />}
+                          {reward.reward}
+                        </div>
+                        <div className="col-span-4 text-gray-500 font-medium">
+                          {reward.date
+                            ? new Date(reward.date).toLocaleDateString("en-CA", {
+                              year: "numeric",
+                              month: "2-digit",
+                              day: "2-digit",
+                            })
+                            : "N/A"}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-12">
+                      <Gift className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500 text-xl">Không có phần thưởng nào</p>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Pagination */}
+              {rewards.length > 0 && (
+                <div className="flex items-center justify-between mt-8 bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-gray-200">
+                  <div className="text-gray-600 font-medium">
+                    Hiển thị {Math.min(rewards.length, (currentPage - 1) * itemsPerPage + 1)} -{" "}
+                    {Math.min(rewards.length, currentPage * itemsPerPage)} trong số {rewards.length} kết quả
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="p-3 rounded-xl border-2 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-50 hover:border-purple-300 transition-all duration-300"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <div className="font-bold text-lg px-4 py-2 bg-gradient-to-r from-purple-100 to-blue-100 rounded-xl">
+                      Trang {currentPage} / {totalPages}
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="p-3 rounded-xl border-2 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-50 hover:border-purple-300 transition-all duration-300"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
