@@ -95,6 +95,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     { option: "Hoa khô", style: { backgroundColor: "#7C3AED", textColor: "white" } }, // 5 - Violet
     { option: "Chúc bạn may mắn lần sau!", style: { backgroundColor: "#6B7280", textColor: "white" } }, // 6 - Gray
     { option: "Trà", style: { backgroundColor: "#3B82F6", textColor: "white" } }, // 7 - Blue
+    { option: "Bánh trung thu (1 cái)", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 1 - Gold
     { option: "Rượu vang", style: { backgroundColor: "#111827", textColor: "white" } }, // 8 - Dark
     { option: "Đồ thủ công", style: { backgroundColor: "#EC4899", textColor: "white" } }, // 9 - Pink
     { option: "Gấu bông", style: { backgroundColor: "#06B6D4", textColor: "white" } }, // 10 - Cyan
@@ -102,6 +103,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     { option: "Chúc bạn may mắn lần sau!", style: { backgroundColor: "#6B7280", textColor: "white" } }, // 12 - Gray
     { option: "Nước hoa 10ml nữ", style: { backgroundColor: "#10B981", textColor: "white" } }, // 13 - Emerald
     { option: "Sách tự chọn", style: { backgroundColor: "#DC2626", textColor: "white" } }, // 14 - Dark Red
+    { option: "Bánh trung thu (1 cái)", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 1 - Gold
     { option: "Tô tranh", style: { backgroundColor: "#059669", textColor: "white" } }, // 15 - Green
     { option: "Chúc bạn luôn vui vẻ!", style: { backgroundColor: "#F97316", textColor: "white" } }, // 16 - Orange
     { option: "Thành công đang chờ bạn!", style: { backgroundColor: "#0EA5E9", textColor: "white" } }, // 17 - Sky Blue
@@ -688,7 +690,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
             </div>
 
             {/* Modal Body */}
-            <div style={{ scrollbarWidth: 'none' }} className="p-2 overflow-y-auto max-h-[calc(90vh-10rem)]">
+            <div style={{ scrollbarWidth: "none" }} className="p-2 overflow-y-auto max-h-[calc(90vh-10rem)]">
               {rewardsLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="flex items-center gap-3">
@@ -743,22 +745,24 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                       )}
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                      {data.map((prize, index) => {
+                      {Array.from(new Set(data.map((prize) => prize.option))).map((uniquePrize) => {
+                        // Tìm prize object đầu tiên có option này để lấy style
+                        const prizeData = data.find((prize) => prize.option === uniquePrize)
                         // Đếm số lần phần thưởng này đã được nhận
-                        const count = rewards.filter((reward) => reward.reward === prize.option).length
+                        const count = rewards.filter((reward) => reward.reward === uniquePrize).length
 
                         return (
                           <div
-                            key={index}
+                            key={uniquePrize}
                             className="bg-white p-3 rounded-lg border border-purple-100 shadow-sm hover:shadow-md transition-shadow"
                           >
                             <div className="text-xs text-gray-500 text-center leading-tight min-h-[2.5rem] flex items-center justify-center">
-                              {prize.option}
+                              {uniquePrize}
                             </div>
                             <div className="text-center">
                               <div className="text-lg font-bold text-purple-600 flex items-center justify-center gap-1">
                                 {count}
-                                {prize.option === "1 phân vàng" && <Coins className="h-4 w-4 text-yellow-500" />}
+                                {uniquePrize === "1 phân vàng" && <Coins className="h-4 w-4 text-yellow-500" />}
                               </div>
                               <div className="text-xs text-gray-400 mt-1">
                                 {count === 0 ? "Chưa có" : count === 1 ? "1 lần" : `${count} lần`}
