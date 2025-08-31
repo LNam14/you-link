@@ -1,19 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-  Volume2,
-  VolumeX,
-  Sparkles,
-  Coins,
-  DollarSign,
-  Eye,
-  X,
-  Calendar,
-  Star,
-  Gift,
-  Crown,
-} from "lucide-react"
+import { Volume2, VolumeX, Sparkles, Coins, DollarSign, Eye, X, Star, Gift, Crown } from "lucide-react"
 import { Wheel } from "react-custom-roulette"
 import Confetti from "react-confetti"
 import { useWindowSize } from "react-use"
@@ -118,15 +106,17 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       return
     }
 
+    if (userInfo?.role === "Admin") {
+      setSpinCount(999) // Set to high number for display purposes
+      return
+    }
+
     try {
       const response = await wheelApiRequest.get()
       const rewardsData = response.data || []
 
       // Lọc phần thưởng của user hôm nay
-      const userRecords =
-        userInfo?.role === "Admin"
-          ? rewardsData
-          : rewardsData.filter((reward) => reward.username === userInfo?.username)
+      const userRecords = rewardsData.filter((reward) => reward.username === userInfo?.username)
       const todayRecords = userRecords.filter((reward) => reward.date === today)
 
       // Đếm số lượt đã dùng: chỉ tính phần thưởng chính (không tính Quay thêm 1 lượt)
@@ -167,7 +157,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   }
 
   const handleSpinClick = () => {
-    if (!mustSpin && spinCount > 0) {
+    if (!mustSpin && (userInfo?.role === "Admin" || spinCount > 0)) {
       setMustSpin(true)
       playSound("click")
 
@@ -186,8 +176,6 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     const randomIndex = Math.floor(Math.random() * possiblePrizes.length)
     return possiblePrizes[randomIndex]
   }
-
-
 
   const handleStopSpinning = async () => {
     try {
@@ -222,7 +210,9 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
             reward: currentPrize,
           })
           .then(() => {
-            checkAndResetDailySpins()
+            if (userInfo?.role !== "Admin") {
+              checkAndResetDailySpins()
+            }
           })
           .catch((error) => {
             console.error("Error saving wheel result:", error)
@@ -288,11 +278,9 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
         if (userInfo?.role === "Admin") {
           const uniqueUsernames = Array.from(new Set(rewardsData.map((reward: any) => reward.username)))
           // Sắp xếp theo thứ tự A-Z
-          const sortedUsernames = uniqueUsernames.sort((a: any, b: any) => a.localeCompare(b, 'vi-VN'))
+          const sortedUsernames = uniqueUsernames.sort((a: any, b: any) => a.localeCompare(b, "vi-VN"))
           setEmployees(sortedUsernames as unknown as string[])
         }
-
-
       } catch (error) {
         console.error("Error fetching rewards:", error)
       }
@@ -308,8 +296,6 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       checkAndResetDailySpins()
     }
   }, [userInfo?.username, userInfo?.role, today])
-
-
 
   return (
     <section className="bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 py-8 relative overflow-hidden">
@@ -449,8 +435,6 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                   Xem phần thưởng
                 </button>
               )}
-
-
             </div>
           </div>
 
@@ -529,7 +513,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                   onClick={handleSpinClick}
                   disabled={
                     mustSpin ||
-                    spinCount <= 0 ||
+                    (userInfo?.role !== "Admin" && spinCount <= 0) || // Fixed boolean/string comparison error
                     !userInfo ||
                     (userInfo.role !== "Nhân viên" && userInfo.role !== "Admin")
                   }
@@ -556,7 +540,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                         </svg>
                         Đang quay...
                       </>
-                    ) : spinCount <= 0 ? (
+                    ) : userInfo?.role !== "Admin" && spinCount <= 0 ? ( // Fixed boolean/string comparison error
                       "Hết lượt quay"
                     ) : (
                       <>
@@ -569,14 +553,12 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                 </button>
 
                 {/* Status message - smaller */}
-                {spinCount <= 0 && (
+                {userInfo?.role !== "Admin" && spinCount <= 0 && (
                   <div className="mt-4 text-center bg-white/10 backdrop-blur-sm p-3 rounded-2xl border border-white/20">
                     <p className="text-white animate-pulse text-sm">
-                      {userInfo?.role === "Admin"
-                        ? "🌅 Hãy quay lại vào ngày mai để nhận thêm 999 lượt quay!"
-                        : userInfo?.role === "Nhân viên"
-                          ? "🌅 Hãy quay lại vào ngày mai để nhận thêm lượt quay!"
-                          : "🚫 Chỉ nhân viên và admin mới được quay thưởng"}
+                      {userInfo?.role === "Nhân viên"
+                        ? "🌅 Hãy quay lại vào ngày mai để nhận thêm lượt quay!"
+                        : "🚫 Chỉ nhân viên và admin mới được quay thưởng"}
                     </p>
                   </div>
                 )}
@@ -642,21 +624,24 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                     const uniquePrizes = data.reduce((acc: typeof data, prize) => {
                       if (prize.option === "Chúc bạn may mắn lần sau!") {
                         // Chỉ thêm nếu chưa có
-                        if (!acc.some(p => p.option === "Chúc bạn may mắn lần sau!")) {
-                          acc.push(prize);
+                        if (!acc.some((p) => p.option === "Chúc bạn may mắn lần sau!")) {
+                          acc.push(prize)
                         }
                       } else {
-                        acc.push(prize);
+                        acc.push(prize)
                       }
-                      return acc;
-                    }, []);
+                      return acc
+                    }, [])
 
                     return uniquePrizes.map((prize, index) => {
                       // Đếm số lần phần thưởng này đã được nhận
-                      const count = rewards.filter(reward => reward.reward === prize.option).length;
+                      const count = rewards.filter((reward) => reward.reward === prize.option).length
 
                       return (
-                        <div key={index} className="bg-white p-3 rounded-lg border border-purple-100 shadow-sm hover:shadow-md transition-shadow">
+                        <div
+                          key={index}
+                          className="bg-white p-3 rounded-lg border border-purple-100 shadow-sm hover:shadow-md transition-shadow"
+                        >
                           <div className="text-xs text-gray-500 mb-2 text-center leading-tight min-h-[2.5rem] flex items-center justify-center">
                             {prize.option}
                           </div>
@@ -670,8 +655,8 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                             </div>
                           </div>
                         </div>
-                      );
-                    });
+                      )
+                    })
                   })()}
                 </div>
               </div>
