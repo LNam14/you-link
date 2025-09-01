@@ -187,9 +187,18 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
   // Function to get weighted prize number
   const getWeightedPrizeNumber = () => {
-    const possiblePrizes = data.map((_, index) => index)
-    const randomIndex = Math.floor(Math.random() * possiblePrizes.length)
-    return possiblePrizes[randomIndex]
+    const random = Math.random()
+
+    // 70% chance for "Chúc bạn may mắn lần sau!" (indices 0, 6, 12)
+    if (random < 0.7) {
+      const badLuckIndices = [0, 6, 12]
+      return badLuckIndices[Math.floor(Math.random() * badLuckIndices.length)]
+    }
+
+    // 30% chance for all other prizes
+    const otherPrizeIndices = data.map((_, index) => index).filter((index) => ![0, 6, 12].includes(index))
+
+    return otherPrizeIndices[Math.floor(Math.random() * otherPrizeIndices.length)]
   }
 
   const handleStopSpinning = async () => {
@@ -692,7 +701,15 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                   {rewardsLoading ? (
                     <>
                       <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="none"
+                        />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                       </svg>
                       Đang tải...
@@ -700,7 +717,12 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                   ) : (
                     <>
                       <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
                       </svg>
                       Load dữ liệu
                     </>
