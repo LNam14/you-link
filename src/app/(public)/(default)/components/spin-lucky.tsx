@@ -190,7 +190,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     const random = Math.random()
 
     // 70% chance for "Chúc bạn may mắn lần sau!" (indices 0, 6, 12)
-    if (random < 0.9) {
+    if (random < 0.7) {
       const badLuckIndices = [0, 6, 12]
       return badLuckIndices[Math.floor(Math.random() * badLuckIndices.length)]
     }
