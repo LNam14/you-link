@@ -47,10 +47,10 @@ const sheetConfigs: Record<string, SheetConfig> = {
             const giaCuoiTextHome = formatNumber((parseNumber(row[20]) * (100 - hoaHongText)) / 100)
             const giaCuoiTextHeader = formatNumber((parseNumber(row[21]) * (100 - hoaHongText)) / 100)
 
-            const giaCuoiGPLio = formatNumber((parseNumber(row[39]) * (100 - hoaHongGP)) / 100)
-            const giaCuoiTextLio = formatNumber((parseNumber(row[40]) * (100 - hoaHongText)) / 100)
-            const giaCuoiTextHomeLio = formatNumber((parseNumber(row[41]) * (100 - hoaHongText)) / 100)
-            const giaCuoiTextHeaderLio = formatNumber((parseNumber(row[42]) * (100 - hoaHongText)) / 100)
+            const giaCuoiGPLio = formatNumber((parseNumber(row[18]) * (100 - hoaHongGP)) / 100)
+            const giaCuoiTextLio = formatNumber((parseNumber(row[19]) * (100 - hoaHongText)) / 100)
+            const giaCuoiTextHomeLio = formatNumber((parseNumber(row[20]) * (100 - hoaHongText)) / 100)
+            const giaCuoiTextHeaderLio = formatNumber((parseNumber(row[21]) * (100 - hoaHongText)) / 100)
 
             const maNCC = row[27]
             let fileNCC = ""

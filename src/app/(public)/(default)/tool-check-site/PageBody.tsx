@@ -701,6 +701,7 @@ export default function PageBody() {
         // Add remaining columns with the same configuration for Admin and Nhân viên
         const buyPriceColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaMua")
         const finalPriceColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaCuoi")
+        console.log("finalPriceColumn", finalPriceColumn)
         const profitColumn = getPriceColumnData(selectedPriceType, selectedBrand, "loiNhuan")
         const commissionColumn = getPriceColumnData(selectedPriceType, selectedBrand, "hoaHong")
 
