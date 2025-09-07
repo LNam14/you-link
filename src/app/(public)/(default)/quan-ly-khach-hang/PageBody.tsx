@@ -274,35 +274,35 @@ export default function PageBody() {
 
             }
 
-            // Renderer for Người Xem to show multiple badges (comma-separated values)
-            if (index === 23) {
-                config.renderer = (instance: any, td: any, row: any, col: any, prop: any, value: any) => {
-                    const text = (value || "").toString()
-                    const items = text
-                        .split(",")
-                        .map((s: string) => s.trim())
-                        .filter((s: string) => s.length > 0)
+            // // Renderer for Người Xem to show multiple badges (comma-separated values)
+            // if (index === 23) {
+            //     config.renderer = (instance: any, td: any, row: any, col: any, prop: any, value: any) => {
+            //         const text = (value || "").toString()
+            //         const items = text
+            //             .split(",")
+            //             .map((s: string) => s.trim())
+            //             .filter((s: string) => s.length > 0)
 
-                    if (items.length === 0) {
-                        td.innerHTML = "===="
-                        td.style.color = "#9ca3af"
-                        td.style.fontStyle = "italic"
-                        td.style.textAlign = "center"
-                        return td
-                    }
+            //         if (items.length === 0) {
+            //             td.innerHTML = "===="
+            //             td.style.color = "#9ca3af"
+            //             td.style.fontStyle = "italic"
+            //             td.style.textAlign = "center"
+            //             return td
+            //         }
 
-                    td.innerHTML = items
-                        .map(
-                            (v: string) =>
-                                `<span style="display:inline-block;margin:2px;padding:2px 6px;border-radius:9999px;background:#eef2ff;color:#3730a3;font-size:12px;">${v}</span>`,
-                        )
-                        .join("")
-                    td.style.textAlign = "left"
-                    td.style.fontStyle = "normal"
-                    td.style.color = "#111827"
-                    return td
-                }
-            }
+            //         td.innerHTML = items
+            //             .map(
+            //                 (v: string) =>
+            //                     `<span style="display:inline-block;margin:2px;padding:2px 6px;border-radius:9999px;background:#eef2ff;color:#3730a3;font-size:12px;">${v}</span>`,
+            //             )
+            //             .join("")
+            //         td.style.textAlign = "left"
+            //         td.style.fontStyle = "normal"
+            //         td.style.color = "#111827"
+            //         return td
+            //     }
+            // }
 
             // Date interaction for Ngày Check column (click-only to set today)
             if (index === 20) {
