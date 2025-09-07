@@ -475,7 +475,12 @@ export default function PageBody() {
 
     const handleAfterChange = (changes: any) => {
         if (changes && changes.length > 0) {
-            const validChanges = changes.filter(([row, col, oldVal, newVal]: any) => oldVal !== newVal && newVal !== null)
+            // Allow changes where oldVal !== newVal, including when newVal is null, undefined, or empty string
+            const validChanges = changes.filter(([row, col, oldVal, newVal]: any) => {
+                // Always allow the change if old and new values are different
+                // This includes deleting data (newVal = null, undefined, or "")
+                return oldVal !== newVal
+            })
 
             if (validChanges.length > 0) {
                 // Check if Ngày Check column was changed and update Đếm Ngày
@@ -507,7 +512,13 @@ export default function PageBody() {
                     const col = coords[0].startCol + j
                     // Block pasting into "Ngày Check" column (index 20)
                     if (col === 20) continue
-                    changes.push([row, col, null, data[i][j]])
+                    // Get the old value to compare
+                    const oldValue = hotRef.current?.hotInstance?.getDataAtCell(row, col)
+                    const newValue = data[i][j]
+                    // Only add to changes if the value actually changed
+                    if (oldValue !== newValue) {
+                        changes.push([row, col, oldValue, newValue])
+                    }
                 }
             }
             // Single batch update for all pasted data
