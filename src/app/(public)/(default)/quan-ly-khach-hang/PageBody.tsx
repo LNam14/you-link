@@ -1,5 +1,5 @@
 "use client"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { HotTable } from "@handsontable/react-wrapper"
 import { registerAllModules } from "handsontable/registry"
 import "./custom-table.css"
@@ -14,9 +14,10 @@ import getUserInfo from "@/components/userInfo"
 
 registerAllModules()
 
-export default function PageBody() {
+const PageBody = () => {
     const {
         data,
+        originalData, // Get original data for index mapping
         loading,
         searchTerm,
         setSearchTerm,
@@ -35,7 +36,8 @@ export default function PageBody() {
     const [tableReady, setTableReady] = useState(false)
     const [isFullscreen, setIsFullscreen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
-
+    const fixedHiddenCols = [24];
+    const [hiddenCols, setHiddenCols] = useState<number[]>(fixedHiddenCols);
     const userInfo = getUserInfo()
     const isAdmin = userInfo?.role === "Admin"
     const visibleData = isAdmin
@@ -52,6 +54,25 @@ export default function PageBody() {
     const [viewerModalOpen, setViewerModalOpen] = useState(false)
     const [viewerModalRow, setViewerModalRow] = useState<number | null>(null)
     const [selectedViewers, setSelectedViewers] = useState<string[]>([])
+    const [hiddenColumns, setHiddenColumns] = useState<number[]>([])
+
+    // Load hidden columns from localStorage on component mount
+    useEffect(() => {
+        const savedHiddenColumns = localStorage.getItem("hiddenColumns")
+        if (savedHiddenColumns) {
+            try {
+                const parsed = JSON.parse(savedHiddenColumns)
+                setHiddenColumns(parsed)
+            } catch (error) {
+                console.error("Error parsing hidden columns from localStorage:", error)
+            }
+        }
+    }, [])
+
+    // Save hidden columns to localStorage whenever it changes
+    useEffect(() => {
+        localStorage.setItem("hiddenColumns", JSON.stringify(hiddenColumns))
+    }, [hiddenColumns])
 
     const toggleFullscreen = async () => {
         if (!containerRef.current) return
@@ -128,6 +149,7 @@ export default function PageBody() {
         "Đếm Ngày",
         "Note KT",
         "Người Xem",
+        "Firebase Key", // Hidden column for Firebase key
     ]
 
     const dropdownOptions = {
@@ -185,6 +207,23 @@ export default function PageBody() {
         const month = (today.getMonth() + 1).toString().padStart(2, "0")
         const year = today.getFullYear()
         return `${day}/${month}/${year}`
+    }
+
+    // Function to hide a column
+    const hideColumn = (columnIndex: number) => {
+        if (!hiddenColumns.includes(columnIndex)) {
+            setHiddenColumns((prev) => [...prev, columnIndex])
+        }
+    }
+
+    // Function to show a column
+    const showColumn = (columnIndex: number) => {
+        setHiddenColumns((prev) => prev.filter((col) => col !== columnIndex))
+    }
+
+    // Function to show all columns
+    const showAllColumns = () => {
+        setHiddenColumns([])
     }
 
     const getOptionColors = (columnIndex: number, value: string) => {
@@ -252,6 +291,16 @@ export default function PageBody() {
                 title: header,
             }
 
+            // Hide column if it's in hiddenColumns array
+            if (hiddenColumns.includes(index)) {
+                config.hidden = true
+            }
+
+            // Hide Firebase Key column (index 24)
+            if (index === 24) {
+                config.hidden = true
+            }
+
             // Set dropdown for specific columns with strict validation
             if (dropdownOptions[index as keyof typeof dropdownOptions] && index !== 23) {
                 config.type = "dropdown"
@@ -271,7 +320,51 @@ export default function PageBody() {
                     callback(false)
                     return false
                 }
+            }
 
+            // Special configuration for Order column to prevent text wrapping
+            if (index === 4) {
+                config.renderer = (instance: any, td: any, row: any, col: any, prop: any, value: any, cellProperties: any) => {
+                    const text = value || ""
+
+                    // Show "====" for empty dropdown values
+                    if (!text) {
+                        td.innerHTML = "===="
+                        td.style.color = "#9ca3af"
+                        td.style.fontStyle = "italic"
+                        td.style.textAlign = "center"
+                    } else {
+                        td.innerHTML = text
+                        td.style.color = "#374151"
+                        td.style.fontStyle = "normal"
+                    }
+
+                    // Apply colors for dropdown columns
+                    if (text) {
+                        const colors = getOptionColors(index, text)
+                        td.style.backgroundColor = colors.bg
+                        td.style.color = colors.text
+                        td.style.fontWeight = "500"
+                        td.style.borderRadius = "4px"
+                        td.style.padding = "4px 8px"
+                        td.style.textAlign = "center"
+                        td.style.userSelect = "none"
+                        td.style.cursor = "pointer"
+                    }
+
+                    // Force no text wrapping and ellipsis (like Tab Đơn column)
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.style.maxWidth = "100%"
+
+                    // Add tooltip for long text
+                    if (text.length > 8) {
+                        td.title = text
+                    }
+
+                    return td
+                }
             }
 
             // // Renderer for Người Xem to show multiple badges (comma-separated values)
@@ -473,6 +566,41 @@ export default function PageBody() {
         })
     }
 
+    const getOriginalRowIndex = useCallback(
+        (visualRowIndex: number) => {
+            if (!hotRef.current) return visualRowIndex
+
+            try {
+                // Get the Handsontable instance
+                const hot = hotRef.current.hotInstance
+                if (!hot) return visualRowIndex
+
+                // Get the Firebase key directly from the table data at the visual row
+                const firebaseKey = hot.getDataAtCell(visualRowIndex, 24) // Firebase key is at column 24
+
+                if (!firebaseKey) {
+                    console.warn(`No Firebase key found for visual row ${visualRowIndex}`)
+                    return visualRowIndex
+                }
+
+                // Find this row in the original data by comparing Firebase keys
+                const originalIndex = originalData.findIndex((row) => row[24] === firebaseKey)
+
+                if (originalIndex === -1) {
+                    console.warn(`Could not find original index for visual row ${visualRowIndex}, firebaseKey: ${firebaseKey}`)
+                    return visualRowIndex
+                }
+
+                console.log(`Mapping: visual row ${visualRowIndex} -> original row ${originalIndex}, firebaseKey: ${firebaseKey}`)
+                return originalIndex
+            } catch (error) {
+                console.error("Error getting original row index:", error)
+                return visualRowIndex
+            }
+        },
+        [originalData],
+    )
+
     const handleAfterChange = (changes: any) => {
         if (changes && changes.length > 0) {
             // Allow changes where oldVal !== newVal, including when newVal is null, undefined, or empty string
@@ -483,8 +611,14 @@ export default function PageBody() {
             })
 
             if (validChanges.length > 0) {
+                // Convert visual row indexes to original data indexes
+                const convertedChanges = validChanges.map(([visualRow, col, oldVal, newVal]: any) => {
+                    const originalRow = getOriginalRowIndex(visualRow)
+                    return [originalRow, col, oldVal, newVal]
+                })
+
                 // Check if Ngày Check column was changed and update Đếm Ngày
-                validChanges.forEach(([row, col, oldVal, newVal]: any) => {
+                convertedChanges.forEach(([row, col, oldVal, newVal]: any) => {
                     if (col === 20) {
                         // Ngày Check column
                         // Force re-render of Đếm Ngày column
@@ -498,7 +632,7 @@ export default function PageBody() {
                     }
                 })
 
-                saveMultipleRows(validChanges)
+                saveMultipleRows(convertedChanges)
             }
         }
     }
@@ -508,22 +642,27 @@ export default function PageBody() {
             const changes: any[] = []
             for (let i = 0; i < data.length; i++) {
                 for (let j = 0; j < data[i].length; j++) {
-                    const row = coords[0].startRow + i
+                    const visualRow = coords[0].startRow + i
                     const col = coords[0].startCol + j
                     // Block pasting into "Ngày Check" column (index 20)
                     if (col === 20) continue
                     // Get the old value to compare
-                    const oldValue = hotRef.current?.hotInstance?.getDataAtCell(row, col)
+                    const oldValue = hotRef.current?.hotInstance?.getDataAtCell(visualRow, col)
                     const newValue = data[i][j]
                     // Only add to changes if the value actually changed
                     if (oldValue !== newValue) {
-                        changes.push([row, col, oldValue, newValue])
+                        changes.push([visualRow, col, oldValue, newValue])
                     }
                 }
             }
+            // Convert visual row indexes to original data indexes
+            const convertedChanges = changes.map(([visualRow, col, oldVal, newVal]: any) => {
+                const originalRow = getOriginalRowIndex(visualRow)
+                return [originalRow, col, oldVal, newVal]
+            })
             // Single batch update for all pasted data
-            if (changes.length > 0) {
-                saveMultipleRows(changes)
+            if (convertedChanges.length > 0) {
+                saveMultipleRows(convertedChanges)
             }
         }
     }
@@ -546,11 +685,14 @@ export default function PageBody() {
             cancelText: "Hủy",
             okType: "danger",
             onOk: async () => {
+                // Convert visual row indexes to original data indexes
+                const originalRowIndexes = selectedRows.map((visualRow) => getOriginalRowIndex(visualRow))
+
                 // Sort from highest to lowest index to avoid shifting issues
-                const sortedRows = [...selectedRows].sort((a, b) => b - a)
+                const sortedOriginalRows = [...originalRowIndexes].sort((a, b) => b - a)
 
                 // Use bulk delete function with single toast
-                await deleteMultipleRows(sortedRows)
+                await deleteMultipleRows(sortedOriginalRows)
                 setSelectedRows([])
                 toast.success("Đã xóa các hàng đã chọn")
             },
@@ -631,10 +773,12 @@ export default function PageBody() {
         )
     }
 
-    // Custom column widths: column 0 = 10, column 2 = 20, others = 120
-    const colWidthsConfig = Array(24).fill(90)
-    colWidthsConfig[0] = 70
-    colWidthsConfig[1] = 70
+    // Custom column widths: column 0 = 70, column 1 = 70, others = 90
+    const colWidthsConfig = Array(25).fill(90)
+    colWidthsConfig[0] = 70 // Mã Mới
+    colWidthsConfig[1] = 70 // Mã Cũ
+    colWidthsConfig[24] = 0 // Firebase Key - hidden column
+    // Order column (index 4) uses default width with ellipsis
 
     return (
         <div
@@ -644,7 +788,9 @@ export default function PageBody() {
         >
             <Toaster position="top-right" expand={true} richColors />
             <div className={`w-full ${isFullscreen ? "max-w-none mx-0 h-full" : "max-w-7xl mx-auto"} relative z-0`}>
-                <div className={`bg-white ${isFullscreen ? "" : "rounded-t-xl"} shadow-xl overflow-hidden border border-blue-100`}>
+                <div
+                    className={`bg-white ${isFullscreen ? "" : "rounded-t-xl"} shadow-xl overflow-hidden border border-blue-100`}
+                >
                     <div className="p-4 border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="flex items-center gap-3">
@@ -708,6 +854,17 @@ export default function PageBody() {
                                             Xóa {selectedRows.length > 0 && `(${selectedRows.length})`}
                                         </span>
                                     </button>
+
+                                    {hiddenColumns.length > 0 && (
+                                        <button
+                                            onClick={showAllColumns}
+                                            className="group flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-all duration-200 text-sm shadow-sm"
+                                            title={`Hiện ${hiddenColumns.length} cột đã ẩn`}
+                                        >
+                                            <Users className="h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-200 text-white" />
+                                            <span className="leading-none text-white">Hiện cột ({hiddenColumns.length})</span>
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -721,7 +878,7 @@ export default function PageBody() {
                                 ref={hotRef}
                                 themeName="ht-theme-main"
                                 columns={getColumnConfig()}
-                                data={visibleData.map((row) => row.slice(0, 24))}
+                                data={visibleData.map((row) => row.slice(0, 25))}
                                 width="100%"
                                 autoColumnSize={false}
                                 manualColumnResize={true}
@@ -732,6 +889,32 @@ export default function PageBody() {
                                 colWidths={colWidthsConfig}
                                 wordWrap={false}
                                 afterChange={handleAfterChange}
+                                contextMenu={{
+                                    items: {
+                                        hide_col: {
+                                            name: "Ẩn cột",
+                                            callback: function () {
+                                                const selected = this.getSelectedRangeLast();
+                                                if (selected) {
+                                                    const col = selected.to.col;
+                                                    // thêm cột vào danh sách ẩn, luôn giữ cột 24
+                                                    setHiddenCols((prev) => [...new Set([...prev, col, ...fixedHiddenCols])]);
+                                                }
+                                            },
+                                        },
+                                        show_all: {
+                                            name: "Hiện tất cả cột",
+                                            callback: function () {
+                                                // reset nhưng vẫn giữ cột 24
+                                                setHiddenCols(fixedHiddenCols);
+                                            },
+                                        },
+                                    },
+                                }}
+                                hiddenColumns={{
+                                    columns: hiddenCols,
+                                    indicators: true,
+                                }}
                                 afterPaste={handleAfterPaste}
                                 afterSelection={handleAfterSelection}
                                 beforeOnCellMouseDown={(event: any, coords: any) => {
@@ -757,7 +940,6 @@ export default function PageBody() {
                                         return
                                     }
                                 }}
-                                contextMenu={true}
                                 columnSorting={true}
                                 filters={true}
                                 undo={true}
@@ -778,13 +960,18 @@ export default function PageBody() {
                                         Đã chọn: {selectedRows.length}
                                     </span>
                                 )}
+                                {hiddenColumns.length > 0 && (
+                                    <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-md font-medium">
+                                        Đã ẩn: {hiddenColumns.length} cột
+                                    </span>
+                                )}
                             </div>
                             {searchTerm && (
                                 <span className="text-xs">
                                     Hiển thị kết quả cho: <span className="font-medium">"{searchTerm}"</span>
                                 </span>
                             )}
-                            <span className="text-xs">Chọn hàng để xóa • Nhấp đúp để chỉnh sửa</span>
+                            <span className="text-xs">Chọn hàng để xóa • Nhấp đúp để chỉnh sửa • Chuột phải để ẩn cột</span>
                         </div>
                     </div>
                 </div>
@@ -951,3 +1138,5 @@ export default function PageBody() {
         </div>
     )
 }
+
+export default PageBody

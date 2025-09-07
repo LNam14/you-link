@@ -48,11 +48,10 @@ export const useFirebaseData = () => {
     return row.some((cell: any) => cell && cell.toString().toLowerCase().includes(searchTerm.toLowerCase()))
   })
 
-  // Save single row
   const saveRow = useCallback(
-    async (rowIndex: number, rowData: any[]) => {
+    async (originalRowIndex: number, rowData: any[]) => {
       try {
-        const firebaseKey = data[rowIndex]?.[24] // Firebase key is at index 24
+        const firebaseKey = data[originalRowIndex]?.[24] // Firebase key is at index 24
         const dataToSave = rowData.slice(0, 24) // Remove Firebase key from data
 
         if (firebaseKey) {
@@ -74,14 +73,13 @@ export const useFirebaseData = () => {
     [data],
   )
 
-  // Save multiple rows/changes at once
   const saveMultipleRows = useCallback(
     async (changes: any[]) => {
       try {
         const updates: { [key: string]: any } = {}
 
-        changes.forEach(([rowIndex, colIndex, oldVal, newVal]) => {
-          const firebaseKey = data[rowIndex]?.[24]
+        changes.forEach(([originalRowIndex, colIndex, oldVal, newVal]) => {
+          const firebaseKey = data[originalRowIndex]?.[24]
           if (firebaseKey && colIndex < 24) {
             updates[`customers/${firebaseKey}/${colIndex}`] = newVal
           }
@@ -126,11 +124,10 @@ export const useFirebaseData = () => {
     }
   }, [])
 
-  // Delete row
   const deleteRow = useCallback(
-    async (rowIndex: number) => {
+    async (originalRowIndex: number) => {
       try {
-        const firebaseKey = data[rowIndex]?.[24]
+        const firebaseKey = data[originalRowIndex]?.[24]
         if (firebaseKey) {
           const rowRef = ref(database, `customers/${firebaseKey}`)
           await remove(rowRef)
@@ -145,10 +142,10 @@ export const useFirebaseData = () => {
   )
 
   const deleteMultipleRows = useCallback(
-    async (rowIndexes: number[]) => {
+    async (originalRowIndexes: number[]) => {
       try {
-        const promises = rowIndexes.map(async (rowIndex) => {
-          const firebaseKey = data[rowIndex]?.[24]
+        const promises = originalRowIndexes.map(async (originalRowIndex) => {
+          const firebaseKey = data[originalRowIndex]?.[24]
           if (firebaseKey) {
             const rowRef = ref(database, `customers/${firebaseKey}`)
             await remove(rowRef)
@@ -156,7 +153,7 @@ export const useFirebaseData = () => {
         })
 
         await Promise.all(promises)
-        toast.success(`Đã xóa ${rowIndexes.length} hàng`)
+        toast.success(`Đã xóa ${originalRowIndexes.length} hàng`)
       } catch (error) {
         console.error("Bulk delete error:", error)
         toast.error("Lỗi khi xóa nhiều hàng")
@@ -167,6 +164,7 @@ export const useFirebaseData = () => {
 
   return {
     data: filteredData,
+    originalData: data, // Expose original data for index mapping
     loading,
     searchTerm,
     setSearchTerm,
