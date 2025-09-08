@@ -3,7 +3,7 @@ import keys from "../../../../../key.json";
 import { NextResponse } from "next/server";
 
 const SPREADSHEET_ID = "1SDvAA8pPWUl2Fi2ubFIFttS5D7rA1P-DHrHuJj9X4Z8";
-const BOT_TOKEN = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U";
+const BOT_TOKEN = "8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U";
 const DEFAULT_CHAT_ID = "-4793551677"; // ID mặc định khi thiếu ID Group
 
 interface SheetConfig {

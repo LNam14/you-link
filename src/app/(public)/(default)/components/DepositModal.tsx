@@ -429,7 +429,7 @@ const DepositModal: React.FC<DepositModalProps> = ({ isVisible, onClose, usernam
             const messageText = `${username} đã nạp ${amount} USDT vào ví Binance. Vui lòng kiểm tra và xác nhận.`
 
             // Token bot Telegram
-            const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
+            const botToken = "8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U"
 
             try {
                 // Gửi tin nhắn qua Telegram API

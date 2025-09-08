@@ -54,7 +54,7 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
         async (amount: number, network: string, week: string | number) => {
             const chatId = "-4618711960"
             const messageText = `${username} đã yêu cầu rút ${amount} USDT tuần ${week} về địa chỉ ${binanceAddress} (${network}). Vui lòng kiểm tra và xác nhận.`
-            const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
+            const botToken = "8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U"
 
             try {
                 const url = `https://ylink.qctl44.workers.dev/bot${botToken}/sendMessage`

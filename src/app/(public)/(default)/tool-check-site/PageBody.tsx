@@ -1281,7 +1281,7 @@ export default function PageBody() {
 
                 const successfulSends: string[] = []
                 const errors: string[] = []
-                const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
+                const botToken = "8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U"
 
                 // Send message to Telegram
                 for (const chatId of uniqueIdGroups) {
@@ -1395,7 +1395,7 @@ export default function PageBody() {
 
             const successfulSends: string[] = []
             const errors: string[] = []
-            const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
+            const botToken = "8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U"
 
             for (const chatId of selectedChatIds) {
                 try {
@@ -1465,7 +1465,7 @@ export default function PageBody() {
 
             const successfulSends: string[] = []
             const errors: string[] = []
-            const botToken = "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
+            const botToken = "8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U"
 
             for (const chatId of uniqueNCCs) {
                 try {

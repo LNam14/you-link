@@ -1,4 +1,4 @@
-export const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
+export const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U"
 export const DEFAULT_CHAT_ID = process.env.TELEGRAM_DEFAULT_CHAT_ID || "-4618711960"
 export const FALLBACK_CHAT_ID = process.env.TELEGRAM_FALLBACK_CHAT_ID || "-4618711960"
 

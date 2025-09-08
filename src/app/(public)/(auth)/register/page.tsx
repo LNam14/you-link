@@ -24,7 +24,7 @@ interface FormErrors {
 
 // Configuration constants
 const TELEGRAM_BOT_TOKEN =
-  process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN || "7678598532:AAFeyTmZacHfu1_8AaX7ugs5bUdSvt67G8U"
+  process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN || "8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U"
 const TELEGRAM_CHAT_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID || "-1002574745707"
 
 export default function SignUp() {
