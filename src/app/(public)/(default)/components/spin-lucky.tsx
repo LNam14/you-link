@@ -189,16 +189,50 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   const getWeightedPrizeNumber = () => {
     const random = Math.random()
 
-    // 70% chance for "Chúc bạn may mắn lần sau!" (indices 0, 6, 12)
-    if (random < 0.7) {
-      const badLuckIndices = [0, 6, 12]
+    // Find all indices for each prize type
+    const moonCakeIndices = data
+      .map((item, index) => (item.option === "Bánh trung thu (1 cái)" ? index : -1))
+      .filter((index) => index !== -1)
+
+    const giftBoxIndices = data
+      .map((item, index) => (item.option === "Hộp đựng quà" ? index : -1))
+      .filter((index) => index !== -1)
+
+    const badLuckIndices = data
+      .map((item, index) => (item.option === "Chúc bạn may mắn lần sau!" ? index : -1))
+      .filter((index) => index !== -1)
+
+    // All other prize indices (excluding moon cake, gift box, and bad luck)
+    const otherPrizeIndices = data
+      .map((_, index) => index)
+      .filter(
+        (index) =>
+          !moonCakeIndices.includes(index) && !giftBoxIndices.includes(index) && !badLuckIndices.includes(index),
+      )
+
+    // 80% chance for Moon cake (Bánh trung thu)
+    if (random < 0.8 && moonCakeIndices.length > 0) {
+      return moonCakeIndices[Math.floor(Math.random() * moonCakeIndices.length)]
+    }
+
+    // 80% chance for Gift box (Hộp đựng quà) - but since we already used 80% above,
+    // we'll adjust this to work within remaining probability
+    if (random < 0.85 && giftBoxIndices.length > 0) {
+      return giftBoxIndices[Math.floor(Math.random() * giftBoxIndices.length)]
+    }
+
+    // 70% chance for "Chúc bạn may mắn lần sau!" within remaining probability
+    if (random < 0.92 && badLuckIndices.length > 0) {
       return badLuckIndices[Math.floor(Math.random() * badLuckIndices.length)]
     }
 
-    // 30% chance for all other prizes
-    const otherPrizeIndices = data.map((_, index) => index).filter((index) => ![0, 6, 12].includes(index))
+    // 5% chance for all other prizes
+    if (otherPrizeIndices.length > 0) {
+      return otherPrizeIndices[Math.floor(Math.random() * otherPrizeIndices.length)]
+    }
 
-    return otherPrizeIndices[Math.floor(Math.random() * otherPrizeIndices.length)]
+    // Fallback to moon cake if no other options
+    return moonCakeIndices.length > 0 ? moonCakeIndices[0] : 0
   }
 
   const handleStopSpinning = async () => {
@@ -623,14 +657,13 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                   onClick={handleSpinClick}
                   disabled={
                     mustSpin ||
-                    (userInfo?.role !== "Admin" && spinCount <= 0) || // Fixed boolean/string comparison error
+                    (userInfo?.role !== "Admin" && spinCount <= 0) ||
                     !userInfo ||
                     (userInfo.role !== "Nhân viên" && userInfo.role !== "Admin")
                   }
                   onMouseEnter={() => setIsButtonHovered(true)}
                   onMouseLeave={() => setIsButtonHovered(false)}
-                  className={`px-8 py-4 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-white rounded-full font-black text-xl shadow-2xl hover:shadow-3xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden border-3 border-white ${isButtonHovered ? "scale-105 rotate-1" : ""
-                    } ${mustSpin ? "animate-pulse" : ""}`}
+                  className={`px-8 py-4 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-white rounded-full font-black text-xl shadow-2xl hover:shadow-3xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden border-3 border-white ${isButtonHovered ? "scale-105 rotate-1" : ""} ${mustSpin ? "animate-pulse" : ""}`}
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-pink-400 to-purple-500 opacity-0 hover:opacity-100 transition-opacity duration-500"></div>
                   <span className="relative z-10 flex items-center gap-2">
@@ -650,7 +683,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                         </svg>
                         Đang quay...
                       </>
-                    ) : userInfo?.role !== "Admin" && spinCount <= 0 ? ( // Fixed boolean/string comparison error
+                    ) : userInfo?.role !== "Admin" && spinCount <= 0 ? (
                       "Hết lượt quay"
                     ) : (
                       <>
