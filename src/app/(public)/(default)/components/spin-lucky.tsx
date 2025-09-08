@@ -211,18 +211,18 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       )
 
     // 80% chance for Moon cake (Bánh trung thu)
-    if (random < 0.8 && moonCakeIndices.length > 0) {
+    if (random < 0.4 && moonCakeIndices.length > 0) {
       return moonCakeIndices[Math.floor(Math.random() * moonCakeIndices.length)]
     }
 
     // 80% chance for Gift box (Hộp đựng quà) - but since we already used 80% above,
     // we'll adjust this to work within remaining probability
-    if (random < 0.85 && giftBoxIndices.length > 0) {
+    if (random < 0.6 && giftBoxIndices.length > 0) {
       return giftBoxIndices[Math.floor(Math.random() * giftBoxIndices.length)]
     }
 
     // 70% chance for "Chúc bạn may mắn lần sau!" within remaining probability
-    if (random < 0.92 && badLuckIndices.length > 0) {
+    if (random < 0.8 && badLuckIndices.length > 0) {
       return badLuckIndices[Math.floor(Math.random() * badLuckIndices.length)]
     }
 
