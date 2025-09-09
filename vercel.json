@@ -12,7 +12,7 @@
     "crons": [
         {
             "path": "/api/telegram/daily-report",
-            "schedule": "0 12 * * *"
+            "schedule": "10 12 * * *"
         }
     ]
 }
