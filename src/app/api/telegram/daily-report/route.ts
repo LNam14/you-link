@@ -116,7 +116,7 @@ function buildPositionsText(customers: CustomerData[]): string {
 
 async function sendTelegramMessage(message: string): Promise<boolean> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const baseUrl = "https://www.ylink.shop";
     const chunks: string[] = [];
     for (let i = 0; i < message.length; i += 4000) {
       chunks.push(message.slice(i, i + 4000));
@@ -144,7 +144,7 @@ async function sendTelegramMessage(message: string): Promise<boolean> {
 
 export async function GET(request: NextRequest) {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const baseUrl = "https://www.ylink.shop";
 
     const accounts: any = await prisma.account.findMany({
       select: { name: true, position: true },
