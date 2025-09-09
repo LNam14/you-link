@@ -113,14 +113,16 @@ export default function PageBody() {
     const [showDuplicates, setShowDuplicates] = useState(true)
     const mainTableRef = useRef<HotTableRef>(null)
     const duplicatesTableRef = useRef<HotTableRef>(null)
+    const selectionAnchorRef = useRef<{ row: number; col: number } | null>(null)
 
     // Add click outside handler
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             const target = event.target as HTMLElement
             const isClickInsideTable = target.closest(".handsontable")
+            const isClickOnMobileCopy = target.closest("#mobile-copy-btn")
 
-            if (!isClickInsideTable) {
+            if (!isClickInsideTable && !isClickOnMobileCopy) {
                 // Clear selection for main table
                 const mainTableInstance = mainTableRef.current?.hotInstance
                 if (mainTableInstance) {
@@ -1420,6 +1422,32 @@ export default function PageBody() {
             generatedColumns.map((col) => col.data),
         )
 
+        // Enable two-tap range selection for touch/mobile: first tap sets anchor, second tap selects rectangle
+        const onCellMouseDown = (event: any, coords: any) => {
+            if (!coords) return
+            const { row, col } = coords
+            const anchor = selectionAnchorRef.current
+            const hot = tableRef.current?.hotInstance
+            if (!hot) return
+
+            // Only apply on touch or small screens to avoid interfering with desktop drag selection
+            const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+            if (!isTouch) return
+
+            if (!anchor) {
+                selectionAnchorRef.current = { row, col }
+                // Also select the single cell so user sees selection
+                hot.selectCell(row, col)
+            } else {
+                const r1 = Math.min(anchor.row, row)
+                const c1 = Math.min(anchor.col, col)
+                const r2 = Math.max(anchor.row, row)
+                const c2 = Math.max(anchor.col, col)
+                hot.selectCells([[r1, c1, r2, c2]])
+                selectionAnchorRef.current = null
+            }
+        }
+
         return (
             <div className="overflow-x-auto w-full max-w-8xl">
                 <HotTable
@@ -1452,6 +1480,7 @@ export default function PageBody() {
                     fillHandle={true}
                     selectionMode="multiple"
                     beforeCopy={handleBeforeCopy}
+                    afterOnCellMouseDown={onCellMouseDown}
                 />
             </div>
         )
@@ -2067,6 +2096,7 @@ export default function PageBody() {
 
             {/* Mobile-only floating copy button */}
             <button
+                id="mobile-copy-btn"
                 onClick={handleMobileCopySelection}
                 className="md:hidden fixed bottom-4 right-4 z-[2000] bg-blue-600 text-white rounded-full shadow-lg p-3 active:scale-95"
                 aria-label="Copy selection"
