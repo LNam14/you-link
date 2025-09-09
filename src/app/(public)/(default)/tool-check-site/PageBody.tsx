@@ -1119,6 +1119,67 @@ export default function PageBody() {
         return data.filter((item) => item.IdGroup && item.IdGroup.trim() !== "").length
     }
 
+    // Enhanced copy function that works on mobile devices
+    const copyToClipboard = useCallback((text: string): Promise<boolean> => {
+        return new Promise((resolve) => {
+            // Try modern clipboard API first
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text)
+                    .then(() => {
+                        console.log('Data copied to clipboard successfully using modern API.');
+                        resolve(true);
+                    })
+                    .catch((err) => {
+                        console.warn('Modern clipboard API failed, trying fallback:', err);
+                        // Fall back to legacy method
+                        fallbackCopyToClipboard(text, resolve);
+                    });
+            } else {
+                // Use fallback method for non-secure contexts or older browsers
+                fallbackCopyToClipboard(text, resolve);
+            }
+        });
+    }, []);
+
+    // Fallback copy method for mobile and older browsers
+    const fallbackCopyToClipboard = useCallback((text: string, resolve: (success: boolean) => void) => {
+        // Create a temporary textarea element
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+
+        // Make it invisible but still selectable
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        textArea.style.opacity = '0';
+        textArea.style.pointerEvents = 'none';
+        textArea.setAttribute('readonly', '');
+
+        document.body.appendChild(textArea);
+
+        try {
+            // Select the text
+            textArea.select();
+            textArea.setSelectionRange(0, 99999); // For mobile devices
+
+            // Try to copy
+            const successful = document.execCommand('copy');
+            if (successful) {
+                console.log('Data copied to clipboard successfully using fallback method.');
+                resolve(true);
+            } else {
+                console.error('Fallback copy method failed.');
+                resolve(false);
+            }
+        } catch (err) {
+            console.error('Error in fallback copy method:', err);
+            resolve(false);
+        } finally {
+            // Clean up
+            document.body.removeChild(textArea);
+        }
+    }, []);
+
     // Add the beforeCopy handler function using useCallback
     const handleBeforeCopy = useCallback((data: string[][], coords: any[], copiedHeadersCount: { columnHeadersCount: number }): boolean | void => {
         // Try to get the instance from either table
@@ -1176,22 +1237,18 @@ export default function PageBody() {
         const finalData = copiedDataArray.map(row => row.join('\t')).join('\n');
 
 
-        // Set the data to be copied to the clipboard using the Clipboard API
-        navigator.clipboard.writeText(finalData)
-            .then(() => {
-                console.log('Custom data copied to clipboard successfully.');
-            })
-            .catch(err => {
-                console.error('Failed to copy custom data to clipboard: ', err);
-                // If custom copy fails, allow Handsontable's default copy as a fallback
-                // Returning true here might still lead to the original issue for multiple selections,
-                // but it prevents a complete failure to copy anything.
-                return true;
-            });
+        // Use enhanced copy function (fire and forget for mobile compatibility)
+        copyToClipboard(finalData).then(success => {
+            if (!success) {
+                console.warn('All copy methods failed');
+            }
+        }).catch(err => {
+            console.error('Copy operation failed:', err);
+        });
 
         // Prevent Handsontable's default copy behavior since we handled it
         return false;
-    }, [mainTableRef, duplicatesTableRef]) // Update dependencies to include both refs
+    }, [mainTableRef, duplicatesTableRef, copyToClipboard]) // Update dependencies
 
     // Modify renderHotTable to accept a ref parameter
     const renderHotTable = (data: SiteData[], tableKey: string, tableRef: React.RefObject<HotTableRef>) => {
@@ -1523,8 +1580,41 @@ export default function PageBody() {
     const hasDuplicates = Object.keys(duplicateSites).length > 0
     const duplicatesCount = Object.values(duplicateSites).flat().length
 
-    // Add this useEffect to handle global copy functionality
+    // Add touch event handlers for mobile copy functionality
     useEffect(() => {
+        const handleTouchCopy = (event: TouchEvent) => {
+            // Check if this is a long press (hold) on a table cell
+            const target = event.target as HTMLElement;
+            const cell = target.closest('.handsontable td');
+
+            if (cell && cell instanceof HTMLElement && event.touches.length === 1) {
+                // Add visual feedback for mobile users
+                cell.style.backgroundColor = '#e3f2fd';
+
+                // Show a brief message that copy is available
+                const originalText = cell.textContent;
+                if (originalText && originalText.trim() !== '') {
+                    // Create a temporary tooltip using the CSS class
+                    const tooltip = document.createElement('div');
+                    tooltip.textContent = 'Đã copy: ' + originalText;
+                    tooltip.className = 'copy-feedback';
+                    document.body.appendChild(tooltip);
+
+                    // Remove tooltip after animation completes
+                    setTimeout(() => {
+                        if (tooltip.parentNode) {
+                            tooltip.parentNode.removeChild(tooltip);
+                        }
+                    }, 2000);
+                }
+
+                // Reset cell background
+                setTimeout(() => {
+                    cell.style.backgroundColor = '';
+                }, 200);
+            }
+        };
+
         const handleGlobalCopy = (event: KeyboardEvent) => {
             // Only handle if focus is on a HotTable
             const activeElement = document.activeElement
@@ -1534,8 +1624,12 @@ export default function PageBody() {
             }
         }
 
+        // Add touch event listener for mobile devices
+        document.addEventListener("touchend", handleTouchCopy, { passive: true });
         document.addEventListener("keydown", handleGlobalCopy)
+
         return () => {
+            document.removeEventListener("touchend", handleTouchCopy);
             document.removeEventListener("keydown", handleGlobalCopy)
         }
     }, [])
@@ -1696,6 +1790,31 @@ export default function PageBody() {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1">
+                                                {/* Mobile Copy Button */}
+                                                <button
+                                                    onClick={() => {
+                                                        const mainTableInstance = mainTableRef.current?.hotInstance;
+                                                        if (mainTableInstance) {
+                                                            const selected = mainTableInstance.getSelected();
+                                                            if (selected && selected.length > 0) {
+                                                                // Trigger copy for selected cells
+                                                                const event = new KeyboardEvent('keydown', {
+                                                                    key: 'c',
+                                                                    ctrlKey: true,
+                                                                    bubbles: true
+                                                                });
+                                                                mainTableInstance.rootElement.dispatchEvent(event);
+                                                            } else {
+                                                                alert('Vui lòng chọn ô để copy');
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700"
+                                                    title="Copy dữ liệu đã chọn (Ctrl+C)"
+                                                >
+                                                    <FileText className="h-4 w-4 mr-2" />
+                                                    Copy
+                                                </button>
                                                 {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
                                                     <>
                                                         <button
