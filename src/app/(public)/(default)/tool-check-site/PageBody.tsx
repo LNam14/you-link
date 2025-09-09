@@ -1,9 +1,11 @@
 "use client"
 import { useState, useEffect, useCallback, useRef } from "react"
+import type React from "react"
+
 import sheetApiRequest from "@/apiRequests/sheet"
 import "./custom-table.css"
 import getUserInfo from "@/components/userInfo"
-import { HotTable, HotTableRef } from "@handsontable/react-wrapper"
+import { HotTable, type HotTableRef } from "@handsontable/react-wrapper"
 import type Handsontable from "handsontable"
 import "handsontable/styles/handsontable.css"
 import "handsontable/styles/ht-theme-main.css"
@@ -115,7 +117,7 @@ export default function PageBody() {
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             const target = event.target as HTMLElement
-            const isClickInsideTable = target.closest('.handsontable')
+            const isClickInsideTable = target.closest(".handsontable")
 
             if (!isClickInsideTable) {
                 // Clear selection for main table
@@ -132,9 +134,9 @@ export default function PageBody() {
             }
         }
 
-        document.addEventListener('mousedown', handleClickOutside)
+        document.addEventListener("mousedown", handleClickOutside)
         return () => {
-            document.removeEventListener('mousedown', handleClickOutside)
+            document.removeEventListener("mousedown", handleClickOutside)
         }
     }, [])
 
@@ -259,9 +261,9 @@ export default function PageBody() {
 
             let validTerms: string[] = []
             if (selectedSearchType === "Site") {
-                validTerms = searchTerms.map(term => normalizeUrl(term.trim())).filter(term => term !== "")
+                validTerms = searchTerms.map((term) => normalizeUrl(term.trim())).filter((term) => term !== "")
             } else {
-                validTerms = searchTerms.filter(term => term.trim().length > 0).map(term => term.toUpperCase())
+                validTerms = searchTerms.filter((term) => term.trim().length > 0).map((term) => term.toUpperCase())
             }
 
             if (validTerms.length === 0) {
@@ -274,9 +276,9 @@ export default function PageBody() {
             const mainItems: SiteData[] = []
             const newDuplicateSites: { [key: string]: SiteData[] } = {}
 
-            validTerms.forEach(term => {
+            validTerms.forEach((term) => {
                 const normalizedTerm = term // validTerms are already normalized/uppercased
-                const matchingItems = allData.filter(item => {
+                const matchingItems = allData.filter((item) => {
                     if (selectedSearchType === "Site") {
                         const normalizedSite = normalizeUrl(item.site)
                         return normalizedSite === normalizedTerm
@@ -315,21 +317,54 @@ export default function PageBody() {
                     }
                 } else {
                     const emptyItem: SiteData = {
-                        cs: "", tinhTrang: "Không tìm thấy", site: term.trim(), bong: "", bet: "", chuDe: "", DR: "", trafficTool: "", ghiChu: "",
-                        giaBanGP: "", giaBanText: "", giaBanTextHome: "", giaBanTextHeader: "",
-                        giaBanGPLio: "", giaBanTextLio: "", giaBanTextHomeLio: "", giaBanTextHeaderLio: "",
-                        giaMuaGP: "", giaMuaText: "", giaMuaTextHome: "", giaMuaTextHeader: "",
-                        hoaHongGP: "", hoaHongText: "", giaCuoiGP: "", giaCuoiText: "", giaCuoiTextHome: "", giaCuoiTextHeader: "",
-                        loiNhuanGP: "", loiNhuanText: "", loiNhuanTextHome: "", loiNhuanTextHeader: "",
-                        loiNhuanGPLio: "", loiNhuanTextLio: "", loiNhuanTextHomeLio: "", loiNhuanTextHeaderLio: "",
-                        NCC: "", MaNCC: "", FileNCC: "", GroupNCC: "", GhiChuNCC: "", timeText: "",
+                        cs: "",
+                        tinhTrang: "Không tìm thấy",
+                        site: term.trim(),
+                        bong: "",
+                        bet: "",
+                        chuDe: "",
+                        DR: "",
+                        trafficTool: "",
+                        ghiChu: "",
+                        giaBanGP: "",
+                        giaBanText: "",
+                        giaBanTextHome: "",
+                        giaBanTextHeader: "",
+                        giaBanGPLio: "",
+                        giaBanTextLio: "",
+                        giaBanTextHomeLio: "",
+                        giaBanTextHeaderLio: "",
+                        giaMuaGP: "",
+                        giaMuaText: "",
+                        giaMuaTextHome: "",
+                        giaMuaTextHeader: "",
+                        hoaHongGP: "",
+                        hoaHongText: "",
+                        giaCuoiGP: "",
+                        giaCuoiText: "",
+                        giaCuoiTextHome: "",
+                        giaCuoiTextHeader: "",
+                        loiNhuanGP: "",
+                        loiNhuanText: "",
+                        loiNhuanTextHome: "",
+                        loiNhuanTextHeader: "",
+                        loiNhuanGPLio: "",
+                        loiNhuanTextLio: "",
+                        loiNhuanTextHomeLio: "",
+                        loiNhuanTextHeaderLio: "",
+                        NCC: "",
+                        MaNCC: "",
+                        FileNCC: "",
+                        GroupNCC: "",
+                        GhiChuNCC: "",
+                        timeText: "",
                     }
                     mainItems.push(emptyItem)
                 }
             })
 
             const applyCurrencyConversion = (dataToConvert: SiteData[]): SiteData[] => {
-                return dataToConvert.map(item => {
+                return dataToConvert.map((item) => {
                     const newItem = { ...item }
                     const sellPriceField = getPriceColumnData(selectedPriceType, selectedBrand, "giaBan")
                     if (selectedCurrency === "VND") {
@@ -363,7 +398,8 @@ export default function PageBody() {
 
     // Update data when currency or brand changes
     useEffect(() => {
-        if (hasSearched) { // Only re-apply conversion if a search has already been performed
+        if (hasSearched) {
+            // Only re-apply conversion if a search has already been performed
             handleSearch(searchTerm) // Re-run search logic to apply conversion
         }
     }, [selectedCurrency, selectedBrand, hasSearched, searchTerm, handleSearch]) // Added hasSearched, searchTerm, handleSearch to dependencies
@@ -691,9 +727,22 @@ export default function PageBody() {
         if (isRestrictedUser) {
             console.log("Showing restricted columns for user role:", userInfo?.role)
             // Filter columns to only show the specified ones
-            const allowedColumns = ["tinhTrang", "bong", "bet", "site", "chuDe", "DR", "trafficTool", "ghiChu", sellPriceColumn]
-            const filteredColumns = baseColumns.filter(col => allowedColumns.includes(col.data as string))
-            console.log("Filtered columns:", filteredColumns.map(col => col.data))
+            const allowedColumns = [
+                "tinhTrang",
+                "bong",
+                "bet",
+                "site",
+                "chuDe",
+                "DR",
+                "trafficTool",
+                "ghiChu",
+                sellPriceColumn,
+            ]
+            const filteredColumns = baseColumns.filter((col) => allowedColumns.includes(col.data as string))
+            console.log(
+                "Filtered columns:",
+                filteredColumns.map((col) => col.data),
+            )
             return filteredColumns
         }
 
@@ -1119,136 +1168,134 @@ export default function PageBody() {
         return data.filter((item) => item.IdGroup && item.IdGroup.trim() !== "").length
     }
 
-    // Enhanced copy function that works on mobile devices
-    const copyToClipboard = useCallback((text: string): Promise<boolean> => {
-        return new Promise((resolve) => {
-            // Try modern clipboard API first
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(text)
-                    .then(() => {
-                        console.log('Data copied to clipboard successfully using modern API.');
-                        resolve(true);
-                    })
-                    .catch((err) => {
-                        console.warn('Modern clipboard API failed, trying fallback:', err);
-                        // Fall back to legacy method
-                        fallbackCopyToClipboard(text, resolve);
-                    });
-            } else {
-                // Use fallback method for non-secure contexts or older browsers
-                fallbackCopyToClipboard(text, resolve);
-            }
-        });
-    }, []);
-
-    // Fallback copy method for mobile and older browsers
-    const fallbackCopyToClipboard = useCallback((text: string, resolve: (success: boolean) => void) => {
-        // Create a temporary textarea element
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-
-        // Make it invisible but still selectable
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        textArea.style.top = '-999999px';
-        textArea.style.opacity = '0';
-        textArea.style.pointerEvents = 'none';
-        textArea.setAttribute('readonly', '');
-
-        document.body.appendChild(textArea);
-
-        try {
-            // Select the text
-            textArea.select();
-            textArea.setSelectionRange(0, 99999); // For mobile devices
-
-            // Try to copy
-            const successful = document.execCommand('copy');
-            if (successful) {
-                console.log('Data copied to clipboard successfully using fallback method.');
-                resolve(true);
-            } else {
-                console.error('Fallback copy method failed.');
-                resolve(false);
-            }
-        } catch (err) {
-            console.error('Error in fallback copy method:', err);
-            resolve(false);
-        } finally {
-            // Clean up
-            document.body.removeChild(textArea);
-        }
-    }, []);
-
     // Add the beforeCopy handler function using useCallback
-    const handleBeforeCopy = useCallback((data: string[][], coords: any[], copiedHeadersCount: { columnHeadersCount: number }): boolean | void => {
-        // Try to get the instance from either table
-        const mainTableInstance = mainTableRef.current?.hotInstance
-        const duplicatesTableInstance = duplicatesTableRef.current?.hotInstance
-        const hotInstance = mainTableInstance || duplicatesTableInstance
+    const handleBeforeCopy = useCallback(
+        (data: string[][], coords: any[], copiedHeadersCount: { columnHeadersCount: number }): boolean | void => {
+            // Try to get the instance from either table
+            const mainTableInstance = mainTableRef.current?.hotInstance
+            const duplicatesTableInstance = duplicatesTableRef.current?.hotInstance
+            const hotInstance = mainTableInstance || duplicatesTableInstance
 
-        if (!hotInstance) {
-            console.warn("Handsontable instance not found for copy.")
-            return
-        }
+            if (!hotInstance) {
+                console.warn("Handsontable instance not found for copy.")
+                return
+            }
 
-        const selected = hotInstance.getSelected()
-        if (!selected || selected.length === 0) {
-            console.warn("No selection found for copy.")
-            return
-        }
+            const selected = hotInstance.getSelected()
+            if (!selected || selected.length === 0) {
+                console.warn("No selection found for copy.")
+                return
+            }
 
-        // Calculate the overall bounding box of the selection
-        let minRow = Infinity, minCol = Infinity, maxRow = -Infinity, maxCol = -Infinity;
-        selected.forEach(range => {
-            const [startRow, startCol, endRow, endCol] = range;
-            minRow = Math.min(minRow, startRow, endRow);
-            minCol = Math.min(minCol, startCol, endCol);
-            maxRow = Math.max(maxRow, startRow, endRow);
-            maxCol = Math.max(maxCol, startCol, endCol);
-        });
+            // Calculate the overall bounding box of the selection
+            let minRow = Number.POSITIVE_INFINITY,
+                minCol = Number.POSITIVE_INFINITY,
+                maxRow = Number.NEGATIVE_INFINITY,
+                maxCol = Number.NEGATIVE_INFINITY
+            selected.forEach((range) => {
+                const [startRow, startCol, endRow, endCol] = range
+                minRow = Math.min(minRow, startRow, endRow)
+                minCol = Math.min(minCol, startCol, endCol)
+                maxRow = Math.max(maxRow, startRow, endRow)
+                maxCol = Math.max(maxCol, startCol, endCol)
+            })
 
-        const numRows = maxRow - minRow + 1;
-        const numCols = maxCol - minCol + 1;
+            const numRows = maxRow - minRow + 1
+            const numCols = maxCol - minCol + 1
 
-        // Initialize a 2D array with empty strings
-        let copiedDataArray: string[][] = Array.from({ length: numRows }, () => Array(numCols).fill(''));
+            // Initialize a 2D array with empty strings
+            const copiedDataArray: string[][] = Array.from({ length: numRows }, () => Array(numCols).fill(""))
 
-        // Populate the 2D array with data from selected ranges
-        selected.forEach(range => {
-            const [startRow, startCol, endRow, endCol] = range;
-            const rowStart = Math.min(startRow, endRow);
-            const rowEnd = Math.max(startRow, endRow);
-            const colStart = Math.min(startCol, endCol);
-            const colEnd = Math.max(colStart, endCol);
+            // Populate the 2D array with data from selected ranges
+            selected.forEach((range) => {
+                const [startRow, startCol, endRow, endCol] = range
+                const rowStart = Math.min(startRow, endRow)
+                const rowEnd = Math.max(startRow, endRow)
+                const colStart = Math.min(startCol, endCol)
+                const colEnd = Math.max(colStart, endCol)
 
-            for (let r = rowStart; r <= rowEnd; r++) {
-                for (let c = colStart; c <= colEnd; c++) {
-                    // Get the rendered value from the cell element's textContent
-                    const cellElement = hotInstance.getCell(r, c);
-                    const cellValue = cellElement ? cellElement.textContent || '' : '';
-                    // Place the value in the correct position relative to the bounding box
-                    copiedDataArray[r - minRow][c - minCol] = cellValue;
+                for (let r = rowStart; r <= rowEnd; r++) {
+                    for (let c = colStart; c <= colEnd; c++) {
+                        // Get the rendered value from the cell element's textContent
+                        const cellElement = hotInstance.getCell(r, c)
+                        const cellValue = cellElement ? cellElement.textContent || "" : ""
+                        // Place the value in the correct position relative to the bounding box
+                        copiedDataArray[r - minRow][c - minCol] = cellValue
+                    }
+                }
+            })
+
+            // Format the 2D array into a tab-separated string
+            const finalData = copiedDataArray.map((row) => row.join("\t")).join("\n")
+
+            const copyToClipboard = async (text: string) => {
+                // Check if we're in a secure context and clipboard API is available
+                if (navigator.clipboard && window.isSecureContext) {
+                    try {
+                        await navigator.clipboard.writeText(text)
+                        console.log("Data copied to clipboard successfully.")
+                        return true
+                    } catch (err) {
+                        console.warn("Clipboard API failed, trying fallback:", err)
+                    }
+                }
+
+                // Fallback method for mobile devices and older browsers
+                try {
+                    // Create a temporary textarea element
+                    const textArea = document.createElement("textarea")
+                    textArea.value = text
+                    textArea.style.position = "fixed"
+                    textArea.style.left = "-999999px"
+                    textArea.style.top = "-999999px"
+                    textArea.setAttribute("readonly", "")
+                    textArea.style.opacity = "0"
+
+                    document.body.appendChild(textArea)
+
+                    // For mobile devices, we need to make the textarea visible and focusable
+                    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                        textArea.style.position = "absolute"
+                        textArea.style.left = "0px"
+                        textArea.style.top = "0px"
+                        textArea.style.opacity = "1"
+                        textArea.style.zIndex = "9999"
+                        textArea.style.fontSize = "16px" // Prevent zoom on iOS
+                    }
+
+                    textArea.focus()
+                    textArea.select()
+                    textArea.setSelectionRange(0, text.length)
+
+                    const successful = document.execCommand("copy")
+                    document.body.removeChild(textArea)
+
+                    if (successful) {
+                        console.log("Data copied using fallback method.")
+                        return true
+                    } else {
+                        throw new Error("execCommand copy failed")
+                    }
+                } catch (fallbackErr) {
+                    console.error("All copy methods failed:", fallbackErr)
+
+                    // Final fallback: show the data in an alert for manual copy
+                    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                        const shortData = text.length > 200 ? text.substring(0, 200) + "..." : text
+                        alert(`Copy failed. Data to copy:\n${shortData}`)
+                    }
+                    return false
                 }
             }
-        });
 
-        // Format the 2D array into a tab-separated string
-        const finalData = copiedDataArray.map(row => row.join('\t')).join('\n');
+            // Use the enhanced copy function
+            copyToClipboard(finalData)
 
-
-        // Use enhanced copy function (fire and forget for mobile compatibility)
-        copyToClipboard(finalData).then(success => {
-            if (!success) {
-                console.warn('All copy methods failed');
-            }
-        }).catch(err => {
-            console.error('Copy operation failed:', err);
-        });
-
-        // Prevent Handsontable's default copy behavior since we handled it
-        return false;
-    }, [mainTableRef, duplicatesTableRef, copyToClipboard]) // Update dependencies
+            // Prevent Handsontable's default copy behavior since we handled it
+            return false
+        },
+        [mainTableRef, duplicatesTableRef],
+    ) // Update dependencies to include both refs
 
     // Modify renderHotTable to accept a ref parameter
     const renderHotTable = (data: SiteData[], tableKey: string, tableRef: React.RefObject<HotTableRef>) => {
@@ -1256,7 +1303,7 @@ export default function PageBody() {
             dataLength: data?.length,
             tableKey,
             userRole: userInfo?.role,
-            isRestricted: userInfo?.role !== "Admin" && userInfo?.role !== "Nhân viên"
+            isRestricted: userInfo?.role !== "Admin" && userInfo?.role !== "Nhân viên",
         })
 
         if (!data || data.length === 0) return null
@@ -1267,7 +1314,10 @@ export default function PageBody() {
 
         // Generate columns here
         const generatedColumns = generateColumns()
-        console.log("Generated columns:", generatedColumns.map(col => col.data))
+        console.log(
+            "Generated columns:",
+            generatedColumns.map((col) => col.data),
+        )
 
         return (
             <div className="overflow-x-auto w-full max-w-8xl">
@@ -1307,81 +1357,84 @@ export default function PageBody() {
     }
 
     // Add message handling functions
-    const handleDirectMessage = useCallback(async (message: string) => {
-        if (!message.trim()) {
-            alert("Vui lòng nhập tin nhắn")
-            return
-        }
-
-        try {
-            setLoading(true)
-            // Lấy unique IdGroup từ filteredData
-            const uniqueIdGroups = new Set<string>()
-            filteredData.forEach((item: SiteData) => {
-                if (item.IdGroup && item.IdGroup.trim() !== "") {
-                    let chatId = item.IdGroup.trim()
-                    if (chatId.startsWith("#")) {
-                        chatId = chatId.replace("#", "")
-                    }
-                    uniqueIdGroups.add(chatId)
-                }
-            })
-
-            if (uniqueIdGroups.size === 0) {
-                alert("Không tìm thấy IdGroup nào trong kết quả tìm kiếm")
+    const handleDirectMessage = useCallback(
+        async (message: string) => {
+            if (!message.trim()) {
+                alert("Vui lòng nhập tin nhắn")
                 return
             }
 
-            // Confirm with user
-            if (confirm(`Bạn có chắc chắn muốn gửi tin nhắn đến tất cả ${uniqueIdGroups.size} NCC?`)) {
-                alert(`Đang gửi tin nhắn cho ${uniqueIdGroups.size} NCC...`)
-
-                const successfulSends: string[] = []
-                const errors: string[] = []
-                const botToken = "8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U"
-
-                // Send message to Telegram
-                for (const chatId of uniqueIdGroups) {
-                    try {
-                        const url = `https://ylink.qctl44.workers.dev/bot${botToken}/sendMessage`
-                        const params = new URLSearchParams({
-                            chat_id: chatId,
-                            text: message,
-                        })
-
-                        console.log("Sending message to chat ID:", chatId)
-                        const res = await fetch(`${url}?${params.toString()}`)
-                        const responseData = await res.json()
-
-                        if (responseData.ok) {
-                            successfulSends.push(chatId)
-                        } else {
-                            errors.push(`Failed to send to ${chatId}: ${responseData.description}`)
+            try {
+                setLoading(true)
+                // Lấy unique IdGroup từ filteredData
+                const uniqueIdGroups = new Set<string>()
+                filteredData.forEach((item: SiteData) => {
+                    if (item.IdGroup && item.IdGroup.trim() !== "") {
+                        let chatId = item.IdGroup.trim()
+                        if (chatId.startsWith("#")) {
+                            chatId = chatId.replace("#", "")
                         }
-                    } catch (error: any) {
-                        console.error("Error sending message:", error)
-                        errors.push(`Failed to send to ${chatId}: Unknown error`)
+                        uniqueIdGroups.add(chatId)
                     }
+                })
+
+                if (uniqueIdGroups.size === 0) {
+                    alert("Không tìm thấy IdGroup nào trong kết quả tìm kiếm")
+                    return
                 }
 
-                // Show results
-                if (successfulSends.length > 0) {
-                    alert(`Đã gửi tin nhắn thành công đến ${successfulSends.length} NCC`)
-                }
+                // Confirm with user
+                if (confirm(`Bạn có chắc chắn muốn gửi tin nhắn đến tất cả ${uniqueIdGroups.size} NCC?`)) {
+                    alert(`Đang gửi tin nhắn cho ${uniqueIdGroups.size} NCC...`)
 
-                if (errors.length > 0) {
-                    alert(errors.join("\n"))
-                }
+                    const successfulSends: string[] = []
+                    const errors: string[] = []
+                    const botToken = "8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U"
 
-                setShowDirectMessageModal(false)
+                    // Send message to Telegram
+                    for (const chatId of uniqueIdGroups) {
+                        try {
+                            const url = `https://ylink.qctl44.workers.dev/bot${botToken}/sendMessage`
+                            const params = new URLSearchParams({
+                                chat_id: chatId,
+                                text: message,
+                            })
+
+                            console.log("Sending message to chat ID:", chatId)
+                            const res = await fetch(`${url}?${params.toString()}`)
+                            const responseData = await res.json()
+
+                            if (responseData.ok) {
+                                successfulSends.push(chatId)
+                            } else {
+                                errors.push(`Failed to send to ${chatId}: ${responseData.description}`)
+                            }
+                        } catch (error: any) {
+                            console.error("Error sending message:", error)
+                            errors.push(`Failed to send to ${chatId}: Unknown error`)
+                        }
+                    }
+
+                    // Show results
+                    if (successfulSends.length > 0) {
+                        alert(`Đã gửi tin nhắn thành công đến ${successfulSends.length} NCC`)
+                    }
+
+                    if (errors.length > 0) {
+                        alert(errors.join("\n"))
+                    }
+
+                    setShowDirectMessageModal(false)
+                }
+            } catch (error: any) {
+                console.error("Error:", error)
+                alert("Có lỗi xảy ra khi gửi tin nhắn")
+            } finally {
+                setLoading(false)
             }
-        } catch (error: any) {
-            console.error("Error:", error)
-            alert("Có lỗi xảy ra khi gửi tin nhắn")
-        } finally {
-            setLoading(false)
-        }
-    }, [filteredData])
+        },
+        [filteredData],
+    )
 
     const openNccSelectionModal = useCallback(() => {
         // Extract unique NCCs from the filtered data
@@ -1580,41 +1633,8 @@ export default function PageBody() {
     const hasDuplicates = Object.keys(duplicateSites).length > 0
     const duplicatesCount = Object.values(duplicateSites).flat().length
 
-    // Add touch event handlers for mobile copy functionality
+    // Add this useEffect to handle global copy functionality
     useEffect(() => {
-        const handleTouchCopy = (event: TouchEvent) => {
-            // Check if this is a long press (hold) on a table cell
-            const target = event.target as HTMLElement;
-            const cell = target.closest('.handsontable td');
-
-            if (cell && cell instanceof HTMLElement && event.touches.length === 1) {
-                // Add visual feedback for mobile users
-                cell.style.backgroundColor = '#e3f2fd';
-
-                // Show a brief message that copy is available
-                const originalText = cell.textContent;
-                if (originalText && originalText.trim() !== '') {
-                    // Create a temporary tooltip using the CSS class
-                    const tooltip = document.createElement('div');
-                    tooltip.textContent = 'Đã copy: ' + originalText;
-                    tooltip.className = 'copy-feedback';
-                    document.body.appendChild(tooltip);
-
-                    // Remove tooltip after animation completes
-                    setTimeout(() => {
-                        if (tooltip.parentNode) {
-                            tooltip.parentNode.removeChild(tooltip);
-                        }
-                    }, 2000);
-                }
-
-                // Reset cell background
-                setTimeout(() => {
-                    cell.style.backgroundColor = '';
-                }, 200);
-            }
-        };
-
         const handleGlobalCopy = (event: KeyboardEvent) => {
             // Only handle if focus is on a HotTable
             const activeElement = document.activeElement
@@ -1624,12 +1644,8 @@ export default function PageBody() {
             }
         }
 
-        // Add touch event listener for mobile devices
-        document.addEventListener("touchend", handleTouchCopy, { passive: true });
         document.addEventListener("keydown", handleGlobalCopy)
-
         return () => {
-            document.removeEventListener("touchend", handleTouchCopy);
             document.removeEventListener("keydown", handleGlobalCopy)
         }
     }, [])
@@ -1714,8 +1730,8 @@ export default function PageBody() {
                         <div className="relative">
                             <textarea
                                 placeholder={`Tìm kiếm ${selectedSearchType === "Site"
-                                    ? "site (hỗ trợ mọi định dạng domain: example.com, https://example.com, www.example.com - không phân biệt hoa thường)"
-                                    : "mã NCC (chỉ tìm mã bắt đầu bằng chữ N, ví dụ: N001, N123)"
+                                        ? "site (hỗ trợ mọi định dạng domain: example.com, https://example.com, www.example.com - không phân biệt hoa thường)"
+                                        : "mã NCC (chỉ tìm mã bắt đầu bằng chữ N, ví dụ: N001, N123)"
                                     } (nhập từng giá trị trên một dòng hoặc cách nhau bằng dấu phẩy, khoảng trắng...)`}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -1745,9 +1761,7 @@ export default function PageBody() {
                                                 <div className="mr-2 p-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-md shadow-sm">
                                                     <Inbox className="h-4 w-4 text-white" />
                                                 </div>
-                                                <h3 className="text-lg font-500 text-blue-700 mb-1">
-                                                    Kết quả tìm kiếm
-                                                </h3>
+                                                <h3 className="text-lg font-500 text-blue-700 mb-1">Kết quả tìm kiếm</h3>
                                             </div>
 
                                             {/* Compact Price Type Selection */}
@@ -1763,8 +1777,8 @@ export default function PageBody() {
                                                         key={type.id}
                                                         onClick={() => handlePriceTypeChange(type.id as PriceType)}
                                                         className={`flex items-center px-2 py-1 rounded text-sm font-medium transition-all duration-200 ${selectedPriceType === type.id
-                                                            ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-sm"
-                                                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                                                ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-sm"
+                                                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                                                             }`}
                                                     >
                                                         <span className="mr-1 text-xs">{type.icon}</span>
@@ -1790,39 +1804,14 @@ export default function PageBody() {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1">
-                                                {/* Mobile Copy Button */}
-                                                <button
-                                                    onClick={() => {
-                                                        const mainTableInstance = mainTableRef.current?.hotInstance;
-                                                        if (mainTableInstance) {
-                                                            const selected = mainTableInstance.getSelected();
-                                                            if (selected && selected.length > 0) {
-                                                                // Trigger copy for selected cells
-                                                                const event = new KeyboardEvent('keydown', {
-                                                                    key: 'c',
-                                                                    ctrlKey: true,
-                                                                    bubbles: true
-                                                                });
-                                                                mainTableInstance.rootElement.dispatchEvent(event);
-                                                            } else {
-                                                                alert('Vui lòng chọn ô để copy');
-                                                            }
-                                                        }
-                                                    }}
-                                                    className="flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700"
-                                                    title="Copy dữ liệu đã chọn (Ctrl+C)"
-                                                >
-                                                    <FileText className="h-4 w-4 mr-2" />
-                                                    Copy
-                                                </button>
                                                 {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
                                                     <>
                                                         <button
                                                             onClick={() => setShowDirectMessageModal(true)}
                                                             disabled={getValidNCCsCount(filteredData) === 0}
                                                             className={`flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${getValidNCCsCount(filteredData) === 0
-                                                                ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-                                                                : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 hover:scale-105"
+                                                                    ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                                                                    : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 hover:scale-105"
                                                                 }`}
                                                             title={
                                                                 getValidNCCsCount(filteredData) === 0
@@ -1838,8 +1827,8 @@ export default function PageBody() {
                                                             onClick={openNccSelectionModal}
                                                             disabled={loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0}
                                                             className={`flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0
-                                                                ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-                                                                : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:scale-105"
+                                                                    ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                                                                    : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:scale-105"
                                                                 }`}
                                                             title={
                                                                 getValidNCCsCount(filteredData) === 0
@@ -1855,8 +1844,8 @@ export default function PageBody() {
                                                             onClick={handleMessageAllNCCs}
                                                             disabled={loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0}
                                                             className={`flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0
-                                                                ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-                                                                : "bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 hover:scale-105"
+                                                                    ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                                                                    : "bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 hover:scale-105"
                                                                 }`}
                                                             title={
                                                                 getValidNCCsCount(filteredData) === 0
@@ -1874,8 +1863,8 @@ export default function PageBody() {
                                                     <button
                                                         onClick={() => setShowDuplicates(!showDuplicates)}
                                                         className={`flex items-center px-2 py-1 rounded-lg text-sm font-medium transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 border ${!showDuplicates
-                                                            ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-400 hover:from-amber-600 hover:to-orange-600"
-                                                            : "bg-gradient-to-r from-slate-500 to-slate-600 text-white border-slate-400 hover:from-slate-600 hover:to-slate-700"
+                                                                ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-400 hover:from-amber-600 hover:to-orange-600"
+                                                                : "bg-gradient-to-r from-slate-500 to-slate-600 text-white border-slate-400 hover:from-slate-600 hover:to-slate-700"
                                                             }`}
                                                     >
                                                         {showDuplicates ? (
@@ -1901,7 +1890,7 @@ export default function PageBody() {
                             {renderHotTable(
                                 filteredData,
                                 `main-${selectedPriceType}-${selectedBrand}-${selectedSearchType}`,
-                                mainTableRef
+                                mainTableRef,
                             )}
 
                             {/* Enhanced Duplicates Table */}
@@ -1926,7 +1915,7 @@ export default function PageBody() {
                                     {renderHotTable(
                                         Object.values(duplicateSites).flat(),
                                         `duplicates-${selectedPriceType}-${selectedBrand}-${selectedSearchType}`,
-                                        duplicatesTableRef
+                                        duplicatesTableRef,
                                     )}
                                 </div>
                             )}
