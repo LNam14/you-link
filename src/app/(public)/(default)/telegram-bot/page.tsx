@@ -172,11 +172,11 @@ export default function TelegramBotPage() {
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm font-medium">Time:</span>
-                                    <Badge variant="outline">12:00 PM (Vietnam)</Badge>
+                                    <Badge variant="outline">12:10 PM (Vietnam)</Badge>
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm font-medium">Cron Expression:</span>
-                                    <code className="text-xs bg-gray-100 px-2 py-1 rounded">0 12 * * *</code>
+                                    <code className="text-xs bg-gray-100 px-2 py-1 rounded">10 12 * * *</code>
                                 </div>
                             </div>
                         </CardContent>
