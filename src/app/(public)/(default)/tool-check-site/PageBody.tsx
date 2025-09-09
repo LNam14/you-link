@@ -112,10 +112,12 @@ export default function PageBody() {
     const [showDuplicates, setShowDuplicates] = useState(true)
     const mainTableRef = useRef<HotTableRef>(null)
     const duplicatesTableRef = useRef<HotTableRef>(null)
+    const [selectedCell, setSelectedCell] = useState<{ row: number, col: number, table: 'main' | 'duplicates' } | null>(null)
+    const [showMobileCopyButton, setShowMobileCopyButton] = useState(false)
 
-    // Add click outside handler
+    // Add click outside handler and mobile selection handling
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
+        const handleClickOutside = (event: MouseEvent | TouchEvent) => {
             const target = event.target as HTMLElement
             const isClickInsideTable = target.closest(".handsontable")
 
@@ -131,12 +133,66 @@ export default function PageBody() {
                 if (duplicatesTableInstance) {
                     duplicatesTableInstance.deselectCell()
                 }
+
+                // Clear mobile selection state
+                setSelectedCell(null)
+                setShowMobileCopyButton(false)
+            }
+        }
+
+        // Handle mobile touch events
+        const handleMobileSelection = (event: TouchEvent) => {
+            const target = event.target as HTMLElement
+            const cell = target.closest('td')
+
+            if (cell && cell.closest('.handsontable')) {
+                const table = cell.closest('.handsontable')
+                const tableContainer = table?.closest('.overflow-x-auto')
+
+                // Determine which table this is based on the container
+                const isMainTable = tableContainer?.previousElementSibling?.querySelector('h3')?.textContent?.includes('Kết quả tìm kiếm')
+                const isDuplicatesTable = tableContainer?.previousElementSibling?.querySelector('h3')?.textContent?.includes('Site trùng lặp')
+
+                if (isMainTable || isDuplicatesTable) {
+                    // Get cell coordinates from Handsontable
+                    const mainTableInstance = mainTableRef.current?.hotInstance
+                    const duplicatesTableInstance = duplicatesTableRef.current?.hotInstance
+                    const currentTableInstance = isMainTable ? mainTableInstance : duplicatesTableInstance
+
+                    if (currentTableInstance) {
+                        // Get the cell coordinates by finding the cell element
+                        const cellCoords = currentTableInstance.getCoords(cell)
+
+                        if (cellCoords && cellCoords.row !== null && cellCoords.col !== null) {
+                            // Clear previous selection from other table
+                            if (isMainTable && duplicatesTableInstance) {
+                                duplicatesTableInstance.deselectCell()
+                            }
+                            if (isDuplicatesTable && mainTableInstance) {
+                                mainTableInstance.deselectCell()
+                            }
+
+                            // Set new selection
+                            setSelectedCell({
+                                row: cellCoords.row,
+                                col: cellCoords.col,
+                                table: isMainTable ? 'main' : 'duplicates'
+                            })
+                            setShowMobileCopyButton(true)
+                        }
+                    }
+                }
             }
         }
 
         document.addEventListener("mousedown", handleClickOutside)
+        document.addEventListener("touchstart", handleClickOutside)
+        document.addEventListener("touchend", handleMobileSelection)
+
         return () => {
             document.removeEventListener("mousedown", handleClickOutside)
+            document.removeEventListener("touchstart", handleClickOutside)
+            document.removeEventListener("touchend", handleMobileSelection)
         }
     }, [])
 
@@ -1168,6 +1224,60 @@ export default function PageBody() {
         return data.filter((item) => item.IdGroup && item.IdGroup.trim() !== "").length
     }
 
+    // Add mobile copy handler
+    const handleMobileCopy = useCallback(async () => {
+        if (!selectedCell) return
+
+        const tableInstance = selectedCell.table === 'main'
+            ? mainTableRef.current?.hotInstance
+            : duplicatesTableRef.current?.hotInstance
+
+        if (!tableInstance) return
+
+        try {
+            // Get cell value
+            const cellElement = tableInstance.getCell(selectedCell.row, selectedCell.col)
+            const cellValue = cellElement ? cellElement.textContent || "" : ""
+
+            // Copy to clipboard
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(cellValue)
+                alert(`Đã copy: ${cellValue}`)
+            } else {
+                // Fallback for older browsers
+                const textArea = document.createElement("textarea")
+                textArea.value = cellValue
+                textArea.style.position = "fixed"
+                textArea.style.left = "-999999px"
+                textArea.style.top = "-999999px"
+                textArea.setAttribute("readonly", "")
+                textArea.style.opacity = "0"
+
+                document.body.appendChild(textArea)
+                textArea.focus()
+                textArea.select()
+                textArea.setSelectionRange(0, cellValue.length)
+
+                const successful = document.execCommand("copy")
+                document.body.removeChild(textArea)
+
+                if (successful) {
+                    alert(`Đã copy: ${cellValue}`)
+                } else {
+                    alert(`Copy thất bại. Giá trị: ${cellValue}`)
+                }
+            }
+
+            // Clear selection after copy
+            setSelectedCell(null)
+            setShowMobileCopyButton(false)
+            tableInstance.deselectCell()
+        } catch (error) {
+            console.error("Copy failed:", error)
+            alert("Copy thất bại")
+        }
+    }, [selectedCell])
+
     // Add the beforeCopy handler function using useCallback
     const handleBeforeCopy = useCallback(
         (data: string[][], coords: any[], copiedHeadersCount: { columnHeadersCount: number }): boolean | void => {
@@ -1319,6 +1429,9 @@ export default function PageBody() {
             generatedColumns.map((col) => col.data),
         )
 
+        // Determine table type for mobile selection
+        const tableType = tableKey.includes('main') ? 'main' : 'duplicates'
+
         return (
             <div className="overflow-x-auto w-full max-w-8xl">
                 <HotTable
@@ -1351,6 +1464,19 @@ export default function PageBody() {
                     fillHandle={false}
                     selectionMode="multiple"
                     beforeCopy={handleBeforeCopy}
+                    afterSelection={(row: number, col: number, row2: number, col2: number) => {
+                        // Handle desktop selection
+                        setSelectedCell({
+                            row: Math.min(row, row2),
+                            col: Math.min(col, col2),
+                            table: tableType
+                        })
+                        setShowMobileCopyButton(true)
+                    }}
+                    afterDeselect={() => {
+                        setSelectedCell(null)
+                        setShowMobileCopyButton(false)
+                    }}
                 />
             </div>
         )
@@ -1663,66 +1789,73 @@ export default function PageBody() {
                                 </h2>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <div className="flex bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                {/* Nhóm 1: Site / NCC */}
+                                <div className="w-full flex bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
                                     <button
                                         onClick={() => setSelectedSearchType("Site")}
-                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedSearchType === "Site" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
-                                            }`}
+                                        className={`flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedSearchType === "Site" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
                                     >
                                         <Globe className="h-4 w-4 mr-1" />
                                         Site
                                     </button>
                                     <button
                                         onClick={() => setSelectedSearchType("NCC")}
-                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedSearchType === "NCC" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
-                                            }`}
+                                        className={`flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedSearchType === "NCC" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
                                     >
                                         <User className="h-4 w-4 mr-1" />
                                         NCC
                                     </button>
                                 </div>
-                                <div className="flex bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
+
+                                {/* Nhóm 2: USDT / VND */}
+                                <div className="w-full flex bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
                                     <button
                                         onClick={() => setSelectedCurrency("USDT")}
-                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedCurrency === "USDT" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
-                                            }`}
+                                        className={`flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedCurrency === "USDT" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
                                     >
                                         <DollarSign className="h-4 w-4 mr-1" />
                                         USDT
                                     </button>
                                     <button
                                         onClick={() => setSelectedCurrency("VND")}
-                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedCurrency === "VND" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
-                                            }`}
+                                        className={`flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedCurrency === "VND" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
                                     >
                                         <Coins className="h-4 w-4 mr-1" />
                                         VND
                                     </button>
                                 </div>
-                                <div className="flex bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
+
+                                {/* Nhóm 3: F / X */}
+                                <div className="w-full flex bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
                                     <button
                                         onClick={() => setSelectedBrand("F")}
-                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedBrand === "F" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
+                                        className={`flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedBrand === "F" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
                                     >
                                         <CreditCard className="h-4 w-4 mr-1" />
                                         F-ALL
                                     </button>
                                     <button
                                         onClick={() => setSelectedBrand("X")}
-                                        className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedBrand === "X" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
+                                        className={`flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedBrand === "X" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
                                     >
                                         <CreditCard className="h-4 w-4 mr-1" />
                                         X-ALL
                                     </button>
                                 </div>
-                                <button
-                                    onClick={fetchData}
-                                    className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-500 shadow-md"
-                                >
-                                    <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-                                </button>
+
+                                {/* Nút Refresh */}
+                                <div className="w-full flex">
+                                    <button
+                                        onClick={fetchData}
+                                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors shadow-md"
+                                    >
+                                        <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                                    </button>
+                                </div>
                             </div>
+
+
                         </div>
                     </div>
 
@@ -1730,8 +1863,8 @@ export default function PageBody() {
                         <div className="relative">
                             <textarea
                                 placeholder={`Tìm kiếm ${selectedSearchType === "Site"
-                                        ? "site (hỗ trợ mọi định dạng domain: example.com, https://example.com, www.example.com - không phân biệt hoa thường)"
-                                        : "mã NCC (chỉ tìm mã bắt đầu bằng chữ N, ví dụ: N001, N123)"
+                                    ? "site (hỗ trợ mọi định dạng domain: example.com, https://example.com, www.example.com - không phân biệt hoa thường)"
+                                    : "mã NCC (chỉ tìm mã bắt đầu bằng chữ N, ví dụ: N001, N123)"
                                     } (nhập từng giá trị trên một dòng hoặc cách nhau bằng dấu phẩy, khoảng trắng...)`}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -1777,8 +1910,8 @@ export default function PageBody() {
                                                         key={type.id}
                                                         onClick={() => handlePriceTypeChange(type.id as PriceType)}
                                                         className={`flex items-center px-2 py-1 rounded text-sm font-medium transition-all duration-200 ${selectedPriceType === type.id
-                                                                ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-sm"
-                                                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                                            ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-sm"
+                                                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                                                             }`}
                                                     >
                                                         <span className="mr-1 text-xs">{type.icon}</span>
@@ -1810,8 +1943,8 @@ export default function PageBody() {
                                                             onClick={() => setShowDirectMessageModal(true)}
                                                             disabled={getValidNCCsCount(filteredData) === 0}
                                                             className={`flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${getValidNCCsCount(filteredData) === 0
-                                                                    ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-                                                                    : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 hover:scale-105"
+                                                                ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                                                                : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 hover:scale-105"
                                                                 }`}
                                                             title={
                                                                 getValidNCCsCount(filteredData) === 0
@@ -1827,8 +1960,8 @@ export default function PageBody() {
                                                             onClick={openNccSelectionModal}
                                                             disabled={loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0}
                                                             className={`flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0
-                                                                    ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-                                                                    : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:scale-105"
+                                                                ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                                                                : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:scale-105"
                                                                 }`}
                                                             title={
                                                                 getValidNCCsCount(filteredData) === 0
@@ -1844,8 +1977,8 @@ export default function PageBody() {
                                                             onClick={handleMessageAllNCCs}
                                                             disabled={loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0}
                                                             className={`flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0
-                                                                    ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-                                                                    : "bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 hover:scale-105"
+                                                                ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                                                                : "bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 hover:scale-105"
                                                                 }`}
                                                             title={
                                                                 getValidNCCsCount(filteredData) === 0
@@ -1863,8 +1996,8 @@ export default function PageBody() {
                                                     <button
                                                         onClick={() => setShowDuplicates(!showDuplicates)}
                                                         className={`flex items-center px-2 py-1 rounded-lg text-sm font-medium transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 border ${!showDuplicates
-                                                                ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-400 hover:from-amber-600 hover:to-orange-600"
-                                                                : "bg-gradient-to-r from-slate-500 to-slate-600 text-white border-slate-400 hover:from-slate-600 hover:to-slate-700"
+                                                            ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-400 hover:from-amber-600 hover:to-orange-600"
+                                                            : "bg-gradient-to-r from-slate-500 to-slate-600 text-white border-slate-400 hover:from-slate-600 hover:to-slate-700"
                                                             }`}
                                                     >
                                                         {showDuplicates ? (
@@ -2038,6 +2171,21 @@ export default function PageBody() {
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Mobile Copy Button */}
+            {showMobileCopyButton && selectedCell && (
+                <div className="fixed bottom-4 right-4 z-50">
+                    <button
+                        onClick={handleMobileCopy}
+                        className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all duration-200 transform hover:scale-105"
+                        title="Copy cell value"
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                    </button>
                 </div>
             )}
         </div>
