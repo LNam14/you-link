@@ -26,6 +26,7 @@ import {
     Inbox,
     EyeOff,
     Eye,
+    Copy,
 } from "lucide-react"
 import DirectMessageModal from "./DirectMessageModal"
 
@@ -112,12 +113,10 @@ export default function PageBody() {
     const [showDuplicates, setShowDuplicates] = useState(true)
     const mainTableRef = useRef<HotTableRef>(null)
     const duplicatesTableRef = useRef<HotTableRef>(null)
-    const [selectedCell, setSelectedCell] = useState<{ row: number, col: number, table: 'main' | 'duplicates' } | null>(null)
-    const [showMobileCopyButton, setShowMobileCopyButton] = useState(false)
 
-    // Add click outside handler and mobile selection handling
+    // Add click outside handler
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+        const handleClickOutside = (event: MouseEvent) => {
             const target = event.target as HTMLElement
             const isClickInsideTable = target.closest(".handsontable")
 
@@ -133,66 +132,12 @@ export default function PageBody() {
                 if (duplicatesTableInstance) {
                     duplicatesTableInstance.deselectCell()
                 }
-
-                // Clear mobile selection state
-                setSelectedCell(null)
-                setShowMobileCopyButton(false)
-            }
-        }
-
-        // Handle mobile touch events
-        const handleMobileSelection = (event: TouchEvent) => {
-            const target = event.target as HTMLElement
-            const cell = target.closest('td')
-
-            if (cell && cell.closest('.handsontable')) {
-                const table = cell.closest('.handsontable')
-                const tableContainer = table?.closest('.overflow-x-auto')
-
-                // Determine which table this is based on the container
-                const isMainTable = tableContainer?.previousElementSibling?.querySelector('h3')?.textContent?.includes('Kết quả tìm kiếm')
-                const isDuplicatesTable = tableContainer?.previousElementSibling?.querySelector('h3')?.textContent?.includes('Site trùng lặp')
-
-                if (isMainTable || isDuplicatesTable) {
-                    // Get cell coordinates from Handsontable
-                    const mainTableInstance = mainTableRef.current?.hotInstance
-                    const duplicatesTableInstance = duplicatesTableRef.current?.hotInstance
-                    const currentTableInstance = isMainTable ? mainTableInstance : duplicatesTableInstance
-
-                    if (currentTableInstance) {
-                        // Get the cell coordinates by finding the cell element
-                        const cellCoords = currentTableInstance.getCoords(cell)
-
-                        if (cellCoords && cellCoords.row !== null && cellCoords.col !== null) {
-                            // Clear previous selection from other table
-                            if (isMainTable && duplicatesTableInstance) {
-                                duplicatesTableInstance.deselectCell()
-                            }
-                            if (isDuplicatesTable && mainTableInstance) {
-                                mainTableInstance.deselectCell()
-                            }
-
-                            // Set new selection
-                            setSelectedCell({
-                                row: cellCoords.row,
-                                col: cellCoords.col,
-                                table: isMainTable ? 'main' : 'duplicates'
-                            })
-                            setShowMobileCopyButton(true)
-                        }
-                    }
-                }
             }
         }
 
         document.addEventListener("mousedown", handleClickOutside)
-        document.addEventListener("touchstart", handleClickOutside)
-        document.addEventListener("touchend", handleMobileSelection)
-
         return () => {
             document.removeEventListener("mousedown", handleClickOutside)
-            document.removeEventListener("touchstart", handleClickOutside)
-            document.removeEventListener("touchend", handleMobileSelection)
         }
     }, [])
 
@@ -1224,60 +1169,6 @@ export default function PageBody() {
         return data.filter((item) => item.IdGroup && item.IdGroup.trim() !== "").length
     }
 
-    // Add mobile copy handler
-    const handleMobileCopy = useCallback(async () => {
-        if (!selectedCell) return
-
-        const tableInstance = selectedCell.table === 'main'
-            ? mainTableRef.current?.hotInstance
-            : duplicatesTableRef.current?.hotInstance
-
-        if (!tableInstance) return
-
-        try {
-            // Get cell value
-            const cellElement = tableInstance.getCell(selectedCell.row, selectedCell.col)
-            const cellValue = cellElement ? cellElement.textContent || "" : ""
-
-            // Copy to clipboard
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(cellValue)
-                alert(`Đã copy: ${cellValue}`)
-            } else {
-                // Fallback for older browsers
-                const textArea = document.createElement("textarea")
-                textArea.value = cellValue
-                textArea.style.position = "fixed"
-                textArea.style.left = "-999999px"
-                textArea.style.top = "-999999px"
-                textArea.setAttribute("readonly", "")
-                textArea.style.opacity = "0"
-
-                document.body.appendChild(textArea)
-                textArea.focus()
-                textArea.select()
-                textArea.setSelectionRange(0, cellValue.length)
-
-                const successful = document.execCommand("copy")
-                document.body.removeChild(textArea)
-
-                if (successful) {
-                    alert(`Đã copy: ${cellValue}`)
-                } else {
-                    alert(`Copy thất bại. Giá trị: ${cellValue}`)
-                }
-            }
-
-            // Clear selection after copy
-            setSelectedCell(null)
-            setShowMobileCopyButton(false)
-            tableInstance.deselectCell()
-        } catch (error) {
-            console.error("Copy failed:", error)
-            alert("Copy thất bại")
-        }
-    }, [selectedCell])
-
     // Add the beforeCopy handler function using useCallback
     const handleBeforeCopy = useCallback(
         (data: string[][], coords: any[], copiedHeadersCount: { columnHeadersCount: number }): boolean | void => {
@@ -1407,6 +1298,106 @@ export default function PageBody() {
         [mainTableRef, duplicatesTableRef],
     ) // Update dependencies to include both refs
 
+    // Mobile copy handler to copy current selection from either table
+    const handleMobileCopySelection = useCallback(async () => {
+        const mainTableInstance = mainTableRef.current?.hotInstance
+        const duplicatesTableInstance = duplicatesTableRef.current?.hotInstance
+        const hotInstance = mainTableInstance || duplicatesTableInstance
+
+        if (!hotInstance) {
+            alert("Không tìm thấy bảng để copy")
+            return
+        }
+
+        const selected = hotInstance.getSelected()
+        if (!selected || selected.length === 0) {
+            alert("Vui lòng chọn ô cần copy")
+            return
+        }
+
+        let minRow = Number.POSITIVE_INFINITY,
+            minCol = Number.POSITIVE_INFINITY,
+            maxRow = Number.NEGATIVE_INFINITY,
+            maxCol = Number.NEGATIVE_INFINITY
+        selected.forEach((range: any) => {
+            const [startRow, startCol, endRow, endCol] = range
+            minRow = Math.min(minRow, startRow, endRow)
+            minCol = Math.min(minCol, startCol, endCol)
+            maxRow = Math.max(maxRow, startRow, endRow)
+            maxCol = Math.max(maxCol, startCol, endCol)
+        })
+
+        const numRows = maxRow - minRow + 1
+        const numCols = maxCol - minCol + 1
+        const copiedDataArray: string[][] = Array.from({ length: numRows }, () => Array(numCols).fill(""))
+
+        selected.forEach((range: any) => {
+            const [startRow, startCol, endRow, endCol] = range
+            const rowStart = Math.min(startRow, endRow)
+            const rowEnd = Math.max(startRow, endRow)
+            const colStart = Math.min(startCol, endCol)
+            const colEnd = Math.max(startCol, endCol)
+
+            for (let r = rowStart; r <= rowEnd; r++) {
+                for (let c = colStart; c <= colEnd; c++) {
+                    const cellElement = hotInstance.getCell(r, c)
+                    const cellValue = cellElement ? cellElement.textContent || "" : ""
+                    copiedDataArray[r - minRow][c - minCol] = cellValue
+                }
+            }
+        })
+
+        const finalData = copiedDataArray.map((row) => row.join("\t")).join("\n")
+
+        const copyToClipboard = async (text: string) => {
+            if (navigator.clipboard && window.isSecureContext) {
+                try {
+                    await navigator.clipboard.writeText(text)
+                    return true
+                } catch (err) {
+                    // fallthrough
+                }
+            }
+
+            try {
+                const textArea = document.createElement("textarea")
+                textArea.value = text
+                textArea.style.position = "fixed"
+                textArea.style.left = "-999999px"
+                textArea.style.top = "-999999px"
+                textArea.setAttribute("readonly", "")
+                textArea.style.opacity = "0"
+                document.body.appendChild(textArea)
+
+                if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                    textArea.style.position = "absolute"
+                    textArea.style.left = "0px"
+                    textArea.style.top = "0px"
+                    textArea.style.opacity = "1"
+                    textArea.style.zIndex = "9999"
+                    textArea.style.fontSize = "16px"
+                }
+
+                textArea.focus()
+                textArea.select()
+                textArea.setSelectionRange(0, text.length)
+
+                const successful = document.execCommand("copy")
+                document.body.removeChild(textArea)
+                if (successful) return true
+                throw new Error("execCommand copy failed")
+            } catch (fallbackErr) {
+                if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                    const shortData = text.length > 200 ? text.substring(0, 200) + "..." : text
+                    alert(`Copy failed. Data to copy:\n${shortData}`)
+                }
+                return false
+            }
+        }
+
+        await copyToClipboard(finalData)
+    }, [mainTableRef, duplicatesTableRef])
+
     // Modify renderHotTable to accept a ref parameter
     const renderHotTable = (data: SiteData[], tableKey: string, tableRef: React.RefObject<HotTableRef>) => {
         console.log("renderHotTable called with:", {
@@ -1428,9 +1419,6 @@ export default function PageBody() {
             "Generated columns:",
             generatedColumns.map((col) => col.data),
         )
-
-        // Determine table type for mobile selection
-        const tableType = tableKey.includes('main') ? 'main' : 'duplicates'
 
         return (
             <div className="overflow-x-auto w-full max-w-8xl">
@@ -1461,22 +1449,9 @@ export default function PageBody() {
                     className="custom-table"
                     themeName="ht-theme-main"
                     outsideClickDeselects={false}
-                    fillHandle={false}
+                    fillHandle={true}
                     selectionMode="multiple"
                     beforeCopy={handleBeforeCopy}
-                    afterSelection={(row: number, col: number, row2: number, col2: number) => {
-                        // Handle desktop selection
-                        setSelectedCell({
-                            row: Math.min(row, row2),
-                            col: Math.min(col, col2),
-                            table: tableType
-                        })
-                        setShowMobileCopyButton(true)
-                    }}
-                    afterDeselect={() => {
-                        setSelectedCell(null)
-                        setShowMobileCopyButton(false)
-                    }}
                 />
             </div>
         )
@@ -2090,6 +2065,16 @@ export default function PageBody() {
                 </div>
             </div>
 
+            {/* Mobile-only floating copy button */}
+            <button
+                onClick={handleMobileCopySelection}
+                className="md:hidden fixed bottom-4 right-4 z-[2000] bg-blue-600 text-white rounded-full shadow-lg p-3 active:scale-95"
+                aria-label="Copy selection"
+                title="Copy vùng đã chọn"
+            >
+                <Copy className="h-6 w-6" />
+            </button>
+
             {/* Direct Message Modal */}
             <DirectMessageModal
                 show={showDirectMessageModal}
@@ -2171,21 +2156,6 @@ export default function PageBody() {
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
-
-            {/* Mobile Copy Button */}
-            {showMobileCopyButton && selectedCell && (
-                <div className="fixed bottom-4 right-4 z-50">
-                    <button
-                        onClick={handleMobileCopy}
-                        className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all duration-200 transform hover:scale-105"
-                        title="Copy cell value"
-                    >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                    </button>
                 </div>
             )}
         </div>
