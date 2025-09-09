@@ -150,7 +150,7 @@ export default function AccountTracker() {
         if (activeTab === "NV") {
             return {
                 RowHeader1: [{ label: "Thông tin tài khoản", colspan: 9 }],
-                RowHeader2: ["Username", "Password", "Tên", "Vai trò", "Chức vụ", "Ngày tạo", "Ngày cập nhật", "Trạng thái", "Team"],
+                RowHeader2: ["Username", "Password", "Tên", "Vai trò", "Telegram", "Ngày tạo", "Ngày cập nhật", "Trạng thái", "Team"],
             }
         }
         return {

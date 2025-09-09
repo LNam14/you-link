@@ -8,6 +8,7 @@ import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
 import { Toaster, toast } from "sonner"
 import { useFirebaseData } from "@/firebase/hooks/useFirebaseData"
+import { useCongNo } from "@/hook/useCongNo"
 import { Search, Plus, Trash2, RefreshCw, Users, UserPlus, Check, X, Maximize, Minimize } from "lucide-react"
 import { Modal } from "antd"
 import getUserInfo from "@/components/userInfo"
@@ -28,6 +29,14 @@ const PageBody = () => {
         deleteRow,
         deleteMultipleRows,
     } = useFirebaseData()
+
+    const { congNoData, loading: congNoLoading } = useCongNo()
+
+    // Helper function to get cong no value by MaMoi
+    const getCongNoByMaMoi = (maMoi: string): string => {
+        const congNoItem = congNoData.find(item => item.MaMoi === maMoi);
+        return congNoItem?.CongNo || "0";
+    };
 
     const [selectedRows, setSelectedRows] = useState<number[]>([])
     const [showBulkAddModal, setShowBulkAddModal] = useState(false)
@@ -477,7 +486,10 @@ const PageBody = () => {
 
             if (index === 17) {
                 config.renderer = (instance: any, td: any, row: any, col: any, prop: any, value: any, cellProperties: any) => {
-                    const debt = value || "0"
+                    // Get MaMoi from the first column (index 0)
+                    const maMoi = instance.getDataAtCell(row, 0) || ""
+                    // Get cong no value from API data
+                    const debt = getCongNoByMaMoi(maMoi)
                     const credit = instance.getDataAtCell(row, 18) || "0" // Get Tín Dụng value
                     const styling = getDebtCreditStyling(debt, credit)
 
@@ -496,7 +508,9 @@ const PageBody = () => {
             if (index === 18) {
                 config.renderer = (instance: any, td: any, row: any, col: any, prop: any, value: any, cellProperties: any) => {
                     const credit = value || "0"
-                    const debt = instance.getDataAtCell(row, 17) || "0" // Get Công Nợ value
+                    // Get MaMoi from the first column (index 0) and get cong no value from API data
+                    const maMoi = instance.getDataAtCell(row, 0) || ""
+                    const debt = getCongNoByMaMoi(maMoi)
                     const styling = getDebtCreditStyling(debt, credit)
 
                     td.innerHTML = credit
@@ -762,7 +776,7 @@ const PageBody = () => {
         }
     }, [loading, data])
 
-    if (loading) {
+    if (loading || congNoLoading) {
         return (
             <div className="min-h-screen py-6 px-4 flex items-center justify-center">
                 <div className="flex items-center gap-2">

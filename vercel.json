@@ -8,5 +8,11 @@
     ],
     "env": {
         "SPREADSHEET_ID": "116441298955338562020"
-    }
+    },
+    "crons": [
+        {
+            "path": "/api/telegram/daily-report",
+            "schedule": "0 12 * * *"
+        }
+    ]
 }

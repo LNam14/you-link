@@ -29,6 +29,12 @@ export interface NCC {
   // Thêm các trường khác tùy theo cấu trúc dữ liệu thực tế
 }
 
+// Định nghĩa kiểu dữ liệu cho Công nợ
+export interface CongNo {
+  MaMoi: string;
+  CongNo: string;
+}
+
 // Định nghĩa kiểu dữ liệu cho response
 export interface SheetResponse {
   data: Sheet[];
@@ -46,6 +52,10 @@ export interface NCCResponse {
   data: NCC;
 }
 
+export interface CongNoResponse {
+  content: CongNo[];
+}
+
 // API endpoints
 const ENDPOINTS = {
   GET_DATA: "/sheet",
@@ -53,7 +63,8 @@ const ENDPOINTS = {
   GET_ID_KH: "/sheet/id-kh",
   GET_DATA_TOOL: "/sheet/tool-check",
   GET_DATA_EXTORT: "/sheet/extort",
-  UPDATE_DATA: "/sheet/update"
+  UPDATE_DATA: "/sheet/update",
+  GET_CONGNO: "/sheet/receivable", // ✅ thêm endpoint công nợ
 };
 
 /**
@@ -62,8 +73,6 @@ const ENDPOINTS = {
 const sheetApiRequest = {
   /**
    * Lấy dữ liệu sheet
-   * @param forceRefresh Bỏ qua cache và lấy dữ liệu mới
-   * @returns Promise với dữ liệu sheet
    */
   getData: () => {
     return httpService.post<SheetResponse>(ENDPOINTS.GET_DATA, {});
@@ -71,8 +80,6 @@ const sheetApiRequest = {
 
   /**
    * Lấy thông tin nhà cung cấp theo mã
-   * @param MaNCC Mã nhà cung cấp
-   * @returns Promise với thông tin nhà cung cấp
    */
   getIDNCC: (MaNCC: string, message: string) => {
     return httpService.post<NCCResponse>(ENDPOINTS.GET_ID_NCC, {
@@ -80,6 +87,10 @@ const sheetApiRequest = {
       message,
     });
   },
+
+  /**
+   * Lấy thông tin khách hàng theo mã
+   */
   getIDKH: (MaKH: string, message: string) => {
     return httpService.post<NCCResponse>(ENDPOINTS.GET_ID_KH, {
       MaKH,
@@ -89,8 +100,6 @@ const sheetApiRequest = {
 
   /**
    * Lấy dữ liệu công cụ
-   * @param forceRefresh Bỏ qua cache và lấy dữ liệu mới
-   * @returns Promise với dữ liệu công cụ
    */
   getDataTool: () => {
     return httpService.post<ToolResponse>(ENDPOINTS.GET_DATA_TOOL, {});
@@ -98,30 +107,38 @@ const sheetApiRequest = {
 
   /**
    * Lấy dữ liệu xuất
-   * @param forceRefresh Bỏ qua cache và lấy dữ liệu mới
-   * @returns Promise với dữ liệu xuất
    */
   getDataExtort: () => {
-    return httpService.post<ExtortResponse>(ENDPOINTS.GET_DATA_EXTORT, { });
+    return httpService.post<ExtortResponse>(ENDPOINTS.GET_DATA_EXTORT, {});
   },
 
   /**
    * Cập nhật dữ liệu sheet
-   * @param data Dữ liệu cần cập nhật
-   * @param sheetType Loại sheet (1 hoặc 2)
-   * @returns Promise với kết quả cập nhật
    */
   updateData: (data: any[], sheetType: number) => {
-    return httpService.post('/sheet/update', { data, sheetType });
+    return httpService.post("/sheet/update", { data, sheetType });
   },
 
+  /**
+   * Thêm dòng mới
+   */
   appendRows: (rows: any[], sheetType: number) => {
-    return httpService.post('/sheet/append', { rows, sheetType });
+    return httpService.post("/sheet/append", { rows, sheetType });
   },
 
+  /**
+   * Xoá dòng theo index
+   */
   deleteRow: (rowIndex: number, sheetType: number) => {
-    return httpService.post('/sheet/delete-row', { rowIndex, sheetType });
-  }
+    return httpService.post("/sheet/delete-row", { rowIndex, sheetType });
+  },
+
+  /**
+   * ✅ Lấy dữ liệu công nợ
+   */
+  getCongNo: () => {
+    return httpService.post<CongNoResponse>(ENDPOINTS.GET_CONGNO, {});
+  },
 };
 
 export default sheetApiRequest;

@@ -24,6 +24,7 @@ import {
     CheckCircle2,
     AlertCircle,
     User,
+    Bot,
 } from "lucide-react"
 import CurrencyConverterModal from "./CurrencyConverterModal"
 import { z } from "zod"
@@ -906,6 +907,18 @@ const MenuAvatar: React.FC<MenuAvatarProps> = () => {
                             }
                         >
                             Check Anchor Link
+                        </button>
+                    ),
+                },
+                (userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && {
+                    key: "telegram-bot",
+                    icon: <Bot className="w-4 h-4" />,
+                    label: (
+                        <button
+                            className="text-purple-600 hover:text-purple-800 bg-transparent border-none cursor-pointer px-2 py-1"
+                            onClick={() => window.open("/telegram-bot", "_blank")}
+                        >
+                            Telegram Bot
                         </button>
                     ),
                 },
