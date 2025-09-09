@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     let congNoData = [];
     try {
       // Try direct API call first
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const baseUrl = "https://www.ylink.shop";
       const directResponse = await fetch(`${baseUrl}/api/sheet/receivable`, {
         method: 'POST',
         headers: {
