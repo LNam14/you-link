@@ -92,3 +92,10 @@
 .handsontable {
     z-index: 0 !important;
 }
+
+/* Set table font size to 13px for both headers and cells */
+.custom-table .htCore,
+.custom-table .htCore td,
+.custom-table .htCore th {
+    font-size: 12px !important;
+}

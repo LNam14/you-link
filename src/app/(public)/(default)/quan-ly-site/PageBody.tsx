@@ -132,6 +132,48 @@ const columnSettings: Record<string, any> = {
     },
 }
 
+// Fixed column widths: 1-3 => 30px (STT/Site/Bóng), 4-6 => 50px (Bet/Chủ đề/Nước), others 100px
+const getColWidthsForHeaders = (headers: string[]) => {
+    return headers.map((header) => {
+        if (["STT", "Bet", "Bóng", "DR", "HH GP", "HH Text", "Kê GP", "Kê Text", "NCC"].includes(header)) return 60
+        if (["Link out", "Chủ đề", "Keywords", "Traffic Tool", "GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"].includes(header)) return 90
+        return 100
+    })
+}
+
+// Renderer wrapper to add ellipsis and title tooltip while preserving any base renderer styling
+const withEllipsis = (
+    baseRenderer?: (
+        instance: Handsontable,
+        td: HTMLTableCellElement,
+        row: number,
+        col: number,
+        prop: string | number,
+        value: any,
+        cellProperties: Handsontable.CellProperties,
+    ) => void,
+) => {
+    return (
+        instance: Handsontable,
+        td: HTMLTableCellElement,
+        row: number,
+        col: number,
+        prop: string | number,
+        value: any,
+        cellProperties: Handsontable.CellProperties,
+    ) => {
+        if (baseRenderer) {
+            baseRenderer(instance, td, row, col, prop, value, cellProperties)
+        } else {
+            Handsontable.renderers.TextRenderer(instance, td, row, col, prop, value, cellProperties)
+        }
+        td.style.whiteSpace = "nowrap"
+        td.style.overflow = "hidden"
+        td.style.textOverflow = "ellipsis"
+        td.title = value == null ? "" : String(value)
+    }
+}
+
 export default function PageBody() {
     const [loading, setLoading] = useState(false)
     const [dataVN, setDataVN] = useState<any[]>([])
@@ -203,7 +245,7 @@ export default function PageBody() {
 
     useEffect(() => {
         fetchData()
-    }, [fetchData])
+    }, [])
 
     useEffect(() => {
         if (searchText.trim()) {
@@ -217,7 +259,24 @@ export default function PageBody() {
                 )
                 return (siteMatch || maNCCMatch) && hasData
             })
-            setFilteredData(filtered)
+
+            // Sort results to follow the order of the entered search terms
+            const loweredTerms = searchTerms.map((t) => t.toLowerCase())
+            const getPriority = (row: any) => {
+                const site = (row.Site || "").toLowerCase()
+                const ma = (row.MaNCC || "").toLowerCase()
+                let minIndex = Number.MAX_SAFE_INTEGER
+                for (let i = 0; i < loweredTerms.length; i++) {
+                    const term = loweredTerms[i]
+                    if (site.includes(term) || ma.includes(term)) {
+                        if (i < minIndex) minIndex = i
+                    }
+                }
+                return minIndex
+            }
+
+            const sorted = filtered.slice().sort((a, b) => getPriority(a) - getPriority(b))
+            setFilteredData(sorted)
         } else {
             setFilteredData([])
         }
@@ -254,9 +313,6 @@ export default function PageBody() {
                     console.log("[v0] Sending updates:", updates)
                     sheetApiRequest
                         .updateData(updates, dataType)
-                        .then((result) => {
-                            fetchData()
-                        })
                         .catch((error) => {
                             console.error("[v0] Update error:", error)
                             if (error.message.includes("timeout") || error.message.includes("Request timeout")) {
@@ -275,7 +331,7 @@ export default function PageBody() {
                 }
             }
         },
-        [dataType, dataVN, dataNN, filteredData, searchText, messageApi, fetchData],
+        [dataType, dataVN, dataNN, filteredData, searchText, messageApi],
     )
 
     const handleAfterPaste = useCallback(
@@ -716,6 +772,7 @@ export default function PageBody() {
                                         manualColumnMove={true}
                                         manualRowResize={true}
                                         className="custom-table"
+                                        colWidths={getColWidthsForHeaders(RowHeader1)}
                                         hiddenColumns={userInfo?.role === "NCC" ? { columns: [5, 20], indicators: true } : { columns: [5] }}
                                         licenseKey="non-commercial-and-evaluation"
                                         data={filteredData}
@@ -729,7 +786,11 @@ export default function PageBody() {
                                             prop: string | number,
                                         ) {
                                             const header = RowHeader1[col]
-                                            return columnSettings[header] || {}
+                                            const base = columnSettings[header] || {}
+                                            const meta: any = { ...base }
+                                            const baseRenderer = (base as any).renderer
+                                            meta.renderer = withEllipsis(baseRenderer)
+                                            return meta
                                         }}
                                         contextMenu={{
                                             items: {
@@ -779,6 +840,7 @@ export default function PageBody() {
                                 width="auto"
                                 autoColumnSize={true}
                                 manualColumnResize={true}
+                                colWidths={getColWidthsForHeaders(RowHeader2)}
                                 hiddenColumns={userInfo?.role === "NCC" ? { columns: [5, 20], indicators: true } : { columns: [5] }}
                                 height="420px"
                                 stretchH="all"
@@ -791,7 +853,11 @@ export default function PageBody() {
                                 afterChange={handlePendingRowChange}
                                 cells={function (this: Handsontable.CellProperties, row: number, col: number, prop: string | number) {
                                     const header = RowHeader2[col]
-                                    return columnSettings[header] || {}
+                                    const base = columnSettings[header] || {}
+                                    const meta: any = { ...base }
+                                    const baseRenderer = (base as any).renderer
+                                    meta.renderer = withEllipsis(baseRenderer)
+                                    return meta
                                 }}
                             />
                         </div>
