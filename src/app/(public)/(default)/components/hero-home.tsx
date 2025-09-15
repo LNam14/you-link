@@ -220,6 +220,13 @@ export default function HeroHome() {
           external: true,
         },
         {
+          name: "Quản Lý Sites",
+          icon: <Database className="w-5 h-5" />,
+          href: "/quan-ly-site",
+          color: "bg-gradient-to-r from-purple-500 to-indigo-600",
+          external: true,
+        },
+        {
           name: "Đổi Mệnh Giá",
           icon: <Wallet className="w-5 h-5" />,
           action: () => setIsConverterModalVisible(true),
