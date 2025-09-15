@@ -10,6 +10,7 @@ import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
 import sheetApiRequest from "@/apiRequests/sheet"
 import { Modal, message, Spin } from "antd"
+import CurrencyConverterModal from "@/components/CurrencyConverterModal"
 import "./custom-table.css"
 import {
     Search,
@@ -218,6 +219,7 @@ export default function PageBody() {
         row: -1,
     })
     const [configError, setConfigError] = useState<string | null>(null)
+    const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false)
 
     const userInfo = getUserInfo()
 
@@ -673,6 +675,13 @@ export default function PageBody() {
                             <Plus className="w-4 h-4 mr-2" />
                             Thêm dòng
                         </button>
+                        <button
+                            onClick={() => setIsCurrencyModalOpen(true)}
+                            className="flex text-sm items-center px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-all duration-200 shadow-sm font-medium"
+                        >
+                            <Save className="w-4 h-4 mr-2" />
+                            Đổi mệnh giá
+                        </button>
                     </div>
                 </div>
                 <div className="flex flex-col space-y-5">
@@ -951,6 +960,12 @@ export default function PageBody() {
                     </div>
                 </div>
             </Modal>
+
+            {/* Currency Converter Modal */}
+            <CurrencyConverterModal
+                isVisible={isCurrencyModalOpen}
+                onClose={() => setIsCurrencyModalOpen(false)}
+            />
         </div>
     )
 }
