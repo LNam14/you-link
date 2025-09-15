@@ -100,6 +100,7 @@ export async function POST(request: Request) {
             username: userData.username,
             phone: userData.phone,
             role: userData.role,
+            position: userData.position,
             active: userData.active,
             amount: userData.amount,
         }

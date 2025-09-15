@@ -63,7 +63,7 @@ export default function AccountTracker() {
                         formattedData.push([
                             account.username,
                             account.password,
-                            account.name,
+                            account.name, // Name for Admin
                             account.role,
                             account.created_at,
                             account.updated_at,
@@ -80,7 +80,7 @@ export default function AccountTracker() {
                         formattedData.push([
                             account.username,
                             account.password,
-                            account.name,
+                            account.country || "Việt Nam", // Country for NCC
                             account.role,
                             account.created_at,
                             account.updated_at,
@@ -97,7 +97,7 @@ export default function AccountTracker() {
                         formattedData.push([
                             account.username,
                             account.password,
-                            account.name,
+                            account.name, // Name for NV
                             account.role,
                             account.position || "", // Add position field
                             account.created_at,
@@ -115,7 +115,7 @@ export default function AccountTracker() {
                         formattedData.push([
                             account.username,
                             account.password,
-                            account.name,
+                            account.country || "Việt Nam", // Country for KH
                             account.role,
                             account.created_at,
                             account.updated_at,
@@ -151,6 +151,16 @@ export default function AccountTracker() {
             return {
                 RowHeader1: [{ label: "Thông tin tài khoản", colspan: 9 }],
                 RowHeader2: ["Username", "Password", "Tên", "Vai trò", "Telegram", "Ngày tạo", "Ngày cập nhật", "Trạng thái", "Team"],
+            }
+        } else if (activeTab === "Admin") {
+            return {
+                RowHeader1: [{ label: "Thông tin tài khoản", colspan: 7 }],
+                RowHeader2: ["Username", "Password", "Tên", "Vai trò", "Ngày tạo", "Ngày cập nhật", "Trạng thái"],
+            }
+        } else if (activeTab === "NCC" || activeTab === "KH") {
+            return {
+                RowHeader1: [{ label: "Thông tin tài khoản", colspan: 7 }],
+                RowHeader2: ["Username", "Password", "Quốc gia", "Vai trò", "Ngày tạo", "Ngày cập nhật", "Trạng thái"],
             }
         }
         return {
@@ -245,6 +255,26 @@ export default function AccountTracker() {
                 // Add styling for team cell
                 td.style.backgroundColor = "#EFF6FF" // light blue background
                 td.style.color = "#1E40AF" // blue-800
+            }
+        }
+
+        // Country dropdown for column 2 (for NCC and KH tabs)
+        if (col === 2 && (activeTab === "NCC" || activeTab === "KH")) {
+            cellProperties.type = "dropdown"
+            cellProperties.source = ["Việt Nam", "Nước Ngoài"]
+            cellProperties.renderer = function (
+                instance: Handsontable.Core,
+                td: HTMLTableCellElement,
+                row: number,
+                col: number,
+                prop: string | number,
+                value: any,
+                cellProperties: Handsontable.CellProperties,
+            ) {
+                Handsontable.renderers.DropdownRenderer.apply(this, [instance, td, row, col, prop, value, cellProperties])
+                // Add styling for country cell
+                td.style.backgroundColor = "#F0FDF4" // light green background
+                td.style.color = "#166534" // green-800
             }
         }
 
@@ -349,6 +379,16 @@ export default function AccountTracker() {
                     else if (col === 4) {
                         // Ensure position is a string and trim whitespace
                         updateValue = String(newValue || "").trim()
+                    }
+                } else if (activeTab === "NCC" || activeTab === "KH") {
+                    // Handle country column (col 2 for NCC and KH)
+                    if (col === 2) {
+                        // Ensure country is one of the valid options
+                        if (newValue === "Việt Nam" || newValue === "Nước Ngoài") {
+                            updateValue = newValue
+                        } else {
+                            updateValue = "Việt Nam" // Default to Vietnam if invalid
+                        }
                     }
                 }
 
@@ -470,6 +510,11 @@ export default function AccountTracker() {
                 createData.position = "" // Add default empty position for new employees
             }
 
+            // Add country for NCC and KH accounts
+            if (activeTab === "NCC" || activeTab === "KH") {
+                createData.country = "Việt Nam" // Default country for new NCC and KH accounts
+            }
+
             const result: any = await authApiRequest.create(createData)
 
             if (!result.success) {
@@ -565,6 +610,16 @@ export default function AccountTracker() {
                 { data: 6 }, // Updated at
                 { data: 7 }, // Status
                 { data: 8 }, // Team
+            ]
+        } else if (activeTab === "NCC" || activeTab === "KH") {
+            return [
+                { data: 0 }, // Username
+                { data: 1 }, // Password
+                { data: 2 }, // Country
+                { data: 3 }, // Role
+                { data: 4 }, // Created at
+                { data: 5 }, // Updated at
+                { data: 6 }, // Status
             ]
         }
         return [

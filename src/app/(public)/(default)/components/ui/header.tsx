@@ -395,10 +395,10 @@ export default function Header() {
                   <div className="font-semibold mb-4">
                     <div className="flex items-center mb-4">
                       <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-pink-600 rounded-full flex items-center justify-center text-white font-bold">
-                        {userInfo?.name?.charAt(0) || userInfo?.username?.charAt(0)}
+                        {userInfo?.role === "NCC" ? userInfo?.username?.charAt(0) : userInfo?.name?.charAt(0)}
                       </div>
                       <div className="ml-3">
-                        <p className="text-sm font-medium text-gray-900">{userInfo?.name || userInfo?.username}</p>
+                        <p className="text-sm font-medium text-gray-900">{userInfo?.role === "NCC" ? userInfo?.name : userInfo?.username}</p>
                         <p className="text-xs text-gray-500">{getRoleName(userInfo?.role)}</p>
                       </div>
                     </div>
@@ -446,7 +446,7 @@ export default function Header() {
               {/* Desktop User Info */}
               {userInfo ? (
                 <div className="hidden md:flex flex-col items-end mr-2">
-                  <span className="text-sm font-medium text-gray-800">{userInfo?.name || userInfo?.username}</span>
+                  <span className="text-sm font-medium text-gray-800">{userInfo?.role === "NCC" ? userInfo?.username : userInfo?.name}</span>
                   <span className="text-xs text-gray-500">{getRoleName(userInfo?.role)}</span>
                 </div>
               ) : (
@@ -546,7 +546,7 @@ export default function Header() {
                       {userInfo?.username?.charAt(0) || "U"}
                     </div>
                     <div className="ml-3">
-                      <p className="font-medium text-gray-900">{userInfo?.name || userInfo?.username}</p>
+                      <p className="font-medium text-gray-900">{userInfo?.role === "NCC" ? userInfo?.username : userInfo?.name}</p>
                       <p className="text-sm text-gray-500 flex items-center">
                         <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1.5"></span>
                         {getRoleName(userInfo?.role)}

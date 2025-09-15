@@ -5,19 +5,32 @@ import { cookies } from "next/headers"
 
 const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
 
-// Column mapping to Google Sheets columns
+interface BulkUpdateRequest {
+    updates: Array<{
+        rowIndex: number
+        columnUpdates: Record<string, any>
+    }>
+    sheetType: number
+}
+
+interface BatchUpdateData {
+    range: string
+    values: any[][]
+}
+
+// Column mapping for different sheet types
 const COLUMN_MAPPING = {
     Site: "B",
     Bóng: "C",
     Bet: "D",
     "Chủ đề": "E",
     Nước: "F",
-    "Link out": "H",
-    DR: "I",
-    Keywords: "J",
-    "Traffic Tool": "K",
-    "Ghi chú": "L",
-    "Tình trạng": "M",
+    "Link out": "G",
+    DR: "H",
+    Keywords: "I",
+    "Traffic Tool": "J",
+    "Ghi chú": "K",
+    "Tình trạng": "L",
     "GP ($)": "S",
     "Text Footer ($)": "T",
     "Text Home ($)": "U",
@@ -38,11 +51,11 @@ export async function POST(req: Request) {
         await client.authorize()
         const gsapi = google.sheets({ version: "v4", auth: client })
 
-        const body = await req.json()
-        const { data, sheetType } = body
+        const body: BulkUpdateRequest = await req.json()
+        const { updates, sheetType } = body
 
-        if (!Array.isArray(data) || data.length === 0) {
-            return NextResponse.json({ error: "Invalid data format" }, { status: 400 })
+        if (!Array.isArray(updates) || updates.length === 0) {
+            return NextResponse.json({ error: "Invalid updates data" }, { status: 400 })
         }
 
         // Get user info from cookies
@@ -54,23 +67,14 @@ export async function POST(req: Request) {
         // Determine sheet names based on sheetType
         const sheetNames = sheetType === 1 ? ["1", "4"] : ["2", "5"]
 
-        // Prepare batch update data
-        const batchUpdateData: Array<{
-            range: string
-            values: any[][]
-        }> = []
+        // Group updates by range to optimize batch operations
+        const rangeUpdates: Record<string, BatchUpdateData> = {}
 
-        // Process each update
-        for (const update of data) {
-            const { rowIndex, changes } = update
+        for (const update of updates) {
+            const { rowIndex, columnUpdates } = update
 
-            if (!rowIndex || !changes) {
-                console.warn("Invalid update format:", update)
-                continue
-            }
-
-            // Process each column change
-            for (const [columnName, value] of Object.entries(changes)) {
+            // Process each column update
+            for (const [columnName, value] of Object.entries(columnUpdates)) {
                 const columnLetter = COLUMN_MAPPING[columnName as keyof typeof COLUMN_MAPPING]
 
                 if (!columnLetter) {
@@ -81,21 +85,26 @@ export async function POST(req: Request) {
                 // Try both sheet names for the update
                 for (const sheetName of sheetNames) {
                     const range = `${sheetName}!${columnLetter}${rowIndex}`
-                    batchUpdateData.push({
-                        range,
-                        values: [[value === null || value === undefined ? "" : value]],
-                    })
+
+                    if (!rangeUpdates[range]) {
+                        rangeUpdates[range] = {
+                            range,
+                            values: [[value === null || value === undefined ? "" : value]],
+                        }
+                    }
                 }
             }
         }
+
+        // Execute batch update
+        const batchUpdateData = Object.values(rangeUpdates)
 
         if (batchUpdateData.length === 0) {
             return NextResponse.json({ error: "No valid updates to process" }, { status: 400 })
         }
 
-        console.log(`[v0] Processing ${batchUpdateData.length} updates for ${data.length} rows`)
+        console.log(`[v0] Processing ${batchUpdateData.length} range updates for ${updates.length} row updates`)
 
-        // Execute batch update
         const response = await gsapi.spreadsheets.values.batchUpdate({
             spreadsheetId: SPREADSHEET_ID,
             requestBody: {
@@ -104,22 +113,24 @@ export async function POST(req: Request) {
             },
         })
 
-        console.log(`[v0] Update completed: ${response.data.totalUpdatedCells} cells updated`)
+        // Log successful update
+        console.log(`[v0] Bulk update completed successfully: ${response.data.totalUpdatedCells} cells updated`)
 
         return NextResponse.json(
             {
                 success: true,
                 updatedCells: response.data.totalUpdatedCells,
-                message: `Successfully updated ${response.data.totalUpdatedCells} cells`,
+                updatedRanges: batchUpdateData.length,
+                message: `Successfully updated ${response.data.totalUpdatedCells} cells across ${updates.length} rows`,
             },
             { status: 200 },
         )
     } catch (error: any) {
-        console.error("Error updating Google Sheet:", error)
+        console.error("Error in bulk update:", error)
         return NextResponse.json(
             {
                 error: true,
-                message: error.message || "Unknown error occurred",
+                message: error.message || "Unknown error occurred during bulk update",
             },
             { status: 500 },
         )

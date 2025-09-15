@@ -1,5 +1,7 @@
 "use client"
 import { useEffect, useState, useCallback, useMemo } from "react"
+import type React from "react"
+
 import { HotTable } from "@handsontable/react-wrapper"
 import { registerAllModules } from "handsontable/registry"
 import Handsontable from "handsontable"
@@ -7,7 +9,7 @@ import "handsontable/styles/handsontable.css"
 import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
 import sheetApiRequest from "@/apiRequests/sheet"
-import { Modal, message, Spin, Dropdown } from "antd"
+import { Modal, message, Spin } from "antd"
 import "./custom-table.css"
 import {
     Search,
@@ -24,7 +26,6 @@ import {
     AlertCircle,
     CheckCircle2,
     Info,
-    Trash2,
 } from "lucide-react"
 import getUserInfo from "@/components/userInfo"
 
@@ -35,6 +36,8 @@ registerAllModules()
 const RowHeader1 = [
     "STT",
     "Site",
+    "Bóng",
+    "Bet",
     "Chủ đề",
     "Nước",
     "Link out",
@@ -53,19 +56,20 @@ const RowHeader1 = [
     "Kê Text",
     "NCC",
 ]
+
 const RowHeader11: any = [
     { label: ``, colspan: 1 },
-    { label: "INFO", colspan: 9 },
+    { label: "INFO", colspan: 11 },
     { label: "Giá", colspan: 4 },
     { label: "Hoa hồng", colspan: 2 },
     { label: "Kê thêm", colspan: 2 },
-    { label: "", colspan: 2 }
+    { label: "", colspan: 1 },
 ]
-
-const userInfo = getUserInfo()
 
 const RowHeader2 = [
     "Site",
+    "Bóng",
+    "Bet",
     "Chủ đề",
     "Nước",
     "Link out",
@@ -79,8 +83,21 @@ const RowHeader2 = [
     "Text Header ($)",
     "HH GP",
     "HH Text",
-    ...(userInfo?.role !== "NCC" ? ["NCC"] : [])
+    "Kê GP",
+    "Kê Text",
 ]
+
+const getInitialDataType = () => {
+    const userInfo = getUserInfo()
+    if (userInfo?.role === "NCC") {
+        if (userInfo?.name === "Việt Nam") {
+            return 1 // Data Việt Nam
+        } else if (userInfo?.name === "Nước Ngoài") {
+            return 2 // Data Nước Ngoài
+        }
+    }
+    return 1 // Default to Data Việt Nam
+}
 
 // Define column settings
 const columnSettings: Record<string, any> = {
@@ -121,11 +138,10 @@ export default function PageBody() {
     const [dataNN, setDataNN] = useState<any[]>([])
     const [searchText, setSearchText] = useState("")
     const [filteredData, setFilteredData] = useState<any[]>([])
-    const [dataType, setDataType] = useState<1 | 2>(1) // 1 for VN, 2 for NN
+    const [dataType, setDataType] = useState<1 | 2>(getInitialDataType()) // 1 for VN, 2 for NN
     const [isAddModalVisible, setIsAddModalVisible] = useState(false)
     const [numberOfRows, setNumberOfRows] = useState(1)
     const [pendingRows, setPendingRows] = useState<any[]>([])
-    const [isTableLoading, setIsTableLoading] = useState(false)
     const [messageApi, contextHolder] = message.useMessage()
     const [initialLoading, setInitialLoading] = useState(true)
     const [showSearchHelp, setShowSearchHelp] = useState(false)
@@ -135,7 +151,11 @@ export default function PageBody() {
         x: 0,
         y: 0,
         row: -1,
-    });
+    })
+    const [configError, setConfigError] = useState<string | null>(null)
+
+    const userInfo = getUserInfo()
+
     // Stats for dashboard
     const stats = useMemo(() => {
         const currentData = dataType === 1 ? dataVN : dataNN
@@ -149,15 +169,32 @@ export default function PageBody() {
     const fetchData = useCallback(async () => {
         try {
             setLoading(true)
-            const data: any = await sheetApiRequest.getData()
+            setConfigError(null)
+            console.log("[v0] Starting data fetch...")
+            const data: any = await sheetApiRequest.getDataUpdateSite()
+            console.log("[v0] Data fetch completed successfully")
             setDataVN(data.updateVN)
             setDataNN(data.updateNN)
-        } catch (error) {
-            console.error("Error fetching data:", error)
-            messageApi.error({
-                content: "Có lỗi xảy ra khi tải dữ liệu",
-                icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
-            })
+        } catch (error: any) {
+            console.error("[v0] Error fetching data:", error)
+            if (
+                error.message.includes("REPLACE_WITH_YOUR_ACTUAL_PRIVATE_KEY") ||
+                error.message.includes("your-google-cloud-project-id")
+            ) {
+                setConfigError("Vui lòng cấu hình file key.json với thông tin Google Service Account thực tế")
+            } else if (error.message.includes("timeout") || error.message.includes("Request timeout")) {
+                messageApi.error({
+                    content: "Kết nối quá chậm (timeout 120s), vui lòng kiểm tra kết nối mạng và thử lại",
+                    icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
+                    duration: 8,
+                })
+            } else {
+                messageApi.error({
+                    content: `Có lỗi xảy ra khi tải dữ liệu: ${error.message}`,
+                    icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
+                    duration: 5,
+                })
+            }
         } finally {
             setLoading(false)
             setInitialLoading(false)
@@ -170,17 +207,17 @@ export default function PageBody() {
 
     useEffect(() => {
         if (searchText.trim()) {
-            setIsTableLoading(true)
             const searchTerms = searchText.split(/[\n\s]+/).filter((term) => term.trim())
             const dataToFilter = dataType === 1 ? dataVN : dataNN
             const filtered = dataToFilter.filter((row) => {
                 const siteMatch = searchTerms.some((term) => row.Site?.toLowerCase().includes(term.toLowerCase()))
                 const maNCCMatch = searchTerms.some((term) => row.MaNCC?.toLowerCase().includes(term.toLowerCase()))
-                const hasData = Object.keys(row).some((key) => key !== "Site" && key !== "MaNCC" && row[key] && row[key].toString().trim() !== "")
+                const hasData = Object.keys(row).some(
+                    (key) => key !== "Site" && key !== "MaNCC" && row[key] && row[key].toString().trim() !== "",
+                )
                 return (siteMatch || maNCCMatch) && hasData
             })
             setFilteredData(filtered)
-            setIsTableLoading(false)
         } else {
             setFilteredData([])
         }
@@ -193,15 +230,16 @@ export default function PageBody() {
                     const [row, prop, oldValue, newValue] = change
                     const columnName = typeof prop === "string" ? prop : RowHeader1[prop as number]
 
-                    if (!columnName) return acc
+                    if (!columnName || oldValue === newValue) return acc
 
                     const dataToUse = dataType === 1 ? dataVN : dataNN
                     const currentRow = searchText.trim() ? filteredData[row] : dataToUse[row]
-                    const rowIndex = currentRow?.rowIndex ?? row
+
+                    const actualRowIndex = currentRow?.rowIndex || row + 2
 
                     if (!acc[row]) {
                         acc[row] = {
-                            rowIndex: rowIndex,
+                            rowIndex: actualRowIndex,
                             changes: {},
                         }
                     }
@@ -213,13 +251,27 @@ export default function PageBody() {
                 const updates = Object.values(updatesByRow)
 
                 if (updates.length > 0) {
-                    sheetApiRequest.updateData(updates, dataType).then(() => {
-                        fetchData(); // Reload data after update
-                        messageApi.success({
-                            content: "Dữ liệu đã được cập nhật thành công",
-                            icon: <CheckCircle2 className="text-green-500 mr-2" size={16} />,
-                        });
-                    });
+                    console.log("[v0] Sending updates:", updates)
+                    sheetApiRequest
+                        .updateData(updates, dataType)
+                        .then((result) => {
+                            fetchData()
+                        })
+                        .catch((error) => {
+                            console.error("[v0] Update error:", error)
+                            if (error.message.includes("timeout") || error.message.includes("Request timeout")) {
+                                messageApi.error({
+                                    content: "Cập nhật timeout (90s), vui lòng thử lại",
+                                    icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
+                                    duration: 8,
+                                })
+                            } else {
+                                messageApi.error({
+                                    content: `Lỗi cập nhật: ${error.message}`,
+                                    icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
+                                })
+                            }
+                        })
                 }
             }
         },
@@ -259,10 +311,6 @@ export default function PageBody() {
 
             if (updates.length > 0) {
                 sheetApiRequest.updateData(updates, dataType)
-                messageApi.success({
-                    content: "Dữ liệu đã được cập nhật thành công",
-                    icon: <CheckCircle2 className="text-green-500 mr-2" size={16} />,
-                })
             }
         },
         [dataType, dataVN, dataNN, filteredData, searchText, messageApi],
@@ -285,10 +333,6 @@ export default function PageBody() {
 
             if (updates.length > 0) {
                 sheetApiRequest.updateData(updates, dataType)
-                messageApi.success({
-                    content: "Dữ liệu đã được cập nhật thành công",
-                    icon: <CheckCircle2 className="text-green-500 mr-2" size={16} />,
-                })
             }
         },
         [dataType, dataVN, dataNN, filteredData, searchText, messageApi],
@@ -299,6 +343,8 @@ export default function PageBody() {
             const newRows = Array.from({ length: numberOfRows }, () => {
                 const baseRow = {
                     Site: "",
+                    Bóng: "",
+                    Bet: "",
                     "Chủ đề": "",
                     Nước: "",
                     "Link out": "",
@@ -311,19 +357,20 @@ export default function PageBody() {
                     "Text Home ($)": "",
                     "Text Header ($)": "",
                     "HH GP": "",
-                    "HH Text": ""
-                };
+                    "HH Text": "",
+                    "Kê GP": "",
+                    "Kê Text": "",
+                }
 
-                // Add NCC column if user role is not NCC
                 if (userInfo?.role !== "NCC") {
                     return {
                         ...baseRow,
-                        NCC: ""
-                    };
+                        NCC: "",
+                    }
                 }
 
-                return baseRow;
-            });
+                return baseRow
+            })
 
             setPendingRows(newRows)
             setIsAddModalVisible(false)
@@ -339,7 +386,7 @@ export default function PageBody() {
                 icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
             })
         }
-    }, [numberOfRows, messageApi, userInfo?.role])
+    }, [numberOfRows, messageApi, userInfo?.role, dataType])
 
     const handlePendingRowChange = useCallback(
         (changes: Handsontable.CellChange[] | null, source: "edit" | "paste" | Handsontable.ChangeSource) => {
@@ -361,36 +408,34 @@ export default function PageBody() {
                 setPendingRows(newPendingRows)
             }
         },
-        [pendingRows],
+        [pendingRows, dataType],
     )
 
     const handleSavePendingRows = useCallback(async () => {
         try {
             const rowsToSave = pendingRows.filter((row) =>
-                Object.entries(row).some(([key, value]) =>
-                    key !== "Tình trạng" && value && value.toString().trim() !== ""
-                ),
+                Object.entries(row).some(([key, value]) => key !== "Tình trạng" && value && value.toString().trim() !== ""),
             )
 
             if (rowsToSave.length > 0) {
                 Modal.confirm({
-                    title: 'Xác nhận thêm dữ liệu',
+                    title: "Xác nhận thêm dữ liệu",
                     content: `Bạn có chắc chắn muốn thêm ${rowsToSave.length} site không?`,
-                    okText: 'Đồng ý',
-                    cancelText: 'Hủy',
+                    okText: "Đồng ý",
+                    cancelText: "Hủy",
                     okButtonProps: {
                         className: "bg-green-600 hover:bg-green-700",
                     },
                     onOk: async () => {
                         await sheetApiRequest.appendRows(rowsToSave, dataType)
-                        await fetchData(); // Reload data after adding new rows
+                        await fetchData() // Reload data after adding new rows
                         setPendingRows([])
                         setActiveTab("data")
                         messageApi.success({
                             content: `Đã thêm thành công ${rowsToSave.length} site`,
                             icon: <CheckCircle2 className="text-green-500 mr-2" size={16} />,
                         })
-                    }
+                    },
                 })
             } else {
                 messageApi.warning({
@@ -405,7 +450,7 @@ export default function PageBody() {
                 icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
             })
         }
-    }, [pendingRows, dataType, messageApi, fetchData]);
+    }, [pendingRows, dataType, messageApi, fetchData])
 
     const clearSearch = useCallback(() => {
         setSearchText("")
@@ -413,54 +458,57 @@ export default function PageBody() {
     }, [])
 
     const handleContextMenu = useCallback((event: React.MouseEvent, row: number) => {
-        event.preventDefault();
+        event.preventDefault()
         setContextMenu({
             visible: true,
             x: event.clientX,
             y: event.clientY,
             row,
-        });
-    }, []);
+        })
+    }, [])
 
-    const handleDeleteRow = useCallback(async (row: number) => {
-        try {
-            const dataToUse = dataType === 1 ? dataVN : dataNN;
-            const currentRow = searchText.trim() ? filteredData[row] : dataToUse[row];
-            const actualRowIndex = currentRow.rowIndex;
+    const handleDeleteRow = useCallback(
+        async (row: number) => {
+            try {
+                const dataToUse = dataType === 1 ? dataVN : dataNN
+                const currentRow = searchText.trim() ? filteredData[row] : dataToUse[row]
+                const actualRowIndex = currentRow.rowIndex
 
-            Modal.confirm({
-                title: 'Xác nhận xóa dòng',
-                content: 'Bạn có chắc chắn muốn xóa dòng này không?',
-                okText: 'Đồng ý',
-                cancelText: 'Hủy',
-                okButtonProps: {
-                    className: "bg-green-600 hover:bg-green-700",
-                },
-                onOk: async () => {
-                    try {
-                        await sheetApiRequest.deleteRow(actualRowIndex, dataType);
-                        await fetchData(); // Reload data after deletion
-                        messageApi.success({
-                            content: "Đã xóa dòng thành công",
-                            icon: <CheckCircle2 className="text-green-500 mr-2" size={16} />,
-                        });
-                    } catch (error) {
-                        console.error("Error deleting row:", error);
-                        messageApi.error({
-                            content: "Có lỗi xảy ra khi xóa dòng",
-                            icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
-                        });
-                    }
-                }
-            });
-        } catch (error) {
-            console.error("Error preparing delete row:", error);
-            messageApi.error({
-                content: "Có lỗi xảy ra khi chuẩn bị xóa dòng",
-                icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
-            });
-        }
-    }, [dataType, dataVN, dataNN, filteredData, searchText, messageApi, fetchData]);
+                Modal.confirm({
+                    title: "Xác nhận xóa dòng",
+                    content: "Bạn có chắc chắn muốn xóa dòng này không?",
+                    okText: "Đồng ý",
+                    cancelText: "Hủy",
+                    okButtonProps: {
+                        className: "bg-green-600 hover:bg-green-700",
+                    },
+                    onOk: async () => {
+                        try {
+                            await sheetApiRequest.deleteRow(actualRowIndex, dataType)
+                            await fetchData() // Reload data after deletion
+                            messageApi.success({
+                                content: "Đã xóa dòng thành công",
+                                icon: <CheckCircle2 className="text-green-500 mr-2" size={16} />,
+                            })
+                        } catch (error) {
+                            console.error("Error deleting row:", error)
+                            messageApi.error({
+                                content: "Có lỗi xảy ra khi xóa dòng",
+                                icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
+                            })
+                        }
+                    },
+                })
+            } catch (error) {
+                console.error("Error preparing delete row:", error)
+                messageApi.error({
+                    content: "Có lỗi xảy ra khi chuẩn bị xóa dòng",
+                    icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
+                })
+            }
+        },
+        [dataType, dataVN, dataNN, filteredData, searchText, messageApi, fetchData],
+    )
 
     if (initialLoading) {
         return (
@@ -469,6 +517,33 @@ export default function PageBody() {
                     <Spin size="large" />
                     <p className="mt-6 text-blue-800 font-medium text-lg">Đang tải dữ liệu...</p>
                     <p className="text-blue-600 text-sm mt-2">Vui lòng đợi trong giây lát</p>
+                </div>
+            </div>
+        )
+    }
+
+    if (configError) {
+        return (
+            <div className="w-full h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-50">
+                <div className="text-center bg-white p-8 rounded-2xl shadow-lg border border-red-100 max-w-md">
+                    <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                    <h2 className="text-xl font-bold text-red-800 mb-4">Cần cấu hình Google Service Account</h2>
+                    <p className="text-red-600 mb-6">{configError}</p>
+                    <div className="text-left bg-red-50 p-4 rounded-lg border border-red-200">
+                        <p className="font-medium text-red-800 mb-2">Hướng dẫn:</p>
+                        <ol className="list-decimal list-inside text-sm text-red-700 space-y-1">
+                            <li>Tạo Google Service Account tại Google Cloud Console</li>
+                            <li>Tải file JSON credentials</li>
+                            <li>Thay thế nội dung file key.json bằng thông tin thực tế</li>
+                            <li>Chia sẻ Google Sheet với email service account</li>
+                        </ol>
+                    </div>
+                    <button
+                        onClick={fetchData}
+                        className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                        Thử lại
+                    </button>
                 </div>
             </div>
         )
@@ -507,26 +582,30 @@ export default function PageBody() {
                 <div className="flex flex-col space-y-5">
                     <div className="flex flex-wrap justify-between items-center gap-4">
                         <div className="flex space-x-3">
-                            <button
-                                onClick={() => setDataType(1)}
-                                className={`px-5 text-sm py-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 font-medium ${dataType === 1
-                                    ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md transform scale-105"
-                                    : "bg-white text-blue-700 border border-blue-200 hover:bg-blue-50"
-                                    }`}
-                            >
-                                <Database className="w-4 h-4" />
-                                Data VN
-                            </button>
-                            <button
-                                onClick={() => setDataType(2)}
-                                className={`px-5 text-sm py-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 font-medium ${dataType === 2
-                                    ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md transform scale-105"
-                                    : "bg-white text-blue-700 border border-blue-200 hover:bg-blue-50"
-                                    }`}
-                            >
-                                <Globe className="w-4 h-4" />
-                                Data NN
-                            </button>
+                            {(userInfo?.role !== "NCC" || userInfo?.name === "Việt Nam" || !userInfo?.name) && (
+                                <button
+                                    onClick={() => setDataType(1)}
+                                    className={`px-5 text-sm py-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 font-medium ${dataType === 1
+                                        ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md transform scale-105"
+                                        : "bg-white text-blue-700 border border-blue-200 hover:bg-blue-50"
+                                        }`}
+                                >
+                                    <Database className="w-4 h-4" />
+                                    Data Việt Nam
+                                </button>
+                            )}
+                            {(userInfo?.role !== "NCC" || userInfo?.name === "Nước Ngoài" || !userInfo?.name) && (
+                                <button
+                                    onClick={() => setDataType(2)}
+                                    className={`px-5 text-sm py-2.5 rounded-lg transition-all duration-300 flex items-center gap-2 font-medium ${dataType === 2
+                                        ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md transform scale-105"
+                                        : "bg-white text-blue-700 border border-blue-200 hover:bg-blue-50"
+                                        }`}
+                                >
+                                    <Globe className="w-4 h-4" />
+                                    Data Nước Ngoài
+                                </button>
+                            )}
                         </div>
                     </div>
                     <div className="relative mt-2">
@@ -581,25 +660,34 @@ export default function PageBody() {
                 <div className="flex border-b border-blue-100">
                     <button
                         onClick={() => setActiveTab("data")}
-                        className={`flex-1 py-2 px-6 font-medium text-center transition-all duration-200 ${activeTab === "data"
-                            ? "text-blue-700 border-b-2 border-blue-600 bg-blue-50"
-                            : "text-blue-500 hover:bg-blue-50"
+                        className={`flex-1 py-3 px-6 font-semibold text-center transition-all duration-300 ${activeTab === "data"
+                            ? "text-white bg-gradient-to-r from-blue-600 to-blue-700 border-b-4 border-blue-800 shadow-lg shadow-blue-500/25"
+                            : "text-blue-600 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 border border-blue-200 hover:border-blue-300"
                             }`}
                     >
-                        Dữ Liệu Cập Nhật
+                        <div className="flex items-center justify-center gap-2">
+                            <Database className="w-4 h-4" />
+                            <span className="font-bold">Dữ Liệu Cập Nhật</span>
+                        </div>
                     </button>
                     {pendingRows.length > 0 && (
                         <button
                             onClick={() => setActiveTab("pending")}
-                            className={`flex-1 py-2 px-6 font-medium text-center transition-all duration-200 relative ${activeTab === "pending"
-                                ? "text-blue-700 border-b-2 border-blue-600 bg-blue-50"
-                                : "text-blue-500 hover:bg-blue-50"
+                            className={`flex-1 py-3 px-6 font-semibold text-center transition-all duration-300 relative ${activeTab === "pending"
+                                ? "text-white bg-gradient-to-r from-green-500 to-green-600 border-b-4 border-green-700 shadow-lg shadow-green-500/25"
+                                : "text-green-600 bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 border border-green-200 hover:border-green-300"
                                 }`}
                         >
-                            Dữ Liệu Chờ Thêm
-                            <span className="absolute top-3 right-3 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                                {pendingRows.length}
-                            </span>
+                            <div className="flex items-center justify-center gap-2">
+                                <Plus className="w-4 h-4" />
+                                <span className="font-bold">Dữ Liệu Chờ Thêm</span>
+                                <span
+                                    className={`absolute top-2 right-2 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold ${activeTab === "pending" ? "bg-green-800" : "bg-green-500"
+                                        }`}
+                                >
+                                    {pendingRows.length}
+                                </span>
+                            </div>
                         </button>
                     )}
                 </div>
@@ -608,58 +696,58 @@ export default function PageBody() {
                     <div className="p-0">
                         {searchText.trim() ? (
                             <div className="relative overflow-hidden border border-blue-200 shadow-sm">
-                                {isTableLoading && (
-                                    <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center z-10 backdrop-blur-sm">
-                                        <div className="text-center">
-                                            <Spin indicator={<Loader2 className="w-8 h-8 animate-spin text-blue-600" />} />
-                                            <p className="mt-4 text-blue-700 font-medium">Đang tải dữ liệu...</p>
-                                        </div>
-                                    </div>
-                                )}
                                 {filteredData.length === 0 && searchText.trim() ? (
                                     <div className="flex flex-col items-center justify-center py-8 text-center bg-white">
                                         <Search className="w-12 h-12 text-blue-300 mb-4" />
                                         <h3 className="text-lg font-medium text-blue-900 mb-2">Không tìm thấy kết quả</h3>
                                         <p className="text-blue-600">Không có dữ liệu nào phù hợp với từ khóa tìm kiếm của bạn</p>
                                     </div>
-                                ) : (<HotTable
-                                    themeName="ht-theme-main"
-                                    nestedHeaders={[RowHeader11, RowHeader1]}
-                                    filters={true}
-                                    width="auto"
-                                    autoColumnSize={true}
-                                    manualColumnResize={true}
-                                    height="calc(100vh - 500px)"
-                                    stretchH="all"
-                                    manualRowMove={true}
-                                    manualColumnMove={true}
-                                    manualRowResize={true}
-                                    className="custom-table"
-                                    licenseKey="non-commercial-and-evaluation"
-                                    data={filteredData}
-                                    afterChange={handleAfterChange}
-                                    afterPaste={handleAfterPaste}
-                                    afterRemoveRow={handleAfterRemoveRow}
-                                    cells={function (this: Handsontable.CellProperties, row: number, col: number, prop: string | number) {
-                                        const header = RowHeader1[col]
-                                        return columnSettings[header] || {}
-                                    }}
-                                    contextMenu={{
-                                        items: {
-                                            delete_row: {
-                                                name: 'Xóa dòng',
-                                                callback: function (key: string, selection: any, clickEvent: any) {
-                                                    handleDeleteRow(selection[0].start.row);
-                                                }
-                                            }
-                                        }
-                                    }}
-                                />)}
+                                ) : (
+                                    <HotTable
+                                        themeName="ht-theme-main"
+                                        nestedHeaders={[RowHeader11, RowHeader1]}
+                                        filters={true}
+                                        width="auto"
+                                        autoColumnSize={true}
+                                        manualColumnResize={true}
+                                        height="calc(100vh)"
+                                        stretchH="all"
+                                        manualRowMove={true}
+                                        manualColumnMove={true}
+                                        manualRowResize={true}
+                                        className="custom-table"
+                                        hiddenColumns={userInfo?.role === "NCC" ? { columns: [5, 20], indicators: true } : { columns: [5] }}
+                                        licenseKey="non-commercial-and-evaluation"
+                                        data={filteredData}
+                                        afterChange={handleAfterChange}
+                                        afterPaste={handleAfterPaste}
+                                        afterRemoveRow={handleAfterRemoveRow}
+                                        cells={function (
+                                            this: Handsontable.CellProperties,
+                                            row: number,
+                                            col: number,
+                                            prop: string | number,
+                                        ) {
+                                            const header = RowHeader1[col]
+                                            return columnSettings[header] || {}
+                                        }}
+                                        contextMenu={{
+                                            items: {
+                                                delete_row: {
+                                                    name: "Xóa dòng",
+                                                    callback: (key: string, selection: any, clickEvent: any) => {
+                                                        handleDeleteRow(selection[0].start.row)
+                                                    },
+                                                },
+                                            },
+                                        }}
+                                    />
+                                )}
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-12 text-center">
                                 <Search className="w-12 h-12 text-blue-300 mb-4" />
-                                <h3 className="text-lg font-medium text-blue-900 mb-2">Nhập từ khóa tìm kiếm</h3>
+                                <h3 className="text-lg font-semibold text-blue-900 mb-2">Nhập từ khóa tìm kiếm</h3>
                                 <p className="text-blue-600">Vui lòng nhập từ khóa tìm kiếm để xem dữ liệu</p>
                             </div>
                         )}
@@ -684,11 +772,6 @@ export default function PageBody() {
                             </button>
                         </div>
                         <div className="relative overflow-hidden border border-blue-200 shadow-sm">
-                            {isTableLoading && (
-                                <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center z-10 backdrop-blur-sm">
-                                    <Spin indicator={<Loader2 className="w-8 h-8 animate-spin text-blue-600" />} />
-                                </div>
-                            )}
                             <HotTable
                                 themeName="ht-theme-main"
                                 colHeaders={RowHeader2}
@@ -696,7 +779,8 @@ export default function PageBody() {
                                 width="auto"
                                 autoColumnSize={true}
                                 manualColumnResize={true}
-                                height="300px"
+                                hiddenColumns={userInfo?.role === "NCC" ? { columns: [5, 20], indicators: true } : { columns: [5] }}
+                                height="420px"
                                 stretchH="all"
                                 manualRowMove={true}
                                 manualColumnMove={true}

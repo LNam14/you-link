@@ -1,28 +1,28 @@
 import { google } from "googleapis";
-import { NextResponse } from 'next/server';
-import { cache } from 'react';
-import { cookies } from 'next/headers';
-
-// Import keys securely (consider using environment variables instead)
+import { NextResponse } from "next/server";
+import { cache } from "react";
+import { cookies } from "next/headers";
 import keys from "../../../../key.json";
 
-const SPREADSHEET_ID = '10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU';
-const CONTENT_SPREADSHEET_ID = '1SDvAA8pPWUl2Fi2ubFIFttS5D7rA1P-DHrHuJj9X4Z8';
+const SPREADSHEET_ID =
+    "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU";
+const CONTENT_SPREADSHEET_ID =
+    "1SDvAA8pPWUl2Fi2ubFIFttS5D7rA1P-DHrHuJj9X4Z8";
 
 interface SheetConfig {
     range: string;
-    formatter: (row: any[], index: number) => Record<string, string | number>;
+    formatter: (row: any[], index: number) => Record<string, any>;
     spreadsheetId?: string;
 }
 
 const sheetConfigs: Record<string, SheetConfig> = {
     gpTextVN: {
-        range: '1!B3:AM',
+        range: "1!B3:AM,4!B3:AM",
         formatter: (row) => ({
             Site: row[0] || "",
-            'Đi Bóng': row[1] || "",
+            "Đi Bóng": row[1] || "",
             "Đi BET": row[2] || "",
-            'Chủ đề': row[3] || "",
+            "Chủ đề": row[3] || "",
             "Ngày cập nhật": row[5] || "",
             "Link out": row[6] || "",
             DR: row[7] || "",
@@ -43,15 +43,15 @@ const sheetConfigs: Record<string, SheetConfig> = {
             NCC: row[25] || "",
             MaNCC: row[26] || "",
         }),
-        spreadsheetId: SPREADSHEET_ID
+        spreadsheetId: SPREADSHEET_ID,
     },
     updateVN: {
-        range: '1!B3:AM',
+        range: "1!B3:AM,4!B3:AM",
         formatter: (row, index) => ({
             rowIndex: index + 3,
             Site: row[0] || "",
-            'Chủ đề': row[3] || "",
-            'Nước': row[4] || "",
+            "Chủ đề": row[3] || "",
+            Nước: row[4] || "",
             "Link out": row[6] || "",
             DR: row[7] || "",
             Keywords: row[8] || "",
@@ -66,17 +66,17 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "HH Text": row[22] || 0,
             "Kê GP": row[23] || 0,
             "Kê Text": row[24] || 0,
-            "MaNCC": row[26] || "",
+            MaNCC: row[26] || "",
         }),
-        spreadsheetId: SPREADSHEET_ID
+        spreadsheetId: SPREADSHEET_ID,
     },
     updateNN: {
-        range: '2!B3:AM',
+        range: "2!B3:AM,5!B3:AM",
         formatter: (row, index) => ({
             rowIndex: index + 3,
             Site: row[0] || "",
-            'Chủ đề': row[3] || "",
-            'Nước': row[4] || "",
+            "Chủ đề": row[3] || "",
+            Nước: row[4] || "",
             "Link out": row[6] || "",
             DR: row[7] || "",
             Keywords: row[8] || "",
@@ -91,17 +91,17 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "HH Text": row[22] || 0,
             "Kê GP": row[23] || 0,
             "Kê Text": row[24] || 0,
-            "MaNCC": row[26] || "",
+            MaNCC: row[26] || "",
         }),
-        spreadsheetId: SPREADSHEET_ID
+        spreadsheetId: SPREADSHEET_ID,
     },
     gpTextNN: {
-        range: '2!B3:AH',
+        range: "2!B3:AM,5!B3:AM",
         formatter: (row) => ({
             Site: row[0] || "",
-            'Đi Bóng': row[1] || "",
+            "Đi Bóng": row[1] || "",
             "Đi BET": row[2] || "",
-            'Chủ đề': row[3] || "",
+            "Chủ đề": row[3] || "",
             "Ngày cập nhật": row[5] || "",
             "Link out": row[6] || "",
             DR: row[7] || "",
@@ -122,10 +122,10 @@ const sheetConfigs: Record<string, SheetConfig> = {
             NCC: row[25] || "",
             MaNCC: row[26] || "",
         }),
-        spreadsheetId: SPREADSHEET_ID
+        spreadsheetId: SPREADSHEET_ID,
     },
     content: {
-        range: 'Content!Z3:AH',
+        range: "Content!Z3:AH",
         formatter: (row) => ({
             MaNCC: row[0] || "",
             TenSP: row[1] || "",
@@ -133,8 +133,8 @@ const sheetConfigs: Record<string, SheetConfig> = {
             GiaBan: row[4] || 0,
             Note: row[5] || "",
         }),
-        spreadsheetId: CONTENT_SPREADSHEET_ID
-    }
+        spreadsheetId: CONTENT_SPREADSHEET_ID,
+    },
 };
 
 const getAuthClient = cache(async () => {
@@ -142,67 +142,118 @@ const getAuthClient = cache(async () => {
         keys.client_email,
         undefined,
         keys.private_key,
-        ['https://www.googleapis.com/auth/spreadsheets']
+        ["https://www.googleapis.com/auth/spreadsheets"]
     );
     await client.authorize();
     return client;
 });
 
-const getSheetData = cache(async (gsapi: any, config: SheetConfig, configKey: string, userInfo: { role?: string, username?: string }) => {
-    const { data } = await gsapi.spreadsheets.values.get({
-        spreadsheetId: config.spreadsheetId || SPREADSHEET_ID,
-        range: config.range,
-    });
-    // Lấy dữ liệu và ánh xạ qua formatter
-    const formattedData = (data.values || []).map((row: any[], index: number) => config.formatter(row, index));
+// Cache kết quả trong 3 phút
+const sheetCache = new Map<string, { data: any; expiry: number }>();
 
-    // Filter based on role and config type
-    let filteredData = formattedData;
-
-    // Special handling for content data - skip filtering
-    if (configKey === 'content') {
-        return formattedData;
+async function getSheetsData(
+    gsapi: any,
+    configs: Record<string, SheetConfig>,
+    userInfo: { role?: string; username?: string }
+) {
+    // Gom ranges theo spreadsheetId
+    const grouped: Record<string, { key: string; config: SheetConfig }[]> = {};
+    for (const [key, config] of Object.entries(configs)) {
+        const id = config.spreadsheetId || SPREADSHEET_ID;
+        if (!grouped[id]) grouped[id] = [];
+        grouped[id].push({ key, config });
     }
 
-    if (userInfo?.role === 'NCC') {
-        if (configKey === 'updateVN' || configKey === 'updateNN') {
-            // For NCC users, only show rows where row[26] matches their username
-            filteredData = formattedData.filter((row: any, index: number) => {
-                const rawRow = data.values?.[index];
-                return rawRow?.[26] === userInfo?.username;
-            });
-        } else {
-            // For other configs, don't show any data to NCC users
-            filteredData = [];
+    const results: Record<string, any> = {};
+
+    for (const [spreadsheetId, items] of Object.entries(grouped)) {
+        const cacheKey = `${spreadsheetId}-${userInfo.role}-${userInfo.username}`;
+        const cached = sheetCache.get(cacheKey);
+        if (cached && cached.expiry > Date.now()) {
+            Object.assign(results, cached.data);
+            continue;
         }
-    } else {
-        // For non-NCC users, apply the original "Bình thường" filter
-        if (configKey !== 'updateVN' && configKey !== 'updateNN') {
-            filteredData = formattedData.filter((row: any) => row["Tình trạng"] === "Bình thường");
+
+        // Gom tất cả range
+        const allRanges = items.flatMap((i) =>
+            i.config.range.split(",").map((r) => r.trim())
+        );
+
+        const { data } = await gsapi.spreadsheets.values.batchGet({
+            spreadsheetId,
+            ranges: allRanges,
+        });
+
+        const valueRanges = data.valueRanges || [];
+
+        // Mapping
+        let idx = 0;
+        for (const { key, config } of items) {
+            const ranges = config.range.split(",").map((r) => r.trim());
+            const allData: any[] = [];
+
+            for (let r = 0; r < ranges.length; r++) {
+                const values = valueRanges[idx++]?.values || [];
+                const formatted = values.map((row: any[], i: number) =>
+                    config.formatter(row, i)
+                );
+                allData.push(...formatted);
+            }
+
+            // Filter theo role
+            let filtered = allData;
+            if (key === "content") {
+                results[key] = filtered;
+                continue;
+            }
+
+            if (userInfo?.role === "NCC") {
+                if (key === "updateVN" || key === "updateNN") {
+                    filtered = allData.filter(
+                        (row: any) => row.MaNCC === userInfo.username
+                    );
+                } else {
+                    filtered = [];
+                }
+            } else {
+                if (key === "gpTextVN" || key === "gpTextNN") {
+                    filtered = allData.filter(
+                        (row: any) => row["Tình trạng"] === "Bình thường"
+                    );
+                }
+            }
+            results[key] = filtered;
         }
+
+        // Lưu cache 3 phút
+        sheetCache.set(cacheKey, {
+            data: results,
+            expiry: Date.now() + 1000 * 60 * 3,
+        });
     }
-    return filteredData;
-});
+
+    return results;
+}
 
 export async function POST(req: Request) {
     try {
         const cookieStore = cookies();
-        const userInfoCookie = cookieStore.get('userInfo');
-        const userInfo = userInfoCookie ? JSON.parse(userInfoCookie.value) : {};
+        const userInfoCookie = cookieStore.get("userInfo");
+        const userInfo = userInfoCookie
+            ? JSON.parse(userInfoCookie.value)
+            : {};
 
         const client = await getAuthClient();
-        const gsapi = google.sheets({ version: 'v4', auth: client });
+        const gsapi = google.sheets({ version: "v4", auth: client });
 
-        const results = await Promise.all(
-            Object.entries(sheetConfigs).map(async ([key, config]) => {
-                const data = await getSheetData(gsapi, config, key, userInfo);
-                return [key, data];
-            })
-        );
+        const results = await getSheetsData(gsapi, sheetConfigs, userInfo);
 
-        return NextResponse.json(Object.fromEntries(results), { status: 200 });
+        return NextResponse.json(results, { status: 200 });
     } catch (error: any) {
-        console.error('Error accessing Google Sheets API:', error);
-        return NextResponse.json({ error: true, message: error.message }, { status: 500 });
+        console.error("Error accessing Google Sheets API:", error);
+        return NextResponse.json(
+            { error: true, message: error.message },
+            { status: 500 }
+        );
     }
 }
