@@ -790,68 +790,78 @@ export default function PageBody() {
 
                 {activeTab === "data" && (
                     <div className="p-0">
-                        {searchText.trim() ? (
-                            <div className="relative overflow-hidden border border-blue-200 shadow-sm">
-                                {filteredData.length === 0 && searchText.trim() ? (
-                                    <div className="flex flex-col items-center justify-center py-8 text-center bg-white">
-                                        <Search className="w-12 h-12 text-blue-300 mb-4" />
-                                        <h3 className="text-lg font-medium text-blue-900 mb-2">Không tìm thấy kết quả</h3>
-                                        <p className="text-blue-600">Không có dữ liệu nào phù hợp với từ khóa tìm kiếm của bạn</p>
-                                    </div>
-                                ) : (
-                                    <HotTable
-                                        themeName="ht-theme-main"
-                                        nestedHeaders={[RowHeader11, RowHeader1]}
-                                        filters={true}
-                                        width="auto"
-                                        autoColumnSize={true}
-                                        manualColumnResize={true}
-                                        height="calc(100vh)"
-                                        stretchH="all"
-                                        manualRowMove={true}
-                                        manualColumnMove={true}
-                                        manualRowResize={true}
-                                        className="custom-table"
-                                        colWidths={getColWidthsForHeaders(RowHeader1)}
-                                        hiddenColumns={userInfo?.role === "NCC" ? { columns: [5, 20, 21], indicators: true } : { columns: [5, 21] }}
-                                        licenseKey="non-commercial-and-evaluation"
-                                        data={filteredData}
-                                        afterChange={handleAfterChange}
-                                        afterPaste={handleAfterPaste}
-                                        afterRemoveRow={handleAfterRemoveRow}
-                                        cells={function (
-                                            this: Handsontable.CellProperties,
-                                            row: number,
-                                            col: number,
-                                            prop: string | number,
-                                        ) {
-                                            const header = RowHeader1[col]
-                                            const base = columnSettings[header] || {}
-                                            const meta: any = { ...base }
-                                            const baseRenderer = (base as any).renderer
-                                            meta.renderer = withEllipsis(baseRenderer)
-                                            return meta
-                                        }}
-                                        contextMenu={{
-                                            items: {
-                                                delete_row: {
-                                                    name: "Xóa dòng",
-                                                    callback: (key: string, selection: any, clickEvent: any) => {
-                                                        handleDeleteRow(selection[0].start.row)
+                        {(() => {
+                            const currentData = dataType === 1 ? dataVN : dataNN
+                            const isNCC = userInfo?.role === "NCC"
+                            const hasSearch = Boolean(searchText.trim())
+                            const displayData = hasSearch ? filteredData : isNCC ? currentData : []
+
+                            return (
+                                <div className="relative overflow-hidden border border-blue-200 shadow-sm">
+                                    {displayData.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center py-8 text-center bg-white">
+                                            <Search className="w-12 h-12 text-blue-300 mb-4" />
+                                            {hasSearch ? (
+                                                <>
+                                                    <h3 className="text-lg font-medium text-blue-900 mb-2">Không tìm thấy kết quả</h3>
+                                                    <p className="text-blue-600">Không có dữ liệu nào phù hợp với từ khóa tìm kiếm của bạn</p>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <h3 className="text-lg font-semibold text-blue-900 mb-2">Không có dữ liệu để hiển thị</h3>
+                                                    <p className="text-blue-600">{isNCC ? "Dữ liệu trống" : "Vui lòng nhập từ khóa tìm kiếm để xem dữ liệu"}</p>
+                                                </>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <HotTable
+                                            themeName="ht-theme-main"
+                                            nestedHeaders={[RowHeader11, RowHeader1]}
+                                            filters={true}
+                                            width="auto"
+                                            autoColumnSize={true}
+                                            manualColumnResize={true}
+                                            height="calc(100vh)"
+                                            stretchH="all"
+                                            manualRowMove={true}
+                                            manualColumnMove={true}
+                                            manualRowResize={true}
+                                            className="custom-table"
+                                            colWidths={getColWidthsForHeaders(RowHeader1)}
+                                            hiddenColumns={userInfo?.role === "NCC" ? { columns: [5, 18, 19, 20, 21], indicators: true } : { columns: [5, 21] }}
+                                            licenseKey="non-commercial-and-evaluation"
+                                            data={displayData}
+                                            afterChange={handleAfterChange}
+                                            afterPaste={handleAfterPaste}
+                                            afterRemoveRow={handleAfterRemoveRow}
+                                            cells={function (
+                                                this: Handsontable.CellProperties,
+                                                row: number,
+                                                col: number,
+                                                prop: string | number,
+                                            ) {
+                                                const header = RowHeader1[col]
+                                                const base = columnSettings[header] || {}
+                                                const meta: any = { ...base }
+                                                const baseRenderer = (base as any).renderer
+                                                meta.renderer = withEllipsis(baseRenderer)
+                                                return meta
+                                            }}
+                                            contextMenu={{
+                                                items: {
+                                                    delete_row: {
+                                                        name: "Xóa dòng",
+                                                        callback: (key: string, selection: any, clickEvent: any) => {
+                                                            handleDeleteRow(selection[0].start.row)
+                                                        },
                                                     },
                                                 },
-                                            },
-                                        }}
-                                    />
-                                )}
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center py-12 text-center">
-                                <Search className="w-12 h-12 text-blue-300 mb-4" />
-                                <h3 className="text-lg font-semibold text-blue-900 mb-2">Nhập từ khóa tìm kiếm</h3>
-                                <p className="text-blue-600">Vui lòng nhập từ khóa tìm kiếm để xem dữ liệu</p>
-                            </div>
-                        )}
+                                            }}
+                                        />
+                                    )}
+                                </div>
+                            )
+                        })()}
                     </div>
                 )}
 
