@@ -562,14 +562,14 @@ export default function PageBody() {
                     </h1>
 
                     <div className="flex flex-wrap gap-3">
-                        <button
+                        {/* <button
                             onClick={fetchData}
                             disabled={loading}
                             className="flex items-center text-sm px-4 py-2 bg-white text-blue-700 rounded-lg hover:bg-blue-50 transition-all duration-200 disabled:opacity-50 font-medium border border-blue-200 shadow-sm"
                         >
                             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
                             Làm mới
-                        </button>
+                        </button> */}
                         <button
                             onClick={() => setIsAddModalVisible(true)}
                             className="flex text-sm items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm font-medium"
