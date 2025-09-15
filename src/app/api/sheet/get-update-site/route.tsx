@@ -97,9 +97,15 @@ export async function POST(req: Request) {
             const valueRanges = data.valueRanges || []
             const allData: any[] = []
 
+            const ranges = config.range.split(",")
             valueRanges.forEach((vr, i) => {
                 const values = vr.values || []
-                const formatted = values.map((row, idx) => config.formatter(row, idx))
+                const sheetRef = ranges[i] || ""
+                const sheetName = sheetRef.split("!")[0]
+                const formatted = values.map((row, idx) => ({
+                    ...config.formatter(row, idx),
+                    sheetName,
+                }))
                 allData.push(...formatted)
             })
 

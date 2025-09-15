@@ -51,8 +51,8 @@ export async function POST(req: Request) {
         const username = userInfo ? JSON.parse(userInfo?.value).username : ""
         const role = userInfo ? JSON.parse(userInfo?.value).role : ""
 
-        // Determine sheet names based on sheetType
-        const sheetNames = sheetType === 1 ? ["1", "4"] : ["2", "5"]
+        // Determine primary sheet name based on sheetType
+        const defaultSheetName = sheetType === 1 ? "1" : "2"
 
         // Prepare batch update data
         const batchUpdateData: Array<{
@@ -78,14 +78,12 @@ export async function POST(req: Request) {
                     continue
                 }
 
-                // Try both sheet names for the update
-                for (const sheetName of sheetNames) {
-                    const range = `${sheetName}!${columnLetter}${rowIndex}`
-                    batchUpdateData.push({
-                        range,
-                        values: [[value === null || value === undefined ? "" : value]],
-                    })
-                }
+                const targetSheetName = update.sheetName || defaultSheetName
+                const range = `${targetSheetName}!${columnLetter}${rowIndex}`
+                batchUpdateData.push({
+                    range,
+                    values: [[value === null || value === undefined ? "" : value]],
+                })
             }
         }
 

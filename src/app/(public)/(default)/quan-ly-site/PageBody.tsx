@@ -331,10 +331,12 @@ export default function PageBody() {
                     const currentRow = searchText.trim() ? filteredData[row] : dataToUse[row]
 
                     const actualRowIndex = currentRow?.rowIndex || row + 2
+                    const sheetName = currentRow?.sheetName
 
                     if (!acc[row]) {
                         acc[row] = {
                             rowIndex: actualRowIndex,
+                            sheetName,
                             changes: {},
                         }
                     }
@@ -383,6 +385,7 @@ export default function PageBody() {
                     if (!currentRow) return null
 
                     const actualRowIndex = currentRow.rowIndex
+                    const sheetName = currentRow.sheetName
                     const changes = rowData.reduce((acc: Record<string, any>, value, colIndex) => {
                         const columnName = RowHeader1[startCol + colIndex]
                         if (columnName) {
@@ -394,6 +397,7 @@ export default function PageBody() {
                     if (Object.keys(changes).length > 0) {
                         return {
                             rowIndex: actualRowIndex,
+                            sheetName,
                             changes,
                         }
                     }
