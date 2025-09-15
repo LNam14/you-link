@@ -290,20 +290,20 @@ export default function PageBody() {
             const dataToFilter = dataType === 1 ? dataVN : dataNN
             const filtered = dataToFilter.filter((row) => {
                 const siteNorm = normalizeDomain(row.Site)
-                const maNorm = normalizeExact(row.MaNCC)
+                const maNorm = normalizeExact(row.NCC)
 
                 const siteMatch = normalizedDomainTerms.includes(siteNorm)
                 const maNCCMatch = normalizedExactTerms.includes(maNorm)
 
                 const hasData = Object.keys(row).some(
-                    (key) => key !== "Site" && key !== "MaNCC" && row[key] && row[key].toString().trim() !== "",
+                    (key) => key !== "Site" && key !== "NCC" && row[key] && row[key].toString().trim() !== "",
                 )
                 return (siteMatch || maNCCMatch) && hasData
             })
 
             const getPriority = (row: any) => {
                 const siteNorm = normalizeDomain(row.Site)
-                const maNorm = normalizeExact(row.MaNCC)
+                const maNorm = normalizeExact(row.NCC)
                 let p = Number.MAX_SAFE_INTEGER
                 if (priorityMap.has(siteNorm)) p = Math.min(p, priorityMap.get(siteNorm) as number)
                 const exactKey = `exact:${maNorm}`

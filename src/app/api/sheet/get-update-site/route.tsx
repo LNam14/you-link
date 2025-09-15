@@ -36,7 +36,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "HH Text": row[22] || 0,
             "Kê GP": row[23] || 0,
             "Kê Text": row[24] || 0,
-            MaNCC: row[26] || "",
+            NCC: row[26] || "",
         }),
         spreadsheetId: SPREADSHEET_ID,
     },
@@ -63,7 +63,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "HH Text": row[22] || 0,
             "Kê GP": row[23] || 0,
             "Kê Text": row[24] || 0,
-            MaNCC: row[26] || "",
+            NCC: row[26] || "",
         }),
         spreadsheetId: SPREADSHEET_ID,
     },
@@ -111,7 +111,7 @@ export async function POST(req: Request) {
 
             let filtered = allData
             if (userInfo?.role === "NCC") {
-                filtered = allData.filter((row) => row.MaNCC === userInfo.username)
+                filtered = allData.filter((row) => row.NCC === userInfo.username)
             }
 
             results[key] = filtered
