@@ -813,7 +813,7 @@ export default function PageBody() {
                                         manualRowResize={true}
                                         className="custom-table"
                                         colWidths={getColWidthsForHeaders(RowHeader1)}
-                                        hiddenColumns={userInfo?.role === "NCC" ? { columns: [5, 20], indicators: true } : { columns: [5] }}
+                                        hiddenColumns={userInfo?.role === "NCC" ? { columns: [5, 20, 21], indicators: true } : { columns: [5, 21] }}
                                         licenseKey="non-commercial-and-evaluation"
                                         data={filteredData}
                                         afterChange={handleAfterChange}
