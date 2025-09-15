@@ -132,6 +132,29 @@ const columnSettings: Record<string, any> = {
     },
 }
 
+// Normalize input for domain matching: remove protocol, www, path/query, lowercase
+const normalizeDomain = (input: string | undefined | null) => {
+    if (!input) return ""
+    let s = String(input).trim().toLowerCase()
+    s = s.replace(/^https?:\/\//, "")
+    s = s.replace(/^www\./, "")
+    // cut at first slash, question or hash
+    const cutIdx = Math.min(
+        ...["/", "?", "#"].map((ch) => {
+            const idx = s.indexOf(ch)
+            return idx === -1 ? s.length : idx
+        }),
+    )
+    s = s.substring(0, cutIdx)
+    return s.replace(/\/$/, "")
+}
+
+// Normalize generic string for exact, case-insensitive match
+const normalizeExact = (input: string | undefined | null) => {
+    if (!input) return ""
+    return String(input).trim().toLowerCase()
+}
+
 // Fixed column widths: 1-3 => 30px (STT/Site/Bóng), 4-6 => 50px (Bet/Chủ đề/Nước), others 100px
 const getColWidthsForHeaders = (headers: string[]) => {
     return headers.map((header) => {
@@ -249,30 +272,43 @@ export default function PageBody() {
 
     useEffect(() => {
         if (searchText.trim()) {
-            const searchTerms = searchText.split(/[\n\s]+/).filter((term) => term.trim())
+            const rawTerms = searchText.split(/[\n\s]+/).filter((term) => term.trim())
+            const normalizedDomainTerms = rawTerms.map((t) => normalizeDomain(t)).filter(Boolean)
+            const normalizedExactTerms = rawTerms.map((t) => normalizeExact(t)).filter(Boolean)
+
+            // Map for ordering priority based on input order (domains first, then exact strings)
+            const priorityMap = new Map<string, number>()
+            normalizedDomainTerms.forEach((t, i) => {
+                if (!priorityMap.has(t)) priorityMap.set(t, i)
+            })
+            const baseOffset = normalizedDomainTerms.length
+            normalizedExactTerms.forEach((t, i) => {
+                const key = `exact:${t}`
+                if (!priorityMap.has(key)) priorityMap.set(key, baseOffset + i)
+            })
+
             const dataToFilter = dataType === 1 ? dataVN : dataNN
             const filtered = dataToFilter.filter((row) => {
-                const siteMatch = searchTerms.some((term) => row.Site?.toLowerCase().includes(term.toLowerCase()))
-                const maNCCMatch = searchTerms.some((term) => row.MaNCC?.toLowerCase().includes(term.toLowerCase()))
+                const siteNorm = normalizeDomain(row.Site)
+                const maNorm = normalizeExact(row.MaNCC)
+
+                const siteMatch = normalizedDomainTerms.includes(siteNorm)
+                const maNCCMatch = normalizedExactTerms.includes(maNorm)
+
                 const hasData = Object.keys(row).some(
                     (key) => key !== "Site" && key !== "MaNCC" && row[key] && row[key].toString().trim() !== "",
                 )
                 return (siteMatch || maNCCMatch) && hasData
             })
 
-            // Sort results to follow the order of the entered search terms
-            const loweredTerms = searchTerms.map((t) => t.toLowerCase())
             const getPriority = (row: any) => {
-                const site = (row.Site || "").toLowerCase()
-                const ma = (row.MaNCC || "").toLowerCase()
-                let minIndex = Number.MAX_SAFE_INTEGER
-                for (let i = 0; i < loweredTerms.length; i++) {
-                    const term = loweredTerms[i]
-                    if (site.includes(term) || ma.includes(term)) {
-                        if (i < minIndex) minIndex = i
-                    }
-                }
-                return minIndex
+                const siteNorm = normalizeDomain(row.Site)
+                const maNorm = normalizeExact(row.MaNCC)
+                let p = Number.MAX_SAFE_INTEGER
+                if (priorityMap.has(siteNorm)) p = Math.min(p, priorityMap.get(siteNorm) as number)
+                const exactKey = `exact:${maNorm}`
+                if (priorityMap.has(exactKey)) p = Math.min(p, priorityMap.get(exactKey) as number)
+                return p
             }
 
             const sorted = filtered.slice().sort((a, b) => getPriority(a) - getPriority(b))
