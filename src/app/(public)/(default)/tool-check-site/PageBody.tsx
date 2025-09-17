@@ -481,21 +481,6 @@ export default function PageBody() {
                 }
             }
 
-            // Áp dụng đổi sang VND cho Giá Bán, Giá Mua, Giá Cuối và LN
-            const shouldConvertToVnd =
-                selectedCurrency === "VND" &&
-                (field.startsWith("giaBan") ||
-                    field.startsWith("giaMua") ||
-                    field.startsWith("giaCuoi") ||
-                    field.startsWith("loiNhuan"))
-
-            if (shouldConvertToVnd) {
-                const numericValue = Number.parseFloat(displayValue || "0")
-                if (!isNaN(numericValue)) {
-                    displayValue = convertPrice(numericValue.toString())
-                }
-            }
-
             // Make summary row values red
             if (row === 0) {
                 td.style.color = "red"
