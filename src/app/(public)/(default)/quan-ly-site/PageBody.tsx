@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState, useCallback, useMemo } from "react"
+import { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import type React from "react"
 
 import { HotTable } from "@handsontable/react-wrapper"
@@ -36,6 +36,7 @@ registerAllModules()
 // Define column headers
 const RowHeader1 = [
     "STT",
+    "CS",
     "Site",
     "Bóng",
     "Bet",
@@ -55,6 +56,7 @@ const RowHeader1 = [
     "HH Text",
     "Kê GP",
     "Kê Text",
+    "Tên",
     "NCC",
 ]
 
@@ -68,6 +70,7 @@ const RowHeader11: any = [
 ]
 
 const RowHeader2 = [
+    "CS",
     "Site",
     "Bóng",
     "Bet",
@@ -159,9 +162,9 @@ const normalizeExact = (input: string | undefined | null) => {
 // Fixed column widths: 1-3 => 30px (STT/Site/Bóng), 4-6 => 50px (Bet/Chủ đề/Nước), others 100px
 const getColWidthsForHeaders = (headers: string[]) => {
     return headers.map((header) => {
-        if (["STT", "Bet", "Bóng", "DR", "HH GP", "HH Text", "Kê GP", "Kê Text", "NCC"].includes(header)) return 60
-        if (["Link out", "Chủ đề", "Keywords", "Traffic Tool", "GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"].includes(header)) return 90
-        return 100
+        if (["STT", "Bet", "Bóng", "DR", "HH GP", "HH Text", "Kê GP", "Kê Text", "CS", "Tên", "NCC"].includes(header)) return 60
+        if (["Link out", "Chủ đề", "Keywords", "Traffic Tool", "GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"].includes(header)) return 76
+        return 90
     })
 }
 
@@ -220,6 +223,9 @@ export default function PageBody() {
     })
     const [configError, setConfigError] = useState<string | null>(null)
     const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false)
+    const [currencyMode, setCurrencyMode] = useState<"USD" | "VND">("USD")
+    const [exchangeRate, setExchangeRate] = useState<number>(25000)
+    const dataTableRef = useRef<any>(null)
 
     const userInfo = getUserInfo()
 
@@ -342,8 +348,19 @@ export default function PageBody() {
                             changes: {},
                         }
                     }
-
-                    acc[row].changes[columnName] = newValue === null ? "" : newValue
+                    const priceFields = ["GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"]
+                    const rawValue = newValue === null ? "" : newValue
+                    if (priceFields.includes(columnName) && currencyMode === "VND") {
+                        const numeric = Number(String(rawValue).toString().replace(/[\,\s]/g, ""))
+                        const converted = !isNaN(numeric) && exchangeRate > 0 ? numeric / exchangeRate : rawValue
+                        acc[row].changes[columnName] = converted
+                        try {
+                            const colIndex = typeof prop === "number" ? (prop as number) : RowHeader1.indexOf(columnName)
+                            dataTableRef.current?.hotInstance?.setDataAtCell(row, colIndex, converted, "usd_convert")
+                        } catch { }
+                    } else {
+                        acc[row].changes[columnName] = rawValue
+                    }
                     return acc
                 }, {})
 
@@ -371,7 +388,7 @@ export default function PageBody() {
                 }
             }
         },
-        [dataType, dataVN, dataNN, filteredData, searchText, messageApi],
+        [dataType, dataVN, dataNN, filteredData, searchText, messageApi, currencyMode, exchangeRate],
     )
 
     const handleAfterPaste = useCallback(
@@ -391,7 +408,20 @@ export default function PageBody() {
                     const changes = rowData.reduce((acc: Record<string, any>, value, colIndex) => {
                         const columnName = RowHeader1[startCol + colIndex]
                         if (columnName) {
-                            acc[columnName] = value === null ? "" : value
+                            const priceFields = ["GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"]
+                            const rawValue = value === null ? "" : value
+                            if (priceFields.includes(columnName) && currencyMode === "VND") {
+                                const numeric = Number(String(rawValue).toString().replace(/[\,\s]/g, ""))
+                                const converted = !isNaN(numeric) && exchangeRate > 0 ? numeric / exchangeRate : rawValue
+                                acc[columnName] = converted
+                                try {
+                                    const r = currentRowIndex
+                                    const c = startCol + colIndex
+                                    dataTableRef.current?.hotInstance?.setDataAtCell(r, c, converted, "usd_convert")
+                                } catch { }
+                            } else {
+                                acc[columnName] = rawValue
+                            }
                         }
                         return acc
                     }, {})
@@ -411,7 +441,7 @@ export default function PageBody() {
                 sheetApiRequest.updateData(updates, dataType)
             }
         },
-        [dataType, dataVN, dataNN, filteredData, searchText, messageApi],
+        [dataType, dataVN, dataNN, filteredData, searchText, messageApi, currencyMode, exchangeRate],
     )
 
     const handleAfterRemoveRow = useCallback(
@@ -440,6 +470,7 @@ export default function PageBody() {
         try {
             const newRows = Array.from({ length: numberOfRows }, () => {
                 const baseRow = {
+                    CS: "",
                     Site: "",
                     Bóng: "",
                     Bet: "",
@@ -463,6 +494,7 @@ export default function PageBody() {
                 if (userInfo?.role !== "NCC") {
                     return {
                         ...baseRow,
+                        "Tên": "",
                         NCC: "",
                     }
                 }
@@ -511,6 +543,21 @@ export default function PageBody() {
 
     const handleSavePendingRows = useCallback(async () => {
         try {
+            const priceFields = ["GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"]
+            const convertRowIfNeeded = (row: any) => {
+                if (currencyMode !== "VND") return row
+                const newRow: any = { ...row }
+                priceFields.forEach((field) => {
+                    if (newRow[field] !== undefined && newRow[field] !== "") {
+                        const numeric = Number(String(newRow[field]).toString().replace(/[,\s]/g, ""))
+                        if (!isNaN(numeric) && exchangeRate > 0) {
+                            newRow[field] = numeric / exchangeRate
+                        }
+                    }
+                })
+                return newRow
+            }
+
             const rowsToSave = pendingRows.filter((row) =>
                 Object.entries(row).some(([key, value]) => key !== "Tình trạng" && value && value.toString().trim() !== ""),
             )
@@ -525,7 +572,8 @@ export default function PageBody() {
                         className: "bg-green-600 hover:bg-green-700",
                     },
                     onOk: async () => {
-                        await sheetApiRequest.appendRows(rowsToSave, dataType)
+                        const convertedRows = rowsToSave.map(convertRowIfNeeded)
+                        await sheetApiRequest.appendRows(convertedRows, dataType)
                         await fetchData() // Reload data after adding new rows
                         setPendingRows([])
                         setActiveTab("data")
@@ -548,7 +596,7 @@ export default function PageBody() {
                 icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
             })
         }
-    }, [pendingRows, dataType, messageApi, fetchData])
+    }, [pendingRows, dataType, messageApi, fetchData, currencyMode, exchangeRate])
 
     const clearSearch = useCallback(() => {
         setSearchText("")
@@ -675,6 +723,30 @@ export default function PageBody() {
                             <Plus className="w-4 h-4 mr-2" />
                             Thêm dòng
                         </button>
+                        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                            <span className="text-sm text-blue-800 font-medium">Mệnh giá:</span>
+                            <select
+                                value={currencyMode}
+                                onChange={(e) => setCurrencyMode(e.target.value as any)}
+                                className="text-sm px-2 py-1 bg-white border border-blue-200 rounded-md text-blue-900"
+                            >
+                                <option value="USD">USD</option>
+                                <option value="VND">VND</option>
+                            </select>
+                            {currencyMode === "VND" && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-blue-800">Tỷ giá</span>
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        step="0.01"
+                                        value={exchangeRate}
+                                        onChange={(e) => setExchangeRate(Number(e.target.value) || 0)}
+                                        className="w-28 text-sm px-2 py-1 bg-white border border-blue-200 rounded-md text-blue-900"
+                                    />
+                                </div>
+                            )}
+                        </div>
                         <button
                             onClick={() => setIsCurrencyModalOpen(true)}
                             className="flex text-sm items-center px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-all duration-200 shadow-sm font-medium"
@@ -824,6 +896,7 @@ export default function PageBody() {
                                         </div>
                                     ) : (
                                         <HotTable
+                                            ref={dataTableRef}
                                             themeName="ht-theme-main"
                                             nestedHeaders={[RowHeader11, RowHeader1]}
                                             filters={true}
@@ -837,7 +910,7 @@ export default function PageBody() {
                                             manualRowResize={true}
                                             className="custom-table"
                                             colWidths={getColWidthsForHeaders(RowHeader1)}
-                                            hiddenColumns={userInfo?.role === "NCC" ? { columns: [5, 18, 19, 20, 21], indicators: true } : { columns: [5, 21] }}
+                                            hiddenColumns={userInfo?.role === "NCC" ? { columns: [6, 19, 20, 21, 22, 23], indicators: true } : { columns: [6, 23] }}
                                             licenseKey="non-commercial-and-evaluation"
                                             data={displayData}
                                             afterChange={handleAfterChange}

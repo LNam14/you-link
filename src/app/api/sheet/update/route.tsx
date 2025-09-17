@@ -7,6 +7,7 @@ const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
 
 // Column mapping to Google Sheets columns
 const COLUMN_MAPPING = {
+    CS: "A",
     Site: "B",
     Bóng: "C",
     Bet: "D",
@@ -26,6 +27,7 @@ const COLUMN_MAPPING = {
     "HH Text": "X",
     "Kê GP": "Y",
     "Kê Text": "Z",
+    "Tên": "AA",
     NCC: "AB",
 }
 
