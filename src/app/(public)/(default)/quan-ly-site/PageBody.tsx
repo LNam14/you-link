@@ -62,11 +62,11 @@ const RowHeader1 = [
 
 const RowHeader11: any = [
     { label: ``, colspan: 1 },
-    { label: "INFO", colspan: 11 },
+    { label: "INFO", colspan: 12 },
     { label: "Giá", colspan: 4 },
     { label: "Hoa hồng", colspan: 2 },
     { label: "Kê thêm", colspan: 2 },
-    { label: "", colspan: 1 },
+    { label: "NCC", colspan: 2 },
 ]
 
 const RowHeader2 = [

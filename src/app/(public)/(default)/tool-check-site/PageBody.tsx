@@ -103,6 +103,7 @@ export default function PageBody() {
     const [selectedPriceType, setSelectedPriceType] = useState<PriceType>("GP")
     const [selectedBrand, setSelectedBrand] = useState<BrandType>("F")
     const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>("USDT")
+    const [exchangeRate, setExchangeRate] = useState<number>(27)
     const [selectedSearchType, setSelectedSearchType] = useState<SearchType>("Site")
     const [userInfo] = useState(getUserInfo())
     const [duplicateSites, setDuplicateSites] = useState<{ [key: string]: SiteData[] }>({})
@@ -266,7 +267,13 @@ export default function PageBody() {
             if (selectedSearchType === "Site") {
                 validTerms = searchTerms.map((term) => normalizeUrl(term.trim())).filter((term) => term !== "")
             } else {
-                validTerms = searchTerms.filter((term) => term.trim().length > 0).map((term) => term.toUpperCase())
+                // Normalize NCC terms: uppercase and auto-prefix 'N' if missing
+                validTerms = searchTerms
+                    .filter((term) => term.trim().length > 0)
+                    .map((term) => {
+                        const t = term.trim().toUpperCase()
+                        return t.startsWith("N") ? t : `N${t}`
+                    })
             }
 
             if (validTerms.length === 0) {
@@ -369,13 +376,21 @@ export default function PageBody() {
             const applyCurrencyConversion = (dataToConvert: SiteData[]): SiteData[] => {
                 return dataToConvert.map((item) => {
                     const newItem = { ...item }
-                    const sellPriceField = getPriceColumnData(selectedPriceType, selectedBrand, "giaBan")
                     if (selectedCurrency === "VND") {
-                        const value = newItem[sellPriceField as keyof SiteData]?.toString() || ""
-                        const numericValue = Number.parseFloat(value)
-                        if (!isNaN(numericValue)) {
-                            newItem[sellPriceField as keyof SiteData] = (numericValue * 27).toString()
-                        }
+                        const fieldsToConvert: Array<"giaBan" | "giaMua" | "giaCuoi" | "loiNhuan"> = [
+                            "giaBan",
+                            "giaMua",
+                            "giaCuoi",
+                            "loiNhuan",
+                        ]
+                        fieldsToConvert.forEach((fieldKey) => {
+                            const fieldName = getPriceColumnData(selectedPriceType, selectedBrand, fieldKey)
+                            const raw = newItem[fieldName as keyof SiteData]?.toString() || ""
+                            const numericValue = Number.parseFloat(raw)
+                            if (!isNaN(numericValue)) {
+                                ; (newItem as any)[fieldName] = (numericValue * exchangeRate).toString()
+                            }
+                        })
                     }
                     return newItem
                 })
@@ -391,7 +406,7 @@ export default function PageBody() {
             setDuplicateSites(convertedDuplicates)
             setHasSearched(true)
         }, 300),
-        [allData, selectedSearchType, selectedCurrency, selectedBrand],
+        [allData, selectedSearchType, selectedCurrency, selectedBrand, exchangeRate],
     )
 
     // Update search when input changes or search type changes
@@ -405,7 +420,7 @@ export default function PageBody() {
             // Only re-apply conversion if a search has already been performed
             handleSearch(searchTerm) // Re-run search logic to apply conversion
         }
-    }, [selectedCurrency, selectedBrand, hasSearched, searchTerm, handleSearch]) // Added hasSearched, searchTerm, handleSearch to dependencies
+    }, [selectedCurrency, selectedBrand, exchangeRate, hasSearched, searchTerm, handleSearch]) // Added exchangeRate
 
     const handlePriceTypeChange = (priceType: PriceType) => {
         setSelectedPriceType(priceType)
@@ -415,7 +430,7 @@ export default function PageBody() {
     const convertPrice = (price: string): string => {
         if (selectedCurrency === "VND") {
             const numericPrice = Number.parseFloat(price || "0") || 0
-            return (numericPrice * 27).toString()
+            return (numericPrice * exchangeRate).toString()
         }
         return price
     }
@@ -1812,8 +1827,8 @@ export default function PageBody() {
                                     </button>
                                 </div>
 
-                                {/* Nhóm 2: USDT / VND */}
-                                <div className="w-full flex bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
+                                {/* Nhóm 2: USDT / [Tỉ giá] / VND */}
+                                <div className="w-full flex items-center bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
                                     <button
                                         onClick={() => setSelectedCurrency("USDT")}
                                         className={`flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedCurrency === "USDT" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
@@ -1821,6 +1836,17 @@ export default function PageBody() {
                                         <DollarSign className="h-4 w-4 mr-1" />
                                         USDT
                                     </button>
+                                    {selectedCurrency === "VND" && (
+                                        <div className="flex items-center">
+                                            <input
+                                                type="text"
+                                                value={exchangeRate}
+                                                onChange={(e) => setExchangeRate(Number.parseFloat(e.target.value) || 0)}
+                                                className="w-10 px-2 py-2 text-center text-xs bg-white text-blue-600 font-medium focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                                placeholder="27"
+                                            />
+                                        </div>
+                                    )}
                                     <button
                                         onClick={() => setSelectedCurrency("VND")}
                                         className={`flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedCurrency === "VND" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
