@@ -481,6 +481,21 @@ export default function PageBody() {
                 }
             }
 
+            // Áp dụng đổi sang VND cho Giá Bán, Giá Mua, Giá Cuối và LN
+            const shouldConvertToVnd =
+                selectedCurrency === "VND" &&
+                (field.startsWith("giaBan") ||
+                    field.startsWith("giaMua") ||
+                    field.startsWith("giaCuoi") ||
+                    field.startsWith("loiNhuan"))
+
+            if (shouldConvertToVnd) {
+                const numericValue = Number.parseFloat(displayValue || "0")
+                if (!isNaN(numericValue)) {
+                    displayValue = convertPrice(numericValue.toString())
+                }
+            }
+
             // Make summary row values red
             if (row === 0) {
                 td.style.color = "red"
@@ -1834,14 +1849,14 @@ export default function PageBody() {
                                 <div className="w-full flex bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
                                     <button
                                         onClick={() => setSelectedBrand("F")}
-                                        className={`flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedBrand === "F" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
+                                        className={`flex-1 flex items-center justify-center px-1 py-1.5 text-sm font-medium transition-colors ${selectedBrand === "F" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
                                     >
                                         <CreditCard className="h-4 w-4 mr-1" />
                                         F-ALL
                                     </button>
                                     <button
                                         onClick={() => setSelectedBrand("X")}
-                                        className={`flex-1 flex items-center justify-center px-3 py-1.5 text-sm font-medium transition-colors ${selectedBrand === "X" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
+                                        className={`flex-1 flex items-center justify-center px-1 py-1.5 text-sm font-medium transition-colors ${selectedBrand === "X" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"}`}
                                     >
                                         <CreditCard className="h-4 w-4 mr-1" />
                                         X-ALL
