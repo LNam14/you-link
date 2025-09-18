@@ -165,21 +165,13 @@ async function getSheetsData(
                 continue;
             }
 
-            if (userInfo?.role === "NCC") {
-                if (key === "updateVN" || key === "updateNN") {
-                    filtered = allData.filter(
-                        (row: any) => row.MaNCC === userInfo.username
-                    );
-                } else {
-                    filtered = [];
-                }
-            } else {
-                if (key === "gpTextVN" || key === "gpTextNN") {
-                    filtered = allData.filter(
-                        (row: any) => row["Tình trạng"] === "Bình thường"
-                    );
-                }
+
+            if (key === "gpTextVN" || key === "gpTextNN") {
+                filtered = allData.filter(
+                    (row: any) => row["Tình trạng"] === "Bình thường"
+                );
             }
+
             results[key] = filtered;
         }
 
