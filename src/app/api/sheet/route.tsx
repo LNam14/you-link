@@ -4,6 +4,12 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import keys from "../../../../key.json";
 
+// Ensure Node.js runtime and allow longer execution to avoid 504 timeouts
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+// Increase on Vercel (in seconds). Adjust as needed.
+export const maxDuration = 60;
+
 const SPREADSHEET_ID =
     "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU";
 const CONTENT_SPREADSHEET_ID =
@@ -41,56 +47,6 @@ const sheetConfigs: Record<string, SheetConfig> = {
             HoaHongGP: row[21] || 0,
             HoaHongText: row[22] || 0,
             NCC: row[25] || "",
-            MaNCC: row[26] || "",
-        }),
-        spreadsheetId: SPREADSHEET_ID,
-    },
-    updateVN: {
-        range: "1!B3:AM,4!B3:AM",
-        formatter: (row, index) => ({
-            rowIndex: index + 3,
-            Site: row[0] || "",
-            "Chủ đề": row[3] || "",
-            Nước: row[4] || "",
-            "Link out": row[6] || "",
-            DR: row[7] || "",
-            Keywords: row[8] || "",
-            "Traffic Tool": row[9] || "",
-            "Ghi chú": row[10] || "",
-            "Tình trạng": row[11] || "",
-            "GP ($)": row[17] || 0,
-            "Text Footer ($)": row[18] || 0,
-            "Text Home ($)": row[19] || 0,
-            "Text Header ($)": row[20] || 0,
-            "HH GP": row[21] || 0,
-            "HH Text": row[22] || 0,
-            "Kê GP": row[23] || 0,
-            "Kê Text": row[24] || 0,
-            MaNCC: row[26] || "",
-        }),
-        spreadsheetId: SPREADSHEET_ID,
-    },
-    updateNN: {
-        range: "2!B3:AM,5!B3:AM",
-        formatter: (row, index) => ({
-            rowIndex: index + 3,
-            Site: row[0] || "",
-            "Chủ đề": row[3] || "",
-            Nước: row[4] || "",
-            "Link out": row[6] || "",
-            DR: row[7] || "",
-            Keywords: row[8] || "",
-            "Traffic Tool": row[9] || "",
-            "Ghi chú": row[10] || "",
-            "Tình trạng": row[11] || "",
-            "GP ($)": row[17] || 0,
-            "Text Footer ($)": row[18] || 0,
-            "Text Home ($)": row[19] || 0,
-            "Text Header ($)": row[20] || 0,
-            "HH GP": row[21] || 0,
-            "HH Text": row[22] || 0,
-            "Kê GP": row[23] || 0,
-            "Kê Text": row[24] || 0,
             MaNCC: row[26] || "",
         }),
         spreadsheetId: SPREADSHEET_ID,
@@ -138,10 +94,12 @@ const sheetConfigs: Record<string, SheetConfig> = {
 };
 
 const getAuthClient = cache(async () => {
+    // Handle escaped newlines if key ever comes from env
+    const privateKey = (keys.private_key || "").replace(/\\n/g, "\n");
     const client = new google.auth.JWT(
         keys.client_email,
         undefined,
-        keys.private_key,
+        privateKey,
         ["https://www.googleapis.com/auth/spreadsheets"]
     );
     await client.authorize();
