@@ -272,7 +272,7 @@ export default function PageBody() {
                     .filter((term) => term.trim().length > 0)
                     .map((term) => {
                         const t = term.trim().toUpperCase()
-                        return t.startsWith("N") ? t : `N${t}`
+                        return t.startsWith("") ? t : `${t}`
                     })
             }
 
