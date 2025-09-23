@@ -7,7 +7,6 @@ import PageIllustration from "./page-illustration"
 import CurrencyConverterModal from "@/components/CurrencyConverterModal"
 import {
   ShoppingBag,
-  ExternalLink,
   DollarSign,
   CheckCircle,
   LayoutDashboard,
@@ -23,11 +22,10 @@ import {
   Clock,
   Settings,
   Users,
-  BarChart4,
-  Shield,
   Inbox,
   Wallet2,
   UserPlus,
+  FileText,
 } from "lucide-react"
 import { Wallet } from "lucide-react"
 import DepositModal from "@/app/(public)/(default)/components/DepositModal"
@@ -54,6 +52,29 @@ export default function HeroHome() {
   const [isWithdrawSubmitting, setIsWithdrawSubmitting] = useState(false)
 
   const router = useRouter()
+
+  const scrollToProducts = () => {
+    const productsSection = document.getElementById("products")
+    if (productsSection) {
+      productsSection.scrollIntoView({ behavior: "smooth" })
+      // Trigger data loading after scroll with a longer delay to ensure smooth scroll completes
+      setTimeout(() => {
+        // Look for the data loading button and click it automatically
+        const loadDataButton = document.querySelector("[data-load-products]") as HTMLButtonElement
+        if (loadDataButton && !loadDataButton.disabled) {
+          loadDataButton.click()
+        }
+        // Alternative: look for the main container that triggers data loading
+        const dataContainer = document.querySelector(".bg-gradient-to-b.from-white.to-gray-100") as HTMLElement
+        if (dataContainer) {
+          const clickableArea = dataContainer.querySelector(".cursor-pointer") as HTMLElement
+          if (clickableArea) {
+            clickableArea.click()
+          }
+        }
+      }, 1000)
+    }
+  }
 
   const handleLogout = async () => {
     try {
@@ -206,7 +227,6 @@ export default function HeroHome() {
     },
   ]
 
-  // Common tools configuration - visible to all users
   const commonTools = [
     {
       title: "Công cụ chung",
@@ -243,7 +263,6 @@ export default function HeroHome() {
     },
   ]
 
-  // Admin tools configuration
   const adminTools = [
     {
       title: "Quản lý hệ thống",
@@ -284,7 +303,6 @@ export default function HeroHome() {
         },
       ],
     },
-
     {
       title: "Quản lý",
       icon: <Settings className="w-5 h-5 text-purple-600" />,
@@ -300,7 +318,6 @@ export default function HeroHome() {
     },
   ]
 
-  // Admin specific tools
   const adminSpecificTools = [
     {
       name: "Quản Lý Tài Khoản",
@@ -332,291 +349,190 @@ export default function HeroHome() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         {/* Hero content */}
         <div className="flex flex-col mb-16">
-          <div className="flex flex-col md:flex-row items-start justify-between mb-12">
-            <div className="md:max-w-xl mb-10 md:mb-0">
-              <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-6 tracking-tight">
+          <div className="flex flex-col md:flex-row items-start justify-between mb-16">
+            <div className="md:max-w-2xl mb-10 md:mb-0">
+              <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 mb-8 tracking-tight leading-tight">
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-pink-600">
                   You Link
                 </span>{" "}
-                - Giải pháp Backlink chất lượng cao
+                <br />
+                <span className="text-4xl md:text-5xl">Giải pháp Backlink</span>
+                <br />
+                <span className="text-3xl md:text-4xl text-gray-700">chất lượng cao</span>
               </h1>
-              <p className="text-xl text-gray-600 mb-8">
-                Nâng cao thứ hạng website của bạn với dịch vụ backlink chất lượng cao, đa dạng và hiệu quả
+              <p className="text-xl text-gray-600 mb-10 leading-relaxed">
+                Nâng cao thứ hạng website của bạn với dịch vụ backlink chất lượng cao, đa dạng và hiệu quả từ các trang
+                web uy tín
               </p>
-              <div className="flex gap-4 text-sm">
-                <Link
-                  href="/gp-text"
-                  target="_blank"
-                  className="group inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700 text-white font-medium rounded-full px-8 py-3.5 shadow-lg hover:shadow-xl transition-all duration-300"
+
+              <div className="flex flex-col sm:flex-row gap-6 text-sm mb-12">
+                <button
+                  onClick={scrollToProducts}
+                  className="group inline-flex items-center justify-center gap-3 bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700 text-white font-semibold rounded-full px-10 py-4 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
                 >
-                  <ShoppingBag className="w-5 h-5" />
-                  GP - Text
-                  <ArrowRight className="w-4 h-4 ml-1 transition-transform duration-300 group-hover:translate-x-1" />
-                </Link>
-                <Link
-                  href="/content"
-                  target="_blank"
-                  className="group inline-flex items-center gap-2 bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white font-medium rounded-full px-8 py-3.5 shadow-lg hover:shadow-xl transition-all duration-300"
-                >
-                  <LayoutDashboard className="w-5 h-5" />
-                  Content
-                  <ArrowRight className="w-4 h-4 ml-1 transition-transform duration-300 group-hover:translate-x-1" />
-                </Link>
+                  <ShoppingBag className="w-6 h-6" />
+                  Khám phá GP - Text
+                  <ArrowRight className="w-5 h-5 ml-1 transition-transform duration-300 group-hover:translate-x-1" />
+                </button>
+              </div>
+
+              <div className="mt-3 max-w-fit">
+                <h4 className="text-lg font-semibold text-left mb-2 bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-pink-600">
+                  Kiểm tra đơn hàng của bạn
+                </h4>
+                <div className="flex flex-row flex-wrap gap-3 justify-start">
+                  <Link
+                    href="/gp-text"
+                    className="group inline-flex items-center justify-center gap-3 bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 text-sm font-semibold rounded-xl px-7 py-3 shadow-sm hover:shadow-md transition-all duration-200"
+                  >
+                    <FileText className="w-5 h-5 text-blue-700" />
+                    Đơn hàng GP - Text
+                    <ArrowRight className="w-4 h-4 ml-1 text-blue-700 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </Link>
+
+                  <Link
+                    href="/content"
+                    target="_blank"
+                    className="group inline-flex items-center justify-center gap-3 bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 text-sm font-semibold rounded-xl px-7 py-3 shadow-sm hover:shadow-md transition-all duration-200"
+                  >
+                    <LayoutDashboard className="w-5 h-5 text-emerald-700" />
+                    Đơn hàng Content
+                    <ArrowRight className="w-4 h-4 ml-1 text-emerald-700 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </Link>
+                </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100 w-full md:w-96">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Thống kê dịch vụ</h3>
-              <div className="space-y-4">
+            <div className="bg-white rounded-3xl shadow-2xl p-8 border border-gray-100 w-full md:w-96 backdrop-blur-sm">
+              <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">Thống kê dịch vụ</h3>
+              <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Backlink đã bán</span>
-                  <span className="font-medium text-gray-900">10,000+</span>
+                  <span className="text-gray-600 font-medium">Backlink đã bán</span>
+                  <span className="font-bold text-gray-900 text-lg">10,000+</span>
                 </div>
-                <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-orange-500 to-pink-600 w-[85%]"></div>
+                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-orange-500 to-pink-600 w-[85%] rounded-full"></div>
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Khách hàng hài lòng</span>
-                  <span className="font-medium text-gray-900">98%</span>
+                  <span className="text-gray-600 font-medium">Khách hàng hài lòng</span>
+                  <span className="font-bold text-gray-900 text-lg">98%</span>
                 </div>
-                <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-orange-500 to-pink-600 w-[98%]"></div>
+                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-orange-500 to-pink-600 w-[98%] rounded-full"></div>
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Tỷ lệ thành công</span>
-                  <span className="font-medium text-gray-900">95%</span>
+                  <span className="text-gray-600 font-medium">Tỷ lệ thành công</span>
+                  <span className="font-bold text-gray-900 text-lg">95%</span>
                 </div>
-                <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-orange-500 to-pink-600 w-[95%]"></div>
+                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-orange-500 to-pink-600 w-[95%] rounded-full"></div>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Top 10 Sites */}
-          <div className="w-full mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">Top 10 Site Được Order Nhiều Nhất</h3>
-              <div className="flex space-x-2">
-                <button
-                  onClick={scrollLeft}
-                  className="p-2 rounded-full bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors"
-                  aria-label="Scroll left"
-                >
-                  <ChevronLeft className="w-5 h-5 text-gray-600" />
-                </button>
-                <button
-                  onClick={scrollRight}
-                  className="p-2 rounded-full bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors"
-                  aria-label="Scroll right"
-                >
-                  <ChevronRight className="w-5 h-5 text-gray-600" />
-                </button>
+          {topSites.length > 0 && (
+            <div className="w-full mb-12">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Top 10 Site Được Order Nhiều Nhất</h3>
+                  <p className="text-gray-600">Các trang web được khách hàng tin tưởng và lựa chọn nhiều nhất</p>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={scrollLeft}
+                    className="p-3 rounded-full bg-white border border-gray-200 shadow-md hover:bg-gray-50 hover:shadow-lg transition-all duration-200"
+                    aria-label="Scroll left"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-gray-600" />
+                  </button>
+                  <button
+                    onClick={scrollRight}
+                    className="p-3 rounded-full bg-white border border-gray-200 shadow-md hover:bg-gray-50 hover:shadow-lg transition-all duration-200"
+                    aria-label="Scroll right"
+                  >
+                    <ChevronRight className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="relative">
-              <div
-                ref={scrollContainerRef}
-                className="overflow-x-auto pb-4"
-                style={{
-                  scrollbarWidth: "none",
-                  msOverflowStyle: "none",
-                  WebkitOverflowScrolling: "touch",
-                }}
-              >
-                <style jsx>{`
+              <div className="relative">
+                <div
+                  ref={scrollContainerRef}
+                  className="overflow-x-auto pb-4"
+                  style={{
+                    scrollbarWidth: "none",
+                    msOverflowStyle: "none",
+                    WebkitOverflowScrolling: "touch",
+                  }}
+                >
+                  <style jsx>{`
                   div::-webkit-scrollbar {
                     display: none;
                   }
                 `}</style>
-                <div className="flex space-x-6 min-w-max px-2">
-                  {isLoading ? (
-                    <div className="flex items-center justify-center w-full py-8 min-w-[800px]">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-                      <span className="ml-3 text-gray-500">Đang tải dữ liệu...</span>
-                    </div>
-                  ) : topSites.length > 0 ? (
-                    topSites.map(({ site, count }, index) => (
-                      <div
-                        key={index}
-                        className="bg-white rounded-xl shadow-md border border-gray-100 flex flex-col min-w-[250px] max-w-[250px] overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-105 group"
-                      >
-                        <div className="bg-gradient-to-r from-orange-500 to-pink-600 h-2"></div>
-                        <div className="p-5">
-                          <div className="flex items-center">
-                            <div className="w-10 h-6 rounded-full bg-gray-100 flex items-center justify-center mr-3 group-hover:bg-gradient-to-r group-hover:from-orange-500 group-hover:to-pink-600 transition-colors duration-300">
-                              <span className="font-bold text-gray-600 group-hover:text-white">{index + 1}</span>
-                            </div>
-                            <div>
-                              <h4 className="font-medium text-gray-800 truncate">{site}</h4>
-                              <p className="text-sm text-gray-500">Số lượng: {count}</p>
+                  <div className="flex space-x-6 min-w-max px-2">
+                    {isLoading ? (
+                      <div className="flex items-center justify-center w-full py-8 min-w-[800px]">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                        <span className="ml-3 text-gray-500">Đang tải dữ liệu...</span>
+                      </div>
+                    ) : topSites.length > 0 ? (
+                      topSites.map(({ site, count }, index) => (
+                        <div
+                          key={index}
+                          className="bg-white rounded-xl shadow-lg border border-gray-100 flex flex-col min-w-[280px] max-w-[280px] overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-105 group"
+                        >
+                          <div className="bg-gradient-to-r from-orange-500 to-pink-600 h-3"></div>
+                          <div className="p-6">
+                            <div className="flex items-center">
+                              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-orange-100 to-pink-100 flex items-center justify-center mr-4 group-hover:from-orange-500 group-hover:to-pink-600 transition-colors duration-300">
+                                <span className="font-bold text-lg text-orange-600 group-hover:text-white">
+                                  {index + 1}
+                                </span>
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-gray-800 truncate text-lg">{site}</h4>
+                                <p className="text-sm text-gray-500 font-medium">Số lượng: {count}</p>
+                              </div>
                             </div>
                           </div>
                         </div>
+                      ))
+                    ) : (
+                      <div className="flex items-center justify-center w-full py-8 min-w-[800px]">
+                        <span className="text-gray-500">Không có dữ liệu</span>
                       </div>
-                    ))
-                  ) : (
-                    <div className="flex items-center justify-center w-full py-8 min-w-[800px]">
-                      <span className="text-gray-500">Không có dữ liệu</span>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Common tools - visible to all users */}
-          {userInfo && (
-            <div className="mb-16 bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-              <h3 className="text-xl font-bold text-gray-900 mb-8 text-center">
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
-                  CÔNG CỤ CHUNG
-                </span>
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-1 gap-8">
-                {commonTools.map((section, idx) => (
-                  <div key={idx} className="bg-gray-50 rounded-xl p-6 shadow-md">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 rounded-lg bg-white shadow-sm">{section.icon}</div>
-                      <h4 className="font-semibold text-gray-800">{section.title}</h4>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      {section.items.map((tool, toolIdx) =>
-                        tool.href ? (
-                          <Link
-                            key={toolIdx}
-                            href={tool.href}
-                            target={tool.external ? "_blank" : undefined}
-                            rel={tool.external ? "noopener noreferrer" : undefined}
-                            className="flex items-center gap-3 p-3 rounded-lg bg-white hover:bg-gray-50 border border-gray-100 shadow-sm hover:shadow transition-all duration-200 group"
-                          >
-                            <div className={`${tool.color} text-white p-2 rounded-lg shadow-sm`}>{tool.icon}</div>
-                            <span className="font-medium text-gray-700 group-hover:text-gray-900">{tool.name}</span>
-                            {tool.external && <ExternalLink className="w-3.5 h-3.5 ml-auto text-gray-400" />}
-                          </Link>
-                        ) : (
-                          <button
-                            key={toolIdx}
-                            onClick={tool.action}
-                            className="flex items-center gap-3 p-3 rounded-lg bg-white hover:bg-gray-50 border border-gray-100 shadow-sm hover:shadow transition-all duration-200 group"
-                          >
-                            <div className={`${tool.color} text-white p-2 rounded-lg shadow-sm`}>{tool.icon}</div>
-                            <span className="font-medium text-gray-700 group-hover:text-gray-900">{tool.name}</span>
-                          </button>
-                        ),
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Admin and Staff tools - REDESIGNED */}
-          {(userInfo?.role === "Admin" || userInfo?.role === "Nhân viên") && (
-            <div className="mb-16 bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-              <h3 className="text-xl font-bold text-gray-900 mb-8 text-center">
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
-                  CÔNG CỤ QUẢN LÝ
-                </span>
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {adminTools.map((section, idx) => (
-                  <div key={idx} className="bg-gray-50 rounded-xl p-6 shadow-md">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 rounded-lg bg-white shadow-sm">{section.icon}</div>
-                      <h4 className="font-semibold text-gray-800">{section.title}</h4>
-                    </div>
-
-                    <div className="space-y-3">
-                      {section.items.map((tool, toolIdx) =>
-                        tool.href ? (
-                          <Link
-                            key={toolIdx}
-                            href={tool.href}
-                            target={tool.external ? "_blank" : undefined}
-                            rel={tool.external ? "noopener noreferrer" : undefined}
-                            className="flex items-center gap-3 p-3 rounded-lg bg-white hover:bg-gray-50 border border-gray-100 shadow-sm hover:shadow transition-all duration-200 group"
-                          >
-                            <div className={`${tool.color} text-white p-2 rounded-lg shadow-sm`}>{tool.icon}</div>
-                            <span className="font-medium text-gray-700 group-hover:text-gray-900">{tool.name}</span>
-                            {tool.external && <ExternalLink className="w-3.5 h-3.5 ml-auto text-gray-400" />}
-                          </Link>
-                        ) : (
-                          <button
-                            key={toolIdx}
-                            onClick={tool.action}
-                            className="w-full flex items-center gap-3 p-3 rounded-lg bg-white hover:bg-gray-50 border border-gray-100 shadow-sm hover:shadow transition-all duration-200 group"
-                          >
-                            <div className={`${tool.color} text-white p-2 rounded-lg shadow-sm`}>{tool.icon}</div>
-                            <span className="font-medium text-gray-700 group-hover:text-gray-900">{tool.name}</span>
-                          </button>
-                        ),
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Admin specific tools - REDESIGNED */}
-          {userInfo?.role === "Admin" && (
-            <div className="mb-16 bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl shadow-xl p-8 border border-gray-100">
-              <h3 className="text-xl font-bold text-gray-900 mb-8 text-center">
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
-                  DÀNH CHO ADMIN
-                </span>
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {adminSpecificTools.map((tool, idx) => (
-                  <Link
-                    key={idx}
-                    href={tool.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex flex-col h-full bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-                  >
-                    <div className={`${tool.color} h-2 w-full`}></div>
-                    <div className="p-6 flex flex-col h-full">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className={`${tool.color} bg-opacity-10 p-3 rounded-lg`}>{tool.icon}</div>
-                        <h4 className="font-semibold text-gray-800">{tool.name}</h4>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-4">{tool.description}</p>
-                      <div className="mt-auto flex items-center text-sm font-medium text-gray-600 group-hover:text-gray-900">
-                        <span>Truy cập</span>
-                        <ArrowRight className="w-4 h-4 ml-1 transition-transform duration-300 group-hover:translate-x-1" />
-                      </div>
-                    </div>
-                  </Link>
-                ))}
               </div>
             </div>
           )}
 
           {/* Backlink types */}
           <div className="pb-6 md:pb-16">
-            <h3 className="text-center text-lg font-semibold text-gray-800 mb-8">Dịch vụ Backlink đa dạng</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            <div className="text-center mb-12">
+              <h3 className="text-3xl font-bold text-gray-900 mb-4">Dịch vụ Backlink đa dạng</h3>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                Chúng tôi cung cấp đầy đủ các loại backlink chất lượng cao để đáp ứng mọi nhu cầu SEO của bạn
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-8">
               {backlinkTypes.map((item, index) => (
                 <div
                   key={index}
-                  className="group bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-500 border border-gray-100 p-6 hover:scale-[1.03]"
+                  className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 p-8 hover:scale-105 hover:-translate-y-2"
                 >
                   <div className="flex flex-col items-center text-center">
-                    <div className="bg-gray-50 p-4 rounded-full mb-4 group-hover:bg-gradient-to-r group-hover:from-orange-50 group-hover:to-pink-50 transition-colors duration-300">
+                    <div className="bg-gray-50 p-6 rounded-2xl mb-6 group-hover:bg-gradient-to-r group-hover:from-orange-50 group-hover:to-pink-50 transition-colors duration-300">
                       {item.icon}
                     </div>
-                    <h4 className="font-semibold text-gray-900 mb-2">{item.title}</h4>
-                    <p className="text-sm text-gray-600">{item.description}</p>
+                    <h4 className="font-bold text-gray-900 mb-3 text-lg">{item.title}</h4>
+                    <p className="text-sm text-gray-600 leading-relaxed">{item.description}</p>
                   </div>
                 </div>
               ))}
@@ -624,6 +540,7 @@ export default function HeroHome() {
           </div>
         </div>
       </div>
+
       {/* Modals */}
       <DepositModal
         isVisible={isDepositModalVisible}
