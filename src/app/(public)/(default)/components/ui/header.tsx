@@ -188,12 +188,6 @@ export default function Header() {
       color: "bg-gradient-to-r from-purple-500 to-indigo-600",
     },
     {
-      name: "Quản Lý Sites",
-      icon: <Database className="w-4 h-4" />,
-      href: "/quan-ly-site",
-      color: "bg-gradient-to-r from-purple-500 to-indigo-600",
-    },
-    {
       name: "Tool Check Site",
       icon: <CheckCircle className="w-4 h-4" />,
       href: "/tool-check-site",

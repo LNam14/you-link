@@ -224,7 +224,7 @@ export default function PageBody() {
     const [configError, setConfigError] = useState<string | null>(null)
     const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false)
     const [currencyMode, setCurrencyMode] = useState<"USD" | "VND">("USD")
-    const [exchangeRate, setExchangeRate] = useState<number>(25000)
+    const [exchangeRate, setExchangeRate] = useState<string>("27000")
     const dataTableRef = useRef<any>(null)
 
     const userInfo = getUserInfo()
@@ -352,7 +352,8 @@ export default function PageBody() {
                     const rawValue = newValue === null ? "" : newValue
                     if (priceFields.includes(columnName) && currencyMode === "VND") {
                         const numeric = Number(String(rawValue).toString().replace(/[\,\s]/g, ""))
-                        const converted = !isNaN(numeric) && exchangeRate > 0 ? numeric / exchangeRate : rawValue
+                        const rate = Number.parseFloat(exchangeRate)
+                        const converted = !isNaN(numeric) && !isNaN(rate) && rate > 0 ? Math.round(numeric / rate) : rawValue
                         acc[row].changes[columnName] = converted
                         try {
                             const colIndex = typeof prop === "number" ? (prop as number) : RowHeader1.indexOf(columnName)
@@ -412,7 +413,8 @@ export default function PageBody() {
                             const rawValue = value === null ? "" : value
                             if (priceFields.includes(columnName) && currencyMode === "VND") {
                                 const numeric = Number(String(rawValue).toString().replace(/[\,\s]/g, ""))
-                                const converted = !isNaN(numeric) && exchangeRate > 0 ? numeric / exchangeRate : rawValue
+                                const rate = Number.parseFloat(exchangeRate)
+                                const converted = !isNaN(numeric) && !isNaN(rate) && rate > 0 ? Math.round(numeric / rate) : rawValue
                                 acc[columnName] = converted
                                 try {
                                     const r = currentRowIndex
@@ -527,10 +529,24 @@ export default function PageBody() {
                     const [row, prop, oldValue, newValue] = change
                     const columnName = typeof prop === "string" ? prop : RowHeader2[prop as number]
 
-                    if (columnName) {
+                    if (!columnName) return
+
+                    const priceFields = ["GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"]
+                    const rawValue = newValue === null ? "" : newValue
+
+                    // Convert in-place for pending rows when currency is VND, mirroring main edit flow
+                    if (priceFields.includes(columnName) && currencyMode === "VND") {
+                        const numeric = Number(String(rawValue).toString().replace(/[\,\s]/g, ""))
+                        const rate = Number.parseFloat(exchangeRate)
+                        const converted = !isNaN(numeric) && !isNaN(rate) && rate > 0 ? numeric / rate : rawValue
                         newPendingRows[row] = {
                             ...newPendingRows[row],
-                            [columnName]: newValue === null ? "" : newValue,
+                            [columnName]: converted,
+                        }
+                    } else {
+                        newPendingRows[row] = {
+                            ...newPendingRows[row],
+                            [columnName]: rawValue,
                         }
                     }
                 })
@@ -538,24 +554,15 @@ export default function PageBody() {
                 setPendingRows(newPendingRows)
             }
         },
-        [pendingRows, dataType],
+        [pendingRows, currencyMode, exchangeRate],
     )
 
     const handleSavePendingRows = useCallback(async () => {
         try {
             const priceFields = ["GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"]
             const convertRowIfNeeded = (row: any) => {
-                if (currencyMode !== "VND") return row
-                const newRow: any = { ...row }
-                priceFields.forEach((field) => {
-                    if (newRow[field] !== undefined && newRow[field] !== "") {
-                        const numeric = Number(String(newRow[field]).toString().replace(/[,\s]/g, ""))
-                        if (!isNaN(numeric) && exchangeRate > 0) {
-                            newRow[field] = numeric / exchangeRate
-                        }
-                    }
-                })
-                return newRow
+                // Pending rows already converted to USD on input when currency is VND
+                return row
             }
 
             const rowsToSave = pendingRows.filter((row) =>
@@ -596,7 +603,7 @@ export default function PageBody() {
                 icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
             })
         }
-    }, [pendingRows, dataType, messageApi, fetchData, currencyMode, exchangeRate])
+    }, [pendingRows, dataType, messageApi, fetchData])
 
     const clearSearch = useCallback(() => {
         setSearchText("")
@@ -737,11 +744,9 @@ export default function PageBody() {
                                 <div className="flex items-center gap-2">
                                     <span className="text-sm text-blue-800">Tỷ giá</span>
                                     <input
-                                        type="number"
-                                        min={0}
-                                        step="0.01"
+                                        type="text"
                                         value={exchangeRate}
-                                        onChange={(e) => setExchangeRate(Number(e.target.value) || 0)}
+                                        onChange={(e) => setExchangeRate(e.target.value || "")}
                                         className="w-28 text-sm px-2 py-1 bg-white border border-blue-200 rounded-md text-blue-900"
                                     />
                                 </div>
@@ -988,7 +993,21 @@ export default function PageBody() {
                                     const base = columnSettings[header] || {}
                                     const meta: any = { ...base }
                                     const baseRenderer = (base as any).renderer
-                                    meta.renderer = withEllipsis(baseRenderer)
+                                    // In VND mode: display the USD result (value) rounded to nearest integer
+                                    if (["GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"].includes(header) && currencyMode === "VND") {
+                                        meta.renderer = (instance: Handsontable, td: HTMLTableCellElement, r: number, c: number, p: string | number, value: any, cellProps: Handsontable.CellProperties) => {
+                                            const display = (() => {
+                                                const usd = Number(String(value).toString().replace(/[\,\s]/g, ""))
+                                                if (isNaN(usd)) return value == null ? "" : String(value)
+                                                const rounded = Math.round(usd)
+                                                return String(rounded)
+                                            })()
+                                            Handsontable.renderers.TextRenderer(instance, td, r, c, p, display, cellProps)
+                                            td.title = display
+                                        }
+                                    } else {
+                                        meta.renderer = withEllipsis(baseRenderer)
+                                    }
                                     return meta
                                 }}
                             />

@@ -377,20 +377,23 @@ export default function PageBody() {
                 return dataToConvert.map((item) => {
                     const newItem = { ...item }
                     if (selectedCurrency === "VND") {
-                        const fieldsToConvert: Array<"giaBan" | "giaMua" | "giaCuoi" | "loiNhuan"> = [
-                            "giaBan",
-                            "giaMua",
-                            "giaCuoi",
-                            "loiNhuan",
-                        ]
-                        fieldsToConvert.forEach((fieldKey) => {
-                            const fieldName = getPriceColumnData(selectedPriceType, selectedBrand, fieldKey)
-                            const raw = newItem[fieldName as keyof SiteData]?.toString() || ""
-                            const numericValue = Number.parseFloat(raw)
-                            if (!isNaN(numericValue)) {
-                                ; (newItem as any)[fieldName] = (numericValue * exchangeRate).toString()
-                            }
-                        })
+                        const rate = Number.parseFloat(exchangeRate)
+                        if (!isNaN(rate)) {
+                            const fieldsToConvert: Array<"giaBan" | "giaMua" | "giaCuoi" | "loiNhuan"> = [
+                                "giaBan",
+                                "giaMua",
+                                "giaCuoi",
+                                "loiNhuan",
+                            ]
+                            fieldsToConvert.forEach((fieldKey) => {
+                                const fieldName = getPriceColumnData(selectedPriceType, selectedBrand, fieldKey)
+                                const raw = newItem[fieldName as keyof SiteData]?.toString() || ""
+                                const numericValue = Number.parseFloat(raw)
+                                if (!isNaN(numericValue)) {
+                                    ; (newItem as any)[fieldName] = (numericValue * rate).toString()
+                                }
+                            })
+                        }
                     }
                     return newItem
                 })
@@ -429,8 +432,10 @@ export default function PageBody() {
     // Function to convert price based on currency selection
     const convertPrice = (price: string): string => {
         if (selectedCurrency === "VND") {
+            const rate = Number.parseFloat(exchangeRate)
+            if (isNaN(rate)) return price
             const numericPrice = Number.parseFloat(price || "0") || 0
-            return (numericPrice * exchangeRate).toString()
+            return (numericPrice * rate).toString()
         }
         return price
     }
@@ -1841,7 +1846,7 @@ export default function PageBody() {
                                             <input
                                                 type="text"
                                                 value={exchangeRate}
-                                                onChange={(e) => setExchangeRate(e.target.value || 0)}
+                                                onChange={(e) => setExchangeRate(e.target.value || "")}
                                                 className="w-10 px-2 py-2 text-center text-xs bg-white text-blue-600 font-medium focus:outline-none focus:ring-2 focus:ring-blue-400"
                                                 placeholder="27"
                                             />
