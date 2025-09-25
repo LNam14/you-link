@@ -1197,22 +1197,26 @@ export default function PageBody() {
                                             del.appendChild(svgIcon)
                                             del.appendChild(text)
 
+                                            // Kiểm tra nếu đơn hàng đã xong nhưng LinkKQ rỗng thì vẫn cho phép xóa
+                                            const currentItem = selectedItems[row]
+                                            const canDelete = !isOrderCompleted || !currentItem?.LinkKQ || currentItem.LinkKQ.trim() === ""
+                                            
                                             del.style.width = "100%"
                                             del.style.height = "100%"
                                             del.style.borderRadius = "0"
                                             del.style.display = "flex"
                                             del.style.alignItems = "center"
                                             del.style.justifyContent = "center"
-                                            del.style.backgroundColor = isOrderCompleted ? "#e5e7eb" : "#fee2e2"
-                                            del.style.color = isOrderCompleted ? "#9ca3af" : "#dc2626"
+                                            del.style.backgroundColor = !canDelete ? "#e5e7eb" : "#fee2e2"
+                                            del.style.color = !canDelete ? "#9ca3af" : "#dc2626"
                                             del.style.fontSize = "12px"
                                             del.style.lineHeight = "1"
-                                            del.style.cursor = isOrderCompleted ? "not-allowed" : "pointer"
+                                            del.style.cursor = !canDelete ? "not-allowed" : "pointer"
                                             del.style.transition = "all 0.2s ease"
                                             del.style.boxShadow = "none"
                                             del.style.padding = "0"
                                             del.style.margin = "0"
-                                            if (!isOrderCompleted) {
+                                            if (canDelete) {
                                                 del.onmouseover = () => {
                                                     del.style.backgroundColor = "#fecaca"
                                                     del.style.color = "#b91c1c"
@@ -1222,8 +1226,8 @@ export default function PageBody() {
                                                     del.style.color = "#dc2626"
                                                 }
                                             }
-
-                                            if (isOrderCompleted) {
+                                            
+                                            if (!canDelete) {
                                                 del.onclick = null
                                             } else {
                                                 del.onclick = async () => {
@@ -1446,9 +1450,15 @@ export default function PageBody() {
                                 if (!coords?.length || !selectedOrder) return
                                 const { startRow, startCol } = coords[0]
                                 const newItems = [...selectedItems]
+                                
+                                // Giới hạn số hàng paste theo số hàng hiện có trong table
+                                const maxRows = selectedItems.length
+                                const rowsToProcess = Math.min(data.length, maxRows - startRow)
 
-                                for (let r = 0; r < data.length; r++) {
+                                for (let r = 0; r < rowsToProcess; r++) {
                                     const rowIndex = startRow + r
+                                    if (rowIndex >= maxRows) break // Đảm bảo không vượt quá số hàng hiện có
+                                    
                                     if (!newItems[rowIndex]) newItems[rowIndex] = { MaDon: `${selectedOrder.MaDon}-${rowIndex + 1}` }
                                     const rowData = data[r]
 

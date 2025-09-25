@@ -89,6 +89,8 @@ const RowHeader2 = [
     "HH Text",
     "Kê GP",
     "Kê Text",
+    "Tên",
+    "NCC",
 ]
 
 const getInitialDataType = () => {
@@ -207,6 +209,7 @@ export default function PageBody() {
     const [dataNN, setDataNN] = useState<any[]>([])
     const [searchText, setSearchText] = useState("")
     const [filteredData, setFilteredData] = useState<any[]>([])
+    const [missingSites, setMissingSites] = useState<string[]>([])
     const [dataType, setDataType] = useState<1 | 2>(getInitialDataType()) // 1 for VN, 2 for NN
     const [isAddModalVisible, setIsAddModalVisible] = useState(false)
     const [numberOfRows, setNumberOfRows] = useState(1)
@@ -228,6 +231,7 @@ export default function PageBody() {
     const dataTableRef = useRef<any>(null)
 
     const userInfo = getUserInfo()
+
 
     // Stats for dashboard
     const stats = useMemo(() => {
@@ -321,8 +325,26 @@ export default function PageBody() {
 
             const sorted = filtered.slice().sort((a, b) => getPriority(a) - getPriority(b))
             setFilteredData(sorted)
+
+            // Find missing sites (sites that were searched but not found in database)
+            const foundSites = new Set<string>()
+            dataToFilter.forEach((row) => {
+                const siteNorm = normalizeDomain(row.Site)
+                const maNorm = normalizeExact(row.NCC)
+                if (normalizedDomainTerms.includes(siteNorm) || normalizedExactTerms.includes(maNorm)) {
+                    foundSites.add(siteNorm)
+                    foundSites.add(maNorm)
+                }
+            })
+
+            const missing = rawTerms.filter((term) => {
+                const normalizedTerm = normalizeDomain(term)
+                return !foundSites.has(normalizedTerm) && !foundSites.has(normalizeExact(term))
+            })
+            setMissingSites(missing)
         } else {
             setFilteredData([])
+            setMissingSites([])
         }
     }, [searchText, dataVN, dataNN, dataType])
 
@@ -565,9 +587,14 @@ export default function PageBody() {
                 return row
             }
 
-            const rowsToSave = pendingRows.filter((row) =>
-                Object.entries(row).some(([key, value]) => key !== "Tình trạng" && value && value.toString().trim() !== ""),
-            )
+            const rowsToSave = pendingRows.filter((row) => {
+                // Must have Site field filled
+                if (!row.Site || row.Site.toString().trim() === "") {
+                    return false
+                }
+                // Site is enough to be considered valid (other fields are optional)
+                return true
+            })
 
             if (rowsToSave.length > 0) {
                 Modal.confirm({
@@ -592,7 +619,7 @@ export default function PageBody() {
                 })
             } else {
                 messageApi.warning({
-                    content: "Không có dữ liệu để lưu",
+                    content: "Không có dữ liệu để lưu. Vui lòng nhập ít nhất Site.",
                     icon: <Info className="text-yellow-500 mr-2" size={16} />,
                 })
             }
@@ -608,6 +635,7 @@ export default function PageBody() {
     const clearSearch = useCallback(() => {
         setSearchText("")
         setFilteredData([])
+        setMissingSites([])
     }, [])
 
     const handleContextMenu = useCallback((event: React.MouseEvent, row: number) => {
@@ -831,6 +859,29 @@ export default function PageBody() {
                                     <li>Có thể tìm nhiều site/mã NCC cùng lúc bằng cách ngăn cách bởi dấu cách hoặc xuống dòng</li>
                                     <li>Kết quả sẽ hiển thị các site hoặc mã NCC có chứa từ khóa tìm kiếm</li>
                                 </ul>
+                            </div>
+                        )}
+                        
+                        {/* Missing Sites Section - moved up for better visibility */}
+                        {searchText.trim() && missingSites.length > 0 && (
+                            <div className="mt-4 p-4 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-lg shadow-sm">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <AlertCircle className="w-5 h-5 text-red-600" />
+                                    <h3 className="text-lg font-semibold text-red-800">Site không tồn tại</h3>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {missingSites.map((site, index) => (
+                                        <div
+                                            key={index}
+                                            className="px-3 py-2 bg-red-100 border border-red-300 rounded-lg text-red-800 font-medium text-sm shadow-sm hover:bg-red-200 transition-colors duration-200"
+                                        >
+                                            {site}
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="text-sm text-red-600 mt-2">
+                                    Các site này không tồn tại trong database hiện tại. Bạn có thể thêm chúng bằng cách sử dụng nút "Thêm dòng".
+                                </p>
                             </div>
                         )}
                     </div>

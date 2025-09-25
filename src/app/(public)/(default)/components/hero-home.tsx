@@ -371,7 +371,7 @@ export default function HeroHome() {
                   className="group inline-flex items-center justify-center gap-3 bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700 text-white font-semibold rounded-full px-10 py-4 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
                 >
                   <ShoppingBag className="w-6 h-6" />
-                  Khám phá GP - Text
+                  Khám phá sản phẩm của chúng tôi
                   <ArrowRight className="w-5 h-5 ml-1 transition-transform duration-300 group-hover:translate-x-1" />
                 </button>
               </div>
