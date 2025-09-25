@@ -12,6 +12,7 @@ import { useCongNo } from "@/hook/useCongNo"
 import { Search, Plus, Trash2, RefreshCw, Users, UserPlus, Check, X, Maximize, Minimize } from "lucide-react"
 import { Modal } from "antd"
 import getUserInfo from "@/components/userInfo"
+import authApiRequest from "@/apiRequests/auth"
 
 registerAllModules()
 
@@ -64,6 +65,8 @@ const PageBody = () => {
     const [viewerModalRow, setViewerModalRow] = useState<number | null>(null)
     const [selectedViewers, setSelectedViewers] = useState<string[]>([])
     const [hiddenColumns, setHiddenColumns] = useState<number[]>([])
+    const [viewerOptions, setViewerOptions] = useState<{ username: string, name: string | null, displayName: string }[]>([])
+    const [loadingViewers, setLoadingViewers] = useState(false)
 
     // Load hidden columns from localStorage on component mount
     useEffect(() => {
@@ -167,7 +170,41 @@ const PageBody = () => {
         4: ["====", "Đang MH", "2 Tuần KM", "4 Tuần KM", "Lâu K MH", "Mình nghỉ chơi", "Họ nghỉ chơi", "SEO OFF"], // Order
         19: ["====", "Bình thường", "Rủi ro", "Rủi ro cao", "Scam"], // Tình Trạng
     }
-    const viewerOptions = Array.from({ length: 30 }, (_, i) => `BH${i + 1}`) // Người Xem options for Admin modal
+    // Load viewer options from API
+    useEffect(() => {
+        const loadViewerOptions = async () => {
+            setLoadingViewers(true)
+            try {
+                console.log("Loading viewer options from API...")
+                const response: any = await authApiRequest.getUsernames()
+                console.log("API response:", response)
+                if (response.success) {
+                    console.log("Setting viewer options:", response.data)
+                    setViewerOptions(response.data)
+                } else {
+                    console.log("API failed, using fallback")
+                    // Fallback to hardcoded options if API fails
+                    setViewerOptions(Array.from({ length: 30 }, (_, i) => ({
+                        username: `BH${i + 1}`,
+                        name: `Tên ${i + 1}`,
+                        displayName: `BH${i + 1}-Tên ${i + 1}`
+                    })))
+                }
+            } catch (error) {
+                console.error("Error loading viewer options:", error)
+                // Fallback to hardcoded options with test names
+                setViewerOptions(Array.from({ length: 30 }, (_, i) => ({
+                    username: `BH${i + 1}`,
+                    name: `Tên ${i + 1}`,
+                    displayName: `BH${i + 1}-Tên ${i + 1}`
+                })))
+            } finally {
+                setLoadingViewers(false)
+            }
+        }
+
+        loadViewerOptions()
+    }, [])
 
     // Parse date from DD/MM/YYYY or ISO
     const parseDate = (dateString: string) => {
@@ -1096,56 +1133,69 @@ const PageBody = () => {
 
                     {/* Viewer options grid */}
                     <div style={{ scrollbarWidth: "none" }} className="grid grid-cols-5 gap-3 max-h-90 overflow-auto p-1">
-                        {viewerOptions.map((opt: string) => {
-                            const isSelected = selectedViewers.includes(opt)
-                            return (
-                                <label
-                                    key={opt}
-                                    className={`
-                                               relative flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md
-                                               ${isSelected
-                                            ? "border-blue-500 bg-blue-50 shadow-sm"
-                                            : "border-gray-200 bg-white hover:border-gray-300"
-                                        }
-                                           `}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={isSelected}
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                setSelectedViewers((prev) => Array.from(new Set([...prev, opt])))
-                                            } else {
-                                                setSelectedViewers((prev) => prev.filter((v) => v !== opt))
-                                            }
-                                        }}
-                                        className="sr-only"
-                                    />
-
-                                    {/* Custom checkbox design */}
-                                    <div
-                                        className={`
-                                               absolute top-2 right-2 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
-                                               ${isSelected ? "border-blue-500 bg-blue-500" : "border-gray-300 bg-white"}
-                                           `}
-                                    >
-                                        {isSelected && <Check className="w-3 h-3 text-white" />}
-                                    </div>
-
-                                    {/* User avatar   and name */}
-                                    <div className="flex flex-col items-center gap-2">
-                                        <span
+                        {loadingViewers ? (
+                            <div className="col-span-5 flex items-center justify-center py-8">
+                                <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+                                <span className="ml-2 text-muted-foreground">Đang tải...</span>
+                            </div>
+                        ) : (
+                            viewerOptions.length > 0 ? (
+                                viewerOptions.map((opt) => {
+                                    const isSelected = selectedViewers.includes(opt.username)
+                                    return (
+                                        <label
+                                            key={opt.username}
                                             className={`
-                                                   text-sm font-medium text-center
-                                                   ${isSelected ? "text-blue-700" : "text-gray-700"}
-                                               `}
+                                                       relative flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md
+                                                       ${isSelected
+                                                    ? "border-blue-500 bg-blue-50 shadow-sm"
+                                                    : "border-gray-200 bg-white hover:border-gray-300"
+                                                }
+                                                   `}
                                         >
-                                            {opt}
-                                        </span>
-                                    </div>
-                                </label>
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedViewers((prev) => Array.from(new Set([...prev, opt.username])))
+                                                    } else {
+                                                        setSelectedViewers((prev) => prev.filter((v) => v !== opt.username))
+                                                    }
+                                                }}
+                                                className="sr-only"
+                                            />
+
+                                            {/* Custom checkbox design */}
+                                            <div
+                                                className={`
+                                                       absolute top-2 right-2 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
+                                                       ${isSelected ? "border-blue-500 bg-blue-500" : "border-gray-300 bg-white"}
+                                                   `}
+                                            >
+                                                {isSelected && <Check className="w-3 h-3 text-white" />}
+                                            </div>
+
+                                            {/* User avatar and name */}
+                                            <div className="flex flex-col items-center gap-2">
+                                                <span
+                                                    className={`
+                                                           text-xs font-medium text-center
+                                                           ${isSelected ? "text-blue-700" : "text-gray-700"}
+                                                       `}
+                                                >
+                                                    {opt.displayName}
+                                                </span>
+                                            </div>
+                                        </label>
+                                    )
+                                })
+                            ) : (
+                                <div className="col-span-5 flex items-center justify-center py-8">
+                                    <span className="text-muted-foreground">Không có dữ liệu</span>
+                                </div>
                             )
-                        })}
+                        )}
                     </div>
                 </div>
             </Modal>

@@ -59,6 +59,16 @@ export interface UsersResponse {
   data: User[];
 }
 
+// Định nghĩa kiểu dữ liệu cho username response
+export interface UsernameResponse {
+  success: boolean;
+  data: {
+    username: string;
+    name: string | null;
+    displayName: string;
+  }[];
+}
+
 // Định nghĩa kiểu dữ liệu cho create request
 export interface CreateUserRequest {
   count: number;
@@ -84,6 +94,7 @@ const ENDPOINTS = {
   DELETE: "/auth/delete",
   LOGOUT: "/auth/logout",
   CREATE: "/auth/create",
+  GET_USERNAMES: "/auth/get-usernames",
 };
 
 /**
@@ -188,6 +199,17 @@ const authApiRequest = {
    */
   create: (data: CreateUserRequest) => {
     return httpService.post<ApiResponse<User[]>>(ENDPOINTS.CREATE, data);
+  },
+
+  /**
+   * Lấy danh sách username và name
+   * @returns Promise với dữ liệu username và name
+   */
+  getUsernames: () => {
+    const timestamp = new Date().toISOString();
+    return httpService.get<UsernameResponse>(ENDPOINTS.GET_USERNAMES, {
+      params: { timestamp }
+    });
   },
 };
 
