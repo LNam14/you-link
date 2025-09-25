@@ -188,6 +188,12 @@ export default function Header() {
       color: "bg-gradient-to-r from-purple-500 to-indigo-600",
     },
     {
+      name: "Quản Lý Khách Hàng",
+      icon: <Users className="w-4 h-4" />,
+      href: "/quan-ly-khach-hang",
+      color: "bg-gradient-to-r from-purple-500 to-indigo-600",
+    },
+    {
       name: "Tool Check Site",
       icon: <CheckCircle className="w-4 h-4" />,
       href: "/tool-check-site",
