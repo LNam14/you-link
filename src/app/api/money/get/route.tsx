@@ -26,6 +26,22 @@ export async function GET(request: Request) {
         // Get attendance data using Prisma
         const attendanceResult = await prisma.attendance.findMany()
 
+        // Get account data to fetch names
+        const accountResult = await prisma.account.findMany({
+            select: {
+                username: true,
+                name: true
+            }
+        })
+
+        // Create a map of username to name for quick lookup
+        const usernameToNameMap = new Map<string, string>()
+        accountResult.forEach(account => {
+            if (account.username && account.name) {
+                usernameToNameMap.set(account.username, account.name)
+            }
+        })
+
         // Group wheel data by month and username
         const wheelData = wheelResult.reduce((acc: WheelData, row) => {
             if (!row.date) return acc // Skip if date is null
@@ -34,8 +50,16 @@ export async function GET(request: Request) {
             if (!acc[month]) {
                 acc[month] = {}
             }
-            if (!acc[month][row.username]) {
-                acc[month][row.username] = { wheel: 0, wage: 0 }
+
+            // Create username-name key
+            const name = usernameToNameMap.get(row.username) || ''
+            const displayKey = name ? `${row.username}-${name}` : row.username
+
+            if (!acc[month][displayKey]) {
+                acc[month][displayKey] = {
+                    wheel: 0,
+                    wage: 0
+                }
             }
 
             // Format wheel reward value
@@ -50,7 +74,7 @@ export async function GET(request: Request) {
                 rewardValue = Number(row.reward)
             }
 
-            acc[month][row.username].wheel += rewardValue
+            acc[month][displayKey].wheel += rewardValue
             return acc
         }, {} as WheelData)
 
@@ -62,12 +86,20 @@ export async function GET(request: Request) {
             if (!wheelData[month]) {
                 wheelData[month] = {}
             }
-            if (!wheelData[month][row.username]) {
-                wheelData[month][row.username] = { wheel: 0, wage: 0 }
+
+            // Create username-name key
+            const name = usernameToNameMap.get(row.username) || ''
+            const displayKey = name ? `${row.username}-${name}` : row.username
+
+            if (!wheelData[month][displayKey]) {
+                wheelData[month][displayKey] = {
+                    wheel: 0,
+                    wage: 0
+                }
             }
 
             // Count attendance days and calculate wage (302 per day)
-            wheelData[month][row.username].wage += 302000
+            wheelData[month][displayKey].wage += 302000
         })
 
         // Format the final output
