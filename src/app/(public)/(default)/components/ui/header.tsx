@@ -641,7 +641,7 @@ export default function Header() {
               )}
 
               {/* Admin specific tools */}
-              {userInfo?.role === "Admin" && (
+              {(userInfo?.role === "Admin" || (userInfo?.role === "Nhân viên" && (userInfo?.username === "BH12" || userInfo?.username === "BH13"))) && (
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-3 px-2 uppercase tracking-wider">
                     <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
@@ -650,17 +650,24 @@ export default function Header() {
                   </h3>
 
                   <div className="space-y-2">
-                    {adminSpecificTools.map((tool, idx) => (
-                      <Link
-                        key={idx}
-                        href={tool.href}
-                        target="_blank"
-                        className="flex items-center gap-3 p-3 rounded-lg bg-white hover:bg-gray-50 border border-gray-100 shadow-sm hover:shadow transition-all duration-200 group"
-                      >
-                        <div className={`${tool.color} text-white p-2 rounded-lg shadow-sm`}>{tool.icon}</div>
-                        <span className="font-medium text-xs text-gray-700 group-hover:text-gray-900">{tool.name}</span>
-                      </Link>
-                    ))}
+                    {adminSpecificTools.map((tool, idx) => {
+                      // Chỉ hiển thị "Quản Lý Tài Khoản" cho nhân viên BH12, BH13
+                      if (userInfo?.role === "Nhân viên" && tool.name !== "Quản Lý Tài Khoản") {
+                        return null
+                      }
+                      
+                      return (
+                        <Link
+                          key={idx}
+                          href={tool.href}
+                          target="_blank"
+                          className="flex items-center gap-3 p-3 rounded-lg bg-white hover:bg-gray-50 border border-gray-100 shadow-sm hover:shadow transition-all duration-200 group"
+                        >
+                          <div className={`${tool.color} text-white p-2 rounded-lg shadow-sm`}>{tool.icon}</div>
+                          <span className="font-medium text-xs text-gray-700 group-hover:text-gray-900">{tool.name}</span>
+                        </Link>
+                      )
+                    })}
                   </div>
                 </div>
               )}

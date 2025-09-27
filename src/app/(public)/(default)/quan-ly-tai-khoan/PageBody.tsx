@@ -29,12 +29,12 @@ export default function AccountTracker() {
     const [isLoading, setIsLoading] = useState(false)
     const [isAdding, setIsAdding] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [activeTab, setActiveTab] = useState<TabType>("Admin")
+    const userInfo = getUserInfo()
+    const [activeTab, setActiveTab] = useState<TabType>(userInfo.role === "Nhân viên" ? "NCC" : "Admin")
     const [showAddModal, setShowAddModal] = useState(false)
     const [numberOfRows, setNumberOfRows] = useState(1)
     const [selectedTeamId, setSelectedTeamId] = useState<string>("")
     const [searchTerm, setSearchTerm] = useState("")
-    const userInfo = getUserInfo()
     const hotTableRef = useRef<any>(null)
 
     const fetchAccountData = async () => {
@@ -689,46 +689,61 @@ export default function AccountTracker() {
                                 <h2 className="text-2xl font-bold text-white">Quản Lý Tài Khoản & Teams</h2>
                                 <div className="flex items-center gap-2">
                                     <div className="flex bg-blue-700/50 border border-blue-400 rounded-md overflow-hidden">
-                                        <button
-                                            onClick={() => setActiveTab("Admin")}
-                                            className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "Admin" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
-                                                }`}
-                                        >
-                                            <Shield className="h-4 w-4 mr-1" />
-                                            Admin
-                                        </button>
-                                        <button
-                                            onClick={() => setActiveTab("NCC")}
-                                            className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "NCC" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
-                                                }`}
-                                        >
-                                            <Truck className="h-4 w-4 mr-1" />
-                                            Nhà cung cấp
-                                        </button>
-                                        <button
-                                            onClick={() => setActiveTab("KH")}
-                                            className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "KH" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
-                                                }`}
-                                        >
-                                            <User className="h-4 w-4 mr-1" />
-                                            Khách hàng
-                                        </button>
-                                        <button
-                                            onClick={() => setActiveTab("NV")}
-                                            className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "NV" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
-                                                }`}
-                                        >
-                                            <Users className="h-4 w-4 mr-1" />
-                                            Nhân viên
-                                        </button>
-                                        <button
-                                            onClick={() => setActiveTab("Teams")}
-                                            className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "Teams" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
-                                                }`}
-                                        >
-                                            <Settings className="h-4 w-4 mr-1" />
-                                            Teams
-                                        </button>
+                                        {userInfo.role === "Nhân viên" ? (
+                                            // Only show NCC tab for users with role "Nhân viên"
+                                            <button
+                                                onClick={() => setActiveTab("NCC")}
+                                                className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "NCC" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
+                                                    }`}
+                                            >
+                                                <Truck className="h-4 w-4 mr-1" />
+                                                Nhà cung cấp
+                                            </button>
+                                        ) : (
+                                            // Show all tabs for Admin users
+                                            <>
+                                                <button
+                                                    onClick={() => setActiveTab("Admin")}
+                                                    className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "Admin" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
+                                                        }`}
+                                                >
+                                                    <Shield className="h-4 w-4 mr-1" />
+                                                    Admin
+                                                </button>
+                                                <button
+                                                    onClick={() => setActiveTab("NCC")}
+                                                    className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "NCC" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
+                                                        }`}
+                                                >
+                                                    <Truck className="h-4 w-4 mr-1" />
+                                                    Nhà cung cấp
+                                                </button>
+                                                <button
+                                                    onClick={() => setActiveTab("KH")}
+                                                    className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "KH" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
+                                                        }`}
+                                                >
+                                                    <User className="h-4 w-4 mr-1" />
+                                                    Khách hàng
+                                                </button>
+                                                <button
+                                                    onClick={() => setActiveTab("NV")}
+                                                    className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "NV" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
+                                                        }`}
+                                                >
+                                                    <Users className="h-4 w-4 mr-1" />
+                                                    Nhân viên
+                                                </button>
+                                                <button
+                                                    onClick={() => setActiveTab("Teams")}
+                                                    className={`flex items-center px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "Teams" ? "bg-blue-100 text-blue-900" : "text-white hover:bg-blue-600"
+                                                        }`}
+                                                >
+                                                    <Settings className="h-4 w-4 mr-1" />
+                                                    Teams
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
                                     <button
                                         onClick={async () => {

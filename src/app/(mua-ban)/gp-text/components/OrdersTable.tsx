@@ -341,7 +341,7 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                 } else if (userInfo) {
                     // Filter orders based on user role, selected NDD, selected period, and customer
                     filteredOrders =
-                        userInfo.role === "Admin"
+                        userInfo.role === "Admin" || userInfo.username === "BH12" || userInfo.username === "BH13"
                             ? selectedNDD
                                 ? ordersArray.filter((order: any) => order.NDD === selectedNDD)
                                 : ordersArray
@@ -1087,94 +1087,96 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                             </button>
 
 
-                            {/* Nút Chưa index */}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    // Lọc các đơn thỏa điều kiện từ toàn bộ database, không phụ thuộc filter
-                                    const filteredOrders = allOrders.filter((order) => {
-                                        if (!order.ChiTietDonHang) return false
-                                        return order.ChiTietDonHang.some((detail: any) => {
-                                            const isGP = detail.Loai === "GP"
-                                            const isIndexNo = detail.Index === "No" || detail.Index === "'"
-                                            const validTTKH = ["Đã nhập", "Đơn OK"].includes(detail.TinhTrangKH)
-                                            const validTTNCC = detail.TinhTrangNCC === "Đã lên bài"
-                                            return isGP && isIndexNo && validTTKH && validTTNCC
-                                        })
-                                    })
-                                    // Gộp chi tiết đơn hàng thỏa điều kiện
-                                    const allDetails = filteredOrders.flatMap((order) => {
-                                        const originalOrderIndex = allOrders.findIndex((o) => o.MaDon === order.MaDon)
-                                        return (order.ChiTietDonHang || [])
-                                            .map((item: any, detailIndex: number) => ({ item, originalIndex: detailIndex }))
-                                            .filter(({ item }: { item: any }) => {
-                                                const isGP = item.Loai === "GP"
-                                                const isIndexNo = item.Index === "No" || item.Index === "'"
-                                                const validTTKH = ["Đã nhập", "Đơn OK"].includes(item.TinhTrangKH)
-                                                const validTTNCC = item.TinhTrangNCC === "Đã lên bài"
+                            {/* Nút Chưa index - Only show for Admin, BH12, or BH13 */}
+                            {(userInfo?.role === "Admin" || userInfo?.username === "BH12" || userInfo?.username === "BH13") && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        // Lọc các đơn thỏa điều kiện từ toàn bộ database, không phụ thuộc filter
+                                        const filteredOrders = allOrders.filter((order) => {
+                                            if (!order.ChiTietDonHang) return false
+                                            return order.ChiTietDonHang.some((detail: any) => {
+                                                const isGP = detail.Loai === "GP"
+                                                const isIndexNo = detail.Index === "No" || detail.Index === "'"
+                                                const validTTKH = ["Đã nhập", "Đơn OK"].includes(detail.TinhTrangKH)
+                                                const validTTNCC = detail.TinhTrangNCC === "Đã lên bài"
                                                 return isGP && isIndexNo && validTTKH && validTTNCC
                                             })
-                                            .map(({ item, originalIndex }: { item: any; originalIndex: number }) => ({
-                                                ...item,
-                                                _dbIndex: originalIndex,
-                                                _parentIndex: originalOrderIndex,
-                                                _orderInfo: {
-                                                    MaDon: order.MaDon,
-                                                    Ngay: item.NgayBan || order.Ngay,
-                                                    NDD: order.NDD,
-                                                },
-                                            }))
-                                    })
-                                    if (allDetails.length === 0) {
-                                        toast.error("Không có đơn GP chưa index")
-                                        return
-                                    }
-                                    setMultiOrderDetails(allDetails)
-                                    setIsModalOpen(true)
-                                }}
-                                className="group relative px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium text-sm flex items-center gap-2"
-                            >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="h-4 w-4"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                                    />
-                                </svg>
-                                <span>Chưa index</span>
-                                {(() => {
-                                    // Check if there's data for unindexed GP orders
-                                    const hasUnindexedData = allOrders.some((order) => {
-                                        if (!order.ChiTietDonHang) return false
-                                        return order.ChiTietDonHang.some((detail: any) => {
-                                            const isGP = detail.Loai === "GP"
-                                            const isIndexNo = detail.Index === "No" || detail.Index === "'"
-                                            const validTTKH = ["Đã nhập", "Đơn OK"].includes(detail.TinhTrangKH)
-                                            const validTTNCC = detail.TinhTrangNCC === "Đã lên bài"
-                                            return isGP && isIndexNo && validTTKH && validTTNCC
                                         })
-                                    })
+                                        // Gộp chi tiết đơn hàng thỏa điều kiện
+                                        const allDetails = filteredOrders.flatMap((order) => {
+                                            const originalOrderIndex = allOrders.findIndex((o) => o.MaDon === order.MaDon)
+                                            return (order.ChiTietDonHang || [])
+                                                .map((item: any, detailIndex: number) => ({ item, originalIndex: detailIndex }))
+                                                .filter(({ item }: { item: any }) => {
+                                                    const isGP = item.Loai === "GP"
+                                                    const isIndexNo = item.Index === "No" || item.Index === "'"
+                                                    const validTTKH = ["Đã nhập", "Đơn OK"].includes(item.TinhTrangKH)
+                                                    const validTTNCC = item.TinhTrangNCC === "Đã lên bài"
+                                                    return isGP && isIndexNo && validTTKH && validTTNCC
+                                                })
+                                                .map(({ item, originalIndex }: { item: any; originalIndex: number }) => ({
+                                                    ...item,
+                                                    _dbIndex: originalIndex,
+                                                    _parentIndex: originalOrderIndex,
+                                                    _orderInfo: {
+                                                        MaDon: order.MaDon,
+                                                        Ngay: item.NgayBan || order.Ngay,
+                                                        NDD: order.NDD,
+                                                    },
+                                                }))
+                                        })
+                                        if (allDetails.length === 0) {
+                                            toast.error("Không có đơn GP chưa index")
+                                            return
+                                        }
+                                        setMultiOrderDetails(allDetails)
+                                        setIsModalOpen(true)
+                                    }}
+                                    className="group relative px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium text-sm flex items-center gap-2"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-4 w-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                                        />
+                                    </svg>
+                                    <span>Chưa index</span>
+                                    {(() => {
+                                        // Check if there's data for unindexed GP orders
+                                        const hasUnindexedData = allOrders.some((order) => {
+                                            if (!order.ChiTietDonHang) return false
+                                            return order.ChiTietDonHang.some((detail: any) => {
+                                                const isGP = detail.Loai === "GP"
+                                                const isIndexNo = detail.Index === "No" || detail.Index === "'"
+                                                const validTTKH = ["Đã nhập", "Đơn OK"].includes(detail.TinhTrangKH)
+                                                const validTTNCC = detail.TinhTrangNCC === "Đã lên bài"
+                                                return isGP && isIndexNo && validTTKH && validTTNCC
+                                            })
+                                        })
 
-                                    return hasUnindexedData ? (
-                                        <span className="absolute top-1 right-1 flex items-center justify-center">
-                                            <span className="ripple-pulse absolute w-4 h-4 rounded-full bg-green-500 opacity-60"></span>
-                                            <span className="ripple-pulse2 absolute w-6 h-6 rounded-full bg-green-500 opacity-30"></span>
-                                            <span className="w-2 h-2 bg-green-500 rounded-full relative z-10"></span>
-                                        </span>
-                                    ) : (
-                                        <span className="absolute top-1 right-1 flex items-center justify-center">
-                                            <span className="w-2 h-2 bg-red-500 rounded-full relative z-10"></span>
-                                        </span>
-                                    )
-                                })()}
-                            </button>
+                                        return hasUnindexedData ? (
+                                            <span className="absolute top-1 right-1 flex items-center justify-center">
+                                                <span className="ripple-pulse absolute w-4 h-4 rounded-full bg-green-500 opacity-60"></span>
+                                                <span className="ripple-pulse2 absolute w-6 h-6 rounded-full bg-green-500 opacity-30"></span>
+                                                <span className="w-2 h-2 bg-green-500 rounded-full relative z-10"></span>
+                                            </span>
+                                        ) : (
+                                            <span className="absolute top-1 right-1 flex items-center justify-center">
+                                                <span className="w-2 h-2 bg-red-500 rounded-full relative z-10"></span>
+                                            </span>
+                                        )
+                                    })()}
+                                </button>
+                            )}
 
                             {/* Nút Thanh Toán NCC */}
                             {/* <button
@@ -1221,8 +1223,8 @@ export default function OrdersTable({ maKH, hiddenColumns }: OrdersTableProps) {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3 text-sm">
-                        {/* Sales Person Filter - Only show for Admin */}
-                        {userInfo?.role === "Admin" && (
+                        {/* Sales Person Filter - Only show for Admin, BH12, or BH13 */}
+                        {(userInfo?.role === "Admin" || userInfo?.username === "BH12" || userInfo?.username === "BH13") && (
                             <div className="flex items-center gap-2">
                                 <Users className="h-3 w-3 text-blue-500" />
                                 <select

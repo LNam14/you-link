@@ -382,6 +382,7 @@ export default function HeroHome() {
                 </h4>
                 <div className="flex flex-row flex-wrap gap-3 justify-start">
                   <Link
+                    target="_blank"
                     href="/gp-text"
                     className="group inline-flex items-center justify-center gap-3 bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 text-sm font-semibold rounded-xl px-7 py-3 shadow-sm hover:shadow-md transition-all duration-200"
                   >
@@ -391,8 +392,8 @@ export default function HeroHome() {
                   </Link>
 
                   <Link
-                    href="/content"
                     target="_blank"
+                    href="/content"
                     className="group inline-flex items-center justify-center gap-3 bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 text-sm font-semibold rounded-xl px-7 py-3 shadow-sm hover:shadow-md transition-all duration-200"
                   >
                     <LayoutDashboard className="w-5 h-5 text-emerald-700" />

@@ -87,7 +87,11 @@ export default function SitesPage() {
     }
 
     // Check if user doesn't have required role
-    if (user.role !== "Admin") {
+    // Allow Admin role or Nhân viên with specific usernames (BH12, BH13)
+    const hasAccess = user.role === "Admin" || 
+                     (user.role === "Nhân viên" && (user.username === "BH12" || user.username === "BH13"))
+    
+    if (!hasAccess) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
                 <motion.div
