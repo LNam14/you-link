@@ -19,6 +19,19 @@ const getColumnLetter = (columnNumber: number): string => {
     return result
 }
 
+// Helper function to get column range using getColumnLetter
+const getColumnRange = (startColumn: number, endColumn: number): string => {
+    return `${getColumnLetter(startColumn)}:${getColumnLetter(endColumn)}`
+}
+
+// Helper function to validate column mapping
+const validateColumnMapping = (mapping: Record<string, string>): void => {
+    console.log("🔍 Validating column mapping:")
+    Object.entries(mapping).forEach(([key, value]) => {
+        console.log(`  ${key}: ${value}`)
+    })
+}
+
 // Telegram notification function for new sites
 const sendTelegramNotification = async (sites: any[]): Promise<boolean> => {
     try {
@@ -48,7 +61,7 @@ const sendTelegramNotification = async (sites: any[]): Promise<boolean> => {
             const traffic = site["Traffic Tool"] && site["Traffic Tool"].toString().trim() !== "" 
                 ? site["Traffic Tool"] 
                 : "Chưa cập nhật"
-            messageText += `${siteName} ${traffic}\n`
+            messageText += `${siteName} - Traffic: ${traffic}\n`
             console.log(`📝 Site ${index + 1}: ${siteName} - Traffic: ${traffic}`)
         })
 
@@ -104,6 +117,9 @@ export async function POST(req: Request) {
         const body = await req.json()
         const { rows, sheetType } = body
 
+        console.log("📊 Received data:", JSON.stringify(rows, null, 2))
+        console.log("📊 Sheet type:", sheetType)
+
         if (!Array.isArray(rows)) {
             return NextResponse.json({ error: "Invalid data format" }, { status: 400 })
         }
@@ -116,46 +132,133 @@ export async function POST(req: Request) {
 
         const targetSheetName = sheetType === 1 ? "4" : "5"
 
-        // Prepare data for appending
-        const valuesToAppend = rows.map(row => [
-            row["CS"] || "", // A - CS
-            row["Site"] || "", // B
-            row["Bóng"] || "", // C
-            row["Bet"] || "", // D
-            row["Chủ đề"] || "", // E
-            row["Nước"] || (sheetType === 2 ? "nước ngoài" : ""), // F
-            "", // G
-            row["Link out"] || "", // H
-            row["DR"] || "", // I
-            row["Keywords"] || "", // J
-            row["Traffic Tool"] || "", // K
-            "", // L (Ghi chú placeholder)
-            row["Tình trạng"] || "Bình thường", // M
-            "", // N
-            "", // O
-            "", // P
-            "", // Q
-            "", // R
-            row["GP ($)"] || "", // S
-            row["Text Footer ($)"] || "", // T
-            row["Text Home ($)"] || "", // U
-            row["Text Header ($)"] || "", // V
-            row["HH GP"] || "", // W
-            row["HH Text"] || "", // X
-            row["Kê GP"] || "", // Y
-            row["Kê Text"] || "", // Z
-            row["Tên"] || "", // AA - Tên
-            role === "NCC" ? username : row["NCC"] || "", // AB
-        ])
+        // Column mapping using getColumnLetter function
+        const columnMapping = {
+            CS: getColumnLetter(1), // A
+            Site: getColumnLetter(2), // B
+            Bóng: getColumnLetter(3), // C
+            Bet: getColumnLetter(4), // D
+            Chủ_đề: getColumnLetter(5), // E
+            Nước: getColumnLetter(6), // F
+            Link_out: getColumnLetter(8), // H
+            DR: getColumnLetter(9), // I
+            Keywords: getColumnLetter(10), // J
+            Traffic_Tool: getColumnLetter(11), // K
+            Tình_trạng: getColumnLetter(13), // M
+            GP: getColumnLetter(19), // S
+            Text_Footer: getColumnLetter(20), // T
+            Text_Home: getColumnLetter(21), // U
+            Text_Header: getColumnLetter(22), // V
+            HH_GP: getColumnLetter(23), // W
+            HH_Text: getColumnLetter(24), // X
+            Kê_GP: getColumnLetter(25), // Y
+            Kê_Text: getColumnLetter(26), // Z
+            Tên: getColumnLetter(27), // AA
+            NCC: getColumnLetter(28), // AB
+        }
+
+        console.log("📊 Column mapping:", columnMapping)
+        validateColumnMapping(columnMapping)
+
+        // Prepare data for appending using dynamic column references
+        const valuesToAppend = rows.map(row => {
+            const mappedRow = [
+                row["CS"] || "", // A - CS
+                row["Site"] || "", // B - Site
+                row["Bóng"] || "", // C - Bóng
+                row["Bet"] || "", // D - Bet
+                row["Chủ đề"] || "", // E - Chủ đề
+                row["Nước"] || (sheetType === 2 ? "nước ngoài" : ""), // F - Nước
+                "", // G - Empty
+                row["Link out"] || "", // H - Link out
+                row["DR"] || "", // I - DR
+                row["Keywords"] || "", // J - Keywords
+                row["Traffic Tool"] || "", // K - Traffic Tool
+                "", // L - Ghi chú (empty)
+                row["Tình trạng"] || "Bình thường", // M - Tình trạng
+                "", // N - Empty
+                "", // O - Empty
+                "", // P - Empty
+                "", // Q - Empty
+                "", // R - Empty
+                row["GP ($)"] || "", // S - GP ($)
+                row["Text Footer ($)"] || "", // T - Text Footer ($)
+                row["Text Home ($)"] || "", // U - Text Home ($)
+                row["Text Header ($)"] || "", // V - Text Header ($)
+                row["HH GP"] || "", // W - HH GP
+                row["HH Text"] || "", // X - HH Text
+                row["Kê GP"] || "", // Y - Kê GP
+                row["Kê Text"] || "", // Z - Kê Text
+                row["Tên"] || "", // AA - Tên
+                role === "NCC" ? username : row["NCC"] || "", // AB - NCC
+            ]
+            
+            console.log("🔍 Original row:", JSON.stringify(row, null, 2))
+            console.log("🔍 Mapped row:", JSON.stringify(mappedRow, null, 2))
+            console.log("🔍 Site value at index 1 (B):", mappedRow[1])
+            console.log("🔍 Site value at index 13 (N):", mappedRow[13])
+            
+            return mappedRow
+        })
 
         console.log(`📊 Appending ${valuesToAppend.length} rows to sheet ${targetSheetName}`)
 
-        // Use append instead of batch update to avoid row limit issues
-        const response = await gsapi.spreadsheets.values.append({
+        // First, get the current data to find the last row with actual data
+        const getLastRowResponse = await gsapi.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${targetSheetName}!A:AB`,
+            range: `${targetSheetName}!A:AB`, // Get all data to find last row with content
+        })
+        
+        // Find the last row that has actual data (not empty)
+        let lastRow = 0
+        if (getLastRowResponse.data.values) {
+            for (let i = getLastRowResponse.data.values.length - 1; i >= 0; i--) {
+                const row = getLastRowResponse.data.values[i]
+                // Check if row has any non-empty values
+                if (row && row.some(cell => cell && cell.toString().trim() !== "")) {
+                    lastRow = i + 1 // Convert to 1-based row number
+                    break
+                }
+            }
+        }
+        
+        const startRow = lastRow + 1
+        const endRow = startRow + valuesToAppend.length - 1
+        
+        console.log(`📊 Last row with data: ${lastRow}, Starting from row: ${startRow}, Ending at row: ${endRow}`)
+
+        // Double-check that the target range is empty to avoid overwriting
+        const checkRangeResponse = await gsapi.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${targetSheetName}!A${startRow}:AB${endRow}`,
+        })
+        
+        let finalStartRow = startRow
+        let finalEndRow = endRow
+        
+        if (checkRangeResponse.data.values && checkRangeResponse.data.values.length > 0) {
+            console.log("⚠️ Target range is not empty, adjusting start row...")
+            // Find the actual last row in the target range
+            let actualLastRow = lastRow
+            for (let i = checkRangeResponse.data.values.length - 1; i >= 0; i--) {
+                const row = checkRangeResponse.data.values[i]
+                if (row && row.some(cell => cell && cell.toString().trim() !== "")) {
+                    actualLastRow = startRow + i
+                    break
+                }
+            }
+            finalStartRow = actualLastRow + 1
+            finalEndRow = finalStartRow + valuesToAppend.length - 1
+            console.log(`📊 Adjusted: Starting from row: ${finalStartRow}, Ending at row: ${finalEndRow}`)
+        } else {
+            console.log("✅ Target range is empty, proceeding with insertion")
+        }
+        
+        // Use batchUpdate to insert data at specific position
+        const response = await gsapi.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${targetSheetName}!A${finalStartRow}:AB${finalEndRow}`, // Specific range from A to AB
             valueInputOption: "USER_ENTERED",
-            insertDataOption: "INSERT_ROWS",
             requestBody: {
                 values: valuesToAppend,
             },
@@ -175,7 +278,7 @@ export async function POST(req: Request) {
             // Don't fail the request if Telegram fails
         }
 
-        return NextResponse.json({ success: true, updated: response.data.updates?.updatedRows || valuesToAppend.length }, { status: 200 })
+        return NextResponse.json({ success: true, updated: valuesToAppend.length }, { status: 200 })
     } catch (error: any) {
         console.error("Error appending to Google Sheet:", error)
         return NextResponse.json({ error: true, message: error.message }, { status: 500 })
