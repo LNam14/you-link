@@ -1197,9 +1197,9 @@ export default function PageBody() {
                                             del.appendChild(svgIcon)
                                             del.appendChild(text)
 
-                                            // Kiểm tra nếu đơn hàng đã xong nhưng LinkKQ rỗng thì vẫn cho phép xóa
+                                            // Nhân viên luôn có thể xóa, bất kể trạng thái đơn hàng
                                             const currentItem = selectedItems[row]
-                                            const canDelete = !isOrderCompleted || !currentItem?.LinkKQ || currentItem.LinkKQ.trim() === ""
+                                            const canDelete = userInfo?.role === "Nhân viên" || !isOrderCompleted || !currentItem?.LinkKQ || currentItem.LinkKQ.trim() === ""
                                             
                                             del.style.width = "100%"
                                             del.style.height = "100%"
