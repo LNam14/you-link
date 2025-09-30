@@ -78,7 +78,6 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   const [rewardsLoading, setRewardsLoading] = useState(false)
   const [cachedRewardsData, setCachedRewardsData] = useState<any[]>([])
   const [lastFetchTime, setLastFetchTime] = useState<number>(0)
-  const [selectedMonth, setSelectedMonth] = useState<string>(moment().tz("Asia/Ho_Chi_Minh").format("YYYY-MM"))
   const itemsPerPage = 10
   const windowSize = useWindowSize()
   const userInfo = getUserInfo()
@@ -86,63 +85,32 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   const today = moment().tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD")
   console.log(today)
 
-  // Enhanced prize data with alternating large and small rewards
+  // Enhanced prize data with unique colors for each prize
   const data = [
-    { option: "500.000 VND", style: { backgroundColor: "#FFD700", textColor: "black" } }, // Big
-  
-    { option: "5.000 VND", style: { backgroundColor: "#06B6D4", textColor: "white" } },
-    { option: "20.000 VND", style: { backgroundColor: "#7C3AED", textColor: "white" } },
-    { option: "100.000 VND", style: { backgroundColor: "#8B5CF6", textColor: "white" } },
-    { option: "- 100.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  
-    { option: "Xí hụt", style: { backgroundColor: "#CCCCCC", textColor: "black" } }, // Fun
-  
-    { option: "10.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
-    { option: "50.000 VND", style: { backgroundColor: "#59d96a", textColor: "white" } },
-    { option: "200.000 VND", style: { backgroundColor: "#FF6B35", textColor: "white" } },
-    { option: "- 200.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  
-    { option: "5.000 VND", style: { backgroundColor: "#06B6D4", textColor: "white" } },
-    { option: "20.000 VND", style: { backgroundColor: "#7C3AED", textColor: "white" } },
-    { option: "100.000 VND", style: { backgroundColor: "#8B5CF6", textColor: "white" } },
-    { option: "- 100.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  
-    { option: "Hnay hụt, mai trượt!", style: { backgroundColor: "#CCCCCC", textColor: "black" } }, // Funny
-  
-    { option: "10.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
-    { option: "50.000 VND", style: { backgroundColor: "#59d96a", textColor: "white" } },
-    { option: "200.000 VND", style: { backgroundColor: "#FF6B35", textColor: "white" } },
-    { option: "- 200.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  
-    { option: "5.000 VND", style: { backgroundColor: "#06B6D4", textColor: "white" } },
-    { option: "20.000 VND", style: { backgroundColor: "#7C3AED", textColor: "white" } },
-    { option: "100.000 VND", style: { backgroundColor: "#8B5CF6", textColor: "white" } },
-    { option: "- 100.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  
-    { option: "Cố lên, mai hụt!", style: { backgroundColor: "#CCCCCC", textColor: "black" } }, // Inspiring
-  
-    { option: "10.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
-    { option: "50.000 VND", style: { backgroundColor: "#59d96a", textColor: "white" } },
-    { option: "5.000 VND", style: { backgroundColor: "#06B6D4", textColor: "white" } },
-    { option: "- 500.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  
-    { option: "20.000 VND", style: { backgroundColor: "#7C3AED", textColor: "white" } },
-    { option: "10.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
-    { option: "50.000 VND", style: { backgroundColor: "#59d96a", textColor: "white" } },
-    { option: "5.000 VND", style: { backgroundColor: "#06B6D4", textColor: "white" } },
-  
-    { option: "Đời mà, quay lại đi!", style: { backgroundColor: "#CCCCCC", textColor: "black" } }, // Funny
-  
-    { option: "20.000 VND", style: { backgroundColor: "#7C3AED", textColor: "white" } },
-    { option: "10.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
-    { option: "5.000 VND", style: { backgroundColor: "#06B6D4", textColor: "white" } },
-    { option: "20.000 VND", style: { backgroundColor: "#7C3AED", textColor: "white" } },
-  
-    { option: "10.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
-    { option: "5.000 VND", style: { backgroundColor: "#06B6D4", textColor: "white" } },
-  ];
-  
-  
+    { option: "Chúc bạn may mắn lần sau!", style: { backgroundColor: "#6B7280", textColor: "white" } }, // 0 - Gray
+    { option: "Bánh trung thu (1 cái)", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 1 - Gold
+    { option: "Hộp đựng quà", style: { backgroundColor: "#FF6B35", textColor: "white" } }, // 2 - Orange
+    { option: "Tiền đô", style: { backgroundColor: "#8B5CF6", textColor: "white" } }, // 3 - Purple
+    { option: "Socola", style: { backgroundColor: "#EF4444", textColor: "white" } }, // 4 - Red
+    { option: "Hoa khô", style: { backgroundColor: "#7C3AED", textColor: "white" } }, // 5 - Violet
+    { option: "Chúc bạn may mắn lần sau!", style: { backgroundColor: "#6B7280", textColor: "white" } }, // 6 - Gray
+    { option: "Trà", style: { backgroundColor: "#3B82F6", textColor: "white" } }, // 7 - Blue
+    { option: "Bánh trung thu (1 cái)", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 1 - Gold
+    { option: "Rượu vang", style: { backgroundColor: "#111827", textColor: "white" } }, // 8 - Dark
+    { option: "Đồ thủ công", style: { backgroundColor: "#EC4899", textColor: "white" } }, // 9 - Pink
+    { option: "Gấu bông", style: { backgroundColor: "#06B6D4", textColor: "white" } }, // 10 - Cyan
+    { option: "Nước hoa 10ml nam", style: { backgroundColor: "#F59E0B", textColor: "white" } }, // 11 - Amber
+    { option: "Chúc bạn may mắn lần sau!", style: { backgroundColor: "#6B7280", textColor: "white" } }, // 12 - Gray
+    { option: "Nước hoa 10ml nữ", style: { backgroundColor: "#10B981", textColor: "white" } }, // 13 - Emerald
+    { option: "Sách tự chọn", style: { backgroundColor: "#DC2626", textColor: "white" } }, // 14 - Dark Red
+    { option: "Bánh trung thu (1 cái)", style: { backgroundColor: "#FFD700", textColor: "black" } }, // 1 - Gold
+    { option: "Tô tranh", style: { backgroundColor: "#059669", textColor: "white" } }, // 15 - Green
+    { option: "Chúc bạn luôn vui vẻ!", style: { backgroundColor: "#F97316", textColor: "white" } }, // 16 - Orange
+    { option: "Thành công đang chờ bạn!", style: { backgroundColor: "#0EA5E9", textColor: "white" } }, // 17 - Sky Blue
+    { option: "Hạnh phúc mỗi ngày!", style: { backgroundColor: "#84CC16", textColor: "white" } }, // 18 - Lime
+    { option: "Sức khỏe dồi dào!", style: { backgroundColor: "#A855F7", textColor: "white" } }, // 19 - Purple
+    { option: "Tài lộc phát đạt!", style: { backgroundColor: "#EAB308", textColor: "black" } }, // 20 - Yellow
+  ]
 
   // Đưa hàm checkAndResetDailySpins ra ngoài useEffect để có thể gọi lại
   const checkAndResetDailySpins = async () => {
@@ -217,10 +185,54 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     }
   }
 
-  // Function to get weighted prize number with equal probability
+  // Function to get weighted prize number
   const getWeightedPrizeNumber = () => {
-    // Since all rewards have equal probability, just return a random index
-    return Math.floor(Math.random() * data.length)
+    const random = Math.random()
+
+    // Find all indices for each prize type
+    const moonCakeIndices = data
+      .map((item, index) => (item.option === "Bánh trung thu (1 cái)" ? index : -1))
+      .filter((index) => index !== -1)
+
+    const giftBoxIndices = data
+      .map((item, index) => (item.option === "Hộp đựng quà" ? index : -1))
+      .filter((index) => index !== -1)
+
+    const badLuckIndices = data
+      .map((item, index) => (item.option === "Chúc bạn may mắn lần sau!" ? index : -1))
+      .filter((index) => index !== -1)
+
+    // All other prize indices (excluding moon cake, gift box, and bad luck)
+    const otherPrizeIndices = data
+      .map((_, index) => index)
+      .filter(
+        (index) =>
+          !moonCakeIndices.includes(index) && !giftBoxIndices.includes(index) && !badLuckIndices.includes(index),
+      )
+
+    // 80% chance for Moon cake (Bánh trung thu)
+    if (random < 0.4 && moonCakeIndices.length > 0) {
+      return moonCakeIndices[Math.floor(Math.random() * moonCakeIndices.length)]
+    }
+
+    // 80% chance for Gift box (Hộp đựng quà) - but since we already used 80% above,
+    // we'll adjust this to work within remaining probability
+    if (random < 0.6 && giftBoxIndices.length > 0) {
+      return giftBoxIndices[Math.floor(Math.random() * giftBoxIndices.length)]
+    }
+
+    // 70% chance for "Chúc bạn may mắn lần sau!" within remaining probability
+    if (random < 0.8 && badLuckIndices.length > 0) {
+      return badLuckIndices[Math.floor(Math.random() * badLuckIndices.length)]
+    }
+
+    // 5% chance for all other prizes
+    if (otherPrizeIndices.length > 0) {
+      return otherPrizeIndices[Math.floor(Math.random() * otherPrizeIndices.length)]
+    }
+
+    // Fallback to moon cake if no other options
+    return moonCakeIndices.length > 0 ? moonCakeIndices[0] : 0
   }
 
   const handleStopSpinning = async () => {
@@ -278,7 +290,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
       playSound("win")
 
       // Show confetti for big prizes
-      if (currentPrize.includes("500.000")) {
+      if (currentPrize.includes("500.000") || currentPrize === "1 tràng vỗ tay") {
         setShowConfetti(true)
         setTimeout(() => setShowConfetti(false), 5000)
       }
@@ -328,23 +340,24 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   }
 
   const processRewardsData = (rewardsData: any[]) => {
-    const selectedMonthRewards = rewardsData.filter((reward: any) => {
+    const currentMonth = moment().tz("Asia/Ho_Chi_Minh").format("YYYY-MM")
+    const currentMonthRewards = rewardsData.filter((reward: any) => {
       const rewardMonth = moment(reward.date || reward.created_at).format("YYYY-MM")
-      return rewardMonth === selectedMonth
+      return rewardMonth === currentMonth
     })
 
-    let filteredRewards: any = selectedMonthRewards
+    let filteredRewards: any = currentMonthRewards
     if (userInfo?.role === "Admin") {
       if (selectedEmployee) {
         // Filter by specific employee
-        filteredRewards = selectedMonthRewards.filter((reward: any) => reward.username === selectedEmployee)
+        filteredRewards = currentMonthRewards.filter((reward: any) => reward.username === selectedEmployee)
       } else {
         // Show all employees when no specific employee is selected
-        filteredRewards = selectedMonthRewards
+        filteredRewards = currentMonthRewards
       }
     } else {
       // For non-admin users, only show their own rewards
-      filteredRewards = selectedMonthRewards.filter((reward: any) => reward.username === userInfo?.username)
+      filteredRewards = currentMonthRewards.filter((reward: any) => reward.username === userInfo?.username)
     }
 
     setRewards(filteredRewards)
@@ -353,7 +366,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
     // Extract unique usernames for the select dropdown
     if (userInfo?.role === "Admin") {
-      const uniqueUsernames = Array.from(new Set(selectedMonthRewards.map((reward: any) => reward.username)))
+      const uniqueUsernames = Array.from(new Set(currentMonthRewards.map((reward: any) => reward.username)))
       const sortedUsernames = uniqueUsernames.sort((a: any, b: any) => {
         // Extract letters and numbers from usernames
         const aMatch = a.match(/^([A-Za-z]+)(\d*)$/)
@@ -380,15 +393,6 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     }
   }
 
-  // Generate available months from rewards data
-  const getAvailableMonths = (rewardsData: any[]) => {
-    const months = Array.from(new Set(rewardsData.map((reward: any) => {
-      return moment(reward.date || reward.created_at).format("YYYY-MM")
-    }))).sort((a: any, b: any) => b.localeCompare(a)) // Sort newest first
-    
-    return months
-  }
-
   useEffect(() => {
     if (showRewards) {
       fetchRewardsData()
@@ -399,7 +403,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
     if (showRewards && cachedRewardsData.length > 0) {
       processRewardsData(cachedRewardsData)
     }
-  }, [selectedEmployee, selectedMonth])
+  }, [selectedEmployee])
 
   useEffect(() => {
     if (userInfo?.username) {
@@ -444,9 +448,9 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
             {title}
           </h1>
           <p className="text-base text-gray-300 max-w-2xl mx-auto leading-relaxed">
-            🎰 Quay ngay để có cơ hội nhận những phần thưởng từ{" "}
-            <span className="text-green-400 font-bold">5.000 VND</span> đến{" "}
-            <span className="text-yellow-400 font-bold">500.000 VND</span> 🎰
+            🎰 Quay ngay để có cơ hội nhận những phần quà giá trị lên đến{" "}
+            <span className="text-yellow-400 font-bold">2.000.000 VND</span> và{" "}
+            <span className="text-green-400 font-bold">100 USDT</span> 🎰
           </p>
         </div>
 
@@ -473,7 +477,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                         style={{ backgroundColor: prize.style.backgroundColor }}
                       ></div>
                       <span className="text-white font-medium text-xs text-center leading-tight">{prize.option}</span>
-                      {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
+                      {prize.option === "1 phân vàng" && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
                     </div>
                   ))}
                 </div>
@@ -488,7 +492,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                         style={{ backgroundColor: prize.style.backgroundColor }}
                       ></div>
                       <span className="text-white font-medium text-xs text-center leading-tight">{prize.option}</span>
-                      {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
+                      {prize.option === "1 phân vàng" && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
                     </div>
                   ))}
                 </div>
@@ -503,7 +507,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                         style={{ backgroundColor: prize.style.backgroundColor }}
                       ></div>
                       <span className="text-white font-medium text-xs text-center leading-tight">{prize.option}</span>
-                      {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
+                      {prize.option === "1 phân vàng" && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
                     </div>
                   ))}
                 </div>
@@ -518,7 +522,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                         style={{ backgroundColor: prize.style.backgroundColor }}
                       ></div>
                       <span className="text-white font-medium text-xs text-center leading-tight">{prize.option}</span>
-                      {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
+                      {prize.option === "1 phân vàng" && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
                     </div>
                   ))}
                 </div>
@@ -533,7 +537,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                         style={{ backgroundColor: prize.style.backgroundColor }}
                       ></div>
                       <span className="text-white font-medium text-xs text-center leading-tight">{prize.option}</span>
-                      {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
+                      {prize.option === "1 phân vàng" && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
                     </div>
                   ))}
                 </div>
@@ -551,7 +555,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                   {userInfo?.role === "Admin" ? (
                     <p className="text-emerald-300">🎯 Admin được quay 999 lượt mỗi ngày</p>
                   ) : (
-                    <p className="text-yellow-300">✨ Phần thưởng lên đến 500.000 VND rất hấp dẫn</p>
+                    <p className="text-yellow-300">✨ Phần thưởng 1 phân vàng rất hấp dẫn</p>
                   )}
                   {!userInfo && <p className="text-red-400">⚠️ Vui lòng đăng nhập để quay thưởng</p>}
                   {userInfo && userInfo.role !== "Nhân viên" && userInfo.role !== "Admin" && (
@@ -793,52 +797,33 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2">
                         <Gift className="h-4 w-4 text-purple-600" />
-                        Thống kê phần thưởng {moment(selectedMonth).format("MM/YYYY")}
+                        Thống kê phần thưởng tháng này
                       </h4>
-                       <div className="flex items-center gap-3">
-                         <div className="flex items-center gap-2">
-                           <label htmlFor="month-select" className="text-xs font-medium text-gray-600">
-                             Tháng:
-                           </label>
-                           <select
-                             id="month-select"
-                             value={selectedMonth}
-                             onChange={(e) => setSelectedMonth(e.target.value)}
-                             className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-xs bg-white"
-                           >
-                             {getAvailableMonths(cachedRewardsData).map((month) => (
-                               <option key={month} value={month}>
-                                 {moment(month).format("MM/YYYY")}
-                               </option>
-                             ))}
-                           </select>
-                         </div>
-                         {userInfo?.role === "Admin" && (
-                           <div className="flex items-center gap-2">
-                             <label htmlFor="employee-select" className="text-xs font-medium text-gray-600">
-                               Nhân viên:
-                             </label>
-                             <select
-                               id="employee-select"
-                               value={selectedEmployee}
-                               onChange={(e) => setSelectedEmployee(e.target.value)}
-                               className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-xs bg-white"
-                             >
-                               <option value="">Tất cả</option>
-                               {employees.map((employee) => (
-                                 <option key={employee} value={employee}>
-                                   {employee}
-                                 </option>
-                               ))}
-                             </select>
-                           </div>
-                         )}
-                         {userInfo?.role !== "Admin" && (
-                           <div className="text-xs font-medium text-gray-600 bg-white px-3 py-1 rounded-lg border border-gray-300">
-                             {userInfo?.username || "N/A"}
-                           </div>
-                         )}
-                       </div>
+                      {userInfo?.role === "Admin" && (
+                        <div className="flex items-center gap-2">
+                          <label htmlFor="employee-select" className="text-xs font-medium text-gray-600">
+                            Nhân viên:
+                          </label>
+                          <select
+                            id="employee-select"
+                            value={selectedEmployee}
+                            onChange={(e) => setSelectedEmployee(e.target.value)}
+                            className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-xs bg-white"
+                          >
+                            <option value="">Tất cả</option>
+                            {employees.map((employee) => (
+                              <option key={employee} value={employee}>
+                                {employee}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      {userInfo?.role !== "Admin" && (
+                        <div className="text-xs font-medium text-gray-600 bg-white px-3 py-1 rounded-lg border border-gray-300">
+                          {userInfo?.username || "N/A"}
+                        </div>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
                       {Array.from(new Set(data.map((prize) => prize.option))).map((uniquePrize) => {
@@ -858,7 +843,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                             <div className="text-center">
                               <div className="text-lg font-bold text-purple-600 flex items-center justify-center gap-1">
                                 {count}
-                                {uniquePrize.includes("500.000") && <Coins className="h-4 w-4 text-yellow-500" />}
+                                {uniquePrize === "1 phân vàng" && <Coins className="h-4 w-4 text-yellow-500" />}
                               </div>
                               <div className="text-xs text-gray-400 mt-1">
                                 {count === 0 ? "Chưa có" : count === 1 ? "1 lần" : `${count} lần`}
