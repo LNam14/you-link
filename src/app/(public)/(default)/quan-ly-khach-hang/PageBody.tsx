@@ -9,7 +9,7 @@ import "handsontable/styles/ht-theme-horizon.css"
 import { Toaster, toast } from "sonner"
 import { useFirebaseData } from "@/firebase/hooks/useFirebaseData"
 import { useCongNo } from "@/hook/useCongNo"
-import { Search, Plus, Trash2, RefreshCw, Users, UserPlus, Check, X, Maximize, Minimize } from "lucide-react"
+import { Search, Plus, Trash2, RefreshCw, Users, UserPlus, Check, X, Maximize, Minimize, ArrowDownCircle, ArrowUpCircle, Scale } from "lucide-react"
 import { Modal } from "antd"
 import getUserInfo from "@/components/userInfo"
 import authApiRequest from "@/apiRequests/auth"
@@ -60,6 +60,25 @@ const PageBody = () => {
                 .filter((s: string) => s.length > 0)
             return viewers.includes(userInfo?.username || "")
         })
+
+    // Calculate total debt and credit
+    const calculateTotals = () => {
+        let totalDebt = 0;
+        let totalCredit = 0;
+
+        visibleData.forEach(row => {
+            const maMoi = row[0] || "";
+            const debt = parseFloat(getCongNoByMaMoi(maMoi)) || 0;
+            const credit = parseFloat(row[18] || "0") || 0;
+
+            totalDebt += debt;
+            totalCredit += credit;
+        });
+
+        return { totalDebt, totalCredit };
+    };
+
+    const { totalDebt, totalCredit } = calculateTotals();
     // Modal state for multi-select Người Xem (Admin only)
     const [viewerModalOpen, setViewerModalOpen] = useState(false)
     const [viewerModalRow, setViewerModalRow] = useState<number | null>(null)
@@ -322,11 +341,12 @@ const PageBody = () => {
     const getDebtCreditStyling = (debt: string, credit: string) => {
         const debtNum = Number.parseFloat(debt) || 0
         const creditNum = Number.parseFloat(credit) || 0
+        const balance = creditNum - debtNum // Tín dụng - Công nợ
 
-        if (debtNum > creditNum) {
-            return { bg: "#fecaca", text: "#dc2626" } // red background/text
+        if (balance >= 0) {
+            return { bg: "#dcfce7", text: "#166534" } // green background/text (dương)
         } else {
-            return { bg: "#dcfce7", text: "#166534" } // green background/text
+            return { bg: "#fecaca", text: "#dc2626" } // red background/text (âm)
         }
     }
 
@@ -834,95 +854,150 @@ const PageBody = () => {
     return (
         <div
             ref={containerRef}
-            className={`min-h-screen relative bg-background transition-all duration-300 ${isFullscreen ? "fixed inset-0 z-50 p-0 m-0 w-screen h-screen" : ""
+            className={`min-h-screen relative bg-background transition-all duration-300 ${isFullscreen ? "fixed inset-0 z-50 p-0 m-0 w-screen h-screen" : "w-full"
                 }`}
         >
             <Toaster position="top-right" expand={true} richColors />
-            <div className={`w-full ${isFullscreen ? "max-w-none mx-0 h-full" : "max-w-7xl mx-auto"} relative z-0`}>
-                <div
-                    className={`bg-white ${isFullscreen ? "" : "rounded-t-xl"} shadow-xl overflow-hidden border border-blue-100`}
-                >
-                    <div className="p-4 border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div className="flex items-center gap-3">
-                                <div>
+            {/* Header Container - Limited width */}
+            <div className="w-full relative z-0">
+                <div className={`${isFullscreen ? "max-w-none mx-0 h-full" : "max-w-full mx-auto"} relative z-0`}>
+                    <div
+                        className={`bg-white shadow-xl overflow-hidden border border-blue-100`}
+                    >
+                        <div className="border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900 p-2">
+                            {/* Single Row Header with Title, Summary Cards, Search & Actions */}
+                            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                                {/* Left: Title */}
+                                <div className="flex-shrink-0">
                                     <h2 className="text-2xl font-bold text-white">Quản Lý Khách Hàng</h2>
                                     <p className="text-white text-sm">Tổng: {visibleData.length} khách hàng</p>
                                 </div>
-                            </div>
 
-                            <div className="flex flex-col sm:flex-row gap-4">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-4 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <input
-                                        type="text"
-                                        placeholder="Tìm kiếm khách hàng..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10 pr-4 py-1 w-56 bg-background text-sm border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent outline-none transition-all duration-200 text-foreground placeholder:text-muted-foreground"
-                                    />
+                                {/* Center: Full Width Summary Cards */}
+                                <div className="flex-1 flex gap-4 justify-center max-w-4xl mx-6">
+                                    {/* Tổng Công Nợ */}
+                                    <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3 border border-white/20 flex-1">
+                                            <div className="flex items-center justify-around gap-3">
+                                            <ArrowDownCircle className="w-7 h-7 text-red-300 flex-shrink-0" />
+                                            <div className="text-left">
+                                                <p className="text-white text-xs font-medium">Tổng Công Nợ</p>
+                                                <p className="text-red-300 text-md font-bold">
+                                                    {totalDebt.toLocaleString("vi-VN")} $
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Tổng Tín Dụng */}
+                                    <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3 border border-white/20 flex-1">
+                                        <div  className="flex items-center justify-around gap-3">
+                                            <ArrowUpCircle className="w-7 h-7 text-green-300 flex-shrink-0" />
+                                            <div className="text-left">
+                                                <p className="text-white text-xs font-medium">Tổng Tín Dụng</p>
+                                                <p className="text-green-300 text-md font-bold">
+                                                    {totalCredit.toLocaleString("vi-VN")} $
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Chênh Lệch */}
+                                    <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3 border border-white/20 flex-1">
+                                            <div className="flex items-center justify-around gap-3">
+                                            <Scale
+                                                className={`w-7 h-7 flex-shrink-0 ${totalCredit - totalDebt >= 0 ? "text-green-300" : "text-red-300"
+                                                    }`}
+                                            />
+                                            <div className="text-left">
+                                                <p className="text-white text-xs font-medium">Chênh Lệch</p>
+                                                <p
+                                                    className={`text-md font-bold ${totalCredit - totalDebt >= 0 ? "text-green-300" : "text-red-300"
+                                                        }`}
+                                                >
+                                                    {(totalCredit - totalDebt).toLocaleString("vi-VN")} $
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={toggleFullscreen}
-                                        className="group flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-all duration-200 text-sm shadow-sm"
-                                        title={isFullscreen ? "Thoát toàn màn hình" : "Chế độ toàn màn hình"}
-                                    >
-                                        {isFullscreen ? (
-                                            <Minimize className="h-3.5 w-3.5 text-white transition-transform duration-200" />
-                                        ) : (
-                                            <Maximize className="h-3.5 w-3.5 text-white transition-transform duration-200" />
-                                        )}
-                                        <span className="leading-none text-white">{isFullscreen ? "Thu nhỏ" : "Toàn màn hình"}</span>
-                                    </button>
 
-                                    <button
-                                        onClick={handleSingleAdd}
-                                        className="group flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md transition-all duration-200 text-sm shadow-sm"
-                                    >
-                                        <Plus className="h-3.5 w-3.5 group-hover:rotate-90 text-white transition-transform duration-200" />
-                                        <span className="leading-none text-white">Thêm 1</span>
-                                    </button>
 
-                                    <button
-                                        onClick={() => setShowBulkAddModal(true)}
-                                        className="group flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-all duration-200 text-sm"
-                                    >
-                                        <UserPlus className="h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-200 text-white" />
-                                        <span className="leading-none text-white">Thêm nhiều</span>
-                                    </button>
-
-                                    <button
-                                        onClick={handleDeleteSelected}
-                                        disabled={selectedRows.length === 0}
-                                        className="group flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed rounded-md transition-colors duration-200 text-sm"
-                                    >
-                                        <Trash2
-                                            className={`h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-200  ${selectedRows.length === 0 ? "text-gray-500" : "text-white"}`}
+                                {/* Right: Search + Actions */}
+                                <div className="flex flex-col sm:flex-row gap-4">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-4 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <input
+                                            type="text"
+                                            placeholder="Tìm kiếm khách hàng..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="pl-10 pr-4 py-1 w-56 bg-background text-sm border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent outline-none transition-all duration-200 text-foreground placeholder:text-muted-foreground"
                                         />
-                                        <span className={`leading-none ${selectedRows.length === 0 ? "text-gray-500" : "text-white"} `}>
-                                            Xóa {selectedRows.length > 0 && `(${selectedRows.length})`}
-                                        </span>
-                                    </button>
+                                    </div>
 
-                                    {hiddenColumns.length > 0 && (
+                                    <div className="flex gap-3">
                                         <button
-                                            onClick={showAllColumns}
-                                            className="group flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-all duration-200 text-sm shadow-sm"
-                                            title={`Hiện ${hiddenColumns.length} cột đã ẩn`}
+                                            onClick={toggleFullscreen}
+                                            className="group flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-all duration-200 text-sm shadow-sm"
+                                            title={isFullscreen ? "Thoát toàn màn hình" : "Chế độ toàn màn hình"}
                                         >
-                                            <Users className="h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-200 text-white" />
-                                            <span className="leading-none text-white">Hiện cột ({hiddenColumns.length})</span>
+                                            {isFullscreen ? (
+                                                <Minimize className="h-3.5 w-3.5 text-white transition-transform duration-200" />
+                                            ) : (
+                                                <Maximize className="h-3.5 w-3.5 text-white transition-transform duration-200" />
+                                            )}
+                                            <span className="leading-none text-white">{isFullscreen ? "Thu nhỏ" : "Toàn màn hình"}</span>
                                         </button>
-                                    )}
+
+                                        <button
+                                            onClick={handleSingleAdd}
+                                            className="group flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md transition-all duration-200 text-sm shadow-sm"
+                                        >
+                                            <Plus className="h-3.5 w-3.5 group-hover:rotate-90 text-white transition-transform duration-200" />
+                                            <span className="leading-none text-white">Thêm 1</span>
+                                        </button>
+
+                                        <button
+                                            onClick={() => setShowBulkAddModal(true)}
+                                            className="group flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-all duration-200 text-sm"
+                                        >
+                                            <UserPlus className="h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-200 text-white" />
+                                            <span className="leading-none text-white">Thêm nhiều</span>
+                                        </button>
+
+                                        <button
+                                            onClick={handleDeleteSelected}
+                                            disabled={selectedRows.length === 0}
+                                            className="group flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed rounded-md transition-colors duration-200 text-sm"
+                                        >
+                                            <Trash2
+                                                className={`h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-200  ${selectedRows.length === 0 ? "text-gray-500" : "text-white"}`}
+                                            />
+                                            <span className={`leading-none ${selectedRows.length === 0 ? "text-gray-500" : "text-white"} `}>
+                                                Xóa {selectedRows.length > 0 && `(${selectedRows.length})`}
+                                            </span>
+                                        </button>
+
+                                        {hiddenColumns.length > 0 && (
+                                            <button
+                                                onClick={showAllColumns}
+                                                className="group flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-all duration-200 text-sm shadow-sm"
+                                                title={`Hiện ${hiddenColumns.length} cột đã ẩn`}
+                                            >
+                                                <Users className="h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-200 text-white" />
+                                                <span className="leading-none text-white">Hiện cột ({hiddenColumns.length})</span>
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-card rounded-xl shadow-lg border border-border overflow-hidden">
+                {/* Full Width Table Section - 100% screen width */}
+                <div className="w-full bg-card shadow-lg border-t border-border overflow-hidden">
                     <div className="overflow-x-auto">
                         <div className={tableReady ? "table-ready" : "table-loading"}>
                             <HotTable
@@ -933,7 +1008,7 @@ const PageBody = () => {
                                 width="100%"
                                 autoColumnSize={false}
                                 manualColumnResize={true}
-                                height={isFullscreen ? "calc(100vh - 130px)" : "calc(100vh - 280px)"}
+                                height={isFullscreen ? "calc(100vh - 70px)" : "calc(100vh - 90px)"}
                                 stretchH="all"
                                 className="custom-table"
                                 licenseKey="non-commercial-and-evaluation"
@@ -999,30 +1074,6 @@ const PageBody = () => {
                                     setTimeout(() => setTableReady(true), 50)
                                 }}
                             />
-                        </div>
-                    </div>
-
-                    <div className="bg-muted/50 px-6 py-3 border-t border-border">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-4">
-                                <span className="font-medium">Tổng: {visibleData.length} khách hàng</span>
-                                {selectedRows.length > 0 && (
-                                    <span className="px-2 py-1 bg-primary/10 text-primary rounded-md font-medium">
-                                        Đã chọn: {selectedRows.length}
-                                    </span>
-                                )}
-                                {hiddenColumns.length > 0 && (
-                                    <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-md font-medium">
-                                        Đã ẩn: {hiddenColumns.length} cột
-                                    </span>
-                                )}
-                            </div>
-                            {searchTerm && (
-                                <span className="text-xs">
-                                    Hiển thị kết quả cho: <span className="font-medium">"{searchTerm}"</span>
-                                </span>
-                            )}
-                            <span className="text-xs">Chọn hàng để xóa • Nhấp đúp để chỉnh sửa • Chuột phải để ẩn cột</span>
                         </div>
                     </div>
                 </div>
