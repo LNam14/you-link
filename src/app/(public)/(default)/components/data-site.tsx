@@ -684,7 +684,7 @@ export default function DataSite({
                             {/* Filter Content */}
                             <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                                 <div className="space-y-6">
-                                    {/* Row 1: Các bộ lọc quan trọng nhất - 4 cột */}
+                                    {/* Row 1: Đi Bóng, Đi BET, Site .vn, Traffic Tool */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                         {/* Đi Bóng */}
                                         <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
@@ -794,77 +794,6 @@ export default function DataSite({
                                             </div>
                                         </div>
 
-                                        {/* Chủ đề */}
-                                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
-                                            <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                                <FaTicketAlt className="w-4 h-4 text-pink-500" />
-                                                Chủ đề ({selectedTopics.length})
-                                            </h3>
-                                            
-                                            {/* Selected topics display */}
-                                            {selectedTopics.length > 0 && (
-                                                <div className="mb-3">
-                                                    <div className="flex justify-between items-center mb-2">
-                                                        <span className="text-xs text-gray-600">Đã chọn:</span>
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedTopics([])
-                                                                setFilters((prevFilters: any) => ({
-                                                                    ...prevFilters,
-                                                                    "Chủ đề": undefined
-                                                                }))
-                                                            }}
-                                                            className="text-xs text-red-600 hover:text-red-800 underline"
-                                                        >
-                                                            Xóa tất cả
-                                                        </button>
-                                                    </div>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {selectedTopics.map((topic) => (
-                                                            <span
-                                                                key={topic}
-                                                                className="inline-flex items-center gap-1 px-2 py-1 bg-pink-100 text-pink-800 text-xs rounded-full border border-pink-200"
-                                                            >
-                                                                {topic}
-                                                                <button
-                                                                    onClick={() => handleTopicSelection(topic)}
-                                                                    className="ml-1 text-pink-600 hover:text-pink-800"
-                                                                >
-                                                                    <X className="w-3 h-3" />
-                                                                </button>
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                            
-                                            {/* Multi-select checkboxes */}
-                                            <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg bg-white p-2">
-                                                <div className="grid grid-cols-1 gap-1">
-                                                    {[
-                                                        "18+", "Agency", "Ẩm Thực", "Bất Động Sản", "Công Nghệ", "Công Nghiệp", 
-                                                        "Du Lịch", "Động Vật", "Đời Sống", "Edu", "Game", "Game Làm Giàu", 
-                                                        "GOV", "Luật", "Nông nghiệp", "Nước ngoài", "Phim", "Tài Chính", 
-                                                        "Thể thao", "Thời trang", "Tổng Hợp", "Truyện", "Việc Làm", 
-                                                        "Xây Dựng", "Xe", "Xổ Số", "Y tế"
-                                                    ].map((topic) => (
-                                                        <label key={topic} className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded transition-colors">
-                                                            <input
-                                                                type="checkbox"
-                                                                className="w-4 h-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
-                                                                checked={selectedTopics.includes(topic)}
-                                                                onChange={() => handleTopicSelection(topic)}
-                                                            />
-                                                            <span className="ml-2 text-sm text-gray-700">{topic}</span>
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Row 2: Các bộ lọc giá và số liệu - 4 cột */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                         {/* Traffic Tool */}
                                         <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
                                             <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -882,7 +811,10 @@ export default function DataSite({
                                                 <option value="100000">&gt; 100,000</option>
                                             </select>
                                         </div>
+                                    </div>
 
+                                    {/* Row 2: Các bộ lọc giá và số liệu - 4 cột */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                         {/* Giá GP */}
                                         <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
                                             <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -939,6 +871,95 @@ export default function DataSite({
                                                 <option value="80">&lt; 80</option>
                                                 <option value="160">&lt; 160</option>
                                             </select>
+                                        </div>
+
+                                        {/* Ngày cập nhật */}
+                                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
+                                            <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                                <FaCalendarAlt className="w-4 h-4 text-blue-500" />
+                                                Ngày cập nhật
+                                            </h3>
+                                            <select
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-all duration-200 text-sm"
+                                                value={filters["Ngày cập nhật"] || ""}
+                                                onChange={(e) => handleFilterChange("Ngày cập nhật", e.target.value)}
+                                            >
+                                                <option value="">Chọn lựa chọn</option>
+                                                <option value="today">Hôm nay</option>
+                                                <option value="week">Tuần này</option>
+                                                <option value="month">Tháng này</option>
+                                                <option value="older">Cũ hơn</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Row 3: Chủ đề - Full width */}
+                                    <div className="w-full">
+                                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
+                                            <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                                <FaTicketAlt className="w-4 h-4 text-pink-500" />
+                                                Chủ đề ({selectedTopics.length})
+                                            </h3>
+                                            
+                                            {/* Selected topics display */}
+                                            {selectedTopics.length > 0 && (
+                                                <div className="mb-3">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="text-xs text-gray-600">Đã chọn:</span>
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedTopics([])
+                                                                setFilters((prevFilters: any) => ({
+                                                                    ...prevFilters,
+                                                                    "Chủ đề": undefined
+                                                                }))
+                                                            }}
+                                                            className="text-xs text-red-600 hover:text-red-800 underline"
+                                                        >
+                                                            Xóa tất cả
+                                                        </button>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {selectedTopics.map((topic) => (
+                                                            <span
+                                                                key={topic}
+                                                                className="inline-flex items-center gap-1 px-2 py-1 bg-pink-100 text-pink-800 text-xs rounded-full border border-pink-200"
+                                                            >
+                                                                {topic}
+                                                                <button
+                                                                    onClick={() => handleTopicSelection(topic)}
+                                                                    className="ml-1 text-pink-600 hover:text-pink-800"
+                                                                >
+                                                                    <X className="w-3 h-3" />
+                                                                </button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Multi-select checkboxes - Grid layout for better space usage */}
+                                            <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg bg-white p-3">
+                                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                                                    {[
+                                                        "18+", "Agency", "Ẩm Thực", "Bất Động Sản", "Công Nghệ", "Công Nghiệp", 
+                                                        "Du Lịch", "Động Vật", "Đời Sống", "Edu", "Game", "Game Làm Giàu", 
+                                                        "GOV", "Luật", "Nông nghiệp", "Nước ngoài", "Phim", "Tài Chính", 
+                                                        "Thể thao", "Thời trang", "Tổng Hợp", "Truyện", "Việc Làm", 
+                                                        "Xây Dựng", "Xe", "Xổ Số", "Y tế"
+                                                    ].map((topic) => (
+                                                        <label key={topic} className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
+                                                            <input
+                                                                type="checkbox"
+                                                                className="w-4 h-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                                                                checked={selectedTopics.includes(topic)}
+                                                                onChange={() => handleTopicSelection(topic)}
+                                                            />
+                                                            <span className="ml-2 text-sm text-gray-700 truncate">{topic}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
