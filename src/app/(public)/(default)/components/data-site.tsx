@@ -162,8 +162,31 @@ export default function DataSite({
     const sortedProducts = useMemo(() => {
         if (!sortField) return filteredProducts
         return [...filteredProducts].sort((a, b) => {
-            if (a[sortField] < b[sortField]) return sortOrder === "asc" ? -1 : 1
-            if (a[sortField] > b[sortField]) return sortOrder === "asc" ? 1 : -1
+            const aValue = a[sortField]
+            const bValue = b[sortField]
+            
+            // Các cột cần sắp xếp theo số
+            const numericColumns = ['DR', 'Keywords', 'Traffic Tool', 'Giá GP', 'Giá Footer', 'Giá Home', 'Giá Header']
+            
+            if (numericColumns.includes(sortField)) {
+                // Xử lý giá trị "Ngưng" hoặc giá trị không hợp lệ
+                const aNum = aValue === "Ngưng" || aValue === "" || aValue === null || aValue === undefined ? -1 : Number(aValue)
+                const bNum = bValue === "Ngưng" || bValue === "" || bValue === null || bValue === undefined ? -1 : Number(bValue)
+                
+                // Nếu cả hai đều không phải số hợp lệ, sắp xếp theo thứ tự ban đầu
+                if (isNaN(aNum) && isNaN(bNum)) return 0
+                if (isNaN(aNum)) return sortOrder === "asc" ? 1 : -1
+                if (isNaN(bNum)) return sortOrder === "asc" ? -1 : 1
+                
+                return sortOrder === "asc" ? aNum - bNum : bNum - aNum
+            }
+            
+            // Sắp xếp theo string cho các cột khác
+            const aStr = String(aValue || "").toLowerCase()
+            const bStr = String(bValue || "").toLowerCase()
+            
+            if (aStr < bStr) return sortOrder === "asc" ? -1 : 1
+            if (aStr > bStr) return sortOrder === "asc" ? 1 : -1
             return 0
         })
     }, [filteredProducts, sortField, sortOrder])
