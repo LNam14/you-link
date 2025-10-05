@@ -155,10 +155,7 @@ const Product = ({ title }: { title: string }) => {
           <BookOpen className="h-12 w-12 text-pink-400" />
         </div>
         {/* Gradient orbs */}
-        <div className="absolute top-1/4 left-1/5 w-96 h-96 bg-gradient-to-r from-rose-100 to-pink-100 rounded-full filter blur-3xl opacity-45 animate-pulse"></div>
-        <div className="absolute top-1/4 right-1/5 w-96 h-96 bg-gradient-to-l from-pink-100 to-rose-100 rounded-full filter blur-3xl opacity-45 animate-pulse"></div>
-        <div className="absolute bottom-1/5 left-1/4 w-80 h-80 bg-gradient-to-r from-red-100 to-rose-100 rounded-full filter blur-3xl opacity-40 animate-pulse delay-2000"></div>
-        <div className="absolute bottom-1/5 right-1/4 w-80 h-80 bg-gradient-to-l from-rose-100 to-red-100 rounded-full filter blur-3xl opacity-40 animate-pulse delay-2000"></div>
+     
       </div>
       <div className="w-full">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">

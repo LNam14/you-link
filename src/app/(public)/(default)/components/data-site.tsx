@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useMemo } from "react"
-import { message, Modal, Badge, Tooltip } from "antd"
+import { message, Badge, Tooltip } from "antd"
 import { debounce } from "lodash"
 import {
     FaSort,
@@ -410,31 +410,84 @@ export default function DataSite({
         const filteredData = data.filter((item: any) => {
             return Object.entries(filters).every(([key, value]: [string, any]) => {
                 if (!value) return true
-                if (key === "Đi Bóng" || key === "Đi BET") {
-                    console.log(value, item[key])
-                    return item[key].toLowerCase() === value.toLowerCase()
+                
+                // Đi Bóng filter
+                if (key === "Đi Bóng") {
+                    return item[key] && item[key].toLowerCase() === value.toLowerCase()
                 }
+                
+                // Đi BET filter
+                if (key === "Đi BET") {
+                    return item[key] && item[key].toLowerCase() === value.toLowerCase()
+                }
+                
+                // Site .vn filter
                 if (key === "Site") {
                     const domain = extractDomain(item[key])
                     return domain.endsWith(".vn") === (value === "yes")
                 }
-                if (key === "Tình trạng") {
-                    return value === "bình thường"
-                        ? item[key].toLowerCase() === "bình thường"
-                        : item[key].toLowerCase() !== "bình thường"
-                }
+                
+                // Chủ đề filter
                 if (key === "Chủ đề") {
-                    return item[key].toLowerCase() === value.toLowerCase()
+                    return item[key] && item[key].toLowerCase() === value.toLowerCase()
                 }
-                if (key === "Giá GP" || key === "Giá Footer") {
+                
+                // Giá GP filter
+                if (key === "Giá GP") {
                     const selectedValue = Number.parseInt(value)
                     const itemValue = Number.parseInt(item[key])
-                    const priceRanges = [20, 40, 80, 160]
-                    const currentIndex = priceRanges.indexOf(selectedValue)
-
+                    
+                    if (isNaN(itemValue) || itemValue <= 0) return false
+                    
+                    return itemValue < selectedValue
+                }
+                
+                
+                // Traffic Tool filter
+                if (key === "Traffic Tool") {
+                    const selectedValue = Number.parseInt(value)
+                    const itemValue = Number.parseInt(item[key])
+                    
+                    if (isNaN(itemValue) || itemValue <= 0) return false
+                    
+                    return itemValue > selectedValue
+                }
+                
+                // DR filter
+                if (key === "DR") {
+                    const selectedValue = Number.parseInt(value)
+                    const itemValue = Number.parseInt(item[key])
+                    
+                    if (isNaN(itemValue) || itemValue <= 0) return false
+                    
+                    const drRanges = [5, 10, 20, 40, 60]
+                    const currentIndex = drRanges.indexOf(selectedValue)
+                    
                     if (currentIndex === 0) {
+                        // < 5: chỉ hiện < 5
                         return itemValue < selectedValue
                     } else {
+                        // >= 5 và < 10, >= 10 và < 20, etc.
+                        const lowerBound = drRanges[currentIndex - 1]
+                        return itemValue >= lowerBound && itemValue < selectedValue
+                    }
+                }
+                
+                // Giá Text filter (maps to Giá Footer in data)
+                if (key === "Giá Text") {
+                    const selectedValue = Number.parseInt(value)
+                    const itemValue = Number.parseInt(item["Giá Footer"])
+                    
+                    if (isNaN(itemValue) || itemValue <= 0) return false
+                    
+                    const priceRanges = [20, 40, 80, 160]
+                    const currentIndex = priceRanges.indexOf(selectedValue)
+                    
+                    if (currentIndex === 0) {
+                        // < 20: chỉ hiện < 20
+                        return itemValue < selectedValue
+                    } else {
+                        // >= 20 và < 40, >= 40 và < 80, etc.
                         const lowerBound = priceRanges[currentIndex - 1]
                         return itemValue >= lowerBound && itemValue < selectedValue
                     }
@@ -549,248 +602,303 @@ export default function DataSite({
                     </div>
                 )}
 
-                <Modal
-                    title={
-                        <div className="flex items-center gap-2 text-gray-900">
-                            <FaFilter className="text-orange-500" />
-                            <h2 className="text-xl font-bold">Bộ lọc nâng cao</h2>
-                        </div>
-                    }
-                    onCancel={() => setShowFilters(false)}
-                    footer={null}
-                    open={showFilters}
-                    width={800}
-                    className="filter-modal"
-                    closeIcon={<span className="text-gray-500 hover:text-gray-700 text-xl">&times;</span>}
-                >
-                    <div className="p-6 bg-white space-y-6">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                            <div className="filter-group">
-                                <h3 className="text-xs font-semibold text-gray-700 mb-2">Đi Bóng</h3>
-                                <div className="flex space-x-4">
-                                    <label className="inline-flex items-center">
-                                        <input
-                                            type="radio"
-                                            className="form-radio text-orange-500 focus:ring-orange-500"
-                                            name="diBong"
-                                            value="có"
-                                            checked={filters["Đi Bóng"] === "có"}
-                                            onChange={(e) => handleFilterChange("Đi Bóng", e.target.value)}
-                                        />
-                                        <span className="ml-2">Có</span>
-                                    </label>
-                                    <label className="inline-flex items-center">
-                                        <input
-                                            type="radio"
-                                            className="form-radio text-orange-500 focus:ring-orange-500"
-                                            name="diBong"
-                                            value="ko"
-                                            checked={filters["Đi Bóng"] === "ko"}
-                                            onChange={(e) => handleFilterChange("Đi Bóng", e.target.value)}
-                                        />
-                                        <span className="ml-2">Không</span>
-                                    </label>
+                {/* Custom Filter Panel */}
+                {showFilters && (
+                    <div 
+                        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                        onClick={(e) => {
+                            if (e.target === e.currentTarget) {
+                                setShowFilters(false)
+                            }
+                        }}
+                    >
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+                            {/* Header */}
+                            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-4 text-white">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <FaFilter className="w-6 h-6" />
+                                        <h2 className="text-2xl font-bold">Bộ lọc nâng cao</h2>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowFilters(false)}
+                                        className="text-white hover:text-gray-200 transition-colors duration-200 p-2 hover:bg-white hover:bg-opacity-20 rounded-full"
+                                    >
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
                                 </div>
                             </div>
-                            <div className="filter-group">
-                                <h3 className="text-xs font-semibold text-gray-700 mb-2">Đi BET</h3>
-                                <div className="flex space-x-4">
-                                    <label className="inline-flex items-center">
-                                        <input
-                                            type="radio"
-                                            className="form-radio text-orange-500 focus:ring-orange-500"
-                                            name="diBET"
-                                            value="có"
-                                            checked={filters["Đi BET"] === "có"}
-                                            onChange={(e) => handleFilterChange("Đi BET", e.target.value)}
-                                        />
-                                        <span className="ml-2">Có</span>
-                                    </label>
-                                    <label className="inline-flex items-center">
-                                        <input
-                                            type="radio"
-                                            className="form-radio text-orange-500 focus:ring-orange-500"
-                                            name="diBET"
-                                            value="ko"
-                                            checked={filters["Đi BET"] === "ko"}
-                                            onChange={(e) => handleFilterChange("Đi BET", e.target.value)}
-                                        />
-                                        <span className="ml-2">Không</span>
-                                    </label>
+
+                            {/* Filter Content */}
+                            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                                <div className="space-y-6">
+                                    {/* Row 1: Các bộ lọc quan trọng nhất - 4 cột */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        {/* Đi Bóng */}
+                                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
+                                            <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                                <FaFutbol className="w-4 h-4 text-orange-500" />
+                                                Đi Bóng
+                                            </h3>
+                                            <div className="flex gap-3">
+                                                <label className="flex items-center cursor-pointer group">
+                                                    <input
+                                                        type="radio"
+                                                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                                                        name="diBong"
+                                                        value="có"
+                                                        checked={filters["Đi Bóng"] === "có"}
+                                                        onChange={(e) => handleFilterChange("Đi Bóng", e.target.value)}
+                                                    />
+                                                    <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
+                                                        Có
+                                                    </span>
+                                                </label>
+                                                <label className="flex items-center cursor-pointer group">
+                                                    <input
+                                                        type="radio"
+                                                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                                                        name="diBong"
+                                                        value="ko"
+                                                        checked={filters["Đi Bóng"] === "ko"}
+                                                        onChange={(e) => handleFilterChange("Đi Bóng", e.target.value)}
+                                                    />
+                                                    <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
+                                                        Không
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        {/* Đi BET */}
+                                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
+                                            <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                                <FaDice className="w-4 h-4 text-purple-500" />
+                                                Đi BET
+                                            </h3>
+                                            <div className="flex gap-3">
+                                                <label className="flex items-center cursor-pointer group">
+                                                    <input
+                                                        type="radio"
+                                                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                                                        name="diBET"
+                                                        value="có"
+                                                        checked={filters["Đi BET"] === "có"}
+                                                        onChange={(e) => handleFilterChange("Đi BET", e.target.value)}
+                                                    />
+                                                    <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
+                                                        Có
+                                                    </span>
+                                                </label>
+                                                <label className="flex items-center cursor-pointer group">
+                                                    <input
+                                                        type="radio"
+                                                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                                                        name="diBET"
+                                                        value="ko"
+                                                        checked={filters["Đi BET"] === "ko"}
+                                                        onChange={(e) => handleFilterChange("Đi BET", e.target.value)}
+                                                    />
+                                                    <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
+                                                        Không
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        {/* Site .vn */}
+                                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
+                                            <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                                <FaLink className="w-4 h-4 text-green-500" />
+                                                Site .vn
+                                            </h3>
+                                            <div className="flex gap-3">
+                                                <label className="flex items-center cursor-pointer group">
+                                                    <input
+                                                        type="radio"
+                                                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                                                        name="siteVN"
+                                                        value="yes"
+                                                        checked={filters["Site"] === "yes"}
+                                                        onChange={(e) => handleFilterChange("Site", e.target.value)}
+                                                    />
+                                                    <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
+                                                        Có
+                                                    </span>
+                                                </label>
+                                                <label className="flex items-center cursor-pointer group">
+                                                    <input
+                                                        type="radio"
+                                                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                                                        name="siteVN"
+                                                        value="no"
+                                                        checked={filters["Site"] === "no"}
+                                                        onChange={(e) => handleFilterChange("Site", e.target.value)}
+                                                    />
+                                                    <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
+                                                        Không
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        {/* Chủ đề */}
+                                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
+                                            <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                                <FaTicketAlt className="w-4 h-4 text-pink-500" />
+                                                Chủ đề
+                                            </h3>
+                                            <select
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-all duration-200 text-sm"
+                                                value={filters["Chủ đề"] || ""}
+                                                onChange={(e) => handleFilterChange("Chủ đề", e.target.value)}
+                                            >
+                                                <option value="">Chọn chủ đề</option>
+                                                <option value="18+">18+</option>
+                                                <option value="Agency">Agency</option>
+                                                <option value="Ẩm Thực">Ẩm Thực</option>
+                                                <option value="Bất Động Sản">Bất Động Sản</option>
+                                                <option value="Công Nghệ">Công Nghệ</option>
+                                                <option value="Công Nghiệp">Công Nghiệp</option>
+                                                <option value="Du Lịch">Du Lịch</option>
+                                                <option value="Động Vật">Động Vật</option>
+                                                <option value="Đời Sống">Đời Sống</option>
+                                                <option value="Edu">Edu</option>
+                                                <option value="Game">Game</option>
+                                                <option value="Game Làm Giàu">Game Làm Giàu</option>
+                                                <option value="GOV">GOV</option>
+                                                <option value="Luật">Luật</option>
+                                                <option value="Nông nghiệp">Nông nghiệp</option>
+                                                <option value="Nước ngoài">Nước ngoài</option>
+                                                <option value="Phim">Phim</option>
+                                                <option value="Tài Chính">Tài Chính</option>
+                                                <option value="Thể thao">Thể thao</option>
+                                                <option value="Thời trang">Thời trang</option>
+                                                <option value="Tổng Hợp">Tổng Hợp</option>
+                                                <option value="Truyện">Truyện</option>
+                                                <option value="Việc Làm">Việc Làm</option>
+                                                <option value="Xây Dựng">Xây Dựng</option>
+                                                <option value="Xe">Xe</option>
+                                                <option value="Xổ Số">Xổ Số</option>
+                                                <option value="Y tế">Y tế</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Row 2: Các bộ lọc giá và số liệu - 4 cột */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        {/* Traffic Tool */}
+                                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
+                                            <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                                <FaTrafficLight className="w-4 h-4 text-red-500" />
+                                                Traffic Tool
+                                            </h3>
+                                            <select
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-all duration-200 text-sm"
+                                                value={filters["Traffic Tool"] || ""}
+                                                onChange={(e) => handleFilterChange("Traffic Tool", e.target.value)}
+                                            >
+                                                <option value="">Chọn lựa chọn</option>
+                                                <option value="1000">&gt; 1,000</option>
+                                                <option value="10000">&gt; 10,000</option>
+                                                <option value="100000">&gt; 100,000</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Giá GP */}
+                                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
+                                            <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                                <FaDollarSign className="w-4 h-4 text-green-500" />
+                                                Giá GP
+                                            </h3>
+                                            <select
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-all duration-200 text-sm"
+                                                value={filters["Giá GP"] || ""}
+                                                onChange={(e) => handleFilterChange("Giá GP", e.target.value)}
+                                            >
+                                                <option value="">Chọn lựa chọn</option>
+                                                <option value="20">&lt; 20</option>
+                                                <option value="40">&lt; 40</option>
+                                                <option value="80">&lt; 80</option>
+                                                <option value="160">&lt; 160</option>
+                                            </select>
+                                        </div>
+
+                                        {/* DR */}
+                                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
+                                            <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                                <FaChartLine className="w-4 h-4 text-indigo-500" />
+                                                DR
+                                            </h3>
+                                            <select
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-all duration-200 text-sm"
+                                                value={filters["DR"] || ""}
+                                                onChange={(e) => handleFilterChange("DR", e.target.value)}
+                                            >
+                                                <option value="">Chọn lựa chọn</option>
+                                                <option value="5">&lt; 5</option>
+                                                <option value="10">&lt; 10</option>
+                                                <option value="20">&lt; 20</option>
+                                                <option value="40">&lt; 40</option>
+                                                <option value="60">&lt; 60</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Giá Text */}
+                                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
+                                            <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                                <FaAlignLeft className="w-4 h-4 text-orange-500" />
+                                                Giá Text
+                                            </h3>
+                                            <select
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-all duration-200 text-sm"
+                                                value={filters["Giá Text"] || ""}
+                                                onChange={(e) => handleFilterChange("Giá Text", e.target.value)}
+                                            >
+                                                <option value="">Chọn lựa chọn</option>
+                                                <option value="20">&lt; 20</option>
+                                                <option value="40">&lt; 40</option>
+                                                <option value="80">&lt; 80</option>
+                                                <option value="160">&lt; 160</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="filter-group">
-                                <h3 className="text-xs font-semibold text-gray-700 mb-2">Site .vn</h3>
-                                <div className="flex space-x-4">
-                                    <label className="inline-flex items-center">
-                                        <input
-                                            type="radio"
-                                            className="form-radio text-orange-500 focus:ring-orange-500"
-                                            name="siteVN"
-                                            value="yes"
-                                            checked={filters["Site"] === "yes"}
-                                            onChange={(e) => handleFilterChange("Site", e.target.value)}
-                                        />
-                                        <span className="ml-2">Có</span>
-                                    </label>
-                                    <label className="inline-flex items-center">
-                                        <input
-                                            type="radio"
-                                            className="form-radio text-orange-500 focus:ring-orange-500"
-                                            name="siteVN"
-                                            value="no"
-                                            checked={filters["Site"] === "no"}
-                                            onChange={(e) => handleFilterChange("Site", e.target.value)}
-                                        />
-                                        <span className="ml-2">Không</span>
-                                    </label>
+
+                            {/* Footer */}
+                            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                                <div className="flex justify-between items-center">
+                                    <div className="text-sm text-gray-600">
+                                        {Object.keys(filters).filter(key => filters[key]).length > 0 && (
+                                            <span>
+                                                Đang áp dụng {Object.keys(filters).filter(key => filters[key]).length} bộ lọc
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={resetFilters}
+                                            className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 flex items-center gap-2 font-medium"
+                                        >
+                                            <FaUndo className="w-4 h-4" />
+                                            Làm mới
+                                        </button>
+                                        <button
+                                            onClick={applyFilters}
+                                            className="px-6 py-3 rounded-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2 font-medium"
+                                        >
+                                            <FaFilter className="w-4 h-4" />
+                                            Áp dụng bộ lọc
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="filter-group">
-                                <h3 className="text-xs font-semibold text-gray-700 mb-2">Tình trạng</h3>
-                                <div className="flex space-x-4">
-                                    <label className="inline-flex items-center">
-                                        <input
-                                            type="radio"
-                                            className="form-radio text-orange-500 focus:ring-orange-500"
-                                            name="StatusVN"
-                                            value="bình thường"
-                                            checked={filters["Tình trạng"] === "bình thường"}
-                                            onChange={(e) => handleFilterChange("Tình trạng", e.target.value)}
-                                        />
-                                        <span className="ml-2">Bình thường</span>
-                                    </label>
-                                    <label className="inline-flex items-center">
-                                        <input
-                                            type="radio"
-                                            className="form-radio text-orange-500 focus:ring-orange-500"
-                                            name="StatusVN"
-                                            value="other"
-                                            checked={filters["Tình trạng"] !== "bình thường"}
-                                            onChange={(e) => handleFilterChange("Tình trạng", e.target.value)}
-                                        />
-                                        <span className="ml-2">Khác</span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="filter-group">
-                                <h3 className="text-xs font-semibold text-gray-700 mb-2">Traffic Tool</h3>
-                                <select
-                                    className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                                    value={filters["Traffic Tool"]}
-                                    onChange={(e) => handleFilterChange("Traffic Tool", e.target.value)}
-                                >
-                                    <option value="">Chọn lựa chọn</option>
-                                    <option value="1000">&gt; 1,000</option>
-                                    <option value="10000">&gt; 10,000</option>
-                                    <option value="100000">&gt; 100,000</option>
-                                </select>
-                            </div>
-                            <div className="filter-group">
-                                <h3 className="text-xs font-semibold text-gray-700 mb-2">Giá GP</h3>
-                                <select
-                                    className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                                    value={filters["Giá GP"]}
-                                    onChange={(e) => handleFilterChange("Giá GP", e.target.value)}
-                                >
-                                    <option value="">Chọn lựa chọn</option>
-                                    <option value="20">&lt; 20</option>
-                                    <option value="40">&lt; 40</option>
-                                    <option value="80">&lt; 80</option>
-                                    <option value="160">&lt; 160</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="filter-group">
-                                <h3 className="text-xs font-semibold text-gray-700 mb-2">Chủ đề</h3>
-                                <select
-                                    className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                                    value={filters["Chủ đề"] || ""}
-                                    onChange={(e) => handleFilterChange("Chủ đề", e.target.value)}
-                                >
-                                    <option value="">Chọn chủ đề</option>
-                                    <option value="18+">18+</option>
-                                    <option value="Agency">Agency</option>
-                                    <option value="Ẩm Thực">Ẩm Thực</option>
-                                    <option value="Bất Động Sản">Bất Động Sản</option>
-                                    <option value="Công Nghệ">Công Nghệ</option>
-                                    <option value="Công Nghiệp">Công Nghiệp</option>
-                                    <option value="Du Lịch">Du Lịch</option>
-                                    <option value="Động Vật">Động Vật</option>
-                                    <option value="Đời Sống">Đời Sống</option>
-                                    <option value="Edu">Edu</option>
-                                    <option value="Game">Game</option>
-                                    <option value="Game Làm Giàu">Game Làm Giàu</option>
-                                    <option value="GOV">GOV</option>
-                                    <option value="Luật">Luật</option>
-                                    <option value="Nông nghiệp">Nông nghiệp</option>
-                                    <option value="Nước ngoài">Nước ngoài</option>
-                                    <option value="Phim">Phim</option>
-                                    <option value="Tài Chính">Tài Chính</option>
-                                    <option value="Thể thao">Thể thao</option>
-                                    <option value="Thời trang">Thời trang</option>
-                                    <option value="Tổng Hợp">Tổng Hợp</option>
-                                    <option value="Truyện">Truyện</option>
-                                    <option value="Việc Làm">Việc Làm</option>
-                                    <option value="Xây Dựng">Xây Dựng</option>
-                                    <option value="Xe">Xe</option>
-                                    <option value="Xổ Số">Xổ Số</option>
-                                    <option value="Y tế">Y tế</option>
-                                </select>
-                            </div>
-                            <div className="filter-group">
-                                <h3 className="text-xs font-semibold text-gray-700 mb-2">DR</h3>
-                                <select
-                                    className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                                    value={filters["DR"]}
-                                    onChange={(e) => handleFilterChange("DR", e.target.value)}
-                                >
-                                    <option value="">Chọn lựa chọn</option>
-                                    <option value="5">&lt; 5</option>
-                                    <option value="10">&lt; 10</option>
-                                    <option value="20">&lt; 20</option>
-                                    <option value="40">&lt; 40</option>
-                                    <option value="60">&lt; 60</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="filter-group">
-                                <h3 className="text-xs font-semibold text-gray-700 mb-2">Giá Text</h3>
-                                <select
-                                    className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                                    value={filters["Giá Text"]}
-                                    onChange={(e) => handleFilterChange("Giá Text", e.target.value)}
-                                >
-                                    <option value="">Chọn lựa chọn</option>
-                                    <option value="20">&gt; 20</option>
-                                    <option value="40">&gt; 40</option>
-                                    <option value="80">&gt; 80</option>
-                                    <option value="160">&gt; 160</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div className="mt-8 flex justify-end space-x-4">
-                            <button
-                                onClick={resetFilters}
-                                className="px-5 py-3 border border-gray-200 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-all duration-300 flex items-center gap-2"
-                            >
-                                <FaUndo className="w-4 h-4" />
-                                Làm mới
-                            </button>
-                            <button
-                                onClick={applyFilters}
-                                className="px-5 py-3 rounded-lg text-white bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700 transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2"
-                            >
-                                <FaFilter className="w-4 h-4" />
-                                Xác nhận
-                            </button>
                         </div>
                     </div>
-                </Modal>
+                )}
             </div>
             {loading ? (
                 <div className="flex justify-center items-center min-h-[400px]">
