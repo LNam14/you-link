@@ -63,6 +63,7 @@ export default function DataSite({
     const [productsPerPage, setProductPerPage] = useState(15)
     const [showFilters, setShowFilters] = useState(false)
     const [filters, setFilters] = useState<any>({})
+    const [selectedTopics, setSelectedTopics] = useState<string[]>([])
     const [selectedRows, setSelectedRows] = useState<string[]>([])
     const [dataColumn, setDataColumn] = useState<any[]>([])
     const [notFoundSites, setNotFoundSites] = useState<string[]>([])
@@ -429,6 +430,28 @@ export default function DataSite({
         }))
     }
 
+    const handleTopicSelection = (topic: string) => {
+        setSelectedTopics((prev: string[]) => {
+            if (prev.includes(topic)) {
+                // Remove topic if already selected
+                const newTopics = prev.filter(t => t !== topic)
+                setFilters((prevFilters: any) => ({
+                    ...prevFilters,
+                    "Chủ đề": newTopics.length > 0 ? newTopics : undefined
+                }))
+                return newTopics
+            } else {
+                // Add topic if not selected
+                const newTopics = [...prev, topic]
+                setFilters((prevFilters: any) => ({
+                    ...prevFilters,
+                    "Chủ đề": newTopics
+                }))
+                return newTopics
+            }
+        })
+    }
+
     const applyFilters = () => {
         const filteredData = data.filter((item: any) => {
             return Object.entries(filters).every(([key, value]: [string, any]) => {
@@ -450,9 +473,13 @@ export default function DataSite({
                     return domain.endsWith(".vn") === (value === "yes")
                 }
                 
-                // Chủ đề filter
+                // Chủ đề filter - support multiple selections
                 if (key === "Chủ đề") {
-                    return item[key] && item[key].toLowerCase() === value.toLowerCase()
+                    if (Array.isArray(value)) {
+                        return value.length === 0 || (item[key] && value.includes(item[key]))
+                    } else {
+                        return item[key] && item[key].toLowerCase() === value.toLowerCase()
+                    }
                 }
                 
                 // Giá GP filter
@@ -771,42 +798,68 @@ export default function DataSite({
                                         <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
                                             <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
                                                 <FaTicketAlt className="w-4 h-4 text-pink-500" />
-                                                Chủ đề
+                                                Chủ đề ({selectedTopics.length})
                                             </h3>
-                                            <select
-                                                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-all duration-200 text-sm"
-                                                value={filters["Chủ đề"] || ""}
-                                                onChange={(e) => handleFilterChange("Chủ đề", e.target.value)}
-                                            >
-                                                <option value="">Chọn chủ đề</option>
-                                                <option value="18+">18+</option>
-                                                <option value="Agency">Agency</option>
-                                                <option value="Ẩm Thực">Ẩm Thực</option>
-                                                <option value="Bất Động Sản">Bất Động Sản</option>
-                                                <option value="Công Nghệ">Công Nghệ</option>
-                                                <option value="Công Nghiệp">Công Nghiệp</option>
-                                                <option value="Du Lịch">Du Lịch</option>
-                                                <option value="Động Vật">Động Vật</option>
-                                                <option value="Đời Sống">Đời Sống</option>
-                                                <option value="Edu">Edu</option>
-                                                <option value="Game">Game</option>
-                                                <option value="Game Làm Giàu">Game Làm Giàu</option>
-                                                <option value="GOV">GOV</option>
-                                                <option value="Luật">Luật</option>
-                                                <option value="Nông nghiệp">Nông nghiệp</option>
-                                                <option value="Nước ngoài">Nước ngoài</option>
-                                                <option value="Phim">Phim</option>
-                                                <option value="Tài Chính">Tài Chính</option>
-                                                <option value="Thể thao">Thể thao</option>
-                                                <option value="Thời trang">Thời trang</option>
-                                                <option value="Tổng Hợp">Tổng Hợp</option>
-                                                <option value="Truyện">Truyện</option>
-                                                <option value="Việc Làm">Việc Làm</option>
-                                                <option value="Xây Dựng">Xây Dựng</option>
-                                                <option value="Xe">Xe</option>
-                                                <option value="Xổ Số">Xổ Số</option>
-                                                <option value="Y tế">Y tế</option>
-                                            </select>
+                                            
+                                            {/* Selected topics display */}
+                                            {selectedTopics.length > 0 && (
+                                                <div className="mb-3">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="text-xs text-gray-600">Đã chọn:</span>
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedTopics([])
+                                                                setFilters((prevFilters: any) => ({
+                                                                    ...prevFilters,
+                                                                    "Chủ đề": undefined
+                                                                }))
+                                                            }}
+                                                            className="text-xs text-red-600 hover:text-red-800 underline"
+                                                        >
+                                                            Xóa tất cả
+                                                        </button>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {selectedTopics.map((topic) => (
+                                                            <span
+                                                                key={topic}
+                                                                className="inline-flex items-center gap-1 px-2 py-1 bg-pink-100 text-pink-800 text-xs rounded-full border border-pink-200"
+                                                            >
+                                                                {topic}
+                                                                <button
+                                                                    onClick={() => handleTopicSelection(topic)}
+                                                                    className="ml-1 text-pink-600 hover:text-pink-800"
+                                                                >
+                                                                    <X className="w-3 h-3" />
+                                                                </button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Multi-select checkboxes */}
+                                            <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg bg-white p-2">
+                                                <div className="grid grid-cols-1 gap-1">
+                                                    {[
+                                                        "18+", "Agency", "Ẩm Thực", "Bất Động Sản", "Công Nghệ", "Công Nghiệp", 
+                                                        "Du Lịch", "Động Vật", "Đời Sống", "Edu", "Game", "Game Làm Giàu", 
+                                                        "GOV", "Luật", "Nông nghiệp", "Nước ngoài", "Phim", "Tài Chính", 
+                                                        "Thể thao", "Thời trang", "Tổng Hợp", "Truyện", "Việc Làm", 
+                                                        "Xây Dựng", "Xe", "Xổ Số", "Y tế"
+                                                    ].map((topic) => (
+                                                        <label key={topic} className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded transition-colors">
+                                                            <input
+                                                                type="checkbox"
+                                                                className="w-4 h-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                                                                checked={selectedTopics.includes(topic)}
+                                                                onChange={() => handleTopicSelection(topic)}
+                                                            />
+                                                            <span className="ml-2 text-sm text-gray-700">{topic}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
