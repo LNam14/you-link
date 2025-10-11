@@ -50,7 +50,7 @@ const quizQuestions: QuizQuestion[] = [
             "B": "Có chứ",
             "C": "Ko nha"
         },
-        "ĐápÁnĐúng": "B"
+        "ĐápÁnĐúng": "C"
     },
     {
         "CâuHỏi": "Đơn đã xong nhưng KH muốn giảm giá. VD giá đang là 200u, KH muốn giảm xuống 170u",
@@ -113,7 +113,7 @@ const quizQuestions: QuizQuestion[] = [
             "B": "Cũng tùy, KH yêu cầu gia hạn thì gia hạn, không thì thôi",
             "C": "Đương nhiên không, mua 1 lần thì vĩnh viễn theo site cho KH"
         },
-        "ĐápÁnĐúng": "A"
+        "ĐápÁnĐúng": "B"
     },
     {
         "CâuHỏi": "NCC báo trong nhóm, site tăng giá, giảm giá, thêm site mới hay ngưng site thì làm gì",
@@ -127,7 +127,7 @@ const quizQuestions: QuizQuestion[] = [
     {
         "CâuHỏi": "Data gồm những ai",
         "ĐápÁn": {
-            "A": "Phương Quân, Phương San",
+            "A": "Phương Quân, Phương Hạ",
             "B": "Phương Hạ, Phương Tuấn",
             "C": "Phương Quân, Phương Tuấn"
         },
