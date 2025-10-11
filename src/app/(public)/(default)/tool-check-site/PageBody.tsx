@@ -1977,7 +1977,7 @@ export default function PageBody() {
                                                         <button
                                                             onClick={() => setShowDirectMessageModal(true)}
                                                             disabled={getValidNCCsCount(filteredData) === 0}
-                                                            className={`flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${getValidNCCsCount(filteredData) === 0
+                                                            className={`hidden md:flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${getValidNCCsCount(filteredData) === 0
                                                                 ? "bg-gray-400 text-gray-200 cursor-not-allowed"
                                                                 : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 hover:scale-105"
                                                                 }`}
@@ -1994,7 +1994,7 @@ export default function PageBody() {
                                                         <button
                                                             onClick={openNccSelectionModal}
                                                             disabled={loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0}
-                                                            className={`flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0
+                                                            className={`hidden md:flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0
                                                                 ? "bg-gray-400 text-gray-200 cursor-not-allowed"
                                                                 : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:scale-105"
                                                                 }`}
@@ -2011,7 +2011,7 @@ export default function PageBody() {
                                                         <button
                                                             onClick={handleMessageAllNCCs}
                                                             disabled={loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0}
-                                                            className={`flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0
+                                                            className={`hidden md:flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0
                                                                 ? "bg-gray-400 text-gray-200 cursor-not-allowed"
                                                                 : "bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 hover:scale-105"
                                                                 }`}

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import moment from "moment"
 import "moment/locale/vi"
-import { ChevronLeft, ChevronRight, Calendar, User, CheckCircle, DollarSign, RefreshCw } from "lucide-react"
+import { ChevronLeft, ChevronRight, Calendar, User, CheckCircle, DollarSign, RefreshCw, X } from "lucide-react"
 import attendanceApiRequest from "@/apiRequests/attendance"
 import getUserInfo from "@/components/userInfo"
 import { toast, Toaster } from "sonner"
@@ -20,6 +20,156 @@ interface AttendanceRecord {
     username: string
     date: string
 }
+
+// Định nghĩa kiểu dữ liệu cho câu hỏi
+interface QuizQuestion {
+    CâuHỏi: string
+    ĐápÁn: {
+        A: string
+        B: string
+        C: string
+    }
+    ĐápÁnĐúng: "A" | "B" | "C"
+}
+
+// Danh sách câu hỏi
+const quizQuestions: QuizQuestion[] = [
+    {
+        "CâuHỏi": "vd có KH oder 1 đơn tổng hợp (vd entity, PBN...) thì bạn sẽ làm sao",
+        "ĐápÁn": {
+            "A": "nói bên mình ko có bán",
+            "B": "phớt lờ KH",
+            "C": "tag An Nhiên vô nhóm, hoặc gửi thông tin đó cho An Nhiên"
+        },
+        "ĐápÁnĐúng": "C"
+    },
+    {
+        "CâuHỏi": "GP có gia hạn hàng tháng hay ko",
+        "ĐápÁn": {
+            "A": "tùy theo yêu cầu của KH",
+            "B": "Có chứ",
+            "C": "Ko nha"
+        },
+        "ĐápÁnĐúng": "B"
+    },
+    {
+        "CâuHỏi": "Đơn đã xong nhưng KH muốn giảm giá. VD giá đang là 200u, KH muốn giảm xuống 170u",
+        "ĐápÁn": {
+            "A": "K cho giảm vì không đúng với báo giá bên mình. Đồng thời, nếu giảm thì site đó âm tiền",
+            "B": "Chờ hỏi ad",
+            "C": "Có thể linh hoạt cho giảm. Mặc dù 1 site đó âm lợi nhuận, nhưng tổng đơn vẫn có lợi nhuận. Như vậy đỡ mất nhiều time mà vẫn hài lòng KH"
+        },
+        "ĐápÁnĐúng": "C"
+    },
+    {
+        "CâuHỏi": "Khi gia hạn đơn text cần làm gì",
+        "ĐápÁn": {
+            "A": "copy đơn text cũ và báo gia hạn cho ncc",
+            "B": "tạo mã đơn mới rồi mới báo gia hạn cho ncc",
+            "C": "chỉ cần báo ncc gia hạn là được"
+        },
+        "ĐápÁnĐúng": "B"
+    },
+    {
+        "CâuHỏi": "Đầu tuần check gia hạn text xong thì note ở file nào",
+        "ĐápÁn": {
+            "A": "file khách hàng",
+            "B": "file KT4",
+            "C": "không cần note"
+        },
+        "ĐápÁnĐúng": "B"
+    },
+    {
+        "CâuHỏi": "KH OS cần chiết khấu riêng thì sao",
+        "ĐápÁn": {
+            "A": "nên cho ckr cho nhân viên bên OS, để họ ưu tiên book đơn mình nhiều",
+            "B": "tùy số tiền đó nhiều hay ít, nếu ít vẫn được",
+            "C": "ko nên cho ckr"
+        },
+        "ĐápÁnĐúng": "C"
+    },
+    {
+        "CâuHỏi": "Đơn text tháng 9 giá 1000u, gia hạn tháng 10 là 1008u, thì nên làm gì",
+        "ĐápÁn": {
+            "A": "Báo KH tăng giá thêm 8u, KH đồng ý gia hạn thì gia hạn, không đồng ý thì hủy",
+            "B": "Vẫn tính KH 1000u, vì lệch có 8u, tức là 0.8% cũng không nhiều, khỏi mất công KH suy nghĩ",
+            "C": "Ngồi suy nghĩ"
+        },
+        "ĐápÁnĐúng": "B"
+    },
+    {
+        "CâuHỏi": "Làm sao để hạn chế mất tele",
+        "ĐápÁn": {
+            "A": "Đăng ký tele vip và nhắn tin người lạ tầm 10 người 1 lần thôi",
+            "B": "Nhắn tin người lạ tầm 3-5 người 1 lần thôi, không cần đăng ký tele vip",
+            "C": "Khi nhắn tin người lạ, nên kết bạn trước rồi mới nhắn tin, nhắn tin người lạ tầm 3-5 người 1 lần, tầm 3-5 tiếng sau mới nhắn tin lần 2, 1 ngày làm 2-4 lần thôi"
+        },
+        "ĐápÁnĐúng": "C"
+    },
+    {
+        "CâuHỏi": "Textlink có gia hạn hàng tháng không",
+        "ĐápÁn": {
+            "A": "Không nha, trừ khi KH yêu cầu đổi anchor, link out",
+            "B": "Cũng tùy, KH yêu cầu gia hạn thì gia hạn, không thì thôi",
+            "C": "Đương nhiên không, mua 1 lần thì vĩnh viễn theo site cho KH"
+        },
+        "ĐápÁnĐúng": "A"
+    },
+    {
+        "CâuHỏi": "NCC báo trong nhóm, site tăng giá, giảm giá, thêm site mới hay ngưng site thì làm gì",
+        "ĐápÁn": {
+            "A": "tag data",
+            "B": "nhớ là được",
+            "C": "tag chị San để chị ấy biết"
+        },
+        "ĐápÁnĐúng": "A"
+    },
+    {
+        "CâuHỏi": "Data gồm những ai",
+        "ĐápÁn": {
+            "A": "Phương Quân, Phương San",
+            "B": "Phương Hạ, Phương Tuấn",
+            "C": "Phương Quân, Phương Tuấn"
+        },
+        "ĐápÁnĐúng": "A"
+    },
+    {
+        "CâuHỏi": "ChangYou có bao nhiêu team",
+        "ĐápÁn": {
+            "A": "4 team",
+            "B": "5 team",
+            "C": "6 team"
+        },
+        "ĐápÁnĐúng": "B"
+    },
+    {
+        "CâuHỏi": "Khi gia hạn nên check giá và báo khách gia hạn trong khoảng thời gian nào?",
+        "ĐápÁn": {
+            "A": "Check giá mới, báo thay đổi giá và ngày hết hạn cho khách trước 1 tuần",
+            "B": "Check giá mới, báo thay đổi giá và ngày hết hạn cho khách trước 1 ngày",
+            "C": "Không cần check giá và chỉ báo khách gia hạn"
+        },
+        "ĐápÁnĐúng": "A"
+    },
+    {
+        "CâuHỏi": "Khi 1 nhóm khách hàng mới order đơn bằng File order cá nhân khách đưa, chúng ta phải note mấy file từ lúc khách order đến khi hoàn thành đơn",
+        "ĐápÁn": {
+            "A": "File order cá nhân khách đưa + File KT4 + File ncc + File khách hàng",
+            "B": "File KT4 + File ncc + File khách hàng",
+            "C": "File order cá nhân khách đưa + File KT4 + File ncc"
+        },
+        "ĐápÁnĐúng": "A"
+    },
+    {
+        "CâuHỏi": "Khi nào cần báo lại thay đổi giá cho KH?",
+        "ĐápÁn": {
+            "A": "Ngay khi NCC báo giá mới, trước khi khách gia hạn hoặc đặt đơn mới",
+            "B": "Sau khi khách đã xác nhận gia hạn",
+            "C": "Khi thấy chênh lệch giá quá lớn"
+        },
+        "ĐápÁnĐúng": "A"
+    }
+]
 
 export default function AttendanceTracker() {
     // Thiết lập locale tiếng Việt cho moment
@@ -40,6 +190,12 @@ export default function AttendanceTracker() {
     const dailyRate = 302 // Mức lương hàng ngày
     const [viewMode, setViewMode] = useState<"calendar" | "table">("calendar")
     const [allEmployeesData, setAllEmployeesData] = useState<{ [key: string]: any }[]>([])
+    
+    // Quiz modal states
+    const [showQuizModal, setShowQuizModal] = useState(false)
+    const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null)
+    const [selectedAnswer, setSelectedAnswer] = useState<"A" | "B" | "C" | null>(null)
+    const [pendingAttendanceDay, setPendingAttendanceDay] = useState<moment.Moment | null>(null)
 
     const fetchAttendanceData = async () => {
         try {
@@ -149,7 +305,24 @@ export default function AttendanceTracker() {
     const sendTelegramNotification = async (username: string): Promise<boolean> => {
         try {
             const dateString = moment().format("DD/MM/YYYY")
-            const messageText = `${username} vừa chấm công ngày ${dateString}!`
+            
+            // Danh sách các thông báo vui
+            const funnyMessages = [
+                `${username} vừa trả lời đại nhưng vẫn được chấm công ngày ${dateString}.`,
+                `${username} làm bài xong, chưa biết đúng sai nhưng công vẫn tính ngày ${dateString}.`,
+                `Ngày ${dateString}, ${username} trả lời xong và chấm công gọn gàng.`,
+                `${username} hoàn thành phần trả lời, công đã ghi nhận ngày ${dateString}.`,
+                `${username} chọn đáp án khá nhanh, hệ thống đã chấm công ngày ${dateString}.`,
+                `Câu trả lời của ${username} hơi hên xui, nhưng công thì chắc chắn ngày ${dateString}.`,
+                `${username} trả lời xong, chấm công tự động ngày ${dateString}.`,
+                `Hôm nay ${username} vẫn đủ công, bất kể kết quả câu trả lời thế nào. (${dateString})`,
+                `${username} nộp bài rồi, hệ thống xác nhận công ngày ${dateString}.`,
+                `${username} hoàn thành thao tác, công được tính ngày ${dateString}.`
+            ]
+            
+            // Chọn ngẫu nhiên một thông báo
+            const randomIndex = Math.floor(Math.random() * funnyMessages.length)
+            const messageText = funnyMessages[randomIndex]
 
             const url = `https://ylink.qctl44.workers.dev/bot8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U/sendMessage`
             const params = new URLSearchParams({
@@ -172,7 +345,51 @@ export default function AttendanceTracker() {
             return false
         }
     }
-    // Xử lý chấm công
+
+    // Lấy câu hỏi ngẫu nhiên
+    const getRandomQuestion = () => {
+        const randomIndex = Math.floor(Math.random() * quizQuestions.length)
+        return quizQuestions[randomIndex]
+    }
+
+    // Mở modal quiz với câu hỏi ngẫu nhiên
+    const openQuizModal = (day: moment.Moment) => {
+        const question = getRandomQuestion()
+        setCurrentQuestion(question)
+        setSelectedAnswer(null)
+        setPendingAttendanceDay(day)
+        setShowQuizModal(true)
+    }
+
+    // Đóng modal quiz
+    const closeQuizModal = () => {
+        setShowQuizModal(false)
+        setCurrentQuestion(null)
+        setSelectedAnswer(null)
+        setPendingAttendanceDay(null)
+    }
+
+    // Xử lý submit câu trả lời
+    const handleSubmitAnswer = () => {
+        if (!selectedAnswer || !currentQuestion) return
+
+        if (selectedAnswer === currentQuestion.ĐápÁnĐúng) {
+            // Đáp án đúng - tiếp tục chấm công
+            toast.success("Chính xác! Đang chấm công...")
+            closeQuizModal()
+            if (pendingAttendanceDay) {
+                processAttendance(pendingAttendanceDay)
+            }
+        } else {
+            // Đáp án sai - hiển thị câu hỏi mới
+            toast.error("Sai rồi! Thử lại câu hỏi khác nhé.")
+            const newQuestion = getRandomQuestion()
+            setCurrentQuestion(newQuestion)
+            setSelectedAnswer(null)
+        }
+    }
+
+    // Xử lý chấm công (được gọi khi nhấn nút chấm công)
     const handleAttendance = async (day: moment.Moment) => {
         const dateString = day.format("YYYY-MM-DD")
 
@@ -189,6 +406,14 @@ export default function AttendanceTracker() {
         })
 
         if (existingRecord) return // Nếu đã chấm công rồi thì không làm gì cả
+
+        // Mở modal quiz thay vì chấm công trực tiếp
+        openQuizModal(day)
+    }
+
+    // Xử lý chấm công thực tế (được gọi sau khi trả lời đúng câu hỏi)
+    const processAttendance = async (day: moment.Moment) => {
+        const dateString = day.format("YYYY-MM-DD")
 
         try {
             setIsLoading(true)
@@ -585,6 +810,85 @@ export default function AttendanceTracker() {
                     </div>
                 )}
             </div>
+
+            {/* Quiz Modal */}
+            {showQuizModal && currentQuestion && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-900 p-6 rounded-t-2xl flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-white">Câu Hỏi Chấm Công</h3>
+                            <button
+                                onClick={closeQuizModal}
+                                className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
+                            >
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6">
+                            {/* Question */}
+                            <div className="mb-6">
+                                <p className="text-lg font-medium text-gray-800 mb-4">
+                                    {currentQuestion.CâuHỏi}
+                                </p>
+                            </div>
+
+                            {/* Answers */}
+                            <div className="space-y-3">
+                                {(["A", "B", "C"] as const).map((option) => (
+                                    <button
+                                        key={option}
+                                        onClick={() => setSelectedAnswer(option)}
+                                        className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                                            selectedAnswer === option
+                                                ? "border-blue-500 bg-blue-50 shadow-md"
+                                                : "border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50"
+                                        }`}
+                                    >
+                                        <div className="flex items-start">
+                                            <div
+                                                className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold mr-3 ${
+                                                    selectedAnswer === option
+                                                        ? "bg-blue-500 text-white"
+                                                        : "bg-gray-200 text-gray-700"
+                                                }`}
+                                            >
+                                                {option}
+                                            </div>
+                                            <span className="text-gray-700 pt-1">
+                                                {currentQuestion.ĐápÁn[option]}
+                                            </span>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Submit Button */}
+                            <div className="mt-6 flex justify-end gap-3">
+                                <button
+                                    onClick={closeQuizModal}
+                                    className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={handleSubmitAnswer}
+                                    disabled={!selectedAnswer}
+                                    className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                                        selectedAnswer
+                                            ? "bg-blue-500 text-white hover:bg-blue-600 shadow-md"
+                                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                    }`}
+                                >
+                                    Xác Nhận
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

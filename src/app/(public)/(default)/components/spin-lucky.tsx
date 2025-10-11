@@ -88,12 +88,12 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
   // Enhanced prize data with alternating large and small rewards
  const data = [
-  { option: "500.000 VND", style: { backgroundColor: "#FFD700", textColor: "black" } }, // Big
-  { option: "50.000 VND", style: { backgroundColor: "#02a115", textColor: "white" } },
+  { option: "- 500.000 VND", style: { backgroundColor: "#FFD700", textColor: "black" } }, // Big
+  { option: "- 50.000 VND", style: { backgroundColor: "#02a115", textColor: "white" } },
   { option: "- 20.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
   { option: "100.000 VND", style: { backgroundColor: "#8B5CF6", textColor: "white" } },
 
-  { option: "- 50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
+  { option: "50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
   { option: "200.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
   { option: "- 10.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
   { option: "- 100.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
@@ -105,8 +105,8 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
 
   { option: "- 20.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
   { option: "100.000 VND", style: { backgroundColor: "#8B5CF6", textColor: "white" } },
-  { option: "- 50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "50.000 VND", style: { backgroundColor: "#02a115", textColor: "white" } },
+  { option: "50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
+  { option: "- 50.000 VND", style: { backgroundColor: "#02a115", textColor: "white" } },
 
   { option: "Hnay trượt, mai hụt!", style: { backgroundColor: "#CCCCCC", textColor: "black" } }, // Funny
   { option: "- 10.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
@@ -116,21 +116,21 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   { option: "20.000 VND", style: { backgroundColor: "#d402bf", textColor: "white" } },
   { option: "100.000 VND", style: { backgroundColor: "#8B5CF6", textColor: "white" } },
   { option: "- 100.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "- 50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
+  { option: "50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
 
   { option: "Cố lên, mai hụt!", style: { backgroundColor: "#CCCCCC", textColor: "black" } }, // Inspiring
   { option: "- 10.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "50.000 VND", style: { backgroundColor: "#02a115", textColor: "white" } },
-  { option: "- 500.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
+  { option: "- 50.000 VND", style: { backgroundColor: "#02a115", textColor: "white" } },
+  { option: "500.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
 
   { option: "20.000 VND", style: { backgroundColor: "#d402bf", textColor: "white" } },
   { option: "- 20.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
   { option: "10.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
-  { option: "- 50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
+  { option: "50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
 
   { option: "Đời mà, quay lại đi!", style: { backgroundColor: "#CCCCCC", textColor: "black" } }, // Funny
   { option: "- 10.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "50.000 VND", style: { backgroundColor: "#02a115", textColor: "white" } },
+  { option: "- 50.000 VND", style: { backgroundColor: "#02a115", textColor: "white" } },
   { option: "- 20.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
 
   { option: "10.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
