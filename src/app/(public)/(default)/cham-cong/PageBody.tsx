@@ -196,6 +196,9 @@ export default function AttendanceTracker() {
     const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null)
     const [selectedAnswer, setSelectedAnswer] = useState<"A" | "B" | "C" | null>(null)
     const [pendingAttendanceDay, setPendingAttendanceDay] = useState<moment.Moment | null>(null)
+    const [correctAnswersCount, setCorrectAnswersCount] = useState(0)
+    const [wrongAnswers, setWrongAnswers] = useState<string[]>([])
+    const requiredCorrectAnswers = 3
 
     const fetchAttendanceData = async () => {
         try {
@@ -302,27 +305,19 @@ export default function AttendanceTracker() {
     const nextMonth = () => {
         setCurrentMonth(moment(currentMonth).add(1, "month"))
     }
-    const sendTelegramNotification = async (username: string): Promise<boolean> => {
+    const sendTelegramNotification = async (username: string, wrongAnswersList: string[]): Promise<boolean> => {
         try {
             const dateString = moment().format("DD/MM/YYYY")
             
-            // Danh sách các thông báo vui
-            const funnyMessages = [
-                `${username} vừa trả lời đại nhưng vẫn được chấm công ngày ${dateString}.`,
-                `${username} làm bài xong, chưa biết đúng sai nhưng công vẫn tính ngày ${dateString}.`,
-                `Ngày ${dateString}, ${username} trả lời xong và chấm công gọn gàng.`,
-                `${username} hoàn thành phần trả lời, công đã ghi nhận ngày ${dateString}.`,
-                `${username} chọn đáp án khá nhanh, hệ thống đã chấm công ngày ${dateString}.`,
-                `Câu trả lời của ${username} hơi hên xui, nhưng công thì chắc chắn ngày ${dateString}.`,
-                `${username} trả lời xong, chấm công tự động ngày ${dateString}.`,
-                `Hôm nay ${username} vẫn đủ công, bất kể kết quả câu trả lời thế nào. (${dateString})`,
-                `${username} nộp bài rồi, hệ thống xác nhận công ngày ${dateString}.`,
-                `${username} hoàn thành thao tác, công được tính ngày ${dateString}.`
-            ]
+            let messageText = ""
             
-            // Chọn ngẫu nhiên một thông báo
-            const randomIndex = Math.floor(Math.random() * funnyMessages.length)
-            const messageText = funnyMessages[randomIndex]
+            if (wrongAnswersList.length === 0) {
+                // Trả lời đúng hết 3 câu
+                messageText = `✅ ${username} đã trả lời đúng 3 câu và chấm công thành công ngày ${dateString}!`
+            } else {
+                // Có câu sai nhưng vẫn vượt qua (đúng 3 câu liên tiếp cuối cùng)
+                messageText = `⚠️ ${username} đã vượt qua bài kiểm tra và chấm công ngày ${dateString}.\n\n❌ Các câu đã trả lời sai:\n${wrongAnswersList.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
+            }
 
             const url = `https://ylink.qctl44.workers.dev/bot8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U/sendMessage`
             const params = new URLSearchParams({
@@ -346,10 +341,17 @@ export default function AttendanceTracker() {
         }
     }
 
-    // Lấy câu hỏi ngẫu nhiên
-    const getRandomQuestion = () => {
-        const randomIndex = Math.floor(Math.random() * quizQuestions.length)
-        return quizQuestions[randomIndex]
+    // Lấy câu hỏi ngẫu nhiên (khác với câu hiện tại nếu có)
+    const getRandomQuestion = (excludeQuestion?: QuizQuestion | null) => {
+        if (!excludeQuestion || quizQuestions.length === 1) {
+            const randomIndex = Math.floor(Math.random() * quizQuestions.length)
+            return quizQuestions[randomIndex]
+        }
+        
+        // Lọc ra các câu hỏi khác với câu hiện tại
+        const availableQuestions = quizQuestions.filter(q => q.CâuHỏi !== excludeQuestion.CâuHỏi)
+        const randomIndex = Math.floor(Math.random() * availableQuestions.length)
+        return availableQuestions[randomIndex]
     }
 
     // Mở modal quiz với câu hỏi ngẫu nhiên
@@ -358,6 +360,8 @@ export default function AttendanceTracker() {
         setCurrentQuestion(question)
         setSelectedAnswer(null)
         setPendingAttendanceDay(day)
+        setCorrectAnswersCount(0)
+        setWrongAnswers([])
         setShowQuizModal(true)
     }
 
@@ -367,6 +371,8 @@ export default function AttendanceTracker() {
         setCurrentQuestion(null)
         setSelectedAnswer(null)
         setPendingAttendanceDay(null)
+        setCorrectAnswersCount(0)
+        setWrongAnswers([])
     }
 
     // Xử lý submit câu trả lời
@@ -374,16 +380,31 @@ export default function AttendanceTracker() {
         if (!selectedAnswer || !currentQuestion) return
 
         if (selectedAnswer === currentQuestion.ĐápÁnĐúng) {
-            // Đáp án đúng - tiếp tục chấm công
-            toast.success("Chính xác! Đang chấm công...")
-            closeQuizModal()
-            if (pendingAttendanceDay) {
-                processAttendance(pendingAttendanceDay)
+            // Đáp án đúng
+            const newCorrectCount = correctAnswersCount + 1
+            setCorrectAnswersCount(newCorrectCount)
+            
+            if (newCorrectCount >= requiredCorrectAnswers) {
+                // Đã đủ 3 câu đúng - tiếp tục chấm công
+                toast.success("Hoàn thành! Đang chấm công...")
+                const currentWrongAnswers = [...wrongAnswers]
+                closeQuizModal()
+                if (pendingAttendanceDay) {
+                    processAttendance(pendingAttendanceDay, currentWrongAnswers)
+                }
+            } else {
+                // Chưa đủ 3 câu - tiếp tục với câu hỏi mới (khác câu hiện tại)
+                toast.success(`Chính xác! Còn ${requiredCorrectAnswers - newCorrectCount} câu nữa.`)
+                const newQuestion = getRandomQuestion(currentQuestion)
+                setCurrentQuestion(newQuestion)
+                setSelectedAnswer(null)
             }
         } else {
-            // Đáp án sai - hiển thị câu hỏi mới
-            toast.error("Sai rồi! Thử lại câu hỏi khác nhé.")
-            const newQuestion = getRandomQuestion()
+            // Đáp án sai - lưu câu hỏi sai, reset về 0 và bắt đầu lại với câu hỏi ngẫu nhiên khác
+            toast.error("Sai rồi! Bắt đầu lại từ đầu nhé.")
+            setWrongAnswers(prev => [...prev, currentQuestion.CâuHỏi])
+            setCorrectAnswersCount(0)
+            const newQuestion = getRandomQuestion(currentQuestion)
             setCurrentQuestion(newQuestion)
             setSelectedAnswer(null)
         }
@@ -412,7 +433,7 @@ export default function AttendanceTracker() {
     }
 
     // Xử lý chấm công thực tế (được gọi sau khi trả lời đúng câu hỏi)
-    const processAttendance = async (day: moment.Moment) => {
+    const processAttendance = async (day: moment.Moment, wrongAnswersList: string[]) => {
         const dateString = day.format("YYYY-MM-DD")
 
         try {
@@ -427,7 +448,7 @@ export default function AttendanceTracker() {
             }
             setAllAttendanceData((prevData) => [...prevData, newAttendanceRecord])
             // Hiển thị thông báo thành công
-            await sendTelegramNotification(`${username}-${userInfo?.name || "No Name"}`)
+            await sendTelegramNotification(`${username}-${userInfo?.name || "No Name"}`, wrongAnswersList)
             toast.success("Chấm công thành công!")
         } catch (error: any) {
             console.error("Lỗi khi chấm công:", error)
@@ -816,14 +837,28 @@ export default function AttendanceTracker() {
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                         {/* Header */}
-                        <div className="bg-gradient-to-r from-blue-500 to-blue-900 p-6 rounded-t-2xl flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-white">Câu Hỏi Chấm Công</h3>
-                            <button
-                                onClick={closeQuizModal}
-                                className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
-                            >
-                                <X className="h-6 w-6" />
-                            </button>
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-900 p-6 rounded-t-2xl">
+                            <div className="flex justify-between items-center mb-3">
+                                <h3 className="text-xl font-bold text-white">Câu Hỏi Chấm Công</h3>
+                                <button
+                                    onClick={closeQuizModal}
+                                    className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
+                                >
+                                    <X className="h-6 w-6" />
+                                </button>
+                            </div>
+                            {/* Progress Indicator */}
+                            <div className="flex items-center gap-3">
+                                <div className="flex-1 bg-white/20 rounded-full h-3 overflow-hidden">
+                                    <div 
+                                        className="bg-white h-full transition-all duration-300 rounded-full"
+                                        style={{ width: `${(correctAnswersCount / requiredCorrectAnswers) * 100}%` }}
+                                    ></div>
+                                </div>
+                                <span className="text-white font-bold text-sm whitespace-nowrap">
+                                    {correctAnswersCount}/{requiredCorrectAnswers}
+                                </span>
+                            </div>
                         </div>
 
                         {/* Content */}
