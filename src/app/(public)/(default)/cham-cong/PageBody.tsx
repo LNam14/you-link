@@ -35,141 +35,214 @@ interface QuizQuestion {
 // Danh sách câu hỏi
 const quizQuestions: QuizQuestion[] = [
     {
-        "CâuHỏi": "vd có KH oder 1 đơn tổng hợp (vd entity, PBN...) thì bạn sẽ làm sao",
-        "ĐápÁn": {
-            "A": "nói bên mình ko có bán",
-            "B": "phớt lờ KH",
-            "C": "tag An Nhiên vô nhóm, hoặc gửi thông tin đó cho An Nhiên"
-        },
-        "ĐápÁnĐúng": "C"
+      "CâuHỏi": "VD có KH order 1 đơn tổng hợp (vd entity, PBN...) thì bạn sẽ làm sao",
+      "ĐápÁn": {
+        "A": "Nói bên mình không có bán",
+        "B": "Phớt lờ KH",
+        "C": "Tag An Nhiên vô nhóm, hoặc gửi thông tin đó cho An Nhiên"
+      },
+      "ĐápÁnĐúng": "C"
     },
     {
-        "CâuHỏi": "GP có gia hạn hàng tháng hay ko",
-        "ĐápÁn": {
-            "A": "tùy theo yêu cầu của KH",
-            "B": "Có chứ",
-            "C": "Ko nha"
-        },
-        "ĐápÁnĐúng": "C"
+      "CâuHỏi": "GP có gia hạn hàng tháng hay không",
+      "ĐápÁn": {
+        "A": "Tùy theo yêu cầu của KH",
+        "B": "Có chứ",
+        "C": "Không nha"
+      },
+      "ĐápÁnĐúng": "C"
     },
     {
-        "CâuHỏi": "Đơn đã xong nhưng KH muốn giảm giá. VD giá đang là 200u, KH muốn giảm xuống 170u",
-        "ĐápÁn": {
-            "A": "K cho giảm vì không đúng với báo giá bên mình. Đồng thời, nếu giảm thì site đó âm tiền",
-            "B": "Chờ hỏi ad",
-            "C": "Có thể linh hoạt cho giảm. Mặc dù 1 site đó âm lợi nhuận, nhưng tổng đơn vẫn có lợi nhuận. Như vậy đỡ mất nhiều time mà vẫn hài lòng KH"
-        },
-        "ĐápÁnĐúng": "C"
+      "CâuHỏi": "Đơn đã xong nhưng KH muốn giảm giá. VD giá đang là 200u, khách muốn giảm xuống 198u",
+      "ĐápÁn": {
+        "A": "Không cho giảm vì không đúng với báo giá bên mình. Đồng thời, nếu giảm thì site đó âm tiền",
+        "B": "Chờ hỏi ad",
+        "C": "Có thể linh hoạt cho giảm. Mặc dù 1 site đó âm lợi nhuận, nhưng tổng đơn vẫn có lợi nhuận. Như vậy, đỡ mất nhiều time mà vẫn có lợi cho mình, hài lòng khách hàng."
+      },
+      "ĐápÁnĐúng": "C"
     },
     {
-        "CâuHỏi": "Khi gia hạn đơn text cần làm gì",
-        "ĐápÁn": {
-            "A": "copy đơn text cũ và báo gia hạn cho ncc",
-            "B": "tạo mã đơn mới rồi mới báo gia hạn cho ncc",
-            "C": "chỉ cần báo ncc gia hạn là được"
-        },
-        "ĐápÁnĐúng": "B"
+      "CâuHỏi": "Khi gia hạn đơn text cần làm gì",
+      "ĐápÁn": {
+        "A": "Copy đơn text cũ và báo gia hạn cho ncc",
+        "B": "Tạo mã đơn mới rồi mới báo gia hạn cho ncc",
+        "C": "Chỉ cần báo ncc gia hạn là được"
+      },
+      "ĐápÁnĐúng": "B"
     },
     {
-        "CâuHỏi": "Đầu tuần check gia hạn text xong thì note ở file nào",
-        "ĐápÁn": {
-            "A": "file khách hàng",
-            "B": "file KT4",
-            "C": "không cần note"
-        },
-        "ĐápÁnĐúng": "B"
+      "CâuHỏi": "Đầu tuần check gia hạn text xong thì note ở file nào",
+      "ĐápÁn": {
+        "A": "File khách hàng",
+        "B": "File KT4",
+        "C": "Không cần note"
+      },
+      "ĐápÁnĐúng": "B"
     },
     {
-        "CâuHỏi": "KH OS cần chiết khấu riêng thì sao",
-        "ĐápÁn": {
-            "A": "nên cho ckr cho nhân viên bên OS, để họ ưu tiên book đơn mình nhiều",
-            "B": "tùy số tiền đó nhiều hay ít, nếu ít vẫn được",
-            "C": "ko nên cho ckr"
-        },
-        "ĐápÁnĐúng": "C"
+      "CâuHỏi": "KH OS cần chiết khấu riêng thì sao",
+      "ĐápÁn": {
+        "A": "Nên cho CKR cho nhân viên bên OS, để họ ưu tiên book đơn mình nhiều",
+        "B": "Tùy số tiền đó nhiều hay ít, nếu ít vẫn được",
+        "C": "Không nên cho CKR"
+      },
+      "ĐápÁnĐúng": "C"
     },
     {
-        "CâuHỏi": "Đơn text tháng 9 giá 1000u, gia hạn tháng 10 là 1008u, thì nên làm gì",
-        "ĐápÁn": {
-            "A": "Báo KH tăng giá thêm 8u, KH đồng ý gia hạn thì gia hạn, không đồng ý thì hủy",
-            "B": "Vẫn tính KH 1000u, vì lệch có 8u, tức là 0.8% cũng không nhiều, khỏi mất công KH suy nghĩ",
-            "C": "Ngồi suy nghĩ"
-        },
-        "ĐápÁnĐúng": "B"
+      "CâuHỏi": "Đơn text tháng 9 giá 1000u, gia hạn tháng 10 là 1008u, thì nên làm gì",
+      "ĐápÁn": {
+        "A": "Báo KH tăng giá thêm 8u, KH đồng ý gia hạn thì gia hạn, không đồng ý thì hủy",
+        "B": "Vẫn tính KH 1000u, vì lệch có 8u, tức là 0.8% cũng không nhiều, khỏi mất công KH suy nghĩ",
+        "C": "Ngồi suy nghĩ"
+      },
+      "ĐápÁnĐúng": "B"
     },
     {
-        "CâuHỏi": "Làm sao để hạn chế mất tele",
-        "ĐápÁn": {
-            "A": "Đăng ký tele vip và nhắn tin người lạ tầm 10 người 1 lần thôi",
-            "B": "Nhắn tin người lạ tầm 3-5 người 1 lần thôi, không cần đăng ký tele vip",
-            "C": "Khi nhắn tin người lạ, nên kết bạn trước rồi mới nhắn tin, nhắn tin người lạ tầm 3-5 người 1 lần, tầm 3-5 tiếng sau mới nhắn tin lần 2, 1 ngày làm 2-4 lần thôi"
-        },
-        "ĐápÁnĐúng": "C"
+      "CâuHỏi": "Làm sao để hạn chế mất tele",
+      "ĐápÁn": {
+        "A": "Khi nhắn tin người lạ, nên kết bạn trước rồi mới nhắn. Nhắn người lạ tầm 3-5 người 1 lần, cách 3-5 tiếng mới nhắn tiếp, 1 ngày 2-4 lần",
+        "B": "Nhắn tin người lạ tầm 3-5 người 1 lần thôi, không cần đăng ký tele vip",
+        "C": "Đăng ký tele vip và nhắn tin người lạ tầm 10 người 1 lần"
+      },
+      "ĐápÁnĐúng": "A"
     },
     {
-        "CâuHỏi": "Textlink có gia hạn hàng tháng không",
-        "ĐápÁn": {
-            "A": "Không nha, trừ khi KH yêu cầu đổi anchor, link out",
-            "B": "Cũng tùy, KH yêu cầu gia hạn thì gia hạn, không thì thôi",
-            "C": "Đương nhiên không, mua 1 lần thì vĩnh viễn theo site cho KH"
-        },
-        "ĐápÁnĐúng": "B"
+      "CâuHỏi": "Textlink có gia hạn hàng tháng không",
+      "ĐápÁn": {
+        "A": "Không nha, trừ khi KH yêu cầu đổi anchor, link out",
+        "B": "Cũng tùy, KH yêu cầu gia hạn thì gia hạn, không thì thôi",
+        "C": "Đương nhiên không, mua 1 lần thì vĩnh viễn theo site cho KH"
+      },
+      "ĐápÁnĐúng": "B"
     },
     {
-        "CâuHỏi": "NCC báo trong nhóm, site tăng giá, giảm giá, thêm site mới hay ngưng site thì làm gì",
-        "ĐápÁn": {
-            "A": "tag data",
-            "B": "nhớ là được",
-            "C": "tag chị San để chị ấy biết"
-        },
-        "ĐápÁnĐúng": "A"
+      "CâuHỏi": "NCC báo trong nhóm site tăng giá, giảm giá, thêm site mới, hay ngưng site, thì làm gì",
+      "ĐápÁn": {
+        "A": "Tag data",
+        "B": "Nhớ là được",
+        "C": "Tag chị San để chị ấy biết"
+      },
+      "ĐápÁnĐúng": "A"
     },
     {
-        "CâuHỏi": "Data gồm những ai",
-        "ĐápÁn": {
-            "A": "Phương Quân, Phương Hạ",
-            "B": "Phương Hạ, Phương Tuấn",
-            "C": "Phương Quân, Phương Tuấn"
-        },
-        "ĐápÁnĐúng": "A"
+      "CâuHỏi": "Data gồm những ai",
+      "ĐápÁn": {
+        "A": "Phương Quân, Phương San",
+        "B": "Phương Hạ, Phương Quân",
+        "C": "Phương Quân, Phương Tuấn"
+      },
+      "ĐápÁnĐúng": "B"
     },
     {
-        "CâuHỏi": "ChangYou có bao nhiêu team",
-        "ĐápÁn": {
-            "A": "4 team",
-            "B": "5 team",
-            "C": "6 team"
-        },
-        "ĐápÁnĐúng": "B"
+      "CâuHỏi": "ChangYou có bao nhiêu team",
+      "ĐápÁn": {
+        "A": "4 team (tính luôn team BĐS)",
+        "B": "5 team (tính luôn team BĐS)",
+        "C": "6 team (tính luôn team BĐS)"
+      },
+      "ĐápÁnĐúng": "C"
     },
     {
-        "CâuHỏi": "Khi gia hạn nên check giá và báo khách gia hạn trong khoảng thời gian nào?",
-        "ĐápÁn": {
-            "A": "Check giá mới, báo thay đổi giá và ngày hết hạn cho khách trước 1 tuần",
-            "B": "Check giá mới, báo thay đổi giá và ngày hết hạn cho khách trước 1 ngày",
-            "C": "Không cần check giá và chỉ báo khách gia hạn"
-        },
-        "ĐápÁnĐúng": "A"
+      "CâuHỏi": "Data làm thời gian nào",
+      "ĐápÁn": {
+        "A": "Làm full time",
+        "B": "Làm 8-12h và 14-18h thứ 2 đến thứ 7",
+        "C": "Làm 8-12h và 14-18h thứ 2 đến thứ 7, ngoài giờ này tag Du hoặc Min hoặc Tuấn để xử lý sớm"
+      },
+      "ĐápÁnĐúng": "C"
     },
     {
-        "CâuHỏi": "Khi 1 nhóm khách hàng mới order đơn bằng File order cá nhân khách đưa, chúng ta phải note mấy file từ lúc khách order đến khi hoàn thành đơn",
-        "ĐápÁn": {
-            "A": "File order cá nhân khách đưa + File KT4 + File ncc + File khách hàng",
-            "B": "File KT4 + File ncc + File khách hàng",
-            "C": "File order cá nhân khách đưa + File KT4 + File ncc"
-        },
-        "ĐápÁnĐúng": "A"
+      "CâuHỏi": "Khi gia hạn nên check giá và báo khách gia hạn trong khoảng thời gian nào?",
+      "ĐápÁn": {
+        "A": "Check giá mới, báo thay đổi giá và ngày hết hạn cho khách trước 2-7 ngày",
+        "B": "Check giá mới, báo thay đổi giá và ngày hết hạn cho khách trước 1 ngày",
+        "C": "Check giá cũ, báo thay đổi giá và ngày hết hạn cho khách trước 2-7 ngày"
+      },
+      "ĐápÁnĐúng": "A"
     },
     {
-        "CâuHỏi": "Khi nào cần báo lại thay đổi giá cho KH?",
-        "ĐápÁn": {
-            "A": "Ngay khi NCC báo giá mới, trước khi khách gia hạn hoặc đặt đơn mới",
-            "B": "Sau khi khách đã xác nhận gia hạn",
-            "C": "Khi thấy chênh lệch giá quá lớn"
-        },
-        "ĐápÁnĐúng": "A"
+      "CâuHỏi": "Khi 1 nhóm khách hàng mới order đơn bằng File order cá nhân khách đưa, chúng ta phải note mấy file từ lúc khách order đến khi hoàn thành đơn",
+      "ĐápÁn": {
+        "A": "File order cá nhân khách đưa + File KT4 + File ncc + File khách hàng",
+        "B": "File KT4 + File ncc + File khách hàng",
+        "C": "File order cá nhân khách đưa + File KT4 + File ncc"
+      },
+      "ĐápÁnĐúng": "A"
+    },
+    {
+      "CâuHỏi": "1 bài content có tối đa bao nhiêu cặp text (anchor + url)?",
+      "ĐápÁn": {
+        "A": "1",
+        "B": "2",
+        "C": "3"
+      },
+      "ĐápÁnĐúng": "B"
+    },
+    {
+      "CâuHỏi": "Check site cho khách nhưng ncc không rep hoặc rep lâu thì phải làm gì?",
+      "ĐápÁn": {
+        "A": "Nhờ Data check hộ",
+        "B": "Nhờ AD check hộ và đợi ncc trả lời",
+        "C": "Chủ động báo lại khách đổi site và đề xuất những site khác có Traffic và DA tương tự cho khách hoặc nhờ data check hộ"
+      },
+      "ĐápÁnĐúng": "C"
+    },
+    {
+      "CâuHỏi": "KH order 10 site thì nên làm như nào",
+      "ĐápÁn": {
+        "A": "Nên kêu khách lựa thêm 2-4 site, để site có vấn đề gì, để mình thay luôn, không cần hỏi lại",
+        "B": "Báo cho khách thời gian dự kiến xong đơn này",
+        "C": "Nên đi đơn sớm, có vấn đề gì, báo liền NCC"
+      },
+      "ĐápÁnĐúng": "A"
+    },
+    {
+      "CâuHỏi": "KH mới, đi đơn đầu tiên, cần làm gì",
+      "ĐápÁn": {
+        "A": "Báo Phương Du cấp tín dụng",
+        "B": "Đi đơn nhanh chóng, care thu tiền, tránh lừa đảo",
+        "C": "Xem KH uy tín không, rồi cấp tín dụng cho KH"
+      },
+      "ĐápÁnĐúng": "A"
+    },
+    {
+      "CâuHỏi": "Có khúc mắc xảy ra với khách hàng nên xử lý thế nào?",
+      "ĐápÁn": {
+        "A": "Bình tĩnh. Xác định kỹ nguyên nhân ở đâu. Trước tiên, dù sai hay đúng hãy xin lỗi KH vì trải nghiệm không tốt. Sau đó, chỉ rõ vấn đề và hướng họ tới cách khắc phục mà họ mong đợi.",
+        "B": "Check lại thông tin thấy mình đúng phải nói cho rõ ràng phải trái.",
+        "C": "Ý A và báo lại với ad nữa"
+      },
+      "ĐápÁnĐúng": "C"
+    },
+    {
+      "CâuHỏi": "Nên nói chuyện riêng với khách hàng không?",
+      "ĐápÁn": {
+        "A": "Không. Không quen biết nên ngoài công việc cũng không biết nói gì.",
+        "B": "Người nào thích thì nói, người nào khó tính thì thôi.",
+        "C": "Có. Nói chuyện là cách tốt nhất để làm thân với khách. Họ có thể giới thiệu cho mình nhiều khách khác. Có thể hỏi thăm công việc, nói chuyện như những người bạn làm thân dần dần."
+      },
+      "ĐápÁnĐúng": "C"
+    },
+    {
+      "CâuHỏi": "Khi khách cần bảo hành nên làm thế nào?",
+      "ĐápÁn": {
+        "A": "Nhận lời rồi để đó làm sau.",
+        "B": "Phản hồi ngay. Đơn cần bảo hành tức là đơn có vấn đề, tâm lý khách đang không hài lòng. Phải giải quyết ngay để họ có được lòng tin vào mình và dịch vụ của mình.",
+        "C": "Kệ, không rep đi đơn trước đã. Bảo hành tính sau."
+      },
+      "ĐápÁnĐúng": "B"
+    },
+    {
+      "CâuHỏi": "Xong đơn có cần báo lại khách không?",
+      "ĐápÁn": {
+        "A": "Có. Cần phải thông báo tình trạng đơn trong nhóm làm việc để SEO còn nắm bắt kịp thời. Nhiều SEO bận, họ quên, để đến khi họ kiểm tra sẽ khó chịu vì xong không báo lại họ.",
+        "B": "Không, khách tự vào file order kiểm tra cho nhanh.",
+        "C": "Tùy khách, người nào cần nhanh thì báo, không thì thôi."
+      },
+      "ĐápÁnĐúng": "A"
     }
-]
+  ]
+  
 
 export default function AttendanceTracker() {
     // Thiết lập locale tiếng Việt cho moment

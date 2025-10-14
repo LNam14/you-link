@@ -1,6 +1,6 @@
 "use client"
-import { useEffect, useMemo, useState } from "react"
-import { HotTable } from "@handsontable/react-wrapper"
+import { useEffect, useMemo, useState, useRef, useCallback } from "react"
+import { HotTable, type HotTableRef } from "@handsontable/react-wrapper"
 import { registerAllModules } from "handsontable/registry"
 import "./custom-table.css"
 import type Handsontable from "handsontable"
@@ -10,7 +10,7 @@ import "handsontable/styles/ht-theme-horizon.css"
 import { Toaster } from "sonner"
 import { Modal } from "antd"
 import { database, onValue, ref, set, remove } from "@/lib/firebase"
-import { Users, Package, Filter, BarChart3, X, Home, Calendar, ShoppingCart } from "lucide-react"
+import { Users, Package, Filter, BarChart3, X, Home, Calendar, ShoppingCart, Copy } from "lucide-react"
 import Link from "next/link"
 import getUserInfo from "@/components/userInfo"
 import sheetApiRequest from "@/apiRequests/sheet"
@@ -167,6 +167,34 @@ export default function PageBody() {
         maKH: "",
         week: getCurrentWeek().label,
     })
+
+    // Refs for HotTable instances
+    const mainTableRef = useRef<HotTableRef>(null)
+    const modalTableRef = useRef<HotTableRef>(null)
+    const selectionAnchorRef = useRef<{ row: number; col: number } | null>(null)
+
+    // Add click outside handler
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as HTMLElement
+            const isClickInsideTable = target.closest(".handsontable")
+            const isClickOnMobileCopy = target.closest("#mobile-copy-btn")
+            const isClickInsideModal = target.closest(".ant-modal")
+
+            if (!isClickInsideTable && !isClickOnMobileCopy && !isClickInsideModal) {
+                // Clear selection for main table only if not in modal
+                const mainTableInstance = mainTableRef.current?.hotInstance
+                if (mainTableInstance) {
+                    mainTableInstance.deselectCell()
+                }
+            }
+        }
+
+        document.addEventListener("mousedown", handleClickOutside)
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside)
+        }
+    }, [])
 
     // Cập nhật filter mặc định khi component mount (chỉ chạy 1 lần)
     useEffect(() => {
@@ -682,6 +710,263 @@ export default function PageBody() {
         return dups
     }, [selectedItems])
 
+    // Add the beforeCopy handler function using useCallback
+    const handleBeforeCopy = useCallback(
+        (data: string[][], coords: any[], copiedHeadersCount: { columnHeadersCount: number }): boolean | void => {
+            // Try to get the instance from either table - check which one has active selection
+            const mainTableInstance = mainTableRef.current?.hotInstance
+            const modalTableInstance = modalTableRef.current?.hotInstance
+            
+            // Determine which table has the active selection
+            let hotInstance = null
+            if (modalTableInstance) {
+                const modalSelected = modalTableInstance.getSelected()
+                if (modalSelected && modalSelected.length > 0) {
+                    hotInstance = modalTableInstance
+                }
+            }
+            if (!hotInstance && mainTableInstance) {
+                const mainSelected = mainTableInstance.getSelected()
+                if (mainSelected && mainSelected.length > 0) {
+                    hotInstance = mainTableInstance
+                }
+            }
+
+            if (!hotInstance) {
+                console.warn("Handsontable instance not found for copy.")
+                return
+            }
+
+            const selected = hotInstance.getSelected()
+            if (!selected || selected.length === 0) {
+                console.warn("No selection found for copy.")
+                return
+            }
+
+            // Calculate the overall bounding box of the selection
+            let minRow = Number.POSITIVE_INFINITY,
+                minCol = Number.POSITIVE_INFINITY,
+                maxRow = Number.NEGATIVE_INFINITY,
+                maxCol = Number.NEGATIVE_INFINITY
+            selected.forEach((range) => {
+                const [startRow, startCol, endRow, endCol] = range
+                minRow = Math.min(minRow, startRow, endRow)
+                minCol = Math.min(minCol, startCol, endCol)
+                maxRow = Math.max(maxRow, startRow, endRow)
+                maxCol = Math.max(maxCol, startCol, endCol)
+            })
+
+            const numRows = maxRow - minRow + 1
+            const numCols = maxCol - minCol + 1
+
+            // Initialize a 2D array with empty strings
+            const copiedDataArray: string[][] = Array.from({ length: numRows }, () => Array(numCols).fill(""))
+
+            // Populate the 2D array with data from selected ranges
+            selected.forEach((range) => {
+                const [startRow, startCol, endRow, endCol] = range
+                const rowStart = Math.min(startRow, endRow)
+                const rowEnd = Math.max(startRow, endRow)
+                const colStart = Math.min(startCol, endCol)
+                const colEnd = Math.max(colStart, endCol)
+
+                for (let r = rowStart; r <= rowEnd; r++) {
+                    for (let c = colStart; c <= colEnd; c++) {
+                        // Get the rendered value from the cell element's textContent
+                        const cellElement = hotInstance.getCell(r, c)
+                        const cellValue = cellElement ? cellElement.textContent || "" : ""
+                        // Place the value in the correct position relative to the bounding box
+                        copiedDataArray[r - minRow][c - minCol] = cellValue
+                    }
+                }
+            })
+
+            // Format the 2D array into a tab-separated string
+            const finalData = copiedDataArray.map((row) => row.join("\t")).join("\n")
+
+            const copyToClipboard = async (text: string) => {
+                // Check if we're in a secure context and clipboard API is available
+                if (navigator.clipboard && window.isSecureContext) {
+                    try {
+                        await navigator.clipboard.writeText(text)
+                        console.log("Data copied to clipboard successfully.")
+                        return true
+                    } catch (err) {
+                        console.warn("Clipboard API failed, trying fallback:", err)
+                    }
+                }
+
+                // Fallback method for mobile devices and older browsers
+                try {
+                    // Create a temporary textarea element
+                    const textArea = document.createElement("textarea")
+                    textArea.value = text
+                    textArea.style.position = "fixed"
+                    textArea.style.left = "-999999px"
+                    textArea.style.top = "-999999px"
+                    textArea.setAttribute("readonly", "")
+                    textArea.style.opacity = "0"
+
+                    document.body.appendChild(textArea)
+
+                    // For mobile devices, we need to make the textarea visible and focusable
+                    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                        textArea.style.position = "absolute"
+                        textArea.style.left = "0px"
+                        textArea.style.top = "0px"
+                        textArea.style.opacity = "1"
+                        textArea.style.zIndex = "9999"
+                        textArea.style.fontSize = "16px" // Prevent zoom on iOS
+                    }
+
+                    textArea.focus()
+                    textArea.select()
+                    textArea.setSelectionRange(0, text.length)
+
+                    const successful = document.execCommand("copy")
+                    document.body.removeChild(textArea)
+
+                    if (successful) {
+                        console.log("Data copied using fallback method.")
+                        return true
+                    } else {
+                        throw new Error("execCommand copy failed")
+                    }
+                } catch (fallbackErr) {
+                    console.error("All copy methods failed:", fallbackErr)
+
+                    // Final fallback: show the data in an alert for manual copy
+                    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                        const shortData = text.length > 200 ? text.substring(0, 200) + "..." : text
+                        alert(`Copy failed. Data to copy:\n${shortData}`)
+                    }
+                    return false
+                }
+            }
+
+            // Use the enhanced copy function
+            copyToClipboard(finalData)
+
+            // Prevent Handsontable's default copy behavior since we handled it
+            return false
+        },
+        [mainTableRef, modalTableRef],
+    ) // Update dependencies to include both refs
+
+    // Mobile copy handler to copy current selection from either table
+    const handleMobileCopySelection = useCallback(async () => {
+        const mainTableInstance = mainTableRef.current?.hotInstance
+        const modalTableInstance = modalTableRef.current?.hotInstance
+        
+        // Determine which table has the active selection
+        let hotInstance = null
+        if (modalTableInstance) {
+            const modalSelected = modalTableInstance.getSelected()
+            if (modalSelected && modalSelected.length > 0) {
+                hotInstance = modalTableInstance
+            }
+        }
+        if (!hotInstance && mainTableInstance) {
+            const mainSelected = mainTableInstance.getSelected()
+            if (mainSelected && mainSelected.length > 0) {
+                hotInstance = mainTableInstance
+            }
+        }
+
+        if (!hotInstance) {
+            alert("Không tìm thấy bảng để copy")
+            return
+        }
+
+        const selected = hotInstance.getSelected()
+        if (!selected || selected.length === 0) {
+            alert("Vui lòng chọn ô cần copy")
+            return
+        }
+
+        let minRow = Number.POSITIVE_INFINITY,
+            minCol = Number.POSITIVE_INFINITY,
+            maxRow = Number.NEGATIVE_INFINITY,
+            maxCol = Number.NEGATIVE_INFINITY
+        selected.forEach((range: any) => {
+            const [startRow, startCol, endRow, endCol] = range
+            minRow = Math.min(minRow, startRow, endRow)
+            minCol = Math.min(minCol, startCol, endCol)
+            maxRow = Math.max(maxRow, startRow, endRow)
+            maxCol = Math.max(maxCol, startCol, endCol)
+        })
+
+        const numRows = maxRow - minRow + 1
+        const numCols = maxCol - minCol + 1
+        const copiedDataArray: string[][] = Array.from({ length: numRows }, () => Array(numCols).fill(""))
+
+        selected.forEach((range: any) => {
+            const [startRow, startCol, endRow, endCol] = range
+            const rowStart = Math.min(startRow, endRow)
+            const rowEnd = Math.max(startRow, endRow)
+            const colStart = Math.min(startCol, endCol)
+            const colEnd = Math.max(startCol, endCol)
+
+            for (let r = rowStart; r <= rowEnd; r++) {
+                for (let c = colStart; c <= colEnd; c++) {
+                    const cellElement = hotInstance.getCell(r, c)
+                    const cellValue = cellElement ? cellElement.textContent || "" : ""
+                    copiedDataArray[r - minRow][c - minCol] = cellValue
+                }
+            }
+        })
+
+        const finalData = copiedDataArray.map((row) => row.join("\t")).join("\n")
+
+        const copyToClipboard = async (text: string) => {
+            if (navigator.clipboard && window.isSecureContext) {
+                try {
+                    await navigator.clipboard.writeText(text)
+                    return true
+                } catch (err) {
+                    // fallthrough
+                }
+            }
+
+            try {
+                const textArea = document.createElement("textarea")
+                textArea.value = text
+                textArea.style.position = "fixed"
+                textArea.style.left = "-999999px"
+                textArea.style.top = "-999999px"
+                textArea.setAttribute("readonly", "")
+                textArea.style.opacity = "0"
+                document.body.appendChild(textArea)
+
+                if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                    textArea.style.position = "absolute"
+                    textArea.style.left = "0px"
+                    textArea.style.top = "0px"
+                    textArea.style.opacity = "1"
+                    textArea.style.zIndex = "9999"
+                    textArea.style.fontSize = "16px"
+                }
+
+                textArea.focus()
+                textArea.select()
+                textArea.setSelectionRange(0, text.length)
+
+                const successful = document.execCommand("copy")
+                document.body.removeChild(textArea)
+                if (successful) return true
+                throw new Error("execCommand copy failed")
+            } catch (fallbackErr) {
+                if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                    const shortData = text.length > 200 ? text.substring(0, 200) + "..." : text
+                    alert(`Copy failed. Data to copy:\n${shortData}`)
+                }
+                return false
+            }
+        }
+
+        await copyToClipboard(finalData)
+    }, [mainTableRef, modalTableRef])
+
     const persistSelectedOrder = async (newItems: any[]) => {
         if (!selectedOrder?.MaDon) return
         // Always renumber MaDon for items based on outer MaDon and index
@@ -951,6 +1236,7 @@ export default function PageBody() {
                             </div>
                         ) : (
                             <HotTable
+                                ref={mainTableRef}
                                 themeName="ht-theme-main"
                                 colHeaders={RowHeader}
                                 nestedHeaders={nestedHeaders as any}
@@ -972,6 +1258,9 @@ export default function PageBody() {
                                 hiddenColumns={{
                                     columns: userInfo?.role === "NCC" ? [4, 6, 8] : undefined,
                                 }}
+                                copyPaste={true}
+                                beforeCopy={handleBeforeCopy}
+                                outsideClickDeselects={false}
                             />
                         )}
                     </div>
@@ -1400,6 +1689,7 @@ export default function PageBody() {
                                     },
                                 }
                             })}
+                            ref={modalTableRef}
                             data={itemsTableData}
                             licenseKey="non-commercial-and-evaluation"
                             width="100%"
@@ -1413,6 +1703,9 @@ export default function PageBody() {
                                     }
                                     : undefined
                             }
+                            copyPaste={true}
+                            beforeCopy={handleBeforeCopy}
+                            outsideClickDeselects={false}
                             afterChange={async (changes, source) => {
                                 if (!changes || !selectedOrder) return
                                 if (source === "loadData") return
@@ -1480,6 +1773,17 @@ export default function PageBody() {
                     </div>
                 </div>
             </Modal>
+
+            {/* Mobile-only floating copy button */}
+            <button
+                id="mobile-copy-btn"
+                onClick={handleMobileCopySelection}
+                className="md:hidden fixed bottom-4 right-4 z-[2000] bg-blue-600 text-white rounded-full shadow-lg p-3 active:scale-95"
+                aria-label="Copy selection"
+                title="Copy vùng đã chọn"
+            >
+                <Copy className="h-6 w-6" />
+            </button>
         </>
     )
 }

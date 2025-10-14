@@ -1,5 +1,5 @@
 "use client"
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { HotTable } from "@handsontable/react-wrapper"
 import { registerAllModules } from "handsontable/registry"
 import "./custom-table.css"
@@ -9,7 +9,7 @@ import "handsontable/styles/ht-theme-horizon.css"
 import { Toaster, toast } from "sonner"
 import { useFirebaseData } from "@/firebase/hooks/useFirebaseData"
 import { useCongNo } from "@/hook/useCongNo"
-import { Search, Plus, Trash2, RefreshCw, Users, UserPlus, Check, X, Maximize, Minimize, ArrowDownCircle, ArrowUpCircle, Scale } from "lucide-react"
+import { Search, Plus, Trash2, RefreshCw, Users, UserPlus, Check, X, Maximize, Minimize, ArrowDownCircle, ArrowUpCircle, Scale, Filter } from "lucide-react"
 import { Modal } from "antd"
 import getUserInfo from "@/components/userInfo"
 import authApiRequest from "@/apiRequests/auth"
@@ -33,11 +33,11 @@ const PageBody = () => {
 
     const { congNoData, loading: congNoLoading } = useCongNo()
 
-    // Helper function to get cong no value by MaMoi
-    const getCongNoByMaMoi = (maMoi: string): string => {
+    // Helper function to get cong no value by MaMoi - memoized
+    const getCongNoByMaMoi = useCallback((maMoi: string): string => {
         const congNoItem = congNoData.find(item => item.MaMoi === maMoi);
         return congNoItem?.CongNo || "0";
-    };
+    }, [congNoData]);
 
     const [selectedRows, setSelectedRows] = useState<number[]>([])
     const [showBulkAddModal, setShowBulkAddModal] = useState(false)
@@ -48,11 +48,16 @@ const PageBody = () => {
     const containerRef = useRef<HTMLDivElement>(null)
     const fixedHiddenCols = [24];
     const [hiddenCols, setHiddenCols] = useState<number[]>(fixedHiddenCols);
+    const [filterDangMH, setFilterDangMH] = useState(false)
     const userInfo = getUserInfo()
     const isAdmin = userInfo?.role === "Admin"
-    const visibleData = isAdmin
-        ? data
-        : data.filter((row) => {
+    
+    // Debounce timer ref for saving changes
+    const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
+    const pendingChangesRef = useRef<any[]>([])
+    
+    const visibleData = useMemo(() => {
+        let filteredData = isAdmin ? data : data.filter((row) => {
             const raw = (row?.[23] || "").toString()
             const viewers = raw
                 .split(",")
@@ -60,9 +65,17 @@ const PageBody = () => {
                 .filter((s: string) => s.length > 0)
             return viewers.includes(userInfo?.username || "")
         })
+        
+        // Apply Order = "Đang MH" filter if enabled
+        if (filterDangMH) {
+            filteredData = filteredData.filter((row) => row[4] === "Đang MH")
+        }
+        
+        return filteredData
+    }, [data, isAdmin, userInfo?.username, filterDangMH])
 
-    // Calculate total debt and credit
-    const calculateTotals = () => {
+    // Calculate total debt and credit - memoized
+    const { totalDebt, totalCredit } = useMemo(() => {
         let totalDebt = 0;
         let totalCredit = 0;
 
@@ -76,9 +89,7 @@ const PageBody = () => {
         });
 
         return { totalDebt, totalCredit };
-    };
-
-    const { totalDebt, totalCredit } = calculateTotals();
+    }, [visibleData, getCongNoByMaMoi]);
     // Modal state for multi-select Người Xem (Admin only)
     const [viewerModalOpen, setViewerModalOpen] = useState(false)
     const [viewerModalRow, setViewerModalRow] = useState<number | null>(null)
@@ -266,13 +277,13 @@ const PageBody = () => {
     }
 
     // Get current date in DD/MM/YYYY format
-    const getCurrentDate = () => {
+    const getCurrentDate = useCallback(() => {
         const today = new Date()
         const day = today.getDate().toString().padStart(2, "0")
         const month = (today.getMonth() + 1).toString().padStart(2, "0")
         const year = today.getFullYear()
         return `${day}/${month}/${year}`
-    }
+    }, [])
 
     // Function to hide a column
     const hideColumn = (columnIndex: number) => {
@@ -350,7 +361,7 @@ const PageBody = () => {
         }
     }
 
-    const getColumnConfig = () => {
+    const getColumnConfig = useMemo(() => {
         return RowHeader2.map((header, index) => {
             const config: any = {
                 data: index,
@@ -635,7 +646,7 @@ const PageBody = () => {
 
             return config
         })
-    }
+    }, [hiddenColumns, getCongNoByMaMoi, getCurrentDate])
 
     const getOriginalRowIndex = useCallback(
         (visualRowIndex: number) => {
@@ -672,7 +683,21 @@ const PageBody = () => {
         [originalData],
     )
 
-    const handleAfterChange = (changes: any) => {
+    // Debounced save function
+    const debouncedSave = useCallback(() => {
+        if (pendingChangesRef.current.length > 0) {
+            const changesToSave = [...pendingChangesRef.current]
+            pendingChangesRef.current = []
+            
+            // Save all pending changes at once without showing toast
+            saveMultipleRows(changesToSave).catch(error => {
+                console.error("Error saving changes:", error)
+                toast.error("Lỗi khi lưu dữ liệu")
+            })
+        }
+    }, [saveMultipleRows])
+
+    const handleAfterChange = useCallback((changes: any) => {
         if (changes && changes.length > 0) {
             // Allow changes where oldVal !== newVal, including when newVal is null, undefined, or empty string
             const validChanges = changes.filter(([row, col, oldVal, newVal]: any) => {
@@ -689,26 +714,44 @@ const PageBody = () => {
                 })
 
                 // Check if Ngày Check column was changed and update Đếm Ngày
-                convertedChanges.forEach(([row, col, oldVal, newVal]: any) => {
-                    if (col === 20) {
-                        // Ngày Check column
-                        // Force re-render of Đếm Ngày column
-                        setTimeout(() => {
-                            const hotInstance = document.querySelector(".handsontable")
-                            if (hotInstance) {
-                                // @ts-ignore
-                                hotInstance.hotInstance?.render()
-                            }
-                        }, 100)
-                    }
-                })
+                const hasDateChange = convertedChanges.some(([row, col]: any) => col === 20)
+                if (hasDateChange) {
+                    // Use requestAnimationFrame instead of setTimeout for better performance
+                    requestAnimationFrame(() => {
+                        hotRef.current?.hotInstance?.render()
+                    })
+                }
 
-                saveMultipleRows(convertedChanges)
+                // Add changes to pending queue
+                pendingChangesRef.current.push(...convertedChanges)
+                
+                // Clear existing timer
+                if (saveTimerRef.current) {
+                    clearTimeout(saveTimerRef.current)
+                }
+                
+                // Set new timer to save after 500ms of no changes
+                saveTimerRef.current = setTimeout(() => {
+                    debouncedSave()
+                }, 500)
             }
         }
-    }
+    }, [getOriginalRowIndex, debouncedSave])
+    
+    // Cleanup timer on unmount
+    useEffect(() => {
+        return () => {
+            if (saveTimerRef.current) {
+                clearTimeout(saveTimerRef.current)
+                // Save any remaining changes on unmount
+                if (pendingChangesRef.current.length > 0) {
+                    saveMultipleRows(pendingChangesRef.current)
+                }
+            }
+        }
+    }, [saveMultipleRows])
 
-    const handleAfterPaste = (data: any, coords: any) => {
+    const handleAfterPaste = useCallback((data: any, coords: any) => {
         if (data && data.length > 0) {
             const changes: any[] = []
             for (let i = 0; i < data.length; i++) {
@@ -731,20 +774,31 @@ const PageBody = () => {
                 const originalRow = getOriginalRowIndex(visualRow)
                 return [originalRow, col, oldVal, newVal]
             })
-            // Single batch update for all pasted data
+            
+            // Add to pending changes queue and use debouncing
             if (convertedChanges.length > 0) {
-                saveMultipleRows(convertedChanges)
+                pendingChangesRef.current.push(...convertedChanges)
+                
+                // Clear existing timer
+                if (saveTimerRef.current) {
+                    clearTimeout(saveTimerRef.current)
+                }
+                
+                // Set new timer to save after 500ms
+                saveTimerRef.current = setTimeout(() => {
+                    debouncedSave()
+                }, 500)
             }
         }
-    }
+    }, [getOriginalRowIndex, debouncedSave])
 
-    const handleAfterSelection = (row: number, column: number, row2: number, column2: number) => {
+    const handleAfterSelection = useCallback((row: number, column: number, row2: number, column2: number) => {
         const selected = []
         for (let i = Math.min(row, row2); i <= Math.max(row, row2); i++) {
             selected.push(i)
         }
         setSelectedRows(selected)
-    }
+    }, [])
 
     const handleDeleteSelected = async () => {
         if (selectedRows.length === 0) return
@@ -795,27 +849,6 @@ const PageBody = () => {
         await addMultipleRows(newRowsData)
         setShowBulkAddModal(false)
         toast.success(`Đã thêm ${bulkAddCount} hàng mới`)
-    }
-
-    const handleSingleAdd = async () => {
-        const today = new Date()
-        const formattedDate = `${today.getDate().toString().padStart(2, "0")}/${(today.getMonth() + 1).toString().padStart(2, "0")}/${today.getFullYear()}`
-
-        const newRowData = Array(24).fill("")
-        // Set Ngày Check to current date
-        newRowData[20] = formattedDate
-        // Set empty dropdown values to "===="
-        newRowData[2] = "====" // Phân Loại
-        newRowData[3] = "====" // Phiên Bản
-        newRowData[4] = "====" // Order
-        newRowData[19] = "====" // Tình Trạng
-        // Set Người Xem for non-admin
-        if (!isAdmin) {
-            newRowData[23] = userInfo?.username || ""
-        }
-
-        await addNewRow(newRowData)
-        toast.success("Đã thêm 1 hàng mới")
     }
 
     useEffect(() => {
@@ -951,19 +984,26 @@ const PageBody = () => {
                                         </button>
 
                                         <button
-                                            onClick={handleSingleAdd}
-                                            className="group flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md transition-all duration-200 text-sm shadow-sm"
+                                            onClick={() => setFilterDangMH(!filterDangMH)}
+                                            className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all duration-200 text-sm shadow-sm ${
+                                                filterDangMH 
+                                                    ? "bg-green-600 hover:bg-green-700 text-white" 
+                                                    : "bg-gray-600 hover:bg-gray-700 text-white"
+                                            }`}
+                                            title={filterDangMH ? "Đang lọc: Order = Đang MH" : "Lọc Order = Đang MH"}
                                         >
-                                            <Plus className="h-3.5 w-3.5 group-hover:rotate-90 text-white transition-transform duration-200" />
-                                            <span className="leading-none text-white">Thêm 1</span>
+                                            <Filter className="h-3.5 w-3.5 text-white transition-transform duration-200 group-hover:scale-110" />
+                                            <span className="leading-none text-white">
+                                                {filterDangMH ? "Đang MH ✓" : "Lọc Đang MH"}
+                                            </span>
                                         </button>
-
+                                       
                                         <button
                                             onClick={() => setShowBulkAddModal(true)}
                                             className="group flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-all duration-200 text-sm"
                                         >
                                             <UserPlus className="h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-200 text-white" />
-                                            <span className="leading-none text-white">Thêm nhiều</span>
+                                            <span className="leading-none text-white">Thêm hàng</span>
                                         </button>
 
                                         <button
@@ -1003,7 +1043,7 @@ const PageBody = () => {
                             <HotTable
                                 ref={hotRef}
                                 themeName="ht-theme-main"
-                                columns={getColumnConfig()}
+                                columns={getColumnConfig}
                                 data={visibleData.map((row) => row.slice(0, 25))}
                                 width="100%"
                                 autoColumnSize={false}
