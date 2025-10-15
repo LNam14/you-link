@@ -719,16 +719,19 @@ export default function PageBody() {
             
             // Determine which table has the active selection
             let hotInstance = null
+            let isModalTable = false
             if (modalTableInstance) {
                 const modalSelected = modalTableInstance.getSelected()
                 if (modalSelected && modalSelected.length > 0) {
                     hotInstance = modalTableInstance
+                    isModalTable = true
                 }
             }
             if (!hotInstance && mainTableInstance) {
                 const mainSelected = mainTableInstance.getSelected()
                 if (mainSelected && mainSelected.length > 0) {
                     hotInstance = mainTableInstance
+                    isModalTable = false
                 }
             }
 
@@ -772,9 +775,49 @@ export default function PageBody() {
 
                 for (let r = rowStart; r <= rowEnd; r++) {
                     for (let c = colStart; c <= colEnd; c++) {
-                        // Get the rendered value from the cell element's textContent
-                        const cellElement = hotInstance.getCell(r, c)
-                        const cellValue = cellElement ? cellElement.textContent || "" : ""
+                        // Get the actual data value instead of rendered textContent
+                        let cellValue = ""
+                        
+                        if (isModalTable) {
+                            // For modal table (items table), get data from selectedItems
+                            const item = selectedItems[r]
+                            if (item) {
+                                const colIndexToKeyMap: Record<number, string> = {
+                                    0: "MaDon",
+                                    1: "KHNote1",
+                                    2: "KHNote2",
+                                    3: "Deadline",
+                                    4: "ChuDe",
+                                    5: "Anchor1",
+                                    6: "URL1",
+                                    7: "Anchor2",
+                                    8: "URL2",
+                                    9: "LinkKQ",
+                                }
+                                const key = colIndexToKeyMap[c]
+                                if (key && c !== 10) { // Skip action column
+                                    cellValue = String(item[key] || "")
+                                }
+                            }
+                        } else {
+                            // For main table, get data from filteredOrders
+                            const order = filteredOrders[r]
+                            if (order && c !== 12) { // Skip action column
+                                const orderKeys = ["MaDon", "NgayOrder", "TenSP", "SoLuong", "DonGiaMua", "DonGiaBan", "TongTienMua", "TongTienBan", "", "MaNCC", "MaKH", "TinhTrang"]
+                                if (c === 8) {
+                                    // Lợi Nhuận calculation
+                                    const buy = Number(order.TongTienMua || 0)
+                                    const sell = Number(order.TongTienBan || 0)
+                                    cellValue = String((sell - buy).toFixed(2))
+                                } else {
+                                    const key = orderKeys[c]
+                                    if (key) {
+                                        cellValue = String(order[key] || "")
+                                    }
+                                }
+                            }
+                        }
+                        
                         // Place the value in the correct position relative to the bounding box
                         copiedDataArray[r - minRow][c - minCol] = cellValue
                     }
@@ -850,8 +893,8 @@ export default function PageBody() {
             // Prevent Handsontable's default copy behavior since we handled it
             return false
         },
-        [mainTableRef, modalTableRef],
-    ) // Update dependencies to include both refs
+        [mainTableRef, modalTableRef, filteredOrders, selectedItems],
+    )
 
     // Mobile copy handler to copy current selection from either table
     const handleMobileCopySelection = useCallback(async () => {
@@ -860,16 +903,19 @@ export default function PageBody() {
         
         // Determine which table has the active selection
         let hotInstance = null
+        let isModalTable = false
         if (modalTableInstance) {
             const modalSelected = modalTableInstance.getSelected()
             if (modalSelected && modalSelected.length > 0) {
                 hotInstance = modalTableInstance
+                isModalTable = true
             }
         }
         if (!hotInstance && mainTableInstance) {
             const mainSelected = mainTableInstance.getSelected()
             if (mainSelected && mainSelected.length > 0) {
                 hotInstance = mainTableInstance
+                isModalTable = false
             }
         }
 
@@ -909,8 +955,49 @@ export default function PageBody() {
 
             for (let r = rowStart; r <= rowEnd; r++) {
                 for (let c = colStart; c <= colEnd; c++) {
-                    const cellElement = hotInstance.getCell(r, c)
-                    const cellValue = cellElement ? cellElement.textContent || "" : ""
+                    // Get the actual data value instead of rendered textContent
+                    let cellValue = ""
+                    
+                    if (isModalTable) {
+                        // For modal table (items table), get data from selectedItems
+                        const item = selectedItems[r]
+                        if (item) {
+                            const colIndexToKeyMap: Record<number, string> = {
+                                0: "MaDon",
+                                1: "KHNote1",
+                                2: "KHNote2",
+                                3: "Deadline",
+                                4: "ChuDe",
+                                5: "Anchor1",
+                                6: "URL1",
+                                7: "Anchor2",
+                                8: "URL2",
+                                9: "LinkKQ",
+                            }
+                            const key = colIndexToKeyMap[c]
+                            if (key && c !== 10) { // Skip action column
+                                cellValue = String(item[key] || "")
+                            }
+                        }
+                    } else {
+                        // For main table, get data from filteredOrders
+                        const order = filteredOrders[r]
+                        if (order && c !== 12) { // Skip action column
+                            const orderKeys = ["MaDon", "NgayOrder", "TenSP", "SoLuong", "DonGiaMua", "DonGiaBan", "TongTienMua", "TongTienBan", "", "MaNCC", "MaKH", "TinhTrang"]
+                            if (c === 8) {
+                                // Lợi Nhuận calculation
+                                const buy = Number(order.TongTienMua || 0)
+                                const sell = Number(order.TongTienBan || 0)
+                                cellValue = String((sell - buy).toFixed(2))
+                            } else {
+                                const key = orderKeys[c]
+                                if (key) {
+                                    cellValue = String(order[key] || "")
+                                }
+                            }
+                        }
+                    }
+                    
                     copiedDataArray[r - minRow][c - minCol] = cellValue
                 }
             }
@@ -965,7 +1052,7 @@ export default function PageBody() {
         }
 
         await copyToClipboard(finalData)
-    }, [mainTableRef, modalTableRef])
+    }, [mainTableRef, modalTableRef, filteredOrders, selectedItems])
 
     const persistSelectedOrder = async (newItems: any[]) => {
         if (!selectedOrder?.MaDon) return
