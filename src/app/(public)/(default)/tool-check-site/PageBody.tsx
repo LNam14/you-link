@@ -244,9 +244,9 @@ export default function PageBody() {
         }
     }
 
-    // Handle search with debounce
-    const handleSearch = useCallback(
-        debounce((value: string) => {
+    // Core search logic (immediate)
+    const runSearch = useCallback(
+        (value: string) => {
             if (!value.trim()) {
                 setFilteredData([])
                 setDuplicateSites({})
@@ -300,9 +300,11 @@ export default function PageBody() {
 
                 if (matchingItems.length > 0) {
                     if (selectedSearchType === "Site") {
+                        // Sort by selected price type (GP, Text, TextHome, TextHeader)
                         matchingItems.sort((a, b) => {
-                            const priceA = Number.parseFloat(a.giaMuaGP)
-                            const priceB = Number.parseFloat(b.giaMuaGP)
+                            const priceField = getPriceColumnData(selectedPriceType, selectedBrand, "giaMua")
+                            const priceA = Number.parseFloat((a as any)[priceField])
+                            const priceB = Number.parseFloat((b as any)[priceField])
                             const isNumericA = !isNaN(priceA)
                             const isNumericB = !isNaN(priceB)
                             if (isNumericA && isNumericB) return priceA - priceB
@@ -408,22 +410,29 @@ export default function PageBody() {
             setFilteredData(convertedMainItems)
             setDuplicateSites(convertedDuplicates)
             setHasSearched(true)
-        }, 300),
-        [allData, selectedSearchType, selectedCurrency, selectedBrand, exchangeRate],
+        },
+        [allData, selectedSearchType, selectedCurrency, selectedBrand, selectedPriceType, exchangeRate],
     )
 
-    // Update search when input changes or search type changes
+    // Debounced search for typing
+    const handleSearch = useCallback(
+        debounce((value: string) => {
+            runSearch(value)
+        }, 300),
+        [runSearch],
+    )
+
+    // Update search when input changes or search type changes (debounced for typing)
     useEffect(() => {
         handleSearch(searchTerm)
-    }, [searchTerm, handleSearch, selectedSearchType])
+    }, [searchTerm, handleSearch, selectedSearchType, selectedPriceType])
 
-    // Update data when currency or brand changes
+    // Update data immediately when currency, brand, price type, or rate changes to avoid flicker
     useEffect(() => {
         if (hasSearched) {
-            // Only re-apply conversion if a search has already been performed
-            handleSearch(searchTerm) // Re-run search logic to apply conversion
+            runSearch(searchTerm)
         }
-    }, [selectedCurrency, selectedBrand, exchangeRate, hasSearched, searchTerm, handleSearch]) // Added exchangeRate
+    }, [selectedCurrency, selectedBrand, selectedPriceType, exchangeRate, hasSearched, searchTerm, runSearch]) // Added exchangeRate
 
     const handlePriceTypeChange = (priceType: PriceType) => {
         setSelectedPriceType(priceType)
@@ -2222,3 +2231,4 @@ export default function PageBody() {
         </div>
     )
 }
+
