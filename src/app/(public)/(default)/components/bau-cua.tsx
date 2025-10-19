@@ -88,7 +88,7 @@ export default function BauCua({ title = "Bầu Cua Tôm Cá" }) {
     }
 
     if (!isWithinAllowedHours()) {
-      toast.error("Chỉ được chơi từ 12:00 đến 22:55!")
+      toast.error("Hãy quay lại vào lúc 12:00 - 22:55 bạn nhé!")
       return
     }
 
