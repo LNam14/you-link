@@ -117,7 +117,7 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   { option: "100.000 VND", style: { backgroundColor: "#8B5CF6", textColor: "white" } },
   { option: "- 100.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
   { option: "50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-
+  { option: "1.000.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
   { option: "Cố lên, mai hụt!", style: { backgroundColor: "#CCCCCC", textColor: "black" } }, // Inspiring
   { option: "- 10.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
   { option: "- 50.000 VND", style: { backgroundColor: "#02a115", textColor: "white" } },
