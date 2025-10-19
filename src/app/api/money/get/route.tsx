@@ -66,7 +66,15 @@ export async function GET(request: Request) {
             let rewardValue = 0
             if (typeof row.reward === 'string') {
                 if (row.reward.includes('VND')) {
-                    rewardValue = parseInt(row.reward.replace(/[^0-9-]/g, ''))
+                    // Check if reward is negative (has minus sign)
+                    const isNegative = row.reward.includes('-')
+                    // Remove all non-numeric characters except dots, commas and minus, then remove dots and commas
+                    const cleanValue = row.reward.replace(/[^0-9.,-]/g, '').replace(/[.,]/g, '')
+                    rewardValue = parseInt(cleanValue) || 0
+                    // If original string had minus, make sure the value is negative
+                    if (isNegative && rewardValue > 0) {
+                        rewardValue = -rewardValue
+                    }
                 } else if (row.reward.includes('Quay thêm')) {
                     rewardValue = 0
                 }
