@@ -86,60 +86,53 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
   const today = moment().tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD")
   console.log(today)
 
-  // Enhanced prize data with alternating large and small rewards
- const data = [
-  { option: "- 500.000 VND", style: { backgroundColor: "#FFD700", textColor: "black" } }, // Big
-  { option: "- 50.000 VND", style: { backgroundColor: "#02a115", textColor: "white" } },
-  { option: "- 20.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "100.000 VND", style: { backgroundColor: "#8B5CF6", textColor: "white" } },
-
-  { option: "50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "200.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
-  { option: "- 10.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "- 100.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-
-  { option: "Xí hụt", style: { backgroundColor: "#CCCCCC", textColor: "black" } }, // Fun
-  { option: "20.000 VND", style: { backgroundColor: "#d402bf", textColor: "white" } },
-  { option: "- 200.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "10.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
-
-  { option: "- 20.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "100.000 VND", style: { backgroundColor: "#8B5CF6", textColor: "white" } },
-  { option: "50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "- 50.000 VND", style: { backgroundColor: "#02a115", textColor: "white" } },
-
-  { option: "Hnay trượt, mai hụt!", style: { backgroundColor: "#CCCCCC", textColor: "black" } }, // Funny
-  { option: "- 10.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "200.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
-  { option: "- 20.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-
-  { option: "20.000 VND", style: { backgroundColor: "#d402bf", textColor: "white" } },
-  { option: "100.000 VND", style: { backgroundColor: "#8B5CF6", textColor: "white" } },
-  { option: "- 100.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "1.000.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "Cố lên, mai hụt!", style: { backgroundColor: "#CCCCCC", textColor: "black" } }, // Inspiring
-  { option: "- 10.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "- 50.000 VND", style: { backgroundColor: "#02a115", textColor: "white" } },
-  { option: "500.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-
-  { option: "20.000 VND", style: { backgroundColor: "#d402bf", textColor: "white" } },
-  { option: "- 20.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "10.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
-  { option: "50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-
-  { option: "Đời mà, quay lại đi!", style: { backgroundColor: "#CCCCCC", textColor: "black" } }, // Funny
-  { option: "- 10.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-  { option: "- 50.000 VND", style: { backgroundColor: "#02a115", textColor: "white" } },
-  { option: "- 20.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-
-  { option: "10.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
-  { option: "- 100.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
-];
-
+  // Enhanced prize data with randomized alternating rewards
+  const data = [
+    { option: "10.000 VND", style: { backgroundColor: "#22C55E", textColor: "white" } },
+    { option: "- 100.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+    { option: "50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
+    { option: "- 20.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+    { option: "1.000.000 VND", style: { backgroundColor: "#fefe01", textColor: "blue", animation: "blink" } }, 
+    { option: "- 50.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+    { option: "200.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
+    { option: "- 200.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+    { option: "50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
+    { option: "- 10.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+    { option: "20.000 VND", style: { backgroundColor: "#D946EF", textColor: "white" } },
+    { option: "- 50.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+    { option: "100.000 VND", style: { backgroundColor: "#8B5CF6", textColor: "white" } },
+    { option: "- 100.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+    { option: "20.000 VND", style: { backgroundColor: "#D946EF", textColor: "white" } },
+    { option: "- 20.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+    { option: "10.000 VND", style: { backgroundColor: "#22C55E", textColor: "white" } },
+    { option: "- 10.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+    { option: "500.000 VND", style: { backgroundColor: "#F97316", textColor: "white" } },
+     { option: "- 500.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+     { option: "20.000 VND", style: { backgroundColor: "#D946EF", textColor: "white" } },
+     { option: "- 50.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+     { option: "100.000 VND", style: { backgroundColor: "#8B5CF6", textColor: "white" } },
+     { option: "- 200.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+     { option: "10.000 VND", style: { backgroundColor: "#22C55E", textColor: "white" } },
+     { option: "- 20.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+     { option: "100.000 VND", style: { backgroundColor: "#8B5CF6", textColor: "white" } },
+     { option: "- 10.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+     { option: "20.000 VND", style: { backgroundColor: "#D946EF", textColor: "white" } },
+     { option: "- 10.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+     { option: "50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
+     { option: "- 100.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+     { option: "200.000 VND", style: { backgroundColor: "#3B82F6", textColor: "white" } },
+     { option: "- 20.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+     { option: "10.000 VND", style: { backgroundColor: "#22C55E", textColor: "white" } },
+     { option: "- 10.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+     { option: "50.000 VND", style: { backgroundColor: "#DC2626", textColor: "white" } },
+     { option: "- 10.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+     { option: "10.000 VND", style: { backgroundColor: "#22C55E", textColor: "white" } },
+     { option: "- 50.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+     { option: "20.000 VND", style: { backgroundColor: "#D946EF", textColor: "white" } },
+     { option: "- 20.000 VND", style: { backgroundColor: "#CCCCCC", textColor: "red" } },
+     { option: "10.000 VND", style: { backgroundColor: "#22C55E", textColor: "white" } },
+  ];
   
-  
-
   // Đưa hàm checkAndResetDailySpins ra ngoài useEffect để có thể gọi lại
   const checkAndResetDailySpins = async () => {
     // Check if userInfo exists before making API call
@@ -465,11 +458,12 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                       className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
                     >
                       <div
-                        className="w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300"
+                        className={`w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300 ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}
                         style={{ backgroundColor: prize.style.backgroundColor }}
                       ></div>
-                      <span className="text-white font-medium text-xs text-center leading-tight">{prize.option}</span>
+                      <span className={`text-white font-medium text-xs text-center leading-tight ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}>{prize.option}</span>
                       {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
+                      {prize.option.includes("1.000.000") && <Coins className="h-4 w-4 text-yellow-400 animate-blink" />}
                     </div>
                   ))}
                 </div>
@@ -480,11 +474,12 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                       className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
                     >
                       <div
-                        className="w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300"
+                        className={`w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300 ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}
                         style={{ backgroundColor: prize.style.backgroundColor }}
                       ></div>
-                      <span className="text-white font-medium text-xs text-center leading-tight">{prize.option}</span>
+                      <span className={`text-white font-medium text-xs text-center leading-tight ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}>{prize.option}</span>
                       {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
+                      {prize.option.includes("1.000.000") && <Coins className="h-4 w-4 text-yellow-400 animate-blink" />}
                     </div>
                   ))}
                 </div>
@@ -495,11 +490,12 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                       className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
                     >
                       <div
-                        className="w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300"
+                        className={`w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300 ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}
                         style={{ backgroundColor: prize.style.backgroundColor }}
                       ></div>
-                      <span className="text-white font-medium text-xs text-center leading-tight">{prize.option}</span>
+                      <span className={`text-white font-medium text-xs text-center leading-tight ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}>{prize.option}</span>
                       {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
+                      {prize.option.includes("1.000.000") && <Coins className="h-4 w-4 text-yellow-400 animate-blink" />}
                     </div>
                   ))}
                 </div>
@@ -510,11 +506,12 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                       className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
                     >
                       <div
-                        className="w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300"
+                        className={`w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300 ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}
                         style={{ backgroundColor: prize.style.backgroundColor }}
                       ></div>
-                      <span className="text-white font-medium text-xs text-center leading-tight">{prize.option}</span>
+                      <span className={`text-white font-medium text-xs text-center leading-tight ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}>{prize.option}</span>
                       {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
+                      {prize.option.includes("1.000.000") && <Coins className="h-4 w-4 text-yellow-400 animate-blink" />}
                     </div>
                   ))}
                 </div>
@@ -525,11 +522,12 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                       className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
                     >
                       <div
-                        className="w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300"
+                        className={`w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300 ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}
                         style={{ backgroundColor: prize.style.backgroundColor }}
                       ></div>
-                      <span className="text-white font-medium text-xs text-center leading-tight">{prize.option}</span>
+                      <span className={`text-white font-medium text-xs text-center leading-tight ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}>{prize.option}</span>
                       {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
+                      {prize.option.includes("1.000.000") && <Coins className="h-4 w-4 text-yellow-400 animate-blink" />}
                     </div>
                   ))}
                 </div>
@@ -947,6 +945,15 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
         
         .delay-3000 {
           animation-delay: 3s;
+        }
+        
+        @keyframes blink {
+          0%, 50% { opacity: 1; }
+          25%, 75% { opacity: 0.3; }
+        }
+        
+        .animate-blink {
+          animation: blink 2s ease-in-out infinite;
         }
       `}</style>
     </section>
