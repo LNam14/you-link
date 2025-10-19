@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { database, ref } from '@/lib/firebase';
 import { get } from 'firebase/database';
-import { bauCuaApiService } from '@/apiServices/bau-cua';
+import { prisma } from '@/lib/db';
+import moment from 'moment-timezone';
 
 interface BauCuaChoice {
     id: string
@@ -10,6 +11,98 @@ interface BauCuaChoice {
     animal: string
     timestamp: number
     date: string
+}
+
+// Telegram configuration
+const TELEGRAM_BOT_TOKEN = '8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U';
+const CHAT_ID = '-1002298300938'; // ID nhóm bầu cua
+const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+
+// Direct Telegram sending function
+async function sendTelegramMessage(message: string): Promise<boolean> {
+    try {
+        const response = await fetch(TELEGRAM_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                chat_id: CHAT_ID,
+                text: message,
+                parse_mode: 'HTML',
+                disable_web_page_preview: true,
+            }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Telegram API error:', errorData);
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error sending Telegram message:', error);
+        return false;
+    }
+}
+
+// Direct wheel creation function
+async function createWheelReward(username: string, reward: string): Promise<{
+    id: number;
+    username: string;
+    reward: string;
+    date: string;
+}> {
+    const formattedDate = moment().tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD");
+    
+    const result = await prisma.wheel.create({
+        data: {
+            username,
+            reward,
+            date: formattedDate
+        }
+    });
+
+    return {
+        id: result.id,
+        username: result.username,
+        reward: result.reward,
+        date: formattedDate
+    };
+}
+
+// Create multiple wheel rewards
+async function createWheelRewards(wheelRewards: Array<{username: string, reward: string}>): Promise<{
+    total: number;
+    successful: number;
+    failed: number;
+    details: Array<{
+        success: boolean;
+        username: string;
+        reward?: string;
+        error?: any;
+    }>;
+}> {
+    const wheelPromises = wheelRewards.map(async (reward) => {
+        try {
+            const result = await createWheelReward(reward.username, reward.reward);
+            return { success: true, username: reward.username, reward: reward.reward };
+        } catch (error) {
+            return { success: false, username: reward.username, error };
+        }
+    });
+
+    const results = await Promise.all(wheelPromises);
+    const successful = results.filter(result => result.success);
+    const failed = results.filter(result => !result.success);
+
+    return {
+        total: wheelRewards.length,
+        successful: successful.length,
+        failed: failed.length,
+        details: results,
+    };
 }
 
 export async function POST(request: NextRequest) {
@@ -76,7 +169,7 @@ ${animalEntries.map(([key, stats]) => {
 Hẹn gặp lại ngày mai! 🎊`;
 
             try {
-                await bauCuaApiService.sendTelegramMessage({ message });
+                await sendTelegramMessage(message);
             } catch (telegramError) {
                 console.error('Error sending result to Telegram:', telegramError);
             }
@@ -120,7 +213,7 @@ Hẹn gặp lại ngày mai! 🎊`;
 
         // Create wheel rewards automatically
         try {
-            const wheelResults = await bauCuaApiService.createWheelRewards(wheelRewards);
+            const wheelResults = await createWheelRewards(wheelRewards);
             console.log(`Wheel rewards created: ${wheelResults.successful} successful, ${wheelResults.failed} failed`);
         } catch (wheelError) {
             console.error('Error creating wheel rewards:', wheelError);
@@ -159,7 +252,7 @@ ${animalEntries.map(([key, stats]) => {
 
 Chúc mừng các bạn! 🎊`;
 
-            await bauCuaApiService.sendTelegramMessage({ message });
+            await sendTelegramMessage(message);
         } catch (telegramError) {
             console.error('Error sending result to Telegram:', telegramError);
         }

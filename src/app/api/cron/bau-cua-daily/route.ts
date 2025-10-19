@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { bauCuaApiService } from '@/apiServices/bau-cua';
 
 export async function GET(request: NextRequest) {
     try {
@@ -22,8 +21,20 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        // Call the process result API
-        const result = await bauCuaApiService.processResult();
+        // Call the process result API directly
+        const processResultResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://www.ylink.shop'}/api/bau-cua/process-result`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!processResultResponse.ok) {
+            const errorData = await processResultResponse.json();
+            throw new Error(`Process result failed: ${JSON.stringify(errorData)}`);
+        }
+
+        const result = await processResultResponse.json();
 
         return NextResponse.json({
             success: true,
