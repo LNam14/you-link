@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
 
     // Send test message for Case 1
     const message1 = formatCustomerTable(testCustomers1, 1);
-    const response1 = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/telegram/send-message`, {
+    const response1 = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://www.ylink.shop'}/api/telegram/send-message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
 
     // Send test message for Case 2
     const message2 = formatCustomerTable(testCustomers2, 2);
-    const response2 = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/telegram/send-message`, {
+    const response2 = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://www.ylink.shop'}/api/telegram/send-message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

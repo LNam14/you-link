@@ -12,6 +12,7 @@ import { database } from "@/app/firebase/firebase"
 import Header from "./components/ui/header"
 import Footer from "./components/ui/footer"
 import Script from "next/script"
+import { Toaster } from "sonner"
 
 interface CartItem {
   MaDon: string
@@ -543,6 +544,7 @@ export default function ClientLayout({
         {children}
       </main>
       <Footer border={true} />
+      <Toaster position="top-right" richColors />
 
       {/* <Script src="https://cdn.botpress.cloud/webchat/v2.5/inject.js" strategy="afterInteractive"></Script>
       <Script src="https://files.bpcontent.cloud/2025/05/16/10/20250516103809-ABWVLW5J.js" strategy="afterInteractive"></Script> */}

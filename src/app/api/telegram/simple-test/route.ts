@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     `;
 
     // Send test message
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/telegram/send-message`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://www.ylink.shop'}/api/telegram/send-message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
