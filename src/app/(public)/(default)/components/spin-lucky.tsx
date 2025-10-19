@@ -449,88 +449,95 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                 <h3 className="text-xl font-bold text-white">Phần Thưởng Hấp Dẫn</h3>
               </div>
 
-              {/* Prize Grid - 4 rows layout - more balanced */}
+              {/* Prize Grid - Filter out negative rewards and duplicates */}
               <div className="space-y-2 mb-4">
-                <div className="grid grid-cols-4 gap-2">
-                  {data.slice(0, 4).map((prize, index) => (
-                    <div
-                      key={index}
-                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300 ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}
-                        style={{ backgroundColor: prize.style.backgroundColor }}
-                      ></div>
-                      <span className={`text-white font-medium text-xs text-center leading-tight ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}>{prize.option}</span>
-                      {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
-                      {prize.option.includes("1.000.000") && <Coins className="h-4 w-4 text-yellow-400 animate-blink" />}
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {data.slice(4, 8).map((prize, index) => (
-                    <div
-                      key={index + 4}
-                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300 ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}
-                        style={{ backgroundColor: prize.style.backgroundColor }}
-                      ></div>
-                      <span className={`text-white font-medium text-xs text-center leading-tight ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}>{prize.option}</span>
-                      {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
-                      {prize.option.includes("1.000.000") && <Coins className="h-4 w-4 text-yellow-400 animate-blink" />}
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {data.slice(8, 12).map((prize, index) => (
-                    <div
-                      key={index + 8}
-                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300 ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}
-                        style={{ backgroundColor: prize.style.backgroundColor }}
-                      ></div>
-                      <span className={`text-white font-medium text-xs text-center leading-tight ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}>{prize.option}</span>
-                      {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
-                      {prize.option.includes("1.000.000") && <Coins className="h-4 w-4 text-yellow-400 animate-blink" />}
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {data.slice(12, 16).map((prize, index) => (
-                    <div
-                      key={index + 12}
-                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300 ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}
-                        style={{ backgroundColor: prize.style.backgroundColor }}
-                      ></div>
-                      <span className={`text-white font-medium text-xs text-center leading-tight ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}>{prize.option}</span>
-                      {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
-                      {prize.option.includes("1.000.000") && <Coins className="h-4 w-4 text-yellow-400 animate-blink" />}
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-5 gap-2">
-                  {data.slice(16, 21).map((prize, index) => (
-                    <div
-                      key={index + 16}
-                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300 ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}
-                        style={{ backgroundColor: prize.style.backgroundColor }}
-                      ></div>
-                      <span className={`text-white font-medium text-xs text-center leading-tight ${prize.option.includes("1.000.000") ? "animate-blink" : ""}`}>{prize.option}</span>
-                      {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
-                      {prize.option.includes("1.000.000") && <Coins className="h-4 w-4 text-yellow-400 animate-blink" />}
-                    </div>
-                  ))}
-                </div>
+                {(() => {
+                  // Filter out rewards with "-" sign and remove duplicates
+                  const uniquePositiveRewards = data
+                    .filter(prize => !prize.option.startsWith("-"))
+                    .filter((prize, index, self) => 
+                      index === self.findIndex(p => p.option === prize.option)
+                    )
+                  
+                  // Separate 1.000.000 VND reward
+                  const specialReward = uniquePositiveRewards.find(prize => prize.option.includes("1.000.000"))
+                  const otherRewards = uniquePositiveRewards.filter(prize => !prize.option.includes("1.000.000"))
+                  
+                  // Create rows of 4 items each for other rewards
+                  const rows = []
+                  for (let i = 0; i < otherRewards.length; i += 4) {
+                    rows.push(otherRewards.slice(i, i + 4))
+                  }
+                  
+                  return (
+                    <>
+                      {/* Special 1.000.000 VND reward - standalone row */}
+                      {specialReward && (
+                        <div className="flex justify-center mb-4">
+                          <div className="relative group">
+                            {/* Glowing background effect */}
+                            <div className="absolute -inset-2 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 rounded-2xl blur-lg opacity-60 animate-pulse"></div>
+                            
+                            <div className="relative flex flex-col items-center gap-3 p-6 rounded-2xl bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 border-2 border-white/30 shadow-2xl transform transition-all duration-300 group-hover:scale-105">
+                              {/* Crown icon */}
+                              <div className="absolute -top-2 -right-2 bg-gradient-to-r from-purple-600 to-pink-600 p-2 rounded-full shadow-lg">
+                                <Crown className="h-4 w-4 text-white" />
+                              </div>
+                              
+                              {/* Prize circle */}
+                              <div className="w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center">
+                                <div 
+                                  className="w-6 h-6 rounded-full"
+                                  style={{ backgroundColor: specialReward.style.backgroundColor }}
+                                ></div>
+                              </div>
+                              
+                              {/* Special text */}
+                              <div className="text-center">
+                                <div className="text-white font-black text-lg mb-1">
+                                  🎯 GIẢI ĐẶC BIỆT 🎯
+                                </div>
+                                <div className="text-white font-bold text-sm leading-tight">
+                                  {specialReward.option}
+                                </div>
+                                <div className="text-white/80 font-medium text-xs mt-1">
+                                  💎 Siêu phẩm may mắn 💎
+                                </div>
+                              </div>
+                              
+                              {/* Sparkle effects */}
+                              <div className="absolute top-2 left-2">
+                                <Sparkles className="h-4 w-4 text-white animate-pulse" />
+                              </div>
+                              <div className="absolute bottom-2 right-2">
+                                <Coins className="h-4 w-4 text-white animate-bounce" />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Other rewards in grid */}
+                      {rows.map((row, rowIndex) => (
+                        <div key={rowIndex} className="grid grid-cols-2 gap-2">
+                          {row.map((prize, index) => (
+                            <div
+                              key={index}
+                              className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 group"
+                            >
+                              <div
+                                className="w-5 h-5 rounded-full shadow-lg group-hover:scale-110 transition-transform duration-300"
+                                style={{ backgroundColor: prize.style.backgroundColor }}
+                              ></div>
+                              <span className="text-white font-medium text-xs text-center leading-tight">{prize.option}</span>
+                              {prize.option.includes("500.000") && <Coins className="h-4 w-4 text-yellow-400 animate-pulse" />}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </>
+                  )
+                })()}
               </div>
 
               {/* Spin Count Info - more compact */}
@@ -835,7 +842,9 @@ export default function SpinLucky({ title = "Vòng Quay May Mắn" }) {
                        </div>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                      {Array.from(new Set(data.map((prize) => prize.option))).map((uniquePrize) => {
+                      {Array.from(new Set(data.map((prize) => prize.option)))
+                        .filter((uniquePrize) => !uniquePrize.startsWith("-")) // Filter out negative rewards
+                        .map((uniquePrize) => {
                         // Tìm prize object đầu tiên có option này để lấy style
                         const prizeData = data.find((prize) => prize.option === uniquePrize)
                         // Đếm số lần phần thưởng này đã được nhận
