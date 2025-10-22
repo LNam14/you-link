@@ -58,7 +58,13 @@ const sendTelegramNotification = async (sites: any[], username: string, sheetTyp
         try {
             const updates = validSites.map(site => ({
                 site: site.Site,
-                changes: site
+                changes: Object.entries(site).reduce((acc, [field, value]) => {
+                    acc[field] = {
+                        oldValue: null, // New sites don't have old values
+                        newValue: value
+                    };
+                    return acc;
+                }, {} as Record<string, { oldValue: any; newValue: any }>)
             }));
             
             await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/telegram/site-update`, {

@@ -378,17 +378,23 @@ export default function PageBody() {
 
                     const priceFields = ["GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"]
                     const rawValue = newValue === null ? "" : newValue
+                    let finalValue = rawValue
+                    
                     if (priceFields.includes(columnName) && currencyMode === "VND") {
                         const numeric = Number(String(rawValue).toString().replace(/[\,\s]/g, ""))
                         const rate = Number.parseFloat(exchangeRate)
                         const converted = !isNaN(numeric) && !isNaN(rate) && rate > 0 ? Math.round(numeric / rate) : rawValue
-                        newPendingChanges[row].changes[columnName] = converted
+                        finalValue = converted
                         try {
                             const colIndex = typeof prop === "number" ? (prop as number) : RowHeader1.indexOf(columnName)
                             dataTableRef.current?.hotInstance?.setDataAtCell(row, colIndex, converted, "usd_convert")
                         } catch { }
-                    } else {
-                        newPendingChanges[row].changes[columnName] = rawValue
+                    }
+
+                    // Store both old and new values
+                    newPendingChanges[row].changes[columnName] = {
+                        oldValue: oldValue,
+                        newValue: finalValue
                     }
                     hasChanges = true
                 })
@@ -409,7 +415,13 @@ export default function PageBody() {
 
         try {
             setLoading(true)
-            const updates = Object.values(pendingChanges)
+            const updates = Object.values(pendingChanges).map(update => ({
+                ...update,
+                changes: Object.entries(update.changes).reduce((acc, [field, changeData]) => {
+                    acc[field] = (changeData as { oldValue: any; newValue: any }).newValue; // Only send new value to Google Sheets
+                    return acc;
+                }, {} as Record<string, any>)
+            }))
             
             console.log("[v0] Saving pending changes:", updates)
             await sheetApiRequest.updateData(updates, dataType)
@@ -470,18 +482,25 @@ export default function PageBody() {
                     if (columnName) {
                         const priceFields = ["GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"]
                         const rawValue = value === null ? "" : value
+                        let finalValue = rawValue
+                        
                         if (priceFields.includes(columnName) && currencyMode === "VND") {
                             const numeric = Number(String(rawValue).toString().replace(/[\,\s]/g, ""))
                             const rate = Number.parseFloat(exchangeRate)
                             const converted = !isNaN(numeric) && !isNaN(rate) && rate > 0 ? Math.round(numeric / rate) : rawValue
-                            newPendingChanges[currentRowIndex].changes[columnName] = converted
+                            finalValue = converted
                             try {
                                 const r = currentRowIndex
                                 const c = startCol + colIndex
                                 dataTableRef.current?.hotInstance?.setDataAtCell(r, c, converted, "usd_convert")
                             } catch { }
-                        } else {
-                            newPendingChanges[currentRowIndex].changes[columnName] = rawValue
+                        }
+
+                        // Store both old and new values (for paste, old value is the current value in the cell)
+                        const currentValue = currentRow[columnName] || ""
+                        newPendingChanges[currentRowIndex].changes[columnName] = {
+                            oldValue: currentValue,
+                            newValue: finalValue
                         }
                         hasChanges = true
                     }
