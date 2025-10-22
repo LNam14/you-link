@@ -67,7 +67,11 @@ const sendTelegramNotification = async (sites: any[], username: string, sheetTyp
                 }, {} as Record<string, { oldValue: any; newValue: any }>)
             }));
             
-            await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/telegram/site-update`, {
+            console.log('📤 Sending Telegram notification for new sites:', validSites.length);
+            console.log('📝 New sites data:', JSON.stringify(updates, null, 2));
+            
+            // Don't await this call to prevent blocking the main append operation
+            fetch(`https://www.ylink.shop/api/telegram/site-update`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -78,8 +82,21 @@ const sendTelegramNotification = async (sites: any[], username: string, sheetTyp
                     dataType: sheetType,
                     isNewSite: true
                 }),
+            }).then(response => {
+                console.log('📡 Telegram API response status:', response.status);
+                if (!response.ok) {
+                    return response.json().then(errorData => {
+                        console.error('❌ Telegram API error:', errorData);
+                    });
+                }
+                return response.json().then(result => {
+                    console.log('✅ Telegram notification sent successfully:', result);
+                    console.log(`✅ Telegram notification sent for ${validSites.length} new sites`);
+                });
+            }).catch(telegramError => {
+                console.error('❌ Failed to send Telegram notification:', telegramError);
+                // Don't throw error to prevent blocking main append
             });
-            console.log(`✅ Telegram notification sent for ${validSites.length} new sites`)
         } catch (error) {
             console.error(`❌ Failed to send notification for new sites:`, error)
         }
@@ -250,19 +267,20 @@ export async function POST(req: Request) {
             },
         })
 
-        // Send Telegram notification for new sites (only once)
+        // Send Telegram notification for new sites (only once) - non-blocking
         console.log("Starting Telegram notification process...")
-        try {
-            const telegramResult = await sendTelegramNotification(rows, username, sheetType)
-            if (telegramResult) {
-                console.log("✅ Telegram notification sent successfully")
-            } else {
-                console.log("❌ Telegram notification failed but no error thrown")
-            }
-        } catch (error) {
-            console.error("❌ Failed to send Telegram notification:", error)
-            // Don't fail the request if Telegram fails
-        }
+        sendTelegramNotification(rows, username, sheetType)
+            .then(telegramResult => {
+                if (telegramResult) {
+                    console.log("✅ Telegram notification sent successfully")
+                } else {
+                    console.log("❌ Telegram notification failed but no error thrown")
+                }
+            })
+            .catch(error => {
+                console.error("❌ Failed to send Telegram notification:", error)
+                // Don't fail the request if Telegram fails
+            })
 
         return NextResponse.json({ success: true, updated: valuesToAppend.length }, { status: 200 })
     } catch (error: any) {

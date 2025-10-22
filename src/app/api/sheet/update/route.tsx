@@ -152,24 +152,8 @@ export async function POST(req: Request) {
                 }
             }
             
-            // Send one notification for all updates (non-blocking)
-            if (validUpdates.length > 0) {
-                // Don't await this call to prevent blocking the main update
-                fetch(`https://www.ylink.shop/api/telegram/site-update`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        username,
-                        updates: validUpdates,
-                        dataType: sheetType,
-                        isNewSite: false
-                    }),
-                }).catch(telegramError => {
-                    console.error('Failed to send Telegram notification:', telegramError);
-                });
-            }
+            // Telegram notification is now handled by frontend to ensure proper old/new value tracking
+            console.log('📝 Updates processed:', validUpdates.length);
         } catch (telegramError) {
             console.error('Failed to process Telegram notification:', telegramError);
             // Don't fail the main update if Telegram fails

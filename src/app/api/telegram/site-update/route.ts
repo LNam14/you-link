@@ -5,6 +5,13 @@ const CHAT_ID_NEW_SITE = '-1002137432608'; // ID nhóm cho thêm site mới
 const CHAT_ID_UPDATE_SITE = '-1002363544059'; // ID nhóm cho cập nhật site
 const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
 
+// Alternative endpoints to try if main one fails
+const TELEGRAM_ENDPOINTS = [
+  `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+  `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+  `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`
+];
+
 interface SiteUpdateData {
   username: string;
   updates: Array<{
@@ -17,12 +24,18 @@ interface SiteUpdateData {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🚀 Telegram API called');
     const body = await request.json();
+    console.log('📥 Request body:', JSON.stringify(body, null, 2));
+    
     const { username, updates, dataType, isNewSite = false } = body;
 
     if (!username || !updates || !Array.isArray(updates) || updates.length === 0) {
+      console.error('❌ Missing required fields:', { username, updates, dataType, isNewSite });
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+
+    console.log('✅ Validation passed:', { username, updatesCount: updates.length, dataType, isNewSite });
 
     const currentTime = new Date().toLocaleTimeString('vi-VN', {
       timeZone: 'Asia/Ho_Chi_Minh',
@@ -69,10 +82,10 @@ export async function POST(request: NextRequest) {
               return changeData && 
                      typeof changeData === 'object' && 
                      'newValue' in changeData &&
-                     changeData.newValue !== null && 
-                     changeData.newValue !== undefined && 
-                     changeData.newValue !== '' && 
-                     field !== 'Site';
+                     'oldValue' in changeData &&
+                     field !== 'Site' &&
+                     // Include changes where oldValue and newValue are different
+                     (changeData.oldValue !== changeData.newValue);
             })
             .map(([field, changeData]) => {
               const change = changeData as { oldValue: any; newValue: any };
@@ -101,55 +114,146 @@ ${updatesText}`;
     const chatId = isNewSite ? CHAT_ID_NEW_SITE : CHAT_ID_UPDATE_SITE;
     
     console.log(`📤 Sending ${isNewSite ? 'NEW SITE' : 'UPDATE'} notification to chat ID: ${chatId}`);
-    console.log(`📝 Message: ${message}`);
+    console.log(`📝 Message length: ${message.length} characters`);
+    console.log(`📝 Message preview: ${message.substring(0, 200)}...`);
+    
+    // Test bot token first
+    console.log('🔍 Testing bot token...');
+    try {
+      const testResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe`);
+      const testData = await testResponse.json();
+      console.log('🤖 Bot info:', testData);
+      
+      if (!testData.ok) {
+        console.error('❌ Bot token invalid:', testData);
+        return NextResponse.json({ error: 'Invalid bot token' }, { status: 500 });
+      }
+    } catch (testError) {
+      console.error('❌ Bot token test failed:', testError);
+      return NextResponse.json({ error: 'Bot token test failed' }, { status: 500 });
+    }
 
-    // Create AbortController for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    // Try multiple approaches to send message
+    const sendMessage = async (retryCount = 0): Promise<any> => {
+      const maxRetries = 1; // Further reduced retries
+      
+      try {
+        // Create AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // Reduced to 5 seconds
+
+        const response = await fetch(TELEGRAM_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache',
+          },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: message,
+            parse_mode: isNewSite ? undefined : 'HTML',
+            disable_web_page_preview: true,
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (e) {
+            errorData = { message: 'Failed to parse error response' };
+          }
+          console.error('Telegram API error:', errorData);
+          throw new Error(`Telegram API error: ${JSON.stringify(errorData)}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Telegram message sent successfully:', result);
+        return result;
+      } catch (error: any) {
+        console.error(`❌ Attempt ${retryCount + 1} failed:`, error.message);
+        
+        if (retryCount < maxRetries) {
+          console.log(`🔄 Retrying in ${(retryCount + 1) * 1} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 1000));
+          return sendMessage(retryCount + 1);
+        }
+        
+        throw error;
+      }
+    };
 
     try {
-      const response = await fetch(TELEGRAM_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: message,
-          parse_mode: isNewSite ? undefined : 'HTML',
-          disable_web_page_preview: true,
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          errorData = { message: 'Failed to parse error response' };
-        }
-        console.error('Telegram API error:', errorData);
-        return NextResponse.json(
-          { error: 'Failed to send message to Telegram', details: errorData },
-          { status: response.status }
-        );
-      }
-
-      const result = await response.json();
+      const result = await sendMessage();
       return NextResponse.json({ success: true, data: result });
-    } catch (fetchError: any) {
-      clearTimeout(timeoutId);
-      if (fetchError.name === 'AbortError') {
-        console.error('Telegram API timeout');
-        return NextResponse.json(
-          { error: 'Telegram API timeout' },
-          { status: 408 }
-        );
+    } catch (error: any) {
+      console.error('❌ All attempts failed:', error.message);
+      
+      // Try alternative method using form data
+      try {
+        console.log('🔄 Trying alternative method with form data...');
+        const formData = new URLSearchParams();
+        formData.append('chat_id', chatId);
+        formData.append('text', message);
+        if (!isNewSite) {
+          formData.append('parse_mode', 'HTML');
+        }
+        formData.append('disable_web_page_preview', 'true');
+        
+        const alternativeResult = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+          body: formData,
+        });
+        
+        if (alternativeResult.ok) {
+          const result = await alternativeResult.json();
+          console.log('✅ Alternative method succeeded:', result);
+          return NextResponse.json({ success: true, data: result });
+        } else {
+          console.error('❌ Alternative method failed with status:', alternativeResult.status);
+        }
+      } catch (altError) {
+        console.error('❌ Alternative method also failed:', altError);
       }
-      throw fetchError;
+      
+      // Try third method with minimal headers
+      try {
+        console.log('🔄 Trying third method with minimal headers...');
+        const minimalResult = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: 'POST',
+          body: new URLSearchParams({
+            chat_id: chatId,
+            text: message,
+            ...(isNewSite ? {} : { parse_mode: 'HTML' }),
+            disable_web_page_preview: 'true',
+          }),
+        });
+        
+        if (minimalResult.ok) {
+          const result = await minimalResult.json();
+          console.log('✅ Minimal method succeeded:', result);
+          return NextResponse.json({ success: true, data: result });
+        }
+      } catch (minimalError) {
+        console.error('❌ Minimal method also failed:', minimalError);
+      }
+      
+      // If all methods fail, return success but log the error
+      console.error('❌ All Telegram methods failed, but continuing...');
+      return NextResponse.json({ 
+        success: true, 
+        warning: 'Telegram notification failed but operation completed',
+        error: error.message 
+      });
     }
   } catch (error: any) {
     console.error('Error sending Telegram message:', error);

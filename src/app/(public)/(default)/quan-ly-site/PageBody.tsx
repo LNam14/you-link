@@ -230,6 +230,7 @@ export default function PageBody() {
     const [exchangeRate, setExchangeRate] = useState<string>("27000")
     const [pendingChanges, setPendingChanges] = useState<Record<number, any>>({})
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+    const [originalValues, setOriginalValues] = useState<Record<string, any>>({}) // Store original values
     const dataTableRef = useRef<any>(null)
 
     const userInfo = getUserInfo()
@@ -350,6 +351,37 @@ export default function PageBody() {
         }
     }, [searchText, dataVN, dataNN, dataType])
 
+    const handleBeforeChange = useCallback(
+        (changes: (Handsontable.CellChange | null)[], source: Handsontable.ChangeSource) => {
+            if (changes) {
+                const newOriginalValues = { ...originalValues }
+                
+                changes.forEach((change) => {
+                    if (!change) return
+                    
+                    const [row, prop, oldValue, newValue] = change
+                    const columnName = typeof prop === "string" ? prop : RowHeader1[prop as number]
+                    
+                    if (!columnName) return
+                    
+                    const dataToUse = dataType === 1 ? dataVN : dataNN
+                    const currentRow = searchText.trim() ? filteredData[row] : dataToUse[row]
+                    const siteName = currentRow?.Site || 'Unknown'
+                    
+                    // Store the original value before it gets changed
+                    const key = `${siteName}_${columnName}`
+                    if (!newOriginalValues[key]) {
+                        newOriginalValues[key] = oldValue
+                        console.log(`[DEBUG] Stored original value for ${key}:`, oldValue)
+                    }
+                })
+                
+                setOriginalValues(newOriginalValues)
+            }
+        },
+        [dataType, dataVN, dataNN, filteredData, searchText, originalValues]
+    )
+
     const handleAfterChange = useCallback(
         (changes: Handsontable.CellChange[] | null, source: "edit" | "paste" | Handsontable.ChangeSource) => {
             if ((source === "edit" || source === "paste") && changes) {
@@ -367,11 +399,30 @@ export default function PageBody() {
 
                     const actualRowIndex = currentRow?.rowIndex || row + 2
                     const sheetName = currentRow?.sheetName
+                    const siteName = currentRow?.Site || 'Unknown'
+
+                    // Get the original value we stored before the change
+                    const key = `${siteName}_${columnName}`
+                    const actualOldValue = originalValues[key] !== undefined ? originalValues[key] : oldValue
+                    
+                    // Debug logging
+                    console.log(`[DEBUG] Change detected:`, {
+                        row,
+                        columnName,
+                        siteName,
+                        key,
+                        oldValue,
+                        newValue,
+                        actualOldValue,
+                        originalValue: originalValues[key],
+                        currentRowValue: currentRow ? currentRow[columnName] : 'N/A'
+                    })
 
                     if (!newPendingChanges[row]) {
                         newPendingChanges[row] = {
                             rowIndex: actualRowIndex,
                             sheetName,
+                            siteName: currentRow?.Site || 'Unknown',
                             changes: {},
                         }
                     }
@@ -393,7 +444,7 @@ export default function PageBody() {
 
                     // Store both old and new values
                     newPendingChanges[row].changes[columnName] = {
-                        oldValue: oldValue,
+                        oldValue: actualOldValue,
                         newValue: finalValue
                     }
                     hasChanges = true
@@ -405,7 +456,7 @@ export default function PageBody() {
                 }
             }
         },
-        [dataType, dataVN, dataNN, filteredData, searchText, currencyMode, exchangeRate, pendingChanges],
+        [dataType, dataVN, dataNN, filteredData, searchText, currencyMode, exchangeRate, pendingChanges, originalValues],
     )
 
     const handleSaveChanges = useCallback(async () => {
@@ -415,6 +466,7 @@ export default function PageBody() {
 
         try {
             setLoading(true)
+            // Prepare updates for Google Sheets (only new values)
             const updates = Object.values(pendingChanges).map(update => ({
                 ...update,
                 changes: Object.entries(update.changes).reduce((acc, [field, changeData]) => {
@@ -423,12 +475,48 @@ export default function PageBody() {
                 }, {} as Record<string, any>)
             }))
             
+            // Prepare updates for Telegram (both old and new values)
+            const telegramUpdates = Object.values(pendingChanges).map(update => ({
+                site: update.siteName || 'Unknown',
+                changes: Object.entries(update.changes).reduce((acc, [field, changeData]) => {
+                    const change = changeData as { oldValue: any; newValue: any };
+                    acc[field] = {
+                        oldValue: change.oldValue,
+                        newValue: change.newValue
+                    };
+                    return acc;
+                }, {} as Record<string, { oldValue: any; newValue: any }>)
+            }))
+            
             console.log("[v0] Saving pending changes:", updates)
             await sheetApiRequest.updateData(updates, dataType)
             
-            // Clear pending changes after successful save
+            // Send Telegram notification if there are changes
+            if (telegramUpdates.length > 0) {
+                console.log('[DEBUG] Sending Telegram notification with data:', JSON.stringify(telegramUpdates, null, 2));
+                try {
+                    await fetch('/api/telegram/site-update', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            username: userInfo?.username || 'Unknown',
+                            updates: telegramUpdates,
+                            dataType: dataType,
+                            isNewSite: false
+                        }),
+                    });
+                    console.log('✅ Telegram notification sent from frontend');
+                } catch (telegramError) {
+                    console.error('❌ Failed to send Telegram notification from frontend:', telegramError);
+                }
+            }
+            
+            // Clear pending changes and original values after successful save
             setPendingChanges({})
             setHasUnsavedChanges(false)
+            setOriginalValues({})
             
             messageApi.success({
                 content: `Đã lưu thành công ${updates.length} thay đổi`,
@@ -1037,6 +1125,7 @@ export default function PageBody() {
                                             hiddenColumns={userInfo?.role === "NCC" ? { columns: [6, 19, 20, 21, 22, 23], indicators: true } : { columns: [6, 23] }}
                                             licenseKey="non-commercial-and-evaluation"
                                             data={displayData}
+                                            beforeChange={handleBeforeChange}
                                             afterChange={handleAfterChange}
                                             afterPaste={handleAfterPaste}
                                             afterRemoveRow={handleAfterRemoveRow}
