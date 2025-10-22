@@ -152,9 +152,10 @@ export async function POST(req: Request) {
                 }
             }
             
-            // Send one notification for all updates
+            // Send one notification for all updates (non-blocking)
             if (validUpdates.length > 0) {
-                await fetch(`https://www.ylink.shop/api/telegram/site-update`, {
+                // Don't await this call to prevent blocking the main update
+                fetch(`https://www.ylink.shop/api/telegram/site-update`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -165,10 +166,12 @@ export async function POST(req: Request) {
                         dataType: sheetType,
                         isNewSite: false
                     }),
+                }).catch(telegramError => {
+                    console.error('Failed to send Telegram notification:', telegramError);
                 });
             }
         } catch (telegramError) {
-            console.error('Failed to send Telegram notification:', telegramError);
+            console.error('Failed to process Telegram notification:', telegramError);
             // Don't fail the main update if Telegram fails
         }
 

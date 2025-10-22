@@ -17,9 +17,10 @@ interface SiteUpdateData {
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, updates, dataType, isNewSite = false }: SiteUpdateData = await request.json();
+    const body = await request.json();
+    const { username, updates, dataType, isNewSite = false } = body;
 
-    if (!username || !updates || updates.length === 0) {
+    if (!username || !updates || !Array.isArray(updates) || updates.length === 0) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -44,28 +45,47 @@ export async function POST(request: NextRequest) {
     if (isNewSite) {
       // Format đơn giản cho thêm site mới
       const sitesText = updates.map(update => {
-        const traffic = update.changes["Traffic Tool"] && update.changes["Traffic Tool"].newValue && update.changes["Traffic Tool"].newValue.toString().trim() !== "" 
-          ? update.changes["Traffic Tool"].newValue 
-          : "Chưa cập nhật";
-        return `${update.site} - Traffic: ${traffic}`;
+        try {
+          const traffic = update.changes && update.changes["Traffic Tool"] && update.changes["Traffic Tool"].newValue && update.changes["Traffic Tool"].newValue.toString().trim() !== "" 
+            ? update.changes["Traffic Tool"].newValue 
+            : "Chưa cập nhật";
+          return `${update.site || 'Unknown'} - Traffic: ${traffic}`;
+        } catch (error) {
+          return `${update.site || 'Unknown'} - Traffic: Chưa cập nhật`;
+        }
       }).join('\n');
       
       message = `Site mới nè\n${sitesText}`;
     } else {
       // Format chi tiết cho cập nhật site - gộp tất cả vào 1 tin nhắn
       const updatesText = updates.map(update => {
-        const changesText = Object.entries(update.changes)
-          .filter(([field, changeData]) => {
-            return changeData && changeData.newValue !== null && changeData.newValue !== undefined && changeData.newValue !== '' && field !== 'Site';
-          })
-          .map(([field, changeData]) => {
-            const oldValue = changeData.oldValue === null || changeData.oldValue === undefined || changeData.oldValue === '' ? '(trống)' : changeData.oldValue;
-            const newValue = changeData.newValue === null || changeData.newValue === undefined || changeData.newValue === '' ? '(trống)' : changeData.newValue;
-            return `  • <b>${field}:</b> ${oldValue} → ${newValue}`;
-          })
-          .join('\n');
-        
-        return `🌐 <b>${update.site}</b>\n${changesText || 'Không có thay đổi'}`;
+        try {
+          if (!update.changes || typeof update.changes !== 'object') {
+            return `🌐 <b>${update.site || 'Unknown'}</b>\n  Không có thay đổi`;
+          }
+
+          const changesText = Object.entries(update.changes)
+            .filter(([field, changeData]) => {
+              return changeData && 
+                     typeof changeData === 'object' && 
+                     'newValue' in changeData &&
+                     changeData.newValue !== null && 
+                     changeData.newValue !== undefined && 
+                     changeData.newValue !== '' && 
+                     field !== 'Site';
+            })
+            .map(([field, changeData]) => {
+              const change = changeData as { oldValue: any; newValue: any };
+              const oldValue = change.oldValue === null || change.oldValue === undefined || change.oldValue === '' ? '(trống)' : change.oldValue;
+              const newValue = change.newValue === null || change.newValue === undefined || change.newValue === '' ? '(trống)' : change.newValue;
+              return `  • <b>${field}:</b> ${oldValue} → ${newValue}`;
+            })
+            .join('\n');
+          
+          return `🌐 <b>${update.site || 'Unknown'}</b>\n${changesText || '  Không có thay đổi'}`;
+        } catch (error) {
+          return `🌐 <b>${update.site || 'Unknown'}</b>\n  Lỗi xử lý dữ liệu`;
+        }
       }).join('\n\n');
 
       message = `🔄 <b>CẬP NHẬT SITE</b> 🔄
@@ -83,30 +103,54 @@ ${updatesText}`;
     console.log(`📤 Sending ${isNewSite ? 'NEW SITE' : 'UPDATE'} notification to chat ID: ${chatId}`);
     console.log(`📝 Message: ${message}`);
 
-    const response = await fetch(TELEGRAM_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: message,
-        parse_mode: isNewSite ? undefined : 'HTML', // Không dùng HTML cho tin nhắn đơn giản
-        disable_web_page_preview: true,
-      }),
-    });
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Telegram API error:', errorData);
-      return NextResponse.json(
-        { error: 'Failed to send message to Telegram', details: errorData },
-        { status: response.status }
-      );
+    try {
+      const response = await fetch(TELEGRAM_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: isNewSite ? undefined : 'HTML',
+          disable_web_page_preview: true,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = { message: 'Failed to parse error response' };
+        }
+        console.error('Telegram API error:', errorData);
+        return NextResponse.json(
+          { error: 'Failed to send message to Telegram', details: errorData },
+          { status: response.status }
+        );
+      }
+
+      const result = await response.json();
+      return NextResponse.json({ success: true, data: result });
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        console.error('Telegram API timeout');
+        return NextResponse.json(
+          { error: 'Telegram API timeout' },
+          { status: 408 }
+        );
+      }
+      throw fetchError;
     }
-
-    const result = await response.json();
-    return NextResponse.json({ success: true, data: result });
   } catch (error: any) {
     console.error('Error sending Telegram message:', error);
     return NextResponse.json(
