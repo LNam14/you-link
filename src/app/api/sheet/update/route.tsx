@@ -154,7 +154,7 @@ export async function POST(req: Request) {
             
             // Send one notification for all updates
             if (validUpdates.length > 0) {
-                await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/telegram/site-update`, {
+                await fetch(`https://www.ylink.shop/api/telegram/site-update`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
