@@ -33,7 +33,7 @@ const validateColumnMapping = (mapping: Record<string, string>): void => {
 }
 
 // Telegram notification function for new sites
-const sendTelegramNotification = async (sites: any[]): Promise<boolean> => {
+const sendTelegramNotification = async (sites: any[], username: string, sheetType: number): Promise<boolean> => {
     try {
         console.log("🔍 Checking sites for Telegram notification:", sites.length, "sites received")
         
@@ -54,51 +54,31 @@ const sendTelegramNotification = async (sites: any[]): Promise<boolean> => {
         }
         sentNotifications.add(notificationKey)
         
-        let messageText = "Site mới nè\n"
-        
-        validSites.forEach((site, index) => {
-            const siteName = site.Site
-            const traffic = site["Traffic Tool"] && site["Traffic Tool"].toString().trim() !== "" 
-                ? site["Traffic Tool"] 
-                : "Chưa cập nhật"
-            messageText += `${siteName} - Traffic: ${traffic}\n`
-            console.log(`📝 Site ${index + 1}: ${siteName} - Traffic: ${traffic}`)
-        })
-
-        console.log("📤 Final message text:")
-        console.log(messageText)
-
-        const url = `https://ylink.qctl44.workers.dev/bot8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U/sendMessage`
-        const params = new URLSearchParams({
-            chat_id: "-1002137432608",
-            text: messageText,
-        })
-
-        console.log("🌐 Sending request to Telegram API...")
-        console.log("URL:", url)
-        console.log("Chat ID:", "-1002137432608")
-        console.log("Bot Token (first 10 chars):", "8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U".substring(0, 10) + "...")
-
-        // First, test bot token with getMe
-        console.log("🔍 Testing bot token...")
-        const testUrl = `https://ylink.qctl44.workers.dev/bot8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U/getMe`
-        const testResponse = await fetch(testUrl)
-        const testData = await testResponse.json()
-        console.log("🤖 Bot info:", JSON.stringify(testData, null, 2))
-
-        const response = await fetch(`${url}?${params.toString()}`)
-        console.log("📡 Telegram API response status:", response.status)
-        
-        const responseData = await response.json()
-        console.log("📋 Telegram API response data:", JSON.stringify(responseData, null, 2))
-
-        if (responseData.ok) {
-            console.log("✅ Telegram notification sent successfully")
-            return true
-        } else {
-            console.error(`❌ Failed to send Telegram notification: ${responseData.description}`)
-            return false
+        // Send one notification for all new sites
+        try {
+            const updates = validSites.map(site => ({
+                site: site.Site,
+                changes: site
+            }));
+            
+            await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/telegram/site-update`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username,
+                    updates,
+                    dataType: sheetType,
+                    isNewSite: true
+                }),
+            });
+            console.log(`✅ Telegram notification sent for ${validSites.length} new sites`)
+        } catch (error) {
+            console.error(`❌ Failed to send notification for new sites:`, error)
         }
+
+        return true
     } catch (error) {
         console.error("❌ Error sending Telegram notification:", error)
         return false
@@ -267,7 +247,7 @@ export async function POST(req: Request) {
         // Send Telegram notification for new sites (only once)
         console.log("Starting Telegram notification process...")
         try {
-            const telegramResult = await sendTelegramNotification(rows)
+            const telegramResult = await sendTelegramNotification(rows, username, sheetType)
             if (telegramResult) {
                 console.log("✅ Telegram notification sent successfully")
             } else {

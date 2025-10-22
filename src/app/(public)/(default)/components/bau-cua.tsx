@@ -77,13 +77,13 @@ export default function BauCua({ title = "Bầu Cua Tôm Cá" }) {
 
   const handleAnimalSelect = (animalKey: string) => {
     if (!userInfo) {
-      toast.error("Vui lòng đăng nhập để chơi bầu cua!")
+      toast.error("Vui lòng đăng nhập để chơi bạn nhé!")
       return
     }
 
     // Check if user has permission to play
     if (userInfo.role !== "Nhân viên" && userInfo.role !== "Admin") {
-      toast.error("Chỉ nhân viên và admin mới có thể chơi bầu cua!")
+      toast.error("Đây là mục dành cho nhân viên, bạn thông cảm nhé!")
       return
     }
 

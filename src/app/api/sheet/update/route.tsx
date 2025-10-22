@@ -106,6 +106,63 @@ export async function POST(req: Request) {
 
         console.log(`[v0] Update completed: ${response.data.totalUpdatedCells} cells updated`)
 
+        // Send Telegram notification for all updated sites in one message
+        try {
+            const validUpdates = [];
+            
+            for (const update of data) {
+                const { changes, rowIndex } = update;
+                if (changes && Object.keys(changes).length > 0) {
+                    // Get site name from changes, or try to get from original data
+                    let siteName = changes.Site;
+                    
+                    // If Site is not in changes, try to get it from the original row data
+                    if (!siteName) {
+                        try {
+                            // Get the current row data to find the site name
+                            const sheetName = update.sheetName || defaultSheetName;
+                            const siteColumnRange = `${sheetName}!B${rowIndex}`; // Column B is Site
+                            
+                            const siteResponse = await gsapi.spreadsheets.values.get({
+                                spreadsheetId: SPREADSHEET_ID,
+                                range: siteColumnRange,
+                            });
+                            
+                            const siteValue = siteResponse.data.values?.[0]?.[0];
+                            siteName = siteValue || 'Unknown Site';
+                        } catch (error) {
+                            console.error('Failed to get site name:', error);
+                            siteName = 'Unknown Site';
+                        }
+                    }
+                    
+                    validUpdates.push({
+                        site: siteName,
+                        changes
+                    });
+                }
+            }
+            
+            // Send one notification for all updates
+            if (validUpdates.length > 0) {
+                await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/telegram/site-update`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username,
+                        updates: validUpdates,
+                        dataType: sheetType,
+                        isNewSite: false
+                    }),
+                });
+            }
+        } catch (telegramError) {
+            console.error('Failed to send Telegram notification:', telegramError);
+            // Don't fail the main update if Telegram fails
+        }
+
         return NextResponse.json(
             {
                 success: true,

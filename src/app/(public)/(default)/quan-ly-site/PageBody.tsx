@@ -228,6 +228,8 @@ export default function PageBody() {
     const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false)
     const [currencyMode, setCurrencyMode] = useState<"USD" | "VND">("USD")
     const [exchangeRate, setExchangeRate] = useState<string>("27000")
+    const [pendingChanges, setPendingChanges] = useState<Record<number, any>>({})
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
     const dataTableRef = useRef<any>(null)
 
     const userInfo = getUserInfo()
@@ -351,11 +353,14 @@ export default function PageBody() {
     const handleAfterChange = useCallback(
         (changes: Handsontable.CellChange[] | null, source: "edit" | "paste" | Handsontable.ChangeSource) => {
             if ((source === "edit" || source === "paste") && changes) {
-                const updatesByRow = changes.reduce((acc: Record<number, any>, change) => {
+                const newPendingChanges = { ...pendingChanges }
+                let hasChanges = false
+
+                changes.forEach((change) => {
                     const [row, prop, oldValue, newValue] = change
                     const columnName = typeof prop === "string" ? prop : RowHeader1[prop as number]
 
-                    if (!columnName || oldValue === newValue) return acc
+                    if (!columnName || oldValue === newValue) return
 
                     const dataToUse = dataType === 1 ? dataVN : dataNN
                     const currentRow = searchText.trim() ? filteredData[row] : dataToUse[row]
@@ -363,109 +368,132 @@ export default function PageBody() {
                     const actualRowIndex = currentRow?.rowIndex || row + 2
                     const sheetName = currentRow?.sheetName
 
-                    if (!acc[row]) {
-                        acc[row] = {
+                    if (!newPendingChanges[row]) {
+                        newPendingChanges[row] = {
                             rowIndex: actualRowIndex,
                             sheetName,
                             changes: {},
                         }
                     }
+
                     const priceFields = ["GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"]
                     const rawValue = newValue === null ? "" : newValue
                     if (priceFields.includes(columnName) && currencyMode === "VND") {
                         const numeric = Number(String(rawValue).toString().replace(/[\,\s]/g, ""))
                         const rate = Number.parseFloat(exchangeRate)
                         const converted = !isNaN(numeric) && !isNaN(rate) && rate > 0 ? Math.round(numeric / rate) : rawValue
-                        acc[row].changes[columnName] = converted
+                        newPendingChanges[row].changes[columnName] = converted
                         try {
                             const colIndex = typeof prop === "number" ? (prop as number) : RowHeader1.indexOf(columnName)
                             dataTableRef.current?.hotInstance?.setDataAtCell(row, colIndex, converted, "usd_convert")
                         } catch { }
                     } else {
-                        acc[row].changes[columnName] = rawValue
+                        newPendingChanges[row].changes[columnName] = rawValue
                     }
-                    return acc
-                }, {})
+                    hasChanges = true
+                })
 
-                const updates = Object.values(updatesByRow)
-
-                if (updates.length > 0) {
-                    console.log("[v0] Sending updates:", updates)
-                    sheetApiRequest
-                        .updateData(updates, dataType)
-                        .catch((error) => {
-                            console.error("[v0] Update error:", error)
-                            if (error.message.includes("timeout") || error.message.includes("Request timeout")) {
-                                messageApi.error({
-                                    content: "Cập nhật timeout (90s), vui lòng thử lại",
-                                    icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
-                                    duration: 8,
-                                })
-                            } else {
-                                messageApi.error({
-                                    content: `Lỗi cập nhật: ${error.message}`,
-                                    icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
-                                })
-                            }
-                        })
+                if (hasChanges) {
+                    setPendingChanges(newPendingChanges)
+                    setHasUnsavedChanges(true)
                 }
             }
         },
-        [dataType, dataVN, dataNN, filteredData, searchText, messageApi, currencyMode, exchangeRate],
+        [dataType, dataVN, dataNN, filteredData, searchText, currencyMode, exchangeRate, pendingChanges],
     )
+
+    const handleSaveChanges = useCallback(async () => {
+        if (!hasUnsavedChanges || Object.keys(pendingChanges).length === 0) {
+            return
+        }
+
+        try {
+            setLoading(true)
+            const updates = Object.values(pendingChanges)
+            
+            console.log("[v0] Saving pending changes:", updates)
+            await sheetApiRequest.updateData(updates, dataType)
+            
+            // Clear pending changes after successful save
+            setPendingChanges({})
+            setHasUnsavedChanges(false)
+            
+            messageApi.success({
+                content: `Đã lưu thành công ${updates.length} thay đổi`,
+                icon: <CheckCircle2 className="text-green-500 mr-2" size={16} />,
+            })
+        } catch (error: any) {
+            console.error("[v0] Save error:", error)
+            if (error.message.includes("timeout") || error.message.includes("Request timeout")) {
+                messageApi.error({
+                    content: "Lưu timeout (90s), vui lòng thử lại",
+                    icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
+                    duration: 8,
+                })
+            } else {
+                messageApi.error({
+                    content: `Lỗi lưu: ${error.message}`,
+                    icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
+                })
+            }
+        } finally {
+            setLoading(false)
+        }
+    }, [hasUnsavedChanges, pendingChanges, dataType, messageApi])
 
     const handleAfterPaste = useCallback(
         (data: any[][], coords: any[]) => {
             const { startRow: initialStartRow, startCol } = coords[0]
+            const newPendingChanges = { ...pendingChanges }
+            let hasChanges = false
 
-            const updates = data
-                .map((rowData, index) => {
-                    const currentRowIndex = initialStartRow + index
-                    const dataToUse = dataType === 1 ? dataVN : dataNN
-                    const currentRow = searchText.trim() ? filteredData[currentRowIndex] : dataToUse[currentRowIndex]
+            data.forEach((rowData, index) => {
+                const currentRowIndex = initialStartRow + index
+                const dataToUse = dataType === 1 ? dataVN : dataNN
+                const currentRow = searchText.trim() ? filteredData[currentRowIndex] : dataToUse[currentRowIndex]
 
-                    if (!currentRow) return null
+                if (!currentRow) return
 
-                    const actualRowIndex = currentRow.rowIndex
-                    const sheetName = currentRow.sheetName
-                    const changes = rowData.reduce((acc: Record<string, any>, value, colIndex) => {
-                        const columnName = RowHeader1[startCol + colIndex]
-                        if (columnName) {
-                            const priceFields = ["GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"]
-                            const rawValue = value === null ? "" : value
-                            if (priceFields.includes(columnName) && currencyMode === "VND") {
-                                const numeric = Number(String(rawValue).toString().replace(/[\,\s]/g, ""))
-                                const rate = Number.parseFloat(exchangeRate)
-                                const converted = !isNaN(numeric) && !isNaN(rate) && rate > 0 ? Math.round(numeric / rate) : rawValue
-                                acc[columnName] = converted
-                                try {
-                                    const r = currentRowIndex
-                                    const c = startCol + colIndex
-                                    dataTableRef.current?.hotInstance?.setDataAtCell(r, c, converted, "usd_convert")
-                                } catch { }
-                            } else {
-                                acc[columnName] = rawValue
-                            }
-                        }
-                        return acc
-                    }, {})
-
-                    if (Object.keys(changes).length > 0) {
-                        return {
-                            rowIndex: actualRowIndex,
-                            sheetName,
-                            changes,
-                        }
+                const actualRowIndex = currentRow.rowIndex
+                const sheetName = currentRow.sheetName
+                
+                if (!newPendingChanges[currentRowIndex]) {
+                    newPendingChanges[currentRowIndex] = {
+                        rowIndex: actualRowIndex,
+                        sheetName,
+                        changes: {},
                     }
-                    return null
-                })
-                .filter(Boolean)
+                }
 
-            if (updates.length > 0) {
-                sheetApiRequest.updateData(updates, dataType)
+                rowData.forEach((value, colIndex) => {
+                    const columnName = RowHeader1[startCol + colIndex]
+                    if (columnName) {
+                        const priceFields = ["GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"]
+                        const rawValue = value === null ? "" : value
+                        if (priceFields.includes(columnName) && currencyMode === "VND") {
+                            const numeric = Number(String(rawValue).toString().replace(/[\,\s]/g, ""))
+                            const rate = Number.parseFloat(exchangeRate)
+                            const converted = !isNaN(numeric) && !isNaN(rate) && rate > 0 ? Math.round(numeric / rate) : rawValue
+                            newPendingChanges[currentRowIndex].changes[columnName] = converted
+                            try {
+                                const r = currentRowIndex
+                                const c = startCol + colIndex
+                                dataTableRef.current?.hotInstance?.setDataAtCell(r, c, converted, "usd_convert")
+                            } catch { }
+                        } else {
+                            newPendingChanges[currentRowIndex].changes[columnName] = rawValue
+                        }
+                        hasChanges = true
+                    }
+                })
+            })
+
+            if (hasChanges) {
+                setPendingChanges(newPendingChanges)
+                setHasUnsavedChanges(true)
             }
         },
-        [dataType, dataVN, dataNN, filteredData, searchText, messageApi, currencyMode, exchangeRate],
+        [dataType, dataVN, dataNN, filteredData, searchText, currencyMode, exchangeRate, pendingChanges],
     )
 
     const handleAfterRemoveRow = useCallback(
@@ -737,10 +765,18 @@ export default function PageBody() {
             {/* Header Section */}
             <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100 transition-all duration-300 hover:shadow-lg">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <h1 className="text-2xl font-bold text-blue-900 flex items-center">
-                        <FileText className="w-6 h-6 mr-2 text-blue-600" />
-                        Cập nhật Data {dataType === 1 ? "Việt Nam" : "Nước Ngoài"}
-                    </h1>
+                    <div className="flex flex-col">
+                        <h1 className="text-2xl font-bold text-blue-900 flex items-center">
+                            <FileText className="w-6 h-6 mr-2 text-blue-600" />
+                            Cập nhật Data {dataType === 1 ? "Việt Nam" : "Nước Ngoài"}
+                        </h1>
+                        {hasUnsavedChanges && (
+                            <div className="mt-2 flex items-center text-sm text-orange-600">
+                                <AlertCircle className="w-4 h-4 mr-1" />
+                                <span>Có {Object.keys(pendingChanges).length} thay đổi chưa lưu</span>
+                            </div>
+                        )}
+                    </div>
 
                     <div className="flex flex-wrap gap-3">
                         {/* <button
@@ -751,6 +787,19 @@ export default function PageBody() {
                             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
                             Làm mới
                         </button> */}
+                        <button
+                            onClick={handleSaveChanges}
+                            disabled={!hasUnsavedChanges || loading}
+                            className="flex text-sm items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 shadow-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                            Lưu thay đổi
+                            {hasUnsavedChanges && (
+                                <span className="ml-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                    {Object.keys(pendingChanges).length}
+                                </span>
+                            )}
+                        </button>
                         <button
                             onClick={() => setIsAddModalVisible(true)}
                             className="flex text-sm items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm font-medium"
