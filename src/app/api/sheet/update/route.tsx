@@ -136,9 +136,18 @@ export async function POST(req: Request) {
                         }
                     }
                     
+                    // Convert changes to include old and new values
+                    const changesWithOldNew = Object.entries(changes).reduce((acc, [field, newValue]) => {
+                        acc[field] = {
+                            oldValue: null, // We don't have old value in this context, will be handled in frontend
+                            newValue: newValue
+                        };
+                        return acc;
+                    }, {} as Record<string, { oldValue: any; newValue: any }>);
+
                     validUpdates.push({
                         site: siteName,
-                        changes
+                        changes: changesWithOldNew
                     });
                 }
             }

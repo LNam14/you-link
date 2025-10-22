@@ -9,7 +9,7 @@ interface SiteUpdateData {
   username: string;
   updates: Array<{
     site: string;
-    changes: Record<string, any>;
+    changes: Record<string, { oldValue: any; newValue: any }>;
   }>;
   dataType: 1 | 2; // 1 for VN, 2 for NN
   isNewSite?: boolean; // Flag to indicate if this is a new site
@@ -44,8 +44,8 @@ export async function POST(request: NextRequest) {
     if (isNewSite) {
       // Format đơn giản cho thêm site mới
       const sitesText = updates.map(update => {
-        const traffic = update.changes["Traffic Tool"] && update.changes["Traffic Tool"].toString().trim() !== "" 
-          ? update.changes["Traffic Tool"] 
+        const traffic = update.changes["Traffic Tool"] && update.changes["Traffic Tool"].newValue && update.changes["Traffic Tool"].newValue.toString().trim() !== "" 
+          ? update.changes["Traffic Tool"].newValue 
           : "Chưa cập nhật";
         return `${update.site} - Traffic: ${traffic}`;
       }).join('\n');
@@ -55,15 +55,17 @@ export async function POST(request: NextRequest) {
       // Format chi tiết cho cập nhật site - gộp tất cả vào 1 tin nhắn
       const updatesText = updates.map(update => {
         const changesText = Object.entries(update.changes)
-          .filter(([field, value]) => {
-            return value !== null && value !== undefined && value !== '' && field !== 'Site';
+          .filter(([field, changeData]) => {
+            return changeData && changeData.newValue !== null && changeData.newValue !== undefined && changeData.newValue !== '' && field !== 'Site';
           })
-          .map(([field, value]) => {
-            return `  • <b>${field}:</b> ${value}`;
+          .map(([field, changeData]) => {
+            const oldValue = changeData.oldValue === null || changeData.oldValue === undefined || changeData.oldValue === '' ? '(trống)' : changeData.oldValue;
+            const newValue = changeData.newValue === null || changeData.newValue === undefined || changeData.newValue === '' ? '(trống)' : changeData.newValue;
+            return `  • <b>${field}:</b> ${oldValue} → ${newValue}`;
           })
           .join('\n');
         
-        return `🌐 <b>${update.site}</b>\n${changesText || '  Dữ liệu trống'}`;
+        return `🌐 <b>${update.site}</b>\n${changesText || 'Không có thay đổi'}`;
       }).join('\n\n');
 
       message = `🔄 <b>CẬP NHẬT SITE</b> 🔄
