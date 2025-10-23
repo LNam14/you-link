@@ -13,6 +13,41 @@ export const useFirebaseData = () => {
     return Array(24).fill("")
   }
 
+  // Helper function to normalize Firebase data to expected array format
+  const normalizeFirebaseValue = (value: any, key: string): any[] => {
+    try {
+      if (Array.isArray(value)) {
+        // Validate array length and pad/truncate to 24 elements
+        const paddedArray = Array(24).fill("")
+        value.forEach((item, index) => {
+          if (index < 24) {
+            paddedArray[index] = item
+          }
+        })
+        return [...paddedArray, key] // Add Firebase key as last element
+      } else if (value && typeof value === 'object') {
+        // If value is an object, convert it to array format
+        const valueArray = Object.values(value)
+        const paddedArray = Array(24).fill("")
+        valueArray.forEach((item, index) => {
+          if (index < 24) {
+            paddedArray[index] = item
+          }
+        })
+        return [...paddedArray, key]
+      } else {
+        // If value is null, undefined, or primitive, create empty row with key
+        const emptyRow = Array(24).fill("")
+        return [...emptyRow, key]
+      }
+    } catch (error) {
+      console.warn(`Error processing Firebase data for key ${key}:`, error)
+      // Fallback: create empty row with key
+      const emptyRow = Array(24).fill("")
+      return [...emptyRow, key]
+    }
+  }
+
   // Load data from Firebase
   useEffect(() => {
     const dataRef = ref(database, "customers")
@@ -24,7 +59,7 @@ export const useFirebaseData = () => {
         if (firebaseData) {
           // Convert Firebase object to array with keys
           const dataArray = Object.entries(firebaseData).map(([key, value]: [string, any]) => {
-            return [...(value as any[]), key] // Add Firebase key as last element
+            return normalizeFirebaseValue(value, key)
           })
           setData(dataArray)
         } else {
@@ -35,6 +70,7 @@ export const useFirebaseData = () => {
       (error) => {
         console.error("Firebase error:", error)
         toast.error("Lỗi kết nối Firebase")
+        setData([]) // Set empty data on error
         setLoading(false)
       },
     )
