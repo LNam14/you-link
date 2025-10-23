@@ -117,27 +117,47 @@ export default function DataSite({
                 } else {
                     const terms = searchValue
                         .split(/[\s,\n]+/)
-                        .map((term) => extractDomain(term.trim()).toLowerCase())
+                        .map((term) => term.trim().toLowerCase())
                         .filter(Boolean)
 
-                    // Tạo map domain -> item để tìm nhanh
-                    const domainToItem: Record<string, any> = {}
-                    data.forEach((item: any) => {
-                        const domain = extractDomain(item.Site).toLowerCase()
-                        domainToItem[domain] = item
+                    const results: any[] = []
+                    const nonExistent: string[] = []
+
+                    terms.forEach((term) => {
+                        // Kiểm tra nếu term bắt đầu bằng dấu chấm (tìm kiếm theo đuôi domain)
+                        if (term.startsWith('.')) {
+                            const extension = term.toLowerCase()
+                            const matchingSites = data.filter((item: any) => {
+                                const domain = extractDomain(item.Site).toLowerCase()
+                                return domain.endsWith(extension)
+                            })
+                            results.push(...matchingSites)
+                        } else {
+                            // Tìm kiếm theo domain đầy đủ như trước
+                            const domain = extractDomain(term).toLowerCase()
+                            
+                            // Tạo map domain -> item để tìm nhanh
+                            const domainToItem: Record<string, any> = {}
+                            data.forEach((item: any) => {
+                                const itemDomain = extractDomain(item.Site).toLowerCase()
+                                domainToItem[itemDomain] = item
+                            })
+
+                            const foundItem = domainToItem[domain]
+                            if (foundItem) {
+                                results.push(foundItem)
+                            } else if (isValidDomain(domain)) {
+                                nonExistent.push(domain)
+                            }
+                        }
                     })
 
-                    // Lấy kết quả đúng thứ tự nhập vào
-                    const results = terms
-                        .map((term) => domainToItem[term])
-                        .filter(Boolean)
-
-                    setDataColumn(results)
-
-                    // Các site không tồn tại
-                    const nonExistent = terms.filter(
-                        (term) => isValidDomain(term) && !domainToItem[term],
+                    // Loại bỏ các item trùng lặp
+                    const uniqueResults = results.filter((item, index, self) => 
+                        index === self.findIndex(t => t.Site === item.Site)
                     )
+
+                    setDataColumn(uniqueResults)
 
                     if (nonExistent.length > 0) {
                         setNotFoundSites(nonExistent)
@@ -583,7 +603,7 @@ export default function DataSite({
 
                                 <div className="flex-1">
                                     <textarea
-                                        placeholder="Tìm kiếm (phân cách nhiều site bằng dấu phẩy hoặc xuống dòng)"
+                                        placeholder="Tìm kiếm site hoặc đuôi domain (ví dụ: example.com, .us, .vn, .com)"
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         onInput={(e) => {
