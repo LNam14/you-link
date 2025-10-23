@@ -16,7 +16,7 @@ export default function Home() {
       <div id="products">
         <Product title="Sản phẩm của You Link" />
       </div>
-      <SpinLucky title="Vòng quay may mắn" />
+      {/* <SpinLucky title="Vòng quay may mắn" /> */}
       <BauCua title="Bầu Cua Tôm Cá" />
       <Chat title="Chat trực tuyến với mọi người" />
       <Contact title="Liên hệ với chúng tôi" />
