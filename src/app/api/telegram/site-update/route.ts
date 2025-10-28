@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
 
 const TELEGRAM_BOT_TOKEN = '8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U';
 const CHAT_ID_NEW_SITE = '-1002137432608'; // ID nhóm cho thêm site mới
@@ -20,6 +21,40 @@ interface SiteUpdateData {
   }>;
   dataType: 1 | 2; // 1 for VN, 2 for NN
   isNewSite?: boolean; // Flag to indicate if this is a new site
+}
+
+// Helper function to add wheel reward
+async function addWheelReward(username: string, reward: string = "1.000") {
+  try {
+    console.log(`🎰 Adding wheel reward for ${username}: ${reward}`);
+    
+    // Get current date in Vietnam timezone
+    const currentDate = new Date().toLocaleDateString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+    
+    // Format date to YYYY-MM-DD
+    const [day, month, year] = currentDate.split('/');
+    const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    
+    const result = await prisma.wheel.create({
+      data: {
+        username,
+        reward,
+        date: formattedDate
+      }
+    });
+    
+    console.log(`✅ Wheel reward added successfully:`, result);
+    return result;
+  } catch (error) {
+    console.error('❌ Error adding wheel reward:', error);
+    // Don't throw error to avoid breaking the main flow
+    return null;
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -174,6 +209,19 @@ ${updatesText}`;
 
         const result = await response.json();
         console.log('✅ Telegram message sent successfully:', result);
+        
+        // Calculate reward: 1 site = 1.000 VND, 2 sites = 2.000 VND
+        const numSites = updates.length;
+        const rewardAmount = `${numSites}.000`;
+        console.log(`💰 Adding reward for ${numSites} site(s): ${rewardAmount} VND`);
+        
+        // Add wheel reward after successful message send
+        const wheelResult = await addWheelReward(username, rewardAmount);
+        
+        if (wheelResult) {
+          console.log(`✅ Successfully added ${rewardAmount} VND to ${username}'s income`);
+        }
+        
         return result;
       } catch (error: any) {
         console.error(`❌ Attempt ${retryCount + 1} failed:`, error.message);
@@ -217,6 +265,19 @@ ${updatesText}`;
         if (alternativeResult.ok) {
           const result = await alternativeResult.json();
           console.log('✅ Alternative method succeeded:', result);
+          
+          // Calculate reward: 1 site = 1.000 VND, 2 sites = 2.000 VND
+          const numSites = updates.length;
+          const rewardAmount = (numSites * 1).toFixed(3).replace('.', ',') + '.000';
+          console.log(`💰 Adding reward for ${numSites} site(s): ${rewardAmount} VND`);
+          
+          // Add wheel reward after successful message send
+          const wheelResult = await addWheelReward(username, rewardAmount);
+          
+          if (wheelResult) {
+            console.log(`✅ Successfully added ${rewardAmount} VND to ${username}'s income`);
+          }
+          
           return NextResponse.json({ success: true, data: result });
         } else {
           console.error('❌ Alternative method failed with status:', alternativeResult.status);
@@ -241,6 +302,19 @@ ${updatesText}`;
         if (minimalResult.ok) {
           const result = await minimalResult.json();
           console.log('✅ Minimal method succeeded:', result);
+          
+          // Calculate reward: 1 site = 1.000 VND, 2 sites = 2.000 VND
+          const numSites = updates.length;
+          const rewardAmount = (numSites * 1).toFixed(3).replace('.', ',') + '.000';
+          console.log(`💰 Adding reward for ${numSites} site(s): ${rewardAmount} VND`);
+          
+          // Add wheel reward after successful message send
+          const wheelResult = await addWheelReward(username, rewardAmount);
+          
+          if (wheelResult) {
+            console.log(`✅ Successfully added ${rewardAmount} VND to ${username}'s income`);
+          }
+          
           return NextResponse.json({ success: true, data: result });
         }
       } catch (minimalError) {

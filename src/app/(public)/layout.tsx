@@ -1,5 +1,7 @@
 import { Inter } from "next/font/google";
 import "../globals.css";
+import Script from "next/script";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -21,7 +23,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi">
-      <body className={inter.className}>{children}</body>
+        <body className={inter.className}>{children}
+        <Script src="https://app.embed.im/snow.js" defer></Script>
+        <Script src="https://app.embed.im/sparkles.js" defer></Script>
+        <Script src="https://app.embed.im/fireworks.js" defer></Script>
+        <Script src="https://app.embed.im/spark.js" defer></Script>
+      </body>
     </html>
   );
 }

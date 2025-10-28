@@ -1,9 +1,12 @@
+"use client"
+
 import Chat from "./components/chat"
 import Contact from "./components/contact"
 import HeroHome from "./components/hero-home"
 import Product from "./components/product"
 import dynamic from "next/dynamic"
 import BauCua from "./components/bau-cua"
+import MusicPlayer from "./components/music-player"
 
 const SpinLucky = dynamic(() => import("./components/spin-lucky"), {
   ssr: false,
@@ -12,6 +15,7 @@ const SpinLucky = dynamic(() => import("./components/spin-lucky"), {
 export default function Home() {
   return (
     <>
+      <MusicPlayer />
       <HeroHome />
       <div id="products">
         <Product title="Sản phẩm của You Link" />
