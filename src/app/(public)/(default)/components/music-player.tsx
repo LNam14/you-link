@@ -64,7 +64,7 @@ export default function MusicPlayer() {
   return (
     <button
       onClick={toggleMute}
-      className="fixed bottom-20 right-4 p-3 rounded-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 z-40"
+      className="fixed bottom-10 right-4 p-3 rounded-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 z-40"
     >
       <Toaster position="top-right" expand={true} richColors />
       {isMuted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
