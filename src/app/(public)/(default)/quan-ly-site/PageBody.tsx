@@ -227,7 +227,7 @@ export default function PageBody() {
     const [configError, setConfigError] = useState<string | null>(null)
     const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false)
     const [currencyMode, setCurrencyMode] = useState<"USD" | "VND">("USD")
-    const [exchangeRate, setExchangeRate] = useState<string>("27000")
+    const [exchangeRate, setExchangeRate] = useState<string>("28000")
     const [pendingChanges, setPendingChanges] = useState<Record<number, any>>({})
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
     const [originalValues, setOriginalValues] = useState<Record<string, any>>({}) // Store original values

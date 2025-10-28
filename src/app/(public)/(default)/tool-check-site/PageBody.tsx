@@ -103,7 +103,7 @@ export default function PageBody() {
     const [selectedPriceType, setSelectedPriceType] = useState<PriceType>("GP")
     const [selectedBrand, setSelectedBrand] = useState<BrandType>("F")
     const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>("USDT")
-    const [exchangeRate, setExchangeRate] = useState<string>("27")
+    const [exchangeRate, setExchangeRate] = useState<string>("28")
     const [selectedSearchType, setSelectedSearchType] = useState<SearchType>("Site")
     const [userInfo] = useState(getUserInfo())
     const [duplicateSites, setDuplicateSites] = useState<{ [key: string]: SiteData[] }>({})
@@ -1857,7 +1857,7 @@ export default function PageBody() {
                                                 value={exchangeRate}
                                                 onChange={(e) => setExchangeRate(e.target.value || "")}
                                                 className="w-10 px-2 py-2 text-center text-xs bg-white text-blue-600 font-medium focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                                placeholder="27"
+                                                placeholder="28"
                                             />
                                         </div>
                                     )}

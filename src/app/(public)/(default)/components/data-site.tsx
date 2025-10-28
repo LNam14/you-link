@@ -509,6 +509,11 @@ export default function DataSite({
                     
                     if (isNaN(itemValue) || itemValue <= 0) return false
                     
+                    // Handle "> 1" option
+                    if (selectedValue === 1) {
+                        return itemValue > 1
+                    }
+                    
                     return itemValue < selectedValue
                 }
                 
@@ -525,11 +530,18 @@ export default function DataSite({
                 
                 // DR filter
                 if (key === "DR") {
-                    const selectedValue = Number.parseInt(value)
                     const itemValue = Number.parseInt(item[key])
                     
                     if (isNaN(itemValue) || itemValue <= 0) return false
                     
+                    // Handle ">" options
+                    if (value === "gt20") return itemValue > 20
+                    if (value === "gt40") return itemValue > 40
+                    if (value === "gt60") return itemValue > 60
+                    if (value === "gt80") return itemValue > 80
+                    
+                    // Handle "<" options
+                    const selectedValue = Number.parseInt(value)
                     const drRanges = [5, 10, 20, 40, 60]
                     const currentIndex = drRanges.indexOf(selectedValue)
                     
@@ -549,6 +561,11 @@ export default function DataSite({
                     const itemValue = Number.parseInt(item["Giá Footer"])
                     
                     if (isNaN(itemValue) || itemValue <= 0) return false
+                    
+                    // Handle "> 1" option
+                    if (selectedValue === 1) {
+                        return itemValue > 1
+                    }
                     
                     const priceRanges = [20, 40, 80, 160]
                     const currentIndex = priceRanges.indexOf(selectedValue)
@@ -829,6 +846,8 @@ export default function DataSite({
                                                 <option value="1000">&gt; 1,000</option>
                                                 <option value="10000">&gt; 10,000</option>
                                                 <option value="100000">&gt; 100,000</option>
+                                                <option value="50000">&gt; 50,000</option>
+                                                <option value="1000000">&gt; 1,000,000</option>
                                             </select>
                                         </div>
                                     </div>
@@ -847,6 +866,7 @@ export default function DataSite({
                                                 onChange={(e) => handleFilterChange("Giá GP", e.target.value)}
                                             >
                                                 <option value="">Chọn lựa chọn</option>
+                                                <option value="1">&gt; 1</option>
                                                 <option value="20">&lt; 20</option>
                                                 <option value="40">&lt; 40</option>
                                                 <option value="80">&lt; 80</option>
@@ -871,6 +891,10 @@ export default function DataSite({
                                                 <option value="20">&lt; 20</option>
                                                 <option value="40">&lt; 40</option>
                                                 <option value="60">&lt; 60</option>
+                                                <option value="gt20">&gt; 20</option>
+                                                <option value="gt40">&gt; 40</option>
+                                                <option value="gt60">&gt; 60</option>
+                                                <option value="gt80">&gt; 80</option>
                                             </select>
                                         </div>
 
@@ -886,6 +910,7 @@ export default function DataSite({
                                                 onChange={(e) => handleFilterChange("Giá Text", e.target.value)}
                                             >
                                                 <option value="">Chọn lựa chọn</option>
+                                                <option value="1">&gt; 1</option>
                                                 <option value="20">&lt; 20</option>
                                                 <option value="40">&lt; 40</option>
                                                 <option value="80">&lt; 80</option>
