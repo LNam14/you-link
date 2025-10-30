@@ -5,6 +5,10 @@ import { cookies } from "next/headers"
 
 const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
 
+// Hint platform for long-running operations
+export const dynamic = "force-dynamic"
+export const maxDuration = 300
+
 // Column mapping to Google Sheets columns
 const COLUMN_MAPPING = {
     CS: "A",

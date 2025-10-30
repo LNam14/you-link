@@ -18,7 +18,7 @@ class HttpService {
   private instance: AxiosInstance;
   private abortControllers: Map<string, AbortController> = new Map();
 
-  constructor(baseURL = "/api", timeout = 30000) {
+  constructor(baseURL = "/api", timeout = 120000) {
     this.instance = axios.create({
       baseURL,
       timeout,

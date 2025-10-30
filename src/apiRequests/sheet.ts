@@ -120,8 +120,39 @@ const sheetApiRequest = {
   /**
    * Cập nhật dữ liệu sheet
    */
-  updateData: (data: any[], sheetType: number) => {
-    return httpService.post("/sheet/update", { data, sheetType })
+  updateData: async (data: any[], sheetType: number) => {
+    // Chunk updates to avoid long-running requests that can cause 504
+    const chunkSize = 40
+    const maxRetries = 2
+    const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+    const chunks: any[][] = []
+    for (let i = 0; i < data.length; i += chunkSize) {
+      chunks.push(data.slice(i, i + chunkSize))
+    }
+
+    let totalUpdated = 0
+    for (const [index, chunk] of chunks.entries()) {
+      let attempt = 0
+      // Retry with exponential backoff for transient errors (e.g., 504/timeout)
+      // We keep request body the same schema the route expects
+      while (true) {
+        try {
+          const res: any = await httpService.post("/sheet/update", { data: chunk, sheetType }, { timeout: 120000 })
+          // Some routes return raw object; be tolerant
+          const updatedCells = (res && (res as any).updatedCells) || 0
+          totalUpdated += Number(updatedCells) || 0
+          break
+        } catch (err: any) {
+          if (attempt >= maxRetries) throw err
+          const backoff = 1000 * Math.pow(2, attempt)
+          await delay(backoff)
+          attempt += 1
+        }
+      }
+    }
+
+    return { success: true, totalUpdated }
   },
 
   /**
