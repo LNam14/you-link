@@ -543,11 +543,31 @@ export default function PageBody() {
 
     const handleAfterPaste = useCallback(
         (data: any[][], coords: any[]) => {
-            const { startRow: initialStartRow, startCol } = coords[0]
+            const {
+                startRow: initialStartRow,
+                startCol,
+                endRow: initialEndRow,
+                endCol: initialEndCol,
+            } = coords[0] || ({} as any)
+
             const newPendingChanges = { ...pendingChanges }
             let hasChanges = false
 
-            data.forEach((rowData, index) => {
+            // Expand pasted data to match the selected range if user selected a larger area
+            const selectionRowCount = (typeof initialEndRow === "number" ? initialEndRow : initialStartRow) - initialStartRow + 1
+            const selectionColCount = (typeof initialEndCol === "number" ? initialEndCol : startCol) - startCol + 1
+
+            const sourceRowCount = Math.max(1, data.length)
+            const sourceColCount = Math.max(1, (data[0] || []).length)
+
+            const expandedData: any[][] = Array.from({ length: Math.max(selectionRowCount, sourceRowCount) }, (_, r) => {
+                return Array.from({ length: Math.max(selectionColCount, sourceColCount) }, (_, c) => {
+                    const srcRow = data[r % sourceRowCount] || []
+                    return srcRow[c % sourceColCount]
+                })
+            })
+
+            expandedData.forEach((rowData, index) => {
                 const currentRowIndex = initialStartRow + index
                 const dataToUse = dataType === 1 ? dataVN : dataNN
                 const currentRow = searchText.trim() ? filteredData[currentRowIndex] : dataToUse[currentRowIndex]
