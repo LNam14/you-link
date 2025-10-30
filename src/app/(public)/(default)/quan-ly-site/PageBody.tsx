@@ -80,6 +80,7 @@ const RowHeader2 = [
     "DR",
     "Keywords",
     "Traffic Tool",
+    "Ghi chú",
     "Tình trạng",
     "GP ($)",
     "Text Footer ($)",
@@ -659,6 +660,7 @@ export default function PageBody() {
                     DR: "",
                     Keywords: "",
                     "Traffic Tool": "",
+                    "Ghi chú": "",
                     "Tình trạng": "Bình thường",
                     "GP ($)": "",
                     "Text Footer ($)": "",
@@ -1206,7 +1208,7 @@ export default function PageBody() {
                                 autoColumnSize={true}
                                 manualColumnResize={true}
                                 colWidths={getColWidthsForHeaders(RowHeader2)}
-                                hiddenColumns={userInfo?.role === "NCC" ? { columns: [5, 20], indicators: true } : { columns: [5] }}
+                                hiddenColumns={userInfo?.role === "NCC" ? { columns: [5, 21], indicators: true } : { columns: [5] }}
                                 height="420px"
                                 stretchH="all"
                                 manualRowMove={true}

@@ -177,7 +177,7 @@ export async function POST(req: Request) {
                 row["DR"] || "", // I - DR
                 row["Keywords"] || "", // J - Keywords
                 row["Traffic Tool"] || "", // K - Traffic Tool
-                "", // L - Ghi chú (empty)
+                row["Ghi chú"] || "", // L - Ghi chú (empty)
                 row["Tình trạng"] || "Bình thường", // M - Tình trạng
                 "", // N - Empty
                 "", // O - Empty
