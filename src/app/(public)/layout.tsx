@@ -24,10 +24,27 @@ export default function RootLayout({
   return (
     <html lang="vi">
         <body className={inter.className}>{children}
-        <Script src="https://app.embed.im/snow.js" defer></Script>
-        <Script src="https://app.embed.im/sparkles.js" defer></Script>
-        <Script src="https://app.embed.im/fireworks.js" defer></Script>
-        <Script src="https://app.embed.im/spark.js" defer></Script>
+        <Script id="fx-loader" strategy="afterInteractive">{`
+          (function(){
+            try {
+              var isSmallScreen = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+              if (isSmallScreen) return; // Skip on small screens to preserve scroll
+              var urls = [
+                'https://app.embed.im/snow.js',
+                'https://app.embed.im/sparkles.js',
+                'https://app.embed.im/fireworks.js',
+                'https://app.embed.im/spark.js'
+              ];
+              urls.forEach(function(u){
+                var s = document.createElement('script');
+                s.src = u;
+                s.defer = true;
+                s.async = true;
+                document.body.appendChild(s);
+              });
+            } catch(e) { /* noop */ }
+          })();
+        `}</Script>
       </body>
     </html>
   );
