@@ -1501,6 +1501,10 @@ export default function PageBody() {
                     colHeaders={true}
                     copyPaste={true}
                     columnSorting={true}
+                    autoColumnSize={false}
+                    preventOverflow="horizontal"
+                    renderAllRows={false}
+                    viewportRowRenderingOffset={20}
                     manualColumnResize={true}
                     manualRowResize={true}
                     className="custom-table"
