@@ -96,10 +96,11 @@ const AddTaskDialog: React.FC<{ onAdd: (name: string, type: DailyTaskDataType) =
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+        className="p-2 bg-cyan-500 hover:bg-cyan-600 flex items-center gap-2 rounded-lg text-white"
         title="Thêm công việc"
       >
-        <Plus className="h-4 w-4 text-white" />
+       <Plus className="h-4 w-4" />
+       <span>Thêm công việc</span>
       </button>
     )
   }
@@ -225,8 +226,9 @@ const EditableTaskName: React.FC<{
 
 const PageBody: React.FC = () => {
   const userInfo = getUserInfo()
-  const isAdmin = userInfo?.role === "Admin"
+  const isAdmin = userInfo?.role === "Admin" || userInfo?.position === "Leader"
   const [selectedUsername, setSelectedUsername] = useState<string>("")
+  const [allUsers, setAllUsers] = useState<any[]>([])
   const username = isAdmin && selectedUsername ? selectedUsername : userInfo?.username || ""
 
   const [employeeInfo, setEmployeeInfo] = useState<EmployeeInfo>({
@@ -255,9 +257,18 @@ const PageBody: React.FC = () => {
     try {
       const authResponse: any = await authApiRequest.get()
       if (authResponse && authResponse.success && authResponse.data) {
+        // Store all users for selection dropdown
+        const users: any[] = []
+        const groups = ['NV', 'Admin', 'NCC', 'KH']
+        for (const group of groups) {
+          if (authResponse.data[group] && Array.isArray(authResponse.data[group])) {
+            users.push(...authResponse.data[group])
+          }
+        }
+        setAllUsers(users)
+
         // Fetch employee info
         let foundUser: any = null
-        const groups = ['NV', 'Admin', 'NCC', 'KH']
         for (const group of groups) {
           if (authResponse.data[group] && Array.isArray(authResponse.data[group])) {
             foundUser = authResponse.data[group].find((user: any) => user.username === username)
@@ -572,9 +583,18 @@ const PageBody: React.FC = () => {
       if (data.auth && data.auth.success && data.auth.data) {
         const authResponse = data.auth
         
+        // Store all users for selection dropdown
+        const users: any[] = []
+        const groups = ['NV', 'Admin', 'NCC', 'KH']
+        for (const group of groups) {
+          if (authResponse.data[group] && Array.isArray(authResponse.data[group])) {
+            users.push(...authResponse.data[group])
+          }
+        }
+        setAllUsers(users)
+        
         // Fetch employee info
         let foundUser: any = null
-        const groups = ['NV', 'Admin', 'NCC', 'KH']
         for (const group of groups) {
           if (authResponse.data[group] && Array.isArray(authResponse.data[group])) {
             foundUser = authResponse.data[group].find((user: any) => user.username === username)
@@ -1941,17 +1961,33 @@ const PageBody: React.FC = () => {
     )
   }
 
-  const bhUsers = Array.from({ length: 30 }, (_, i) => `BH${i + 1}`).sort((a, b) => {
-    const numA = Number.parseInt(a.replace("BH", ""), 10)
-    const numB = Number.parseInt(b.replace("BH", ""), 10)
-    return numA - numB
-  })
+  // Compute selectable users based on role: Admin sees all, Leader sees only same team
+  const selectableUsers = useMemo(() => {
+    if (!isAdmin) return []
+    
+    if (userInfo?.role === "Admin") {
+      // Admin sees all users
+      return allUsers
+        .filter((user) => user.username)
+        .map((user) => user.username)
+        .filter((username, index, self) => self.indexOf(username) === index)
+        .sort()
+    } else if (userInfo?.position === "Leader" && userInfo?.team) {
+      // Leader sees only users from same team
+      return allUsers
+        .filter((user) => user.username && user.team === userInfo.team)
+        .map((user) => user.username)
+        .filter((username, index, self) => self.indexOf(username) === index)
+        .sort()
+    }
+    return []
+  }, [isAdmin, allUsers, userInfo?.role, userInfo?.position, userInfo?.team])
 
   useEffect(() => {
-    if (isAdmin && !selectedUsername) {
-      setSelectedUsername("BH1")
+    if (isAdmin && !selectedUsername && selectableUsers.length > 0) {
+      setSelectedUsername(selectableUsers[0])
     }
-  }, [isAdmin, selectedUsername])
+  }, [isAdmin, selectedUsername, selectableUsers])
 
   return (
     <div className="min-h-screen bg-white p-4 md:p-6" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>
@@ -1998,9 +2034,9 @@ const PageBody: React.FC = () => {
                         style={{ fontSize: '12px' }}
                       >
                         <option value="">-- Chọn --</option>
-                        {bhUsers.map((bhUser) => (
-                          <option key={bhUser} value={bhUser}>
-                            {bhUser}
+                        {selectableUsers.map((username) => (
+                          <option key={username} value={username}>
+                            {username}
                           </option>
                         ))}
                       </select>
@@ -2033,7 +2069,7 @@ const PageBody: React.FC = () => {
                     </div>
                   </div>
 
-                  {userInfo?.role === "Admin" && (
+                  {isAdmin && (
                     <div className="relative">
                       <AddTaskDialog onAdd={addCustomDailyTask} />
                     </div>
@@ -2062,7 +2098,7 @@ const PageBody: React.FC = () => {
                             task={task}
                             onUpdate={(name, type) => updateCustomDailyTask(task.id, name, type)}
                             onDelete={() => removeCustomDailyTask(task.id)}
-                            isAdmin={userInfo?.role === "Admin"}
+                            isAdmin={isAdmin}
                           />
                         </th>
                       ))}
@@ -2665,7 +2701,6 @@ const PageBody: React.FC = () => {
                   </div>
 
                   {deXuat.slice(0, 3).map((item, idx) => {
-                    const isAdmin = userInfo?.role === "Admin"
                     const isEditing = editingDeXuatInput[idx] || false
                     const localValue = localDeXuat[idx] !== undefined ? localDeXuat[idx] : item
                     const hasValue = item && item.trim() !== ""
@@ -2684,108 +2719,66 @@ const PageBody: React.FC = () => {
                             onChange={(e) => {
                               const newValue = e.target.value
 
-                              if (isAdmin) {
-                                const weekKey = getWeekKey(weeklyTasksWeekDates.weekNumber)
-                                const currentUser = usersData.users[username] || { weeks: {} }
-                                const current =
-                                  currentUser.weeks[weekKey] || initializeWeekData(weeklyTasksWeekOffset)
-                                const currentDeXuat = current.deXuat || ["", "", ""]
-
-                                while (currentDeXuat.length < 3) {
-                                  currentDeXuat.push("")
-                                }
-                                if (currentDeXuat.length > 3) {
-                                  currentDeXuat.splice(3)
-                                }
-
-                                const updatedDeXuat = [...currentDeXuat]
-                                updatedDeXuat[idx] = newValue
-
-                                const updatedWeekData: WeekData = {
-                                  ...current,
-                                  deXuat: updatedDeXuat,
-                                }
-
-                                setUsersData((prev) => ({
+                              setLocalDeXuat((prev) => ({
+                                ...prev,
+                                [idx]: newValue,
+                              }))
+                              if (!hasValue && !isEditing) {
+                                setEditingDeXuatInput((prev) => ({
                                   ...prev,
-                                  users: {
-                                    ...prev.users,
-                                    [username]: {
-                                      weeks: {
-                                        ...currentUser.weeks,
-                                        [weekKey]: updatedWeekData,
-                                      },
-                                    },
-                                  },
+                                  [idx]: true,
                                 }))
-
-                                updateWeekData(() => updatedWeekData)
-                              } else {
-                                setLocalDeXuat((prev) => ({
-                                  ...prev,
-                                  [idx]: newValue,
-                                }))
-                                if (!hasValue && !isEditing) {
-                                  setEditingDeXuatInput((prev) => ({
-                                    ...prev,
-                                    [idx]: true,
-                                  }))
-                                }
                               }
                             }}
-                            disabled={!isAdmin && isSavingWorkTask}
+                            disabled={isSavingWorkTask}
                             className="flex-1 px-3 py-2 bg-white text-gray-900 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-400"
                             style={{ fontSize: '11px', lineHeight: '1.5' }}
                             placeholder="Nhập đề xuất..."
                           />
                         )}
-                        {!isAdmin && (
-                          <>
-                            {hasChanges && (isEditing || !hasValue) && (
-                              <button
-                                onClick={async () => {
-                                  await saveDeXuatInput(idx, localValue)
-                                  setLocalDeXuat((prev) => {
-                                    const newState = { ...prev }
-                                    delete newState[idx]
-                                    return newState
-                                  })
-                                  setEditingDeXuatInput((prev) => {
-                                    const newState = { ...prev }
-                                    delete newState[idx]
-                                    return newState
-                                  })
-                                }}
-                                disabled={isSavingWorkTask}
-                                className="p-2 text-purple-500 hover:bg-purple-50 rounded-lg disabled:opacity-50 transition-colors"
-                                style={{ color: '#8b5cf6' }}
-                              >
-                                {isSavingWorkTask ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <CheckCircle2 className="h-4 w-4" />
-                                )}
-                              </button>
+                        {hasChanges && (isEditing || !hasValue) && (
+                          <button
+                            onClick={async () => {
+                              await saveDeXuatInput(idx, localValue)
+                              setLocalDeXuat((prev) => {
+                                const newState = { ...prev }
+                                delete newState[idx]
+                                return newState
+                              })
+                              setEditingDeXuatInput((prev) => {
+                                const newState = { ...prev }
+                                delete newState[idx]
+                                return newState
+                              })
+                            }}
+                            disabled={isSavingWorkTask}
+                            className="p-2 text-purple-500 hover:bg-purple-50 rounded-lg disabled:opacity-50 transition-colors"
+                            style={{ color: '#8b5cf6' }}
+                          >
+                            {isSavingWorkTask ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="h-4 w-4" />
                             )}
-                            {!isEditing && hasValue && (
-                              <button
-                                onClick={() => {
-                                  setEditingDeXuatInput((prev) => ({
-                                    ...prev,
-                                    [idx]: true,
-                                  }))
-                                  setLocalDeXuat((prev) => ({
-                                    ...prev,
-                                    [idx]: item,
-                                  }))
-                                }}
-                                className="opacity-0 group-hover:opacity-100 p-2 text-purple-500 hover:bg-purple-50 rounded-lg transition-opacity"
-                                style={{ color: '#8b5cf6' }}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </button>
-                            )}
-                          </>
+                          </button>
+                        )}
+                        {!isEditing && hasValue && (
+                          <button
+                            onClick={() => {
+                              setEditingDeXuatInput((prev) => ({
+                                ...prev,
+                                [idx]: true,
+                              }))
+                              setLocalDeXuat((prev) => ({
+                                ...prev,
+                                [idx]: item,
+                              }))
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-2 text-purple-500 hover:bg-purple-50 rounded-lg transition-opacity"
+                            style={{ color: '#8b5cf6' }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
                         )}
                       </div>
                     )
@@ -2793,7 +2786,7 @@ const PageBody: React.FC = () => {
                 </div>
 
                 {/* Other Weekly Tasks Section */}
-                {(weeklyTasks.length > 0 || userInfo?.role === "Admin") && (
+                {(weeklyTasks.length > 0 || isAdmin) && (
                   <div className="space-y-3">
                     {weeklyTasks.length > 0 && (
                       <h3 className="text-sm font-bold uppercase tracking-wide" style={{ fontSize: '11px', letterSpacing: '0.05em', color: '#8b5cf6' }}>Công việc khác</h3>
@@ -2802,7 +2795,6 @@ const PageBody: React.FC = () => {
                       const weekKey = getWeekKey(weeklyTasksWeekDates.weekNumber)
                       const weekEndDate = weeklyTasksWeekDates.endDate
                       const taskStatus = getWeeklyTaskStatus(task, weekEndDate)
-                      const isAdmin = userInfo?.role === "Admin"
                       
                       // Kiểm tra xem có thay đổi so với giá trị ban đầu không
                       const originalKey = `${username}_${weekKey}`
