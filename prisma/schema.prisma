@@ -118,3 +118,22 @@ model content {
 
   @@index([ma_don])
 }
+
+model work_task {
+  id          Int     @id @default(autoincrement())
+  username    String  @db.VarChar(255)
+  week_number String  @db.VarChar(10)
+  week_data   String  @db.Text
+  created_at  String
+  updated_at  String
+
+  @@unique([username, week_number])
+  @@index([username])
+}
+
+model daily_task_template {
+  id          Int     @id @default(autoincrement())
+  template_data String @db.Text
+  updated_at   String
+  updated_by   String @db.VarChar(255)
+}

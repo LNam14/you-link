@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useMemo } from "react"
+import React, { useState, useEffect, useMemo, useRef } from "react"
 import { message, Badge, Tooltip } from "antd"
 import { debounce } from "lodash"
 import {
@@ -30,6 +30,13 @@ import { X } from 'lucide-react'
 import { get, ref, set, onValue } from "firebase/database"
 import { database } from "@/app/firebase/firebase"
 import getUserInfo from "@/components/userInfo"
+import { HotTable, type HotTableRef } from "@handsontable/react-wrapper"
+import "handsontable/styles/handsontable.css"
+import "handsontable/styles/ht-theme-main.css"
+import { registerAllModules } from "handsontable/registry"
+import "../tool-check-site/custom-table.css"
+
+registerAllModules()
 
 const iconMap: any = {
     site: FaLink,
@@ -70,6 +77,7 @@ export default function DataSite({
     const [cartItems, setCartItems] = useState<any[]>([])
     const [showCartPreview, setShowCartPreview] = useState(false)
     const [addedToCartAnimation, setAddedToCartAnimation] = useState(false)
+    const hotRef = useRef<HotTableRef>(null)
 
     const user = getUserInfo()
 
@@ -603,8 +611,77 @@ export default function DataSite({
         return types
     }
 
+    // ----- CUSTOM CHECKBOX RENDERER FOR HOTTABLE -----
+    const checkboxRenderer = (instance: any, td: any, row: number, col: number, prop: any, value: any, cellProperties: any) => {
+        const site = currentProducts[row]?.Site
+        td.innerHTML = ''
+        td.className = (td.className || '') + ' hot-checkbox-cell'
+        // Tạo element checkbox
+        const checked = selectedRows.includes(site || '')
+        const input = document.createElement('input')
+        input.type = 'checkbox'
+        input.checked = checked
+        input.onclick = (e: any) => {
+            e.stopPropagation()
+            handleRowSelect(site)
+        }
+        td.appendChild(input)
+        return td
+    }
+    // ----- END CUSTOM RENDERER -----
+
+    // Tạo columns hotTable: thêm cột 0 là checkbox, sau đó tới các columns thật
+    const hotColumns = [
+        {
+            data: '__checkbox__',
+            title: '',
+            renderer: checkboxRenderer,
+            readOnly: true,
+            width: 22, // cố định rộng vừa phải
+        },
+        ...displayedColumns.map((col) => ({
+            data: col,
+            title: col,
+            type: 'text',
+            readOnly: true,
+        }))
+    ]
+
     return (
         <div className="text-sm min-h-[600px]">
+            {/* Màu chữ custom cho HotTable và reset cell style */}
+            <style>{`
+                .custom-table .handsontable, .custom-table .htCore, .custom-table .htCore td, .custom-table .htCore th,
+                .custom-table .htCore input, .custom-table .htCore textarea {
+                    color: #222 !important;
+                    font-weight: 400 !important;
+                }
+                .custom-table .handsontable .ht_clone_top th {
+                    color: #222 !important;
+                    font-weight: 500 !important; /* chỉ bôi đậm header */
+                }
+                /* Reset font-weight và border cho row đầu tiên nếu có */
+                .custom-table .handsontable .htCore tr:first-child td {
+                    font-weight: 400 !important;
+                    border-bottom: 1px solid #eee !important;
+                }
+                /* Xóa border đỏ nếu bị dính rule htInvalid */
+                .custom-table .handsontable .htInvalid,
+                .custom-table .htCore .htInvalid {
+                    border: 1px solid #eee !important;
+                }
+                .custom-table .hot-checkbox-cell {
+                    text-align: center !important;
+                    vertical-align: middle !important;
+                    padding: 0 !important;
+                    width: 36px !important;
+                    background: #fff !important
+                }
+                .custom-table .hot-checkbox-cell input[type="checkbox"] {
+                    width: 17px; height: 17px;
+                    cursor: pointer;
+                }
+            `}</style>
             <div className="mt-4 mb-2">
                 {!loading && (
                     <div className="relative px-4 sm:px-6 mx-auto max-w-7xl">
@@ -1047,117 +1124,36 @@ export default function DataSite({
                     <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
                 </div>
             ) : (
-                <div className="overflow-x-auto" style={{ scrollbarWidth: "thin", scrollBehavior: "smooth" }}>
-                    <table className="w-full bg-white rounded-lg overflow-hidden">
-                        <thead className="bg-blue-600 text-xs text-white sticky top-0">
-                            <tr>
-                                <th className="border border-blue-500 text-center">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedRows.length === currentProducts.length}
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                setSelectedRows(currentProducts.map((product: any) => product.Site))
-                                            } else {
-                                                setSelectedRows([])
-                                            }
-                                        }}
-                                        className="form-checkbox h-4 w-4 text-blue-600"
-                                    />
-                                </th>
-                                {displayedColumns.map((key) => (
-                                    <th key={key} className={`border border-blue-500 px-2 py-2 text-center ${getCellWidth(key)}`}>
-                                        <div className="flex items-center justify-center">
-                                            {key}
-                                            <button onClick={() => handleSort(key)} className="ml-1">
-                                                <FaSort />
-                                            </button>
-                                        </div>
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {currentProducts.map((product: any, index: number) => {
-                                const isSelected = selectedRows.includes(product.Site)
-                                const isAlreadyInCart = isInCart(product.Site)
-                                const hasValidPrice = getValidPriceType(product) !== null
-                                const availableTypes = getAvailablePriceTypes(product)
-
-                                return (
-                                    <tr
-                                        key={index}
-                                        onClick={() => handleRowSelect(product.Site)}
-                                        className={`
-                      ${index % 2 === 0 ? "bg-gray-50" : "bg-white"} 
-                      hover:bg-gray-100
-                      ${isSelected ? "bg-blue-50 hover:bg-blue-100" : ""}
-                      ${isAlreadyInCart ? "bg-green-50 hover:bg-green-100" : ""}
-                      ${!hasValidPrice ? "bg-red-50 hover:bg-red-100" : ""}
-                      transition-colors duration-200
-                    `}
-                                    >
-                                        <td className="border px-1 py-1 text-center">
-                                            <div className="relative">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isSelected}
-                                                    onChange={() => handleRowSelect(product.Site)}
-                                                    onClick={e => e.stopPropagation()}
-                                                    className="form-checkbox h-4 w-4 text-blue-600"
-                                                />
-                                                {isAlreadyInCart && (
-                                                    <Tooltip title="Đã có trong giỏ hàng">
-                                                        <div className="absolute -top-1 -right-1">
-                                                            <Badge status="success" />
-                                                        </div>
-                                                    </Tooltip>
-                                                )}
-                                                {!hasValidPrice && (
-                                                    <Tooltip title="Site tạm ngưng">
-                                                        <div className="absolute -top-1 -right-1">
-                                                            <Badge status="error" />
-                                                        </div>
-                                                    </Tooltip>
-                                                )}
-                                            </div>
-                                        </td>
-                                        {displayedColumns.map((key) => (
-                                            <td key={key} className={`border px-2 py-2 text-xs text-center ${getCellWidth(key)}`}>
-                                                {key === "Site" ? (
-                                                    <div className="flex items-center justify-center space-x-1">
-                                                        <a
-                                                            href={product[key]}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-blue-600 hover:underline"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            {truncateText(product[key], 30)}
-                                                        </a>
-                                                        {isAlreadyInCart && (
-                                                            <Tooltip title="Đã có trong giỏ hàng">
-                                                                <FaShoppingCart className="text-green-500 text-xs" />
-                                                            </Tooltip>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <div className="truncate">
-                                                        {iconMap[key] && React.createElement(iconMap[key], { className: "inline mr-1" })}
-                                                        {key.startsWith("Giá") && product[key] === "Ngưng" ? (
-                                                            <span className="text-red-500">Ngưng</span>
-                                                        ) : (
-                                                            truncateText(product[key], 30)
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </td>
-                                        ))}
-                                    </tr>
-                                )
-                            })}
-                        </tbody>
-                    </table>
+                <div className="overflow-x-auto w-full max-w-8xl">
+                    <HotTable
+                        ref={hotRef}
+                        data={currentProducts}
+                        height="auto"
+                        width="100%"
+                        columns={hotColumns}
+                        colHeaders={true}
+                        rowHeaders={false}
+                        licenseKey="non-commercial-and-evaluation"
+                        stretchH="all"
+                        autoWrapRow={true}
+                        copyPaste={true}
+                        columnSorting={true}
+                        autoColumnSize={false}
+                        preventOverflow="horizontal"
+                        renderAllRows={false}
+                        viewportRowRenderingOffset={20}
+                        manualColumnResize={true}
+                        manualRowResize={true}
+                        className="custom-table"
+                        themeName="ht-theme-main"
+                        selectionMode="multiple"
+                        afterOnCellMouseDown={(_, coords) => {
+                            // Chỉ click vào ô checkbox mới toggle chọn
+                            // Column 0 là checkbox, các cột khác bỏ chọn
+                            if (coords.col !== 0) return
+                            // (checkbox dùng event bubbling, nên đã gọi handleRowSelect trong renderer)
+                        }}
+                    />
                     <div className="mt-4 mb-4 flex justify-center gap-10 text-xs items-center">
                         <div className="flex items-center space-x-2">
                             <span>Hiển thị</span>

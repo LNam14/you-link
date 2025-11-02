@@ -314,6 +314,13 @@ export default function HeroHome() {
           color: "bg-gradient-to-r from-purple-500 to-orange-600",
           external: true,
         },
+        {
+          name: "Quản Lý Công Việc",
+          icon: <BarChart3 className="w-5 h-5" />,
+          href: "/quan-ly-cong-viec",
+          color: "bg-gradient-to-r from-teal-500 to-cyan-600",
+          external: true,
+        },
       ],
     },
   ]

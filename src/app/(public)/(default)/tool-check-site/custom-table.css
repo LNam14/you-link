@@ -112,3 +112,12 @@
     min-width: auto !important;
     max-width: none !important;
 }
+/* Ensure modal is always on top */
+.fixed.inset-0.bg-black.bg-opacity-50 {
+    z-index: 9999 !important;
+}
+
+/* Ensure table content stays below modal */
+.handsontable {
+    z-index: 0 !important;
+}

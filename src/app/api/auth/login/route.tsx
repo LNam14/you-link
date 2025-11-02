@@ -102,7 +102,8 @@ export async function POST(request: Request) {
             role: userData.role,
             position: userData.position,
             active: userData.active,
-            amount: userData.amount,
+            team: userData.team,
+            
         }
 
         // Tạo response và thiết lập cookies

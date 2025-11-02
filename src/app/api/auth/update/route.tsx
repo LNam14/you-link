@@ -29,6 +29,8 @@ export async function POST(request: Request) {
             6: "updated_at",
             7: "active",
             8: "team",
+            9: "phone",
+            10: "telegram",
         }
 
         const columnName = fieldMap[field]
@@ -36,15 +38,39 @@ export async function POST(request: Request) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: `Invalid field index: ${field}. Valid values are: 0-8`,
+                    message: `Invalid field index: ${field}. Valid values are: 0-10`,
                 },
                 { status: 400 },
             )
         }
 
-        // Build update data object
+        // Debug log to verify correct field is being updated
+        if (field === 8 || field === 9) {
+            console.log("Account update API:", {
+                id,
+                field,
+                columnName,
+                value,
+                isTeam: field === 8,
+                isPhone: field === 9
+            })
+        }
+
+        // Build update data object - only update the specific field
         const updateData: any = {}
         updateData[columnName] = value
+        
+        // Ensure only one field is being updated
+        if (Object.keys(updateData).length !== 1) {
+            console.error("CRITICAL: Multiple fields in updateData:", updateData)
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Only one field should be updated at a time",
+                },
+                { status: 400 },
+            )
+        }
 
         // Coerce id to number and validate
         const numericId = Number(id)

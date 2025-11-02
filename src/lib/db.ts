@@ -7,7 +7,7 @@ const globalForPrisma = global as unknown as { prisma: PrismaClient };
 // Initialize Prisma client
 const prismaClientSingleton = () => {
   return new PrismaClient({
-    log: ['query', 'error', 'warn'],
+    log: ['error', 'warn'],
   });
 };
 
@@ -15,15 +15,6 @@ const prismaClientSingleton = () => {
 const prisma = globalForPrisma.prisma ?? prismaClientSingleton();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
-
-// Add Prisma middleware for logging
-prisma.$use(async (params: any, next: any) => {
-  const before = Date.now();
-  const result = await next(params);
-  const after = Date.now();
-  console.log(`Query ${params.model}.${params.action} took ${after - before}ms`);
-  return result;
-});
 
 // Initialize database connection
 let isConnected = false;

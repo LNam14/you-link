@@ -194,6 +194,12 @@ export default function Header() {
       color: "bg-gradient-to-r from-purple-500 to-indigo-600",
     },
     {
+      name: "Quản Lý Công Việc",
+      icon: <BarChart3 className="w-4 h-4" />,
+      href: "/quan-ly-cong-viec",
+      color: "bg-gradient-to-r from-teal-500 to-cyan-600",
+    },
+    {
       name: "Tool Check Site",
       icon: <CheckCircle className="w-4 h-4" />,
       href: "/tool-check-site",

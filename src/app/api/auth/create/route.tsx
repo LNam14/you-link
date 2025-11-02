@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
     try {
         const body = await request.json()
-        const { role, count = 1, team, position } = body
+        const { role, count = 1, team, position, phone } = body
 
         // Validate input
         if (!role || count < 1) {
@@ -25,6 +25,7 @@ export async function POST(request: Request) {
             role,
             ...(team && { team }),
             ...(position && { position }),
+            ...(phone && { phone }),
             created_at: now,
             updated_at: now,
         }))

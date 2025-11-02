@@ -1,0 +1,261 @@
+{
+  "users": {
+    "nguyentiendat": {
+      "weeks": {
+        "44": {
+          "dateRange": {
+            "from": "2025-10-27",
+            "to": "2025-11-02"
+          },
+          "weeklyTasks": [
+            {
+              "id": 1,
+              "title": "Đề xuất 1",
+              "content": "Tăng tương tác fanpage"
+            },
+            {
+              "id": 2,
+              "title": "Đề xuất 2",
+              "content": "Thử nghiệm chiến dịch email MKT"
+            },
+            {
+              "id": 3,
+              "title": "Đề xuất 3",
+              "content": "Cải tiến báo cáo tuần"
+            }
+          ],
+          "dailyTasks": [
+            {
+              "day": "T2",
+              "date": "2025-10-27",
+              "chamCong": true,
+              "vqmm": true,
+              "bauCua": false,
+              "spamMKT": [
+                "Gửi MKT nhóm A"
+              ]
+            },
+            {
+              "day": "T3",
+              "date": "2025-10-28",
+              "chamCong": true,
+              "vqmm": false,
+              "bauCua": true,
+              "spamMKT": [
+                "Gửi MKT nhóm B",
+                "Gửi MKT nhóm C"
+              ]
+            },
+            {
+              "day": "T4",
+              "date": "2025-10-29",
+              "chamCong": true,
+              "vqmm": false,
+              "bauCua": false,
+              "spamMKT": []
+            },
+            {
+              "day": "T5",
+              "date": "2025-10-30",
+              "chamCong": false,
+              "vqmm": false,
+              "bauCua": false,
+              "spamMKT": []
+            },
+            {
+              "day": "T6",
+              "date": "2025-10-31",
+              "chamCong": true,
+              "vqmm": false,
+              "bauCua": false,
+              "spamMKT": [
+                "Gửi MKT nội bộ"
+              ]
+            },
+            {
+              "day": "T7",
+              "date": "2025-11-01",
+              "chamCong": true,
+              "vqmm": true,
+              "bauCua": false,
+              "spamMKT": []
+            },
+            {
+              "day": "CN",
+              "date": "2025-11-02",
+              "chamCong": false,
+              "vqmm": false,
+              "bauCua": false,
+              "spamMKT": []
+            }
+          ]
+        },
+        "45": {
+          "dateRange": {
+            "from": "2025-11-03",
+            "to": "2025-11-09"
+          },
+          "weeklyTasks": [
+            {
+              "id": 1,
+              "title": "Đề xuất 1",
+              "content": "Chuẩn bị tài liệu huấn luyện"
+            },
+            {
+              "id": 2,
+              "title": "Đề xuất 2",
+              "content": "Tối ưu hiệu suất web MKT"
+            },
+            {
+              "id": 3,
+              "title": "Đề xuất 3",
+              "content": "Tổ chức minigame fanpage"
+            }
+          ],
+          "dailyTasks": [
+            {
+              "day": "T2",
+              "date": "2025-11-03",
+              "chamCong": true,
+              "vqmm": false,
+              "bauCua": false,
+              "spamMKT": []
+            },
+            {
+              "day": "T3",
+              "date": "2025-11-04",
+              "chamCong": true,
+              "vqmm": false,
+              "bauCua": true,
+              "spamMKT": [
+                "Gửi MKT nhóm Z"
+              ]
+            },
+            {
+              "day": "T4",
+              "date": "2025-11-05",
+              "chamCong": true,
+              "vqmm": true,
+              "bauCua": false,
+              "spamMKT": []
+            },
+            {
+              "day": "T5",
+              "date": "2025-11-06",
+              "chamCong": false,
+              "vqmm": false,
+              "bauCua": false,
+              "spamMKT": []
+            },
+            {
+              "day": "T6",
+              "date": "2025-11-07",
+              "chamCong": true,
+              "vqmm": false,
+              "bauCua": false,
+              "spamMKT": [
+                "Gửi MKT nhóm B"
+              ]
+            },
+            {
+              "day": "T7",
+              "date": "2025-11-08",
+              "chamCong": true,
+              "vqmm": true,
+              "bauCua": true,
+              "spamMKT": []
+            },
+            {
+              "day": "CN",
+              "date": "2025-11-09",
+              "chamCong": false,
+              "vqmm": false,
+              "bauCua": false,
+              "spamMKT": []
+            }
+          ]
+        }
+      }
+    },
+    "BH001": {
+      "weeks": {
+        "44": {
+          "dateRange": {
+            "from": "2025-10-27",
+            "to": "2025-11-02"
+          },
+          "weeklyTasks": [
+            {
+              "id": 1,
+              "title": "Đề xuất 1",
+              "content": "Xử lý đơn cho KH XYZ"
+            },
+            {
+              "id": 2,
+              "title": "Đề xuất 2",
+              "content": ""
+            }
+          ],
+          "dailyTasks": [
+            {
+              "day": "T2",
+              "date": "2025-10-27",
+              "chamCong": true,
+              "ghichu": [
+                "Ghi chú công việc buổi sáng",
+                "Ghi chú công việc buổi chiều"
+              ],
+              "spamMKT": [
+                "Spam MKT của BH001"
+              ]
+            },
+            {
+              "day": "T3",
+              "date": "2025-10-28",
+              "chamCong": true,
+              "ghichu": [],
+              "spamMKT": []
+            },
+            {
+              "day": "T4",
+              "date": "2025-10-29",
+              "chamCong": false,
+              "ghichu": [],
+              "spamMKT": []
+            },
+            {
+              "day": "T5",
+              "date": "2025-10-30",
+              "chamCong": true,
+              "ghichu": [
+                "Ghi chú ngày 30/10"
+              ],
+              "spamMKT": []
+            },
+            {
+              "day": "T6",
+              "date": "2025-10-31",
+              "chamCong": false,
+              "ghichu": [],
+              "spamMKT": []
+            },
+            {
+              "day": "T7",
+              "date": "2025-11-01",
+              "chamCong": true,
+              "ghichu": [],
+              "spamMKT": []
+            },
+            {
+              "day": "CN",
+              "date": "2025-11-02",
+              "chamCong": false,
+              "ghichu": [],
+              "spamMKT": []
+            }
+          ]
+        }
+      }
+    }
+  }
+}

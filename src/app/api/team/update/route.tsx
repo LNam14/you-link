@@ -73,49 +73,54 @@ export async function POST(request: Request) {
             })
         ])
 
-        // Get updated team with member details
-        const teamWithMembers = await prisma.team.findUnique({
-            where: { id: Number(id) },
-            // @ts-expect-error - Prisma types are not properly inferred
-            include: {
-                _count: {
-                    select: {
-                        accounts: true
-                    }
-                },
-                accounts: {
-                    where: {
-                        role: 'Nhân viên'
-                    },
-                    select: {
-                        id: true,
-                        username: true,
-                        name: true,
-                        role: true,
-                        active: true,
-                        created_at: true
-                    }
-                }
-            }
-        }) as TeamWithMembers | null;
+        // Get updated team
+        const updatedTeamData = await prisma.team.findUnique({
+            where: { id: Number(id) }
+        })
 
-        if (!teamWithMembers) {
+        if (!updatedTeamData) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Team members not found",
+                    message: "Team not found",
                 },
                 { status: 404 },
             )
         }
 
+        // Get accounts for this team separately (since there's no relation in schema)
+        const accounts = await prisma.account.findMany({
+            where: {
+                team: updatedTeamData.name,
+                role: 'Nhân viên'
+            },
+            select: {
+                id: true,
+                username: true,
+                name: true,
+                role: true,
+                active: true,
+                created_at: true
+            }
+        })
+
+        // Count total accounts for this team
+        const accountCount = await prisma.account.count({
+            where: {
+                team: updatedTeamData.name,
+                role: 'Nhân viên'
+            }
+        })
+
         // Transform the data to match the expected format
-        const transformedTeam = {
-            ...teamWithMembers,
-            member_count: teamWithMembers._count.accounts,
-            active_member_count: teamWithMembers.accounts.filter(a => a.active === "Hoạt động").length,
-            members: teamWithMembers.accounts
-        } as TeamWithMembers;
+        const transformedTeam:any = {
+            ...updatedTeamData,
+            member_count: accountCount,
+            active_member_count: accounts.filter(a => a.active === "Hoạt động").length,
+            members: accounts,
+            _count: { accounts: accountCount },
+            accounts: accounts
+        } 
 
         return NextResponse.json(
             {
