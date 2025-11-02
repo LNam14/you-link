@@ -6,7 +6,7 @@ import { cookies } from "next/headers"
 const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
 
 export const dynamic = "force-dynamic"
-export const maxDuration = 300
+export const maxDuration = 60
 
 interface BulkUpdateRequest {
     updates: Array<{
