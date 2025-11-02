@@ -112,13 +112,14 @@ export async function PUT(request: Request) {
     }
 
     // Verify user owns this task (unless admin)
-    const { role } = JSON.parse(userInfo.value);
+    const userData = JSON.parse(userInfo.value);
+    const { role, position } = userData;
     
-    // Nếu Admin đang update cho user khác (bodyUsername khác existingTask.username)
+    // Nếu Admin hoặc Leader đang update cho user khác (bodyUsername khác existingTask.username)
     // Cần tìm hoặc tạo record mới cho user đó
     const targetUsername = bodyUsername || username;
     
-    if (role === "Admin" && bodyUsername && existingTask.username !== bodyUsername) {
+    if ((role === "Admin" || position === "Leader") && bodyUsername && existingTask.username !== bodyUsername) {
       console.log('[Work Task Update] Admin đang update cho user khác. Tìm/tạo record cho:', bodyUsername);
       
       // Tìm record cho user được chọn
@@ -318,12 +319,13 @@ export async function PUT(request: Request) {
       updatedAt: updatedTask.updated_at
     };
 
-    // Send Telegram notification when Admin adds new weekly tasks
+    // Send Telegram notification when Admin or Leader adds new weekly tasks
     console.log('[Work Task Update] Role:', role);
+    console.log('[Work Task Update] Position:', position);
     console.log('[Work Task Update] Has weekData:', !!weekData);
     console.log('[Work Task Update] Has weeklyTasks:', !!weekData?.weeklyTasks);
     
-    if (role === "Admin" && weekData && weekData.weeklyTasks) {
+    if ((role === "Admin" || position === "Leader") && weekData && weekData.weeklyTasks) {
       try {
         const oldWeekData = typeof existingTask.week_data === 'string' 
           ? JSON.parse(existingTask.week_data) 

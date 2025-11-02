@@ -141,9 +141,9 @@ export async function POST(request: Request) {
 
       // Send Telegram notification for new tasks (similar to create logic)
       const userData = JSON.parse(userInfo.value);
-      const { role, name: creatorName, username: creatorUsername } = userData;
+      const { role, name: creatorName, username: creatorUsername, position } = userData;
       
-      if (role === "Admin" && weekData.weeklyTasks) {
+      if ((role === "Admin" || position === "Leader") && weekData.weeklyTasks) {
         try {
           const oldWeekData = typeof existingTask.week_data === 'string' 
             ? JSON.parse(existingTask.week_data) 
@@ -251,11 +251,12 @@ export async function POST(request: Request) {
 
     // Send Telegram notification - tag the assigned user
     const userData = JSON.parse(userInfo.value);
-    const { role, name: creatorName, username: creatorUsername } = userData;
+    const { role, name: creatorName, username: creatorUsername, position } = userData;
     console.log('[Work Task Create] Role:', role);
+    console.log('[Work Task Create] Position:', position);
     console.log('[Work Task Create] Username:', workTask.username);
     
-    if (role === "Admin") {
+    if (role === "Admin" || position === "Leader") {
       // Get assigned user's telegram username (workTask.username là người được chọn trong select)
       const assignedUsername = workTask.username; // Đây là người được chọn, không phải Admin
       console.log('[Work Task Create] Lấy telegram của người được chọn:', assignedUsername);

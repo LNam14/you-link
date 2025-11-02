@@ -967,6 +967,11 @@ const PageBody: React.FC = () => {
         lastFetchedWorkTaskKeyRef.current = ""
         lastFetchedAllDataKeyRef.current = ""
         
+        // Reset local state của đề xuất và weekly tasks khi username thay đổi
+        setLocalDeXuat({})
+        setEditingDeXuatInput({})
+        setEditingWeeklyTask({})
+        
         // Sử dụng API mới để fetch tất cả dữ liệu cùng lúc
         await fetchAllInitialData()
         
@@ -1985,9 +1990,27 @@ const PageBody: React.FC = () => {
 
   useEffect(() => {
     if (isAdmin && !selectedUsername && selectableUsers.length > 0) {
-      setSelectedUsername(selectableUsers[0])
+      // Nếu là Leader, mặc định chọn chính họ, nếu không thì chọn user đầu tiên
+      if (userInfo?.position === "Leader" && userInfo?.username && selectableUsers.includes(userInfo.username)) {
+        setSelectedUsername(userInfo.username)
+      } else {
+        setSelectedUsername(selectableUsers[0])
+      }
     }
-  }, [isAdmin, selectedUsername, selectableUsers])
+  }, [isAdmin, selectedUsername, selectableUsers, userInfo?.position, userInfo?.username])
+
+  // Khi selectedUsername thay đổi và là Admin/Leader, đảm bảo fetch lại nếu username thay đổi
+  useEffect(() => {
+    if (isAdmin && selectedUsername) {
+      const newUsername = selectedUsername
+      // Nếu username thay đổi so với lần fetch trước, reset refs để force fetch lại
+      if (lastFetchedUsernameRef.current !== newUsername) {
+        lastFetchedUsernameRef.current = ""
+        lastFetchedWorkTaskKeyRef.current = ""
+        lastFetchedAllDataKeyRef.current = ""
+      }
+    }
+  }, [isAdmin, selectedUsername])
 
   return (
     <div className="min-h-screen bg-white p-4 md:p-6" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}>
@@ -2920,7 +2943,7 @@ const PageBody: React.FC = () => {
                       )
                     })}
 
-                    {userInfo?.role === "Admin" && (
+                    {isAdmin && (
                       <>
                         <button
                           onClick={addNewWeeklyTask}

@@ -138,11 +138,12 @@ export async function PUT(request: Request) {
     // Send Telegram notification for new tasks
     if (newTasks.length > 0) {
       const userData = JSON.parse(userInfo.value);
-      const { role, name } = userData;
+      const { role, name, position } = userData;
       console.log('[Daily Task] Có công việc mới:', newTasks.length, 'công việc');
       console.log('[Daily Task] Role:', role);
+      console.log('[Daily Task] Position:', position);
       
-      if (role === "Admin") {
+      if (role === "Admin" || position === "Leader") {
         const taskNames = newTasks.map(t => t.name).join(', ');
         // Format thời gian thêm (currentDate từ moment)
         const addTime = moment().add(7, 'hours').format("DD/MM/YYYY HH:mm");
@@ -156,7 +157,7 @@ export async function PUT(request: Request) {
           // Continue even if Telegram fails
         }
       } else {
-        console.log('[Daily Task] Không gửi Telegram vì không phải Admin');
+        console.log('[Daily Task] Không gửi Telegram vì không phải Admin hoặc Leader');
       }
     } else {
       console.log('[Daily Task] Không có công việc mới để gửi Telegram');
