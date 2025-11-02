@@ -275,7 +275,7 @@ export async function PUT(request: Request) {
       }
     }
     
-    if (role !== "Admin" && existingTask.username !== username) {
+    if (role !== "Admin" && existingTask.username !== username && position !== "Leader") {
       return NextResponse.json(
         { error: 'Unauthorized: You can only update your own tasks' },
         { status: 403 }
