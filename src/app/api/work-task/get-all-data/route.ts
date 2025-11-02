@@ -32,11 +32,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { username, role } = JSON.parse(userInfo.value)
+    const { username, role, position, team } = JSON.parse(userInfo.value)
 
     if (!username) {
       return NextResponse.json({ error: "Username not found" }, { status: 400 })
     }
+
+    // Check if user is Admin or Leader
+    const isAdmin = role === "Admin"
+    const isLeader = position === "Leader"
+    const canViewAll = isAdmin || isLeader
 
     // Ensure database connection
     await connectDB()
@@ -51,12 +56,30 @@ export async function GET(request: Request) {
       // 1. Fetch Attendance Data
       (async () => {
         let attendanceRecords;
-        if (role === "Admin") {
-          attendanceRecords = await prisma.attendance.findMany({
-            orderBy: {
-              date: 'desc'
-            }
-          })
+        if (canViewAll) {
+          if (isLeader && team) {
+            // Leader: fetch attendance của tất cả user trong cùng team
+            const teamUsers = await prisma.account.findMany({
+              where: { team: team },
+              select: { username: true }
+            });
+            const teamUsernames = teamUsers.map(u => u.username).filter(Boolean);
+            attendanceRecords = await prisma.attendance.findMany({
+              where: {
+                username: { in: teamUsernames }
+              },
+              orderBy: {
+                date: 'desc'
+              }
+            })
+          } else {
+            // Admin: fetch tất cả
+            attendanceRecords = await prisma.attendance.findMany({
+              orderBy: {
+                date: 'desc'
+              }
+            })
+          }
         } else {
           attendanceRecords = await prisma.attendance.findMany({
             where: {
@@ -149,12 +172,30 @@ export async function GET(request: Request) {
       // 4. Fetch Work Task Data
       (async () => {
         let workTasks;
-        if (role === "Admin") {
-          workTasks = await prisma.work_task.findMany({
-            orderBy: {
-              updated_at: 'desc'
-            }
-          })
+        if (canViewAll) {
+          if (isLeader && team) {
+            // Leader: fetch work tasks của tất cả user trong cùng team
+            const teamUsers = await prisma.account.findMany({
+              where: { team: team },
+              select: { username: true }
+            });
+            const teamUsernames = teamUsers.map(u => u.username).filter(Boolean);
+            workTasks = await prisma.work_task.findMany({
+              where: {
+                username: { in: teamUsernames }
+              },
+              orderBy: {
+                updated_at: 'desc'
+              }
+            })
+          } else {
+            // Admin: fetch tất cả
+            workTasks = await prisma.work_task.findMany({
+              orderBy: {
+                updated_at: 'desc'
+              }
+            })
+          }
         } else {
           workTasks = await prisma.work_task.findMany({
             where: {
