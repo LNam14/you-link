@@ -23,7 +23,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi">
-        <body className={inter.className}>{children}
+        <body className={inter.className}>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-23X8HHWDER"
+          strategy="afterInteractive"
+        />
+        <Script id="ga-gtag" strategy="afterInteractive">{`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);} 
+          gtag('js', new Date());
+          gtag('config', 'G-23X8HHWDER');
+        `}</Script>
+        {children}
         <Script id="fx-loader" strategy="afterInteractive">{`
           (function(){
             try {

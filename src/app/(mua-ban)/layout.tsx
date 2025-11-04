@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import "../globals.css"
 import { MenuProvider } from "../context/MenuContext";
+import Script from "next/script";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -18,6 +19,16 @@ export default function RootLayout({
         <link rel="icon" href="/images/logo-circle.png" />
       </head>
       <body className={inter.className}>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-23X8HHWDER"
+          strategy="afterInteractive"
+        />
+        <Script id="ga-gtag" strategy="afterInteractive">{`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);} 
+          gtag('js', new Date());
+          gtag('config', 'G-23X8HHWDER');
+        `}</Script>
         <div className="flex min-h-screen flex-col">
           <MenuProvider>
             {children}
