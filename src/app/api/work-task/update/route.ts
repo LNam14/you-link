@@ -71,7 +71,7 @@ export async function PUT(request: Request) {
     const userInfo = cookieStore.get("userInfo")
 
     if (!userInfo) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })      
     }
 
     const { username } = JSON.parse(userInfo.value)
@@ -82,167 +82,66 @@ export async function PUT(request: Request) {
 
     const body = await request.json();
     const { id, weekData, weekNumber, username: bodyUsername } = body;
-    
+
     // Log để debug
     console.log('[Work Task Update] Username từ body (người được chọn):', bodyUsername);
     console.log('[Work Task Update] Username từ cookie (Admin):', username);
-    
-    if (!id) {
-      return NextResponse.json(
-        { error: 'ID is required' },
-        { status: 400 }
-      );
-    }
+    console.log('[Work Task Update] ID:', id);
+    console.log('[Work Task Update] WeekNumber:', weekNumber);
 
     // Ensure database connection
     await connectDB();
 
-    // Check if work task exists
-    const existingTask = await prisma.work_task.findUnique({
-      where: {
-        id: Number(id)
-      }
-    });
-
-    if (!existingTask) {
-      return NextResponse.json(
-        { error: 'Work task not found' },
-        { status: 404 }
-      );
-    }
-
     // Verify user owns this task (unless admin)
     const userData = JSON.parse(userInfo.value);
     const { role, position } = userData;
-    
-    // Nếu Admin hoặc Leader đang update cho user khác (bodyUsername khác existingTask.username)
-    // Cần tìm hoặc tạo record mới cho user đó
+
+    // Xác định username đích (người được chọn hoặc người đang login)
     const targetUsername = bodyUsername || username;
-    
-    if ((role === "Admin" || position === "Leader") && bodyUsername && existingTask.username !== bodyUsername) {
+
+    let existingTask = null;
+    let taskToUpdate = null;
+
+    // Nếu có id, tìm theo id trước
+    if (id) {
+      existingTask = await prisma.work_task.findUnique({
+        where: {
+          id: Number(id)
+        }
+      });
+    }
+
+    // Nếu không tìm thấy theo id, hoặc không có id, tìm theo username + weekNumber
+    if (!existingTask && targetUsername && weekNumber) {
+      console.log('[Work Task Update] Không tìm thấy theo ID, tìm theo username + weekNumber:', targetUsername, weekNumber);
+      existingTask = await prisma.work_task.findFirst({
+        where: {
+          username: targetUsername,
+          week_number: weekNumber.toString()
+        }
+      });
+    }
+
+    // Nếu Admin hoặc Leader đang update cho user khác (bodyUsername khác username hiện tại)
+    if ((role === "Admin" || position === "Leader") && bodyUsername && bodyUsername !== username) {
       console.log('[Work Task Update] Admin đang update cho user khác. Tìm/tạo record cho:', bodyUsername);
-      
+
       // Tìm record cho user được chọn
       const targetTask = await prisma.work_task.findFirst({
         where: {
           username: bodyUsername,
-          week_number: weekNumber?.toString() || existingTask.week_number
+          week_number: weekNumber?.toString() || existingTask?.week_number
         }
       });
 
       if (targetTask) {
         // Nếu đã có record cho user đó, update record đó
         console.log('[Work Task Update] Đã tìm thấy record cho user:', bodyUsername, 'ID:', targetTask.id);
-        
-        const currentDate = moment().add(7, 'hours').format("YYYY-MM-DD HH:mm:ss");
-        const updateData: any = {
-          updated_at: currentDate
-        };
-
-        if (weekData) {
-          updateData.week_data = JSON.stringify(weekData);
-        }
-
-        if (weekNumber) {
-          updateData.week_number = weekNumber.toString();
-        }
-
-        const updatedTask = await prisma.work_task.update({
-          where: {
-            id: targetTask.id
-          },
-          data: updateData
-        });
-
-        const formattedData = {
-          id: updatedTask.id,
-          username: updatedTask.username,
-          weekNumber: updatedTask.week_number,
-          weekData: typeof updatedTask.week_data === 'string' ? JSON.parse(updatedTask.week_data) : updatedTask.week_data,
-          createdAt: updatedTask.created_at,
-          updatedAt: updatedTask.updated_at
-        };
-
-        // Send Telegram notification when Admin adds new weekly tasks
-        if (weekData && weekData.weeklyTasks) {
-          try {
-            const oldWeekData = typeof targetTask.week_data === 'string' 
-              ? JSON.parse(targetTask.week_data) 
-              : targetTask.week_data;
-            
-            const oldTaskIds = (oldWeekData?.weeklyTasks || []).map((t: any) => t.id);
-            const newTasks = (weekData.weeklyTasks || []).filter((t: any) => !oldTaskIds.includes(t.id));
-            
-            if (newTasks.length > 0) {
-              const userData = JSON.parse(userInfo.value);
-              const { name: creatorName, username: creatorUsername } = userData;
-              
-              const userAccount = await prisma.account.findUnique({
-                where: { username: bodyUsername },
-                select: { telegram: true, name: true, position: true }
-              });
-              
-              const assignedName = userAccount?.name || bodyUsername;
-              const telegramUsername = userAccount?.telegram || `@${bodyUsername}`;
-              const taskNames = newTasks.map((t: any) => t.content || t.title || "Công việc mới").join(', ');
-              const currentWeekNumber = weekNumber?.toString() || updatedTask.week_number;
-              
-              // Tính thời gian áp dụng và thời gian kết thúc
-              const addTime = moment().add(7, 'hours').format("DD/MM/YYYY HH:mm");
-              
-              // Tính ngày chủ nhật (23:59) của tuần từ dateRange hoặc từ tuần hiện tại
-              const parsedWeekData = typeof weekData === 'string' ? JSON.parse(weekData) : weekData;
-              const parsedUpdatedWeekData = typeof updatedTask.week_data === 'string' ? JSON.parse(updatedTask.week_data) : updatedTask.week_data;
-              const weekDataForEndTime = parsedWeekData || parsedUpdatedWeekData;
-              let endTime = "";
-              if (weekDataForEndTime?.dateRange?.to) {
-                // Lấy ngày kết thúc từ dateRange và set 23:59
-                const endDate = moment(weekDataForEndTime.dateRange.to, "DD/MM/YYYY").set({ hour: 23, minute: 59 });
-                endTime = endDate.format("DD/MM/YYYY HH:mm");
-              } else {
-                // Tính chủ nhật của tuần hiện tại
-                const now = moment().add(7, 'hours');
-                const dayOfWeek = now.day(); // 0 = CN, 1 = T2, ..., 6 = T7
-                const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
-                const sundayDate = now.clone().add(daysToSunday, 'days').set({ hour: 23, minute: 59 });
-                endTime = sundayDate.format("DD/MM/YYYY HH:mm");
-              }
-              
-              // Format message với số tuần, danh sách công việc, người làm và người giao
-              const message = `📋 <b>Công việc tuần ${currentWeekNumber}</b>\n\n<b>Danh sách công việc:</b>\n${taskNames}\n\n<b>Thời gian áp dụng:</b> ${addTime}\n<b>Thời gian kết thúc:</b> ${endTime}\n\n<b>Người làm:</b> ${bodyUsername}-${assignedName}\n<b>Người giao:</b> ${creatorUsername}-${creatorName}\n\n⚠️ <b>${telegramUsername} chú ý thực hiện!</b>`;
-              
-              // Gửi vào group
-              await sendTelegramNotification(message);
-              
-              // Gửi riêng đến telegram người làm nếu có chat_id (số, không phải username @...)
-              if (userAccount?.telegram) {
-                const telegramValue = userAccount.telegram.trim();
-                // Kiểm tra xem có phải là chat_id (số) không (có thể âm hoặc dương)
-                const isChatId = /^-?\d+$/.test(telegramValue);
-                if (isChatId) {
-                  try {
-                    await sendTelegramNotification(message, telegramValue);
-                    console.log('[Work Task Update] ✅ Đã gửi Telegram riêng cho người làm (chat_id):', telegramValue);
-                  } catch (error) {
-                    console.error('[Work Task Update] ❌ Lỗi gửi Telegram riêng:', error);
-                  }
-                } else {
-                  console.log('[Work Task Update] Telegram là username, không gửi riêng được:', telegramValue);
-                }
-              }
-              
-              console.log('[Work Task Update] ✅ Đã gửi Telegram cho user khác:', taskNames);
-            }
-          } catch (error) {
-            console.error('[Work Task Update] ❌ Lỗi gửi Telegram:', error);
-          }
-        }
-        
-        return NextResponse.json({ data: formattedData });
+        taskToUpdate = targetTask;
       } else {
         // Nếu chưa có record, tạo mới
         console.log('[Work Task Update] Chưa có record cho user:', bodyUsername, '- Tạo mới');
-        
+
         const currentDate = moment().add(7, 'hours').format("YYYY-MM-DD HH:mm:ss");
         const completeWeekData = {
           dateRange: weekData?.dateRange || { from: "", to: "" },
@@ -255,7 +154,7 @@ export async function PUT(request: Request) {
         const newTask = await prisma.work_task.create({
           data: {
             username: bodyUsername,
-            week_number: weekNumber?.toString() || existingTask.week_number,
+            week_number: weekNumber?.toString() || existingTask?.week_number || moment().add(7, 'hours').isoWeek().toString(),
             week_data: JSON.stringify(completeWeekData),
             created_at: currentDate,
             updated_at: currentDate
@@ -273,15 +172,62 @@ export async function PUT(request: Request) {
 
         return NextResponse.json({ data: formattedData });
       }
+    } else {
+      // Nếu không phải Admin update cho user khác, sử dụng existingTask đã tìm được
+      taskToUpdate = existingTask;
     }
-    
-    if (role !== "Admin" && existingTask.username !== username && position !== "Leader") {
+
+    // Nếu vẫn không tìm thấy record nào, tạo mới (upsert behavior)
+    if (!taskToUpdate) {
+      console.log('[Work Task Update] Không tìm thấy record nào, tạo mới cho:', targetUsername);
+
+      if (!targetUsername || !weekNumber) {
+        return NextResponse.json(
+          { error: 'Username and weekNumber are required to create new task' },
+          { status: 400 }
+        );
+      }
+
+      const currentDate = moment().add(7, 'hours').format("YYYY-MM-DD HH:mm:ss");
+      const completeWeekData = {
+        dateRange: weekData?.dateRange || { from: "", to: "" },
+        weeklyTasks: weekData?.weeklyTasks || [],
+        deXuat: weekData?.deXuat || ["", "", ""],
+        dailyTasks: weekData?.dailyTasks || [],
+        ...weekData
+      };
+
+      const newTask = await prisma.work_task.create({
+        data: {
+          username: targetUsername,
+          week_number: weekNumber.toString(),
+          week_data: JSON.stringify(completeWeekData),
+          created_at: currentDate,
+          updated_at: currentDate
+        }
+      });
+
+      const formattedData = {
+        id: newTask.id,
+        username: newTask.username,
+        weekNumber: newTask.week_number,
+        weekData: typeof newTask.week_data === 'string' ? JSON.parse(newTask.week_data) : newTask.week_data,
+        createdAt: newTask.created_at,
+        updatedAt: newTask.updated_at
+      };
+
+      return NextResponse.json({ data: formattedData });
+    }
+
+    // Kiểm tra quyền truy cập
+    if (role !== "Admin" && taskToUpdate.username !== username && position !== "Leader") {
       return NextResponse.json(
         { error: 'Unauthorized: You can only update your own tasks' },
         { status: 403 }
       );
     }
 
+    // Update existing task
     const currentDate = moment().add(7, 'hours').format("YYYY-MM-DD HH:mm:ss");
 
     const updateData: any = {
@@ -298,7 +244,7 @@ export async function PUT(request: Request) {
 
     const updatedTask = await prisma.work_task.update({
       where: {
-        id: Number(id)
+        id: taskToUpdate.id
       },
       data: updateData
     });
@@ -325,25 +271,25 @@ export async function PUT(request: Request) {
     console.log('[Work Task Update] Has weekData:', !!weekData);
     console.log('[Work Task Update] Has weeklyTasks:', !!weekData?.weeklyTasks);
     
-    if ((role === "Admin" || position === "Leader") && weekData && weekData.weeklyTasks) {
+        if ((role === "Admin" || position === "Leader") && weekData && weekData.weeklyTasks && taskToUpdate) {
       try {
-        const oldWeekData = typeof existingTask.week_data === 'string' 
-          ? JSON.parse(existingTask.week_data) 
-          : existingTask.week_data;
-        
+        const oldWeekData = typeof taskToUpdate.week_data === 'string'
+          ? JSON.parse(taskToUpdate.week_data)
+          : taskToUpdate.week_data;
+
         const oldTaskIds = (oldWeekData?.weeklyTasks || []).map((t: any) => t.id);
         console.log('[Work Task Update] Old task IDs:', oldTaskIds);
-        
+
         const newTasks = (weekData.weeklyTasks || []).filter((t: any) => !oldTaskIds.includes(t.id));
         console.log('[Work Task Update] New tasks found:', newTasks.length);
         console.log('[Work Task Update] New tasks:', newTasks);
-        
+
         if (newTasks.length > 0) {
           const userData = JSON.parse(userInfo.value);
           const { name: creatorName, username: creatorUsername } = userData;
-          
-          // Get assigned user's telegram username (existingTask.username là người được chọn trong select)
-          const assignedUsername = existingTask.username; // Đây là người được chọn, không phải Admin
+
+          // Get assigned user's telegram username (taskToUpdate.username là người được chọn trong select)
+          const assignedUsername = taskToUpdate.username; // Đây là người được chọn, không phải Admin
           console.log('[Work Task Update] Lấy telegram của người được chọn:', assignedUsername);
           
           const userAccount = await prisma.account.findUnique({
