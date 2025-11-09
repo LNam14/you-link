@@ -8,12 +8,14 @@ export const dynamic = 'force-dynamic';
 
 // Telegram notification
 const TELEGRAM_BOT_TOKEN = '8438379827:AAGA5omDiX3vektnojY57Y23cMGDv6baD5U';
-const REMIND_CHAT_ID = '-1003124919874_16'; // Group chat ID để gửi nhắc nhở
+const REMIND_CHAT_ID = '-1003124919874'; // Group chat ID để gửi nhắc nhở
+const REMIND_TOPIC_ID = 16; // Topic ID trong group
 const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
 
 async function sendTelegramNotification(message: string): Promise<void> {
   console.log('[Weekly Task Remind] Bắt đầu gửi tin nhắn nhắc nhở...');
   console.log('[Weekly Task Remind] Chat ID:', REMIND_CHAT_ID);
+  console.log('[Weekly Task Remind] Topic ID:', REMIND_TOPIC_ID);
   console.log('[Weekly Task Remind] Message:', message);
   
   try {
@@ -23,6 +25,11 @@ async function sendTelegramNotification(message: string): Promise<void> {
       parse_mode: 'HTML',
       disable_web_page_preview: true,
     };
+    
+    // Thêm message_thread_id để gửi đến topic cụ thể trong group
+    if (REMIND_TOPIC_ID) {
+      requestBody.message_thread_id = REMIND_TOPIC_ID;
+    }
     
     console.log('[Weekly Task Remind] Request body:', JSON.stringify(requestBody, null, 2));
     
@@ -41,7 +48,12 @@ async function sendTelegramNotification(message: string): Promise<void> {
     if (response.ok && responseData.ok) {
       console.log('[Weekly Task Remind] ✅ Tin nhắn đã được gửi thành công!');
     } else {
-      console.error('[Weekly Task Remind] ❌ Gửi tin nhắn thất bại:', responseData);
+      // Xử lý lỗi TOPIC_CLOSED
+      if (responseData.error_code === 400 && responseData.description?.includes('TOPIC_CLOSED')) {
+        console.error('[Weekly Task Remind] ⚠️ Topic đã bị đóng, không thể gửi tin nhắn:', responseData);
+      } else {
+        console.error('[Weekly Task Remind] ❌ Gửi tin nhắn thất bại:', responseData);
+      }
     }
   } catch (error) {
     console.error('[Weekly Task Remind] ❌ Lỗi khi gửi tin nhắn:', error);
