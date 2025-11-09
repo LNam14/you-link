@@ -137,3 +137,29 @@ model daily_task_template {
   updated_at   String
   updated_by   String @db.VarChar(255)
 }
+
+model daily_task_penalty {
+  id            Int     @id @default(autoincrement())
+  username      String  @db.VarChar(255)
+  penalty_date  String  @db.VarChar(10)
+  penalty_amount String @default("- 200.000") @db.VarChar(20)
+  created_at    String
+  updated_at    String
+
+  @@index([username])
+  @@index([penalty_date])
+  @@unique([username, penalty_date])
+}
+
+model weekly_task_penalty {
+  id            Int     @id @default(autoincrement())
+  username      String  @db.VarChar(255)
+  week_number   String  @db.VarChar(10)
+  penalty_amount String @default("- 200.000") @db.VarChar(20)
+  created_at    String
+  updated_at    String
+
+  @@index([username])
+  @@index([week_number])
+  @@unique([username, week_number])
+}

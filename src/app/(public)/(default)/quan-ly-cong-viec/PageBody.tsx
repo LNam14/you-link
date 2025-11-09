@@ -18,6 +18,7 @@ import {
   Circle,
   CalendarIcon,
   Save,
+  ExternalLink,
 } from "lucide-react"
 import attendanceApiRequest from "@/apiRequests/attendance"
 import authApiRequest from "@/apiRequests/auth"
@@ -25,6 +26,8 @@ import dailyTaskTemplateApiRequest from "@/apiRequests/daily-task-template"
 import workTaskApiRequest from "@/apiRequests/work-task"
 import getUserInfo from "@/components/userInfo"
 import { toast, Toaster } from "sonner"
+import { useFirebaseData } from "@/firebase/hooks/useFirebaseData"
+import { useCongNo } from "@/hook/useCongNo"
 
 interface EmployeeInfo {
   username: string
@@ -50,6 +53,7 @@ interface WeeklyTaskData {
   title: string
   content: string
   status?: "pending" | "success" | "failed"
+  employeeNote?: string // Dữ liệu nhân viên nhập vào
 }
 
 interface DailyTaskData {
@@ -446,6 +450,16 @@ const EditableTaskName: React.FC<{
   )
 }
 
+// Hardcoded daily tasks that are always present
+const HARDCODED_DAILY_TASKS = [
+  { id: "hardcoded_check_bill_cong_no", name: "Check Bill - Công nợ", type: "boolean" as const },
+  { id: "hardcoded_theo_doi_don_dtk", name: "Theo dõi đơn ĐTK", type: "boolean" as const },
+  { id: "hardcoded_check_note_bill_don", name: "Check note Bill - Đơn", type: "boolean" as const },
+]
+
+// Usernames that should have hardcoded tasks auto-completed
+const AUTO_COMPLETE_HARDCODED_TASKS = ["BH12", "BH13"]
+
 const PageBody: React.FC = () => {
   const userInfo = getUserInfo()
   const isAdmin = userInfo?.role === "Admin" || userInfo?.position === "Leader"
@@ -574,19 +588,41 @@ const PageBody: React.FC = () => {
 
   const getWeekDates = (weekOffset = 0) => {
     const today = new Date()
-    const currentDay = today.getDay()
-    const diff = today.getDate() - currentDay + (currentDay === 0 ? -6 : 1)
-    const monday = new Date(today.setDate(diff))
-
-    monday.setDate(monday.getDate() + weekOffset * 7)
+    const currentDay = today.getDay() // 0 = CN, 1 = T2, ..., 6 = T7
+    
+    // Tính số ngày cần trừ để về thứ 2 (Monday)
+    // Nếu là CN (0) thì trừ 6 ngày, nếu là T2 (1) thì trừ 0 ngày, nếu là T3 (2) thì trừ 1 ngày, ...
+    const daysToMonday = currentDay === 0 ? -6 : 1 - currentDay
+    
+    // Tạo Date object mới cho thứ 2 (không thay đổi object today gốc)
+    const monday = new Date(today)
+    monday.setDate(today.getDate() + daysToMonday + weekOffset * 7)
+    
+    // Đặt giờ về 0 để tránh vấn đề timezone
+    monday.setHours(0, 0, 0, 0)
 
     const weekDays = []
     for (let i = 0; i < 7; i++) {
       const date = new Date(monday)
       date.setDate(monday.getDate() + i)
+      date.setHours(0, 0, 0, 0)
       weekDays.push(date)
     }
     return weekDays
+  }
+
+  // Helper function để format date theo local timezone (tránh vấn đề UTC)
+  const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Helper function để lấy ngày hôm nay theo local timezone
+  const getTodayLocal = (): string => {
+    const today = new Date()
+    return formatDateLocal(today)
   }
 
   const [weekOffset, setWeekOffset] = useState(0)
@@ -607,19 +643,27 @@ const PageBody: React.FC = () => {
 
   const getWeeklyTaskWeekDates = (weekOffset = 0) => {
     const today = new Date()
-    const currentDay = today.getDay()
-    const diff = today.getDate() - currentDay + (currentDay === 0 ? -6 : 1)
-    const monday = new Date(today.setDate(diff))
-
-    monday.setDate(monday.getDate() + weekOffset * 7)
+    const currentDay = today.getDay() // 0 = CN, 1 = T2, ..., 6 = T7
+    
+    // Tính số ngày cần trừ để về thứ 2 (Monday)
+    // Nếu là CN (0) thì trừ 6 ngày, nếu là T2 (1) thì trừ 0 ngày, nếu là T3 (2) thì trừ 1 ngày, ...
+    const daysToMonday = currentDay === 0 ? -6 : 1 - currentDay
+    
+    // Tạo Date object mới cho thứ 2 (không thay đổi object today gốc)
+    const monday = new Date(today)
+    monday.setDate(today.getDate() + daysToMonday + weekOffset * 7)
+    
+    // Đặt giờ về 0 để tránh vấn đề timezone
+    monday.setHours(0, 0, 0, 0)
 
     const startDate = new Date(monday)
     const endDate = new Date(monday)
     endDate.setDate(monday.getDate() + 6)
+    endDate.setHours(0, 0, 0, 0)
 
     return {
-      startDate: startDate.toISOString().split("T")[0],
-      endDate: endDate.toISOString().split("T")[0],
+      startDate: formatDateLocal(startDate),
+      endDate: formatDateLocal(endDate),
       startDateObj: startDate,
       endDateObj: endDate,
       weekNumber: getWeekNumber(startDate),
@@ -634,7 +678,7 @@ const PageBody: React.FC = () => {
 
   // Hàm tính toán trạng thái cho daily task (boolean)
   const getDailyTaskStatus = (date: string, value: boolean): "pending" | "success" | "failed" => {
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     const taskDate = new Date(date)
     const todayDate = new Date(today)
     
@@ -649,12 +693,12 @@ const PageBody: React.FC = () => {
 
   // Hàm tính toán trạng thái cho weekly task
   const getWeeklyTaskStatus = (task: WeeklyTaskData, weekEndDate: string): "pending" | "success" | "failed" => {
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     const endDate = new Date(weekEndDate)
     const todayDate = new Date(today)
     
-    // Nếu task đã được đánh dấu success thì return success
-    if (task.status === "success") {
+    // Chỉ tính hoàn thành khi có dữ liệu nhân viên nhập vào
+    if (task.employeeNote && task.employeeNote.trim().length > 0) {
       return "success"
     }
     
@@ -663,13 +707,13 @@ const PageBody: React.FC = () => {
       return "failed"
     }
     
-    // Nếu chưa có status hoặc là pending
-    return task.status || "pending"
+    // Nếu không có dữ liệu thì luôn là pending (không dựa vào task.status)
+    return "pending"
   }
 
   // Hàm tính toán trạng thái cho đề xuất
   const getDeXuatStatus = (deXuat: string[], weekEndDate: string): "pending" | "success" | "failed" => {
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     const endDate = new Date(weekEndDate)
     const todayDate = new Date(today)
     
@@ -711,13 +755,64 @@ const PageBody: React.FC = () => {
   const [wrongAnswers, setWrongAnswers] = useState<string[]>([])
   const requiredCorrectAnswers = 3
 
+  // Customer data hooks
+  const {
+    data: customerData,
+    originalData: originalCustomerData,
+    loading: customerLoading,
+  } = useFirebaseData()
+
+  const { congNoData, loading: congNoLoading } = useCongNo()
+
+  // Helper function to get cong no value by MaMoi
+  const getCongNoByMaMoi = useCallback((maMoi: string): string => {
+    const congNoItem = congNoData.find(item => item.MaMoi === maMoi)
+    return congNoItem?.CongNo || "0"
+  }, [congNoData])
+
+  // Filter and prepare customer data for display - same logic as quan-ly-khach-hang page
+  const customerTableData = useMemo(() => {
+    // Filter data based on user role - only Admin sees all, others see only assigned customers
+    const isUserAdmin = userInfo?.role === "Admin"
+    let filteredData = isUserAdmin ? customerData : customerData.filter((row) => {
+      const raw = (row?.[23] || "").toString()
+      const viewers = raw
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter((s: string) => s.length > 0)
+      return viewers.includes(userInfo?.username || "")
+    })
+
+    // Map to table format: Mã Mới (0), Công Nợ (17), Tín Dụng (18), Tình Trạng (19), Tab Đơn (16), Note KT (22)
+    return filteredData.map((row) => {
+      const maMoi = row[0] || ""
+      const congNo = getCongNoByMaMoi(maMoi)
+      const tinDung = row[18] || "0"
+      const tinhTrang = row[19] || ""
+      const tabDon = row[16] || ""
+      const noteKT = row[22] || ""
+
+      return {
+        maMoi,
+        congNo,
+        tinDung,
+        tinhTrang,
+        tabDon,
+        noteKT,
+      }
+    }) // Show all data, no limit
+  }, [customerData, userInfo, getCongNoByMaMoi])
+
   const initializeWeekData = (weekOffset: number): WeekData => {
     const weekDates = getWeekDates(weekOffset)
-    const fromDate = weekDates[0].toISOString().split("T")[0]
-    const toDate = weekDates[6].toISOString().split("T")[0]
+    const fromDate = formatDateLocal(weekDates[0])
+    const toDate = formatDateLocal(weekDates[6])
+
+    // Check if current user should have hardcoded tasks auto-completed
+    const shouldAutoComplete = AUTO_COMPLETE_HARDCODED_TASKS.includes(username)
 
     const dailyTasks: DailyTaskData[] = weekDates.map((day, idx) => {
-      const dateKey = day.toISOString().split("T")[0]
+      const dateKey = formatDateLocal(day)
       const dayName = dayNames[day.getDay()]
       const taskData: DailyTaskData = {
         day: dayName,
@@ -726,6 +821,13 @@ const PageBody: React.FC = () => {
         spamMKT: [],
       }
 
+      // Initialize hardcoded tasks
+      HARDCODED_DAILY_TASKS.forEach((hardcodedTask) => {
+        // For BH12 and BH13, auto-complete these tasks (set to true)
+        taskData[hardcodedTask.id] = shouldAutoComplete ? true : false
+      })
+
+      // Initialize custom daily tasks from template
       dailyTaskTemplate.forEach((templateTask) => {
         if (templateTask.type === "boolean") {
           taskData[templateTask.id] = false
@@ -959,7 +1061,10 @@ const PageBody: React.FC = () => {
             if (weekData.weeklyTasks && weekData.weeklyTasks.length > 0) {
               originalWeeklyTasksRef.current[originalKey] = {}
               weekData.weeklyTasks.forEach((task: WeeklyTaskData) => {
-                originalWeeklyTasksRef.current[originalKey][task.id] = task.content || ""
+                originalWeeklyTasksRef.current[originalKey][task.id] = {
+                  content: task.content || "",
+                  employeeNote: task.employeeNote || ""
+                }
               })
             } else {
               originalWeeklyTasksRef.current[originalKey] = {}
@@ -1002,7 +1107,7 @@ const PageBody: React.FC = () => {
   const fetchingAllDataRef = useRef(false)
   const lastFetchedAllDataKeyRef = useRef<string>("")
   // Ref để lưu giá trị ban đầu của weeklyTasks đã được lưu
-  const originalWeeklyTasksRef = useRef<{ [key: string]: { [taskId: number]: string } }>({})
+  const originalWeeklyTasksRef = useRef<{ [key: string]: { [taskId: number]: { content?: string, employeeNote?: string } } }>({})
   // Ref để lưu giá trị ban đầu của dailyTasks cho ngày hôm nay
   const originalDailyTasksRef = useRef<{ [date: string]: DailyTaskData | null }>({})
 
@@ -1087,6 +1192,27 @@ const PageBody: React.FC = () => {
             })
           }
 
+          // Check if current user should have hardcoded tasks auto-completed
+          const shouldAutoComplete = AUTO_COMPLETE_HARDCODED_TASKS.includes(username)
+
+          // Ensure hardcoded tasks are initialized in daily tasks
+          const dailyTasksWithHardcoded = weekData.dailyTasks.map((task: DailyTaskData) => {
+            const updatedTask: any = { ...task, chamCong: checkAttendance(task.date) }
+            
+            // Initialize hardcoded tasks if they don't exist
+            HARDCODED_DAILY_TASKS.forEach((hardcodedTask) => {
+              if (!(hardcodedTask.id in updatedTask)) {
+                // For BH12 and BH13, auto-complete these tasks (set to true)
+                updatedTask[hardcodedTask.id] = shouldAutoComplete ? true : false
+              } else if (shouldAutoComplete && updatedTask[hardcodedTask.id] === false) {
+                // If user is BH12 or BH13 and task is false, set to true
+                updatedTask[hardcodedTask.id] = true
+              }
+            })
+            
+            return updatedTask as DailyTaskData
+          })
+
           setUsersData((prev) => ({
             ...prev,
             users: {
@@ -1096,10 +1222,7 @@ const PageBody: React.FC = () => {
                   ...(prev.users[username]?.weeks || {}),
                   [weekKey]: {
                     ...weekData,
-                    dailyTasks: weekData.dailyTasks.map((task: DailyTaskData) => ({
-                      ...task,
-                      chamCong: checkAttendance(task.date),
-                    })),
+                    dailyTasks: dailyTasksWithHardcoded,
                   },
                 },
               },
@@ -1108,14 +1231,17 @@ const PageBody: React.FC = () => {
 
           // Lưu giá trị ban đầu của weeklyTasks
           const originalKey = `${username}_${weekKey}`
-          if (weekData.weeklyTasks && weekData.weeklyTasks.length > 0) {
-            originalWeeklyTasksRef.current[originalKey] = {}
-            weekData.weeklyTasks.forEach((task: WeeklyTaskData) => {
-              originalWeeklyTasksRef.current[originalKey][task.id] = task.content || ""
-            })
-          } else {
-            originalWeeklyTasksRef.current[originalKey] = {}
-          }
+            if (weekData.weeklyTasks && weekData.weeklyTasks.length > 0) {
+              originalWeeklyTasksRef.current[originalKey] = {}
+              weekData.weeklyTasks.forEach((task: WeeklyTaskData) => {
+                originalWeeklyTasksRef.current[originalKey][task.id] = {
+                  content: task.content || "",
+                  employeeNote: task.employeeNote || ""
+                }
+              })
+            } else {
+              originalWeeklyTasksRef.current[originalKey] = {}
+            }
         }
       }
       lastFetchedWorkTaskKeyRef.current = fetchKey
@@ -1364,14 +1490,15 @@ const PageBody: React.FC = () => {
 
   // Lưu giá trị ban đầu của daily tasks cho ngày hôm nay khi dữ liệu được tải
   useEffect(() => {
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     const todayTask = dailyTasks.find((task) => task.date === today)
     if (todayTask && !originalDailyTasksRef.current[today]) {
       originalDailyTasksRef.current[today] = { ...todayTask }
     }
   }, [dailyTasks])
 
-  const customDailyTasks = dailyTaskTemplate
+  // Combine hardcoded tasks with custom daily tasks
+  const customDailyTasks = [...HARDCODED_DAILY_TASKS, ...dailyTaskTemplate]
 
   const updateWeekData = async (updater: (data: WeekData) => WeekData, shouldSave = true) => {
     if (!username) return
@@ -1404,7 +1531,7 @@ const PageBody: React.FC = () => {
   const toggleDailyTask = async (date: string, taskId: string) => {
     if (taskId === "chamCong") {
       const dateString = date
-      const today = new Date().toISOString().split("T")[0]
+      const today = getTodayLocal()
 
       if (dateString !== today) {
         toast.error("Chỉ có thể chấm công cho ngày hôm nay")
@@ -1444,25 +1571,25 @@ const PageBody: React.FC = () => {
       }
     } else {
       // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
-      const today = new Date().toISOString().split("T")[0]
+      const today = getTodayLocal()
       if (date !== today) {
         toast.error("Chỉ có thể cập nhật công việc hàng ngày trong ngày hôm nay")
         return
       }
 
-      // Không tự động lưu, chỉ cập nhật state
+      // Tự động lưu khi toggle
       updateWeekData((data) => ({
         ...data,
         dailyTasks: data.dailyTasks.map((task) =>
           task.date === date ? { ...task, [taskId]: !(task[taskId] as boolean) } : task,
         ),
-      }), false)
+      }), true)
     }
   }
 
   const updateCustomTaskValue = (date: string, taskId: string, index: number, value: string) => {
     // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     if (date !== today) {
       toast.error("Chỉ có thể cập nhật công việc hàng ngày trong ngày hôm nay")
       return
@@ -1486,7 +1613,7 @@ const PageBody: React.FC = () => {
 
   const addCustomTaskInput = (date: string, taskId: string) => {
     // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     if (date !== today) {
       toast.error("Chỉ có thể cập nhật công việc hàng ngày trong ngày hôm nay")
       return
@@ -1503,7 +1630,7 @@ const PageBody: React.FC = () => {
 
   const removeCustomTaskInput = (date: string, taskId: string, index: number) => {
     // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     if (date !== today) {
       toast.error("Chỉ có thể cập nhật công việc hàng ngày trong ngày hôm nay")
       return
@@ -1671,7 +1798,7 @@ const PageBody: React.FC = () => {
 
   const addSpamMktInput = (date: string) => {
     // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     if (date !== today) {
       toast.error("Chỉ có thể cập nhật công việc hàng ngày trong ngày hôm nay")
       return
@@ -1686,7 +1813,7 @@ const PageBody: React.FC = () => {
 
   const saveSpamMktInput = async (date: string, index: number | null, value: string) => {
     // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     if (date !== today) {
       toast.error("Chỉ có thể cập nhật công việc hàng ngày trong ngày hôm nay")
       const key = index !== null ? `${date}_${index}` : `${date}_new`
@@ -1809,7 +1936,7 @@ const PageBody: React.FC = () => {
 
   const removeSpamMktInput = async (date: string, index: number) => {
     // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     if (date !== today) {
       toast.error("Chỉ có thể cập nhật công việc hàng ngày trong ngày hôm nay")
       return
@@ -1844,7 +1971,7 @@ const PageBody: React.FC = () => {
 
   const editSpamMktInput = (date: string, index: number, currentValue: string) => {
     // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     if (date !== today) {
       toast.error("Chỉ có thể cập nhật công việc hàng ngày trong ngày hôm nay")
       return
@@ -1869,7 +1996,7 @@ const PageBody: React.FC = () => {
   // Các hàm cho custom task text (giống spamMKT)
   const addCustomTaskTextInput = (date: string, taskId: string) => {
     // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     if (date !== today) {
       toast.error("Chỉ có thể cập nhật công việc hàng ngày trong ngày hôm nay")
       return
@@ -1884,7 +2011,7 @@ const PageBody: React.FC = () => {
 
   const saveCustomTaskTextInput = async (date: string, taskId: string, index: number | null, value: string) => {
     // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     if (date !== today) {
       toast.error("Chỉ có thể cập nhật công việc hàng ngày trong ngày hôm nay")
       const key = index !== null ? `${date}_${taskId}_${index}` : `${date}_${taskId}_new`
@@ -2014,7 +2141,7 @@ const PageBody: React.FC = () => {
 
   const editCustomTaskTextInput = (date: string, taskId: string, index: number, currentValue: string) => {
     // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     if (date !== today) {
       toast.error("Chỉ có thể cập nhật công việc hàng ngày trong ngày hôm nay")
       return
@@ -2081,6 +2208,27 @@ const PageBody: React.FC = () => {
     try {
       await saveWorkTaskDataImmediate(updatedWeekData, weeklyTasksWeekDates.weekNumber.toString())
       toast.success("Đã lưu đề xuất")
+      
+      // Gửi đề xuất đến Telegram nếu có nội dung
+      if (value.trim()) {
+        try {
+          const currentName = employeeInfo.name || userInfo?.name || username
+          await fetch('/api/dexuat/notify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              username: username,
+              name: currentName,
+              content: value.trim(),
+            }),
+          })
+        } catch (telegramError) {
+          console.error("Error sending deXuat to Telegram:", telegramError)
+          // Không hiển thị lỗi cho user, chỉ log
+        }
+      }
     } catch (error) {
       console.error("Error saving deXuat:", error)
     }
@@ -2198,8 +2346,8 @@ const PageBody: React.FC = () => {
     const completeWeekData: WeekData = {
       ...current,
       dateRange: current.dateRange || {
-        from: getWeekDates(weeklyTasksWeekOffset)[0].toISOString().split("T")[0],
-        to: getWeekDates(weeklyTasksWeekOffset)[6].toISOString().split("T")[0],
+        from: formatDateLocal(getWeekDates(weeklyTasksWeekOffset)[0]),
+        to: formatDateLocal(getWeekDates(weeklyTasksWeekOffset)[6]),
       },
       weeklyTasks: current.weeklyTasks || [],
       deXuat: current.deXuat || ["", "", ""],
@@ -2218,7 +2366,10 @@ const PageBody: React.FC = () => {
       const originalKey = `${username}_${weekKey}`
       originalWeeklyTasksRef.current[originalKey] = {}
       completeWeekData.weeklyTasks.forEach((task) => {
-        originalWeeklyTasksRef.current[originalKey][task.id] = task.content || ""
+        originalWeeklyTasksRef.current[originalKey][task.id] = {
+          content: task.content || "",
+          employeeNote: task.employeeNote || ""
+        }
       })
       
       toast.success("Đã lưu công việc khác thành công!")
@@ -2307,7 +2458,7 @@ const PageBody: React.FC = () => {
     }
 
     // Kiểm tra chỉ cho phép lưu trong ngày hôm nay
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     if (date !== today) {
       toast.error("Chỉ có thể lưu công việc hàng ngày trong ngày hôm nay")
       return
@@ -2355,7 +2506,7 @@ const PageBody: React.FC = () => {
     }
 
     // Kiểm tra chỉ cho phép lưu trong ngày hôm nay
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayLocal()
     if (date !== today) {
       toast.error("Chỉ có thể lưu công việc hàng ngày trong ngày hôm nay")
       return
@@ -2399,6 +2550,53 @@ const PageBody: React.FC = () => {
     } catch (error) {
       console.error("Error updating task status:", error)
       toast.error("Có lỗi khi cập nhật trạng thái")
+    }
+  }
+
+  const saveSingleTaskContent = async (taskId: number) => {
+    if (!username) {
+      toast.error("Vui lòng chọn nhân viên")
+      return
+    }
+    
+    const weekKey = getWeekKey(weeklyTasksWeekDates.weekNumber)
+    const currentUser = usersData.users[username] || { weeks: {} }
+    const current = currentUser.weeks[weekKey] || initializeWeekData(weeklyTasksWeekOffset)
+
+    const completeWeekData: WeekData = {
+      ...current,
+      dateRange: current.dateRange || {
+        from: formatDateLocal(getWeekDates(weeklyTasksWeekOffset)[0]),
+        to: formatDateLocal(getWeekDates(weeklyTasksWeekOffset)[6]),
+      },
+      weeklyTasks: current.weeklyTasks || [],
+      deXuat: current.deXuat || ["", "", ""],
+      dailyTasks: current.dailyTasks || [],
+    }
+
+    try {
+      setIsSavingWorkTask(true)
+      await saveWorkTaskDataImmediate(completeWeekData, weeklyTasksWeekDates.weekNumber.toString(), false)
+      
+      // Cập nhật giá trị ban đầu sau khi lưu
+      const originalKey = `${username}_${weekKey}`
+      if (!originalWeeklyTasksRef.current[originalKey]) {
+        originalWeeklyTasksRef.current[originalKey] = {}
+      }
+      const task = completeWeekData.weeklyTasks.find((t) => t.id === taskId)
+      if (task) {
+        originalWeeklyTasksRef.current[originalKey][taskId] = {
+          content: task.content || "",
+          employeeNote: task.employeeNote || ""
+        }
+      }
+      
+      toast.success("Đã lưu nội dung công việc!")
+    } catch (error) {
+      console.error("Error saving task content:", error)
+      toast.error("Có lỗi khi lưu nội dung công việc")
+    } finally {
+      setIsSavingWorkTask(false)
     }
   }
 
@@ -2582,20 +2780,27 @@ const PageBody: React.FC = () => {
                       <th className="border border-gray-300 px-2 py-3 text-center font-semibold bg-emerald-600 text-white" style={{ fontSize: '11px', width: '100px' }}>
                         Chấm công
                       </th>
-                      {customDailyTasks.map((task) => (
-                        <th
-                          key={task.id}
-                          className="border border-gray-300 px-3 py-3 text-center font-semibold bg-indigo-600 text-white"
-                          style={{ fontSize: '11px' }}
-                        >
-                          <EditableTaskName
-                            task={task}
-                            onUpdate={(name, type) => updateCustomDailyTask(task.id, name, type)}
-                            onDelete={() => removeCustomDailyTask(task.id)}
-                            isAdmin={isAdmin}
-                          />
-                        </th>
-                      ))}
+                      {customDailyTasks.map((task) => {
+                        const isHardcoded = HARDCODED_DAILY_TASKS.some(ht => ht.id === task.id)
+                        return (
+                          <th
+                            key={task.id}
+                            className="border border-gray-300 px-3 py-3 text-center font-semibold bg-indigo-600 text-white"
+                            style={{ fontSize: '11px' }}
+                          >
+                            {isHardcoded ? (
+                              <span className="font-semibold">{task.name}</span>
+                            ) : (
+                              <EditableTaskName
+                                task={task}
+                                onUpdate={(name, type) => updateCustomDailyTask(task.id, name, type)}
+                                onDelete={() => removeCustomDailyTask(task.id)}
+                                isAdmin={isAdmin}
+                              />
+                            )}
+                          </th>
+                        )
+                      })}
                       <th className="border border-gray-300 px-3 py-3 text-center font-semibold bg-amber-600 text-white" style={{ fontSize: '11px' }}>
                         Spam MKT
                       </th>
@@ -2604,8 +2809,8 @@ const PageBody: React.FC = () => {
                   <tbody>
                     {dailyTasks.map((dailyTask) => {
                       const dateKey = dailyTask.date
-                      const isToday = dateKey === new Date().toISOString().split("T")[0]
-                      const isPast = new Date(dateKey) < new Date(new Date().toISOString().split("T")[0])
+                      const isToday = dateKey === getTodayLocal()
+                      const isPast = new Date(dateKey) < new Date(getTodayLocal())
                       
                       // Kiểm tra xem có thay đổi so với giá trị ban đầu không
                       const originalTask = originalDailyTasksRef.current[dateKey]
@@ -2713,46 +2918,27 @@ const PageBody: React.FC = () => {
                                   <div className="flex flex-col items-center gap-1">
                                     {(() => {
                                       const taskStatus = getDailyTaskStatus(dateKey, taskValue as boolean)
-                                      const originalTask = originalDailyTasksRef.current[dateKey]
-                                      const originalValue = originalTask ? (originalTask as any)[task.id] : undefined
-                                      const hasChanged = isToday && originalValue !== undefined && originalValue !== taskValue
                                       
                                       return (
-                                        <>
-                                          <button
-                                            onClick={() => toggleDailyTask(dateKey, task.id)}
-                                            disabled={!isToday && taskStatus !== "pending"}
-                                            className={`flex justify-center items-center p-1.5 rounded-lg transition-all ${
-                                              taskStatus === "success"
-                                                ? "bg-green-100 hover:bg-green-200"
-                                                : taskStatus === "failed"
-                                                ? "bg-red-100 hover:bg-red-200"
-                                                : "bg-gray-100 hover:bg-gray-200"
-                                            } ${!isToday && taskStatus !== "pending" ? "cursor-not-allowed opacity-50" : ""}`}
-                                          >
-                                            {taskStatus === "success" ? (
-                                              <CheckCheck className="h-4 w-4" style={{ color: '#059669' }} />
-                                            ) : taskStatus === "failed" ? (
-                                              <X className="h-4 w-4" style={{ color: '#dc2626' }} />
-                                            ) : (
-                                              <Circle className="h-4 w-4 text-gray-400" />
-                                            )}
-                                          </button>
-                                          {isToday && hasChanged && (
-                                            <button
-                                              onClick={() => saveDailyTasks(dateKey)}
-                                              disabled={isSavingWorkTask}
-                                              className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
-                                              title="Lưu thay đổi"
-                                            >
-                                              {isSavingWorkTask ? (
-                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                              ) : (
-                                                <CheckCircle2 className="h-3 w-3" />
-                                              )}
-                                            </button>
+                                        <button
+                                          onClick={() => toggleDailyTask(dateKey, task.id)}
+                                          disabled={!isToday && taskStatus !== "pending"}
+                                          className={`flex justify-center items-center p-1.5 rounded-lg transition-all ${
+                                            taskStatus === "success"
+                                              ? "bg-green-100 hover:bg-green-200"
+                                              : taskStatus === "failed"
+                                              ? "bg-red-100 hover:bg-red-200"
+                                              : "bg-gray-100 hover:bg-gray-200"
+                                          } ${!isToday && taskStatus !== "pending" ? "cursor-not-allowed opacity-50" : ""}`}
+                                        >
+                                          {taskStatus === "success" ? (
+                                            <CheckCheck className="h-4 w-4" style={{ color: '#059669' }} />
+                                          ) : taskStatus === "failed" ? (
+                                            <X className="h-4 w-4" style={{ color: '#dc2626' }} />
+                                          ) : (
+                                            <Circle className="h-4 w-4 text-gray-400" />
                                           )}
-                                        </>
+                                        </button>
                                       )
                                     })()}
                                   </div>
@@ -2775,7 +2961,7 @@ const PageBody: React.FC = () => {
                                       ) : (
                                         <>
                                           {textInputs.map((input, idx) => (
-                                            <div key={idx} className="px-2 py-1.5 bg-gradient-to-r from-gray-50 to-blue-50 text-gray-900 rounded-lg border border-gray-200 break-words">
+                                            <div key={idx} className="px-2 py-1.5 bg-gradient-to-r from-gray-50 to-blue-50 text-gray-900 rounded-lg border border-gray-200 break-words" style={{ fontSize: '11px', lineHeight: '1.5' }}>
                                               {input}
                                             </div>
                                           ))}
@@ -2958,7 +3144,7 @@ const PageBody: React.FC = () => {
                                   return (
                                     <>
                                       {spamMKTItems.map((item, idx) => (
-                                        <div key={idx} className="px-2 py-1.5 bg-gradient-to-r from-yellow-50 to-orange-50 text-gray-900 rounded-lg border border-yellow-200 break-words">
+                                        <div key={idx} className="px-2 py-1.5 bg-gradient-to-r from-yellow-50 to-orange-50 text-gray-900 rounded-lg border border-yellow-200 break-words" style={{ fontSize: '11px', lineHeight: '1.5' }}>
                                           {item}
                                         </div>
                                       ))}
@@ -3285,16 +3471,18 @@ const PageBody: React.FC = () => {
                     {weeklyTasks.length > 0 && (
                       <h3 className="text-sm font-bold uppercase tracking-wide" style={{ fontSize: '11px', letterSpacing: '0.05em', color: '#8b5cf6' }}>Công việc khác</h3>
                     )}
-                    {weeklyTasks.map((task) => {
+                    {weeklyTasks.map((task, index) => {
                       const weekKey = getWeekKey(weeklyTasksWeekDates.weekNumber)
                       const weekEndDate = weeklyTasksWeekDates.endDate
                       const taskStatus = getWeeklyTaskStatus(task, weekEndDate)
                       
                       // Kiểm tra xem có thay đổi so với giá trị ban đầu không
                       const originalKey = `${username}_${weekKey}`
-                      const originalContent = originalWeeklyTasksRef.current[originalKey]?.[task.id] || ""
-                      const hasChanged = task.content !== originalContent
-                      const shouldShowSaveButton = hasChanged && task.content.trim().length > 0
+                      const originalTask = originalWeeklyTasksRef.current[originalKey]?.[task.id] || { content: "", employeeNote: "" }
+                      const hasContentChanged = task.content !== (originalTask.content || "")
+                      const hasEmployeeNoteChanged = (task.employeeNote || "") !== (originalTask.employeeNote || "")
+                      const hasChanged = hasContentChanged || hasEmployeeNoteChanged
+                      const shouldShowSaveButton = hasChanged && (task.content.trim().length > 0 || (task.employeeNote || "").trim().length > 0)
 
                       // Màu sắc theo trạng thái
                       const statusColors = {
@@ -3303,92 +3491,170 @@ const PageBody: React.FC = () => {
                         pending: "bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-300"
                       }
 
-                      const statusButtonColors = {
-                        success: { background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
-                        failed: { background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' },
-                        pending: { background: 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)' }
-                      }
-
                       return (
                         <div
                           key={task.id}
-                          className={`flex gap-2 items-center group p-3 rounded-lg border transition-all ${statusColors[taskStatus]}`}
+                          className={`flex flex-col gap-2 group p-3 rounded-lg border transition-all ${statusColors[taskStatus]}`}
                         >
-                          <button
-                            onClick={() => toggleWeeklyTaskStatus(task.id)}
-                            disabled={isSavingWorkTask}
-                            className={`flex items-center justify-center h-8 w-8 rounded-lg flex-shrink-0 transition-all ${
-                              taskStatus === "success"
-                                ? "text-white"
-                                : taskStatus === "failed"
-                                ? "text-white"
-                                : "text-gray-600 hover:opacity-80"
-                            }`}
-                            style={statusButtonColors[taskStatus]}
-                          >
-                            {isSavingWorkTask ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : taskStatus === "success" ? (
-                              <CheckCheck className="h-4 w-4" />
-                            ) : taskStatus === "failed" ? (
-                              <X className="h-4 w-4" />
-                            ) : (
-                              <Circle className="h-4 w-4" />
-                            )}
-                          </button>
+                          {/* Header với số thứ tự */}
+                          <div className="flex items-center gap-2">
+                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs">
+                              {index + 1}
+                            </span>
+                            <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Công việc</h4>
+                          </div>
 
-                          <input
-                            type="text"
-                            value={task.content}
-                            onChange={(e) => {
-                              if (!isAdmin) return
-
-                              const weekKey = getWeekKey(weeklyTasksWeekDates.weekNumber)
-                              const currentUser = usersData.users[username] || { weeks: {} }
-                              const current = currentUser.weeks[weekKey] || initializeWeekData(weeklyTasksWeekOffset)
-
-                              const updatedWeekData: WeekData = {
-                                ...current,
-                                weeklyTasks: current.weeklyTasks.map((t) =>
-                                  t.id === task.id ? { ...t, content: e.target.value } : t,
-                                ),
-                              }
-
-                              setUsersData((prev) => ({
-                                ...prev,
-                                users: {
-                                  ...prev.users,
-                                  [username]: {
-                                    weeks: {
-                                      ...currentUser.weeks,
-                                      [weekKey]: updatedWeekData,
-                                    },
-                                  },
-                                },
-                              }))
-
-                              updateWeekData(() => updatedWeekData, false) // Không tự động lưu, Admin cần click nút "Lưu"
-                            }}
-                            disabled={!isAdmin || isSavingWorkTask}
-                            className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                              taskStatus === "success"
-                                ? "line-through text-gray-500 border-gray-300 bg-gray-50"
-                                : taskStatus === "failed"
-                                ? "line-through text-red-400 border-red-300 bg-red-50"
-                                : "border-blue-300 bg-white text-gray-900 focus:ring-purple-500"
-                            } ${!isAdmin ? "cursor-not-allowed" : ""}`}
-                            style={{ fontSize: '11px', lineHeight: '1.5' }}
-                            placeholder="Nhập nội dung công việc..."
-                          />
-
+                          {/* Ô input cho admin chỉnh sửa nội dung công việc */}
                           {isAdmin && (
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              {shouldShowSaveButton ? (
+                            <div className="flex flex-col gap-1">
+                              <label className="text-xs font-medium text-gray-600">Nội dung công việc:</label>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="text"
+                                  value={task.content}
+                                  onChange={(e) => {
+                                    const weekKey = getWeekKey(weeklyTasksWeekDates.weekNumber)
+                                    const currentUser = usersData.users[username] || { weeks: {} }
+                                    const current = currentUser.weeks[weekKey] || initializeWeekData(weeklyTasksWeekOffset)
+
+                                    const updatedWeekData: WeekData = {
+                                      ...current,
+                                      weeklyTasks: current.weeklyTasks.map((t) =>
+                                        t.id === task.id ? { ...t, content: e.target.value } : t,
+                                      ),
+                                    }
+
+                                    setUsersData((prev) => ({
+                                      ...prev,
+                                      users: {
+                                        ...prev.users,
+                                        [username]: {
+                                          weeks: {
+                                            ...currentUser.weeks,
+                                            [weekKey]: updatedWeekData,
+                                          },
+                                        },
+                                      },
+                                    }))
+
+                                    updateWeekData(() => updatedWeekData, false) // Không tự động lưu, Admin cần click nút "Lưu"
+                                  }}
+                                  disabled={isSavingWorkTask}
+                                  className={`flex-1 px-2 py-1.5 border rounded-lg focus:outline-none focus:ring-2 ${
+                                    taskStatus === "success"
+                                      ? "text-gray-700 border-purple-300 bg-purple-50"
+                                      : taskStatus === "failed"
+                                      ? "text-red-700 border-red-300 bg-red-50"
+                                      : "border-purple-300 bg-white text-gray-900 focus:ring-purple-500"
+                                  }`}
+                                  style={{ fontSize: '12px', lineHeight: '1.5' }}
+                                  placeholder="Nhập nội dung công việc..."
+                                />
+                                {/* Nút lưu */}
+                                {hasContentChanged && (
+                                  <button
+                                    onClick={() => saveSingleTaskContent(task.id)}
+                                    disabled={isSavingWorkTask}
+                                    className="flex-shrink-0 p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Lưu nội dung"
+                                  >
+                                    {isSavingWorkTask ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <CheckCircle2 className="h-4 w-4" />
+                                    )}
+                                  </button>
+                                )}
+                                {/* Nút xóa */}
+                                <button
+                                  onClick={() => removeWeeklyTask(task.id)}
+                                  disabled={isSavingWorkTask}
+                                  className="flex-shrink-0 p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                  title="Xóa công việc"
+                                >
+                                  {isSavingWorkTask ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <X className="h-4 w-4" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Hiển thị nội dung công việc cho nhân viên (chỉ đọc) */}
+                          {!isAdmin && task.content && (
+                            <div className="flex flex-col gap-1">
+                              <label className="text-xs font-medium text-gray-600">Nội dung công việc:</label>
+                              <div className="px-2 py-1.5 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-lg">
+                                {task.content}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Ô input cho nhân viên nhập dữ liệu */}
+                          <div className="flex flex-col gap-1">
+                            <label className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                              <span>Trả lời:</span>
+                              {taskStatus === "success" && (
+                                <span className="text-green-600 text-xs">✓ Đã hoàn thành</span>
+                              )}
+                            </label>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="text"
+                                value={task.employeeNote || ""}
+                                onChange={(e) => {
+                                  const weekKey = getWeekKey(weeklyTasksWeekDates.weekNumber)
+                                  const currentUser = usersData.users[username] || { weeks: {} }
+                                  const current = currentUser.weeks[weekKey] || initializeWeekData(weeklyTasksWeekOffset)
+
+                                  const newEmployeeNote = e.target.value
+                                  // Tự động set status thành success nếu có dữ liệu, pending nếu không có
+                                  const newStatus = newEmployeeNote.trim().length > 0 ? "success" : "pending"
+
+                                  const updatedWeekData: WeekData = {
+                                    ...current,
+                                    weeklyTasks: current.weeklyTasks.map((t) =>
+                                      t.id === task.id ? { ...t, employeeNote: newEmployeeNote, status: newStatus } : t,
+                                    ),
+                                  }
+
+                                  setUsersData((prev) => ({
+                                    ...prev,
+                                    users: {
+                                      ...prev.users,
+                                      [username]: {
+                                        weeks: {
+                                          ...currentUser.weeks,
+                                          [weekKey]: updatedWeekData,
+                                        },
+                                      },
+                                    },
+                                  }))
+
+                                  if (isAdmin) {
+                                    updateWeekData(() => updatedWeekData, false)
+                                  }
+                                }}
+                                disabled={isSavingWorkTask}
+                                className={`flex-1 px-2 py-1.5 border rounded-lg focus:outline-none focus:ring-2 ${
+                                  taskStatus === "success"
+                                    ? "border-green-400 bg-green-50 text-gray-900 focus:ring-green-500 font-medium"
+                                    : taskStatus === "failed"
+                                    ? "border-red-300 bg-red-50 text-red-900"
+                                    : "border-cyan-300 bg-cyan-50 text-gray-900 focus:ring-cyan-500"
+                                }`}
+                                style={{ fontSize: '12px', lineHeight: '1.5' }}
+                                placeholder="Nhập câu trả lời của bạn..."
+                              />
+                              {/* Nút lưu chỉ hiển thị khi có thay đổi trong employeeNote */}
+                              {hasEmployeeNoteChanged && (
                                 <button
                                   onClick={saveWeeklyTasks}
                                   disabled={isSavingWorkTask}
-                                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
-                                  title="Lưu công việc này"
+                                  className="flex-shrink-0 p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Lưu câu trả lời"
                                 >
                                   {isSavingWorkTask ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -3396,20 +3662,9 @@ const PageBody: React.FC = () => {
                                     <CheckCircle2 className="h-4 w-4" />
                                   )}
                                 </button>
-                              ) : null}
-                              <button
-                                onClick={() => removeWeeklyTask(task.id)}
-                                disabled={isSavingWorkTask}
-                                className="opacity-0 group-hover:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-opacity disabled:opacity-50"
-                              >
-                                {isSavingWorkTask ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </button>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </div>
                       )
                     })}
@@ -3432,6 +3687,153 @@ const PageBody: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Customer Work Section - Only hide for Admin, show for Leader and other users */}
+        {userInfo?.role !== "Admin" && (
+          <div className="mt-6">
+            <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-green-500 to-emerald-600 border-b border-green-600 px-5 py-3 flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-white" />
+                  <h2 className="text-md font-bold text-white uppercase">Công việc khách hàng</h2>
+                  {(customerLoading || congNoLoading) && <Loader2 className="h-3 w-3 animate-spin ml-1 text-white" />}
+                </div>
+                
+                <button
+                  onClick={() => window.open("/quan-ly-khach-hang", "_blank")}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 rounded-lg transition-colors text-white text-sm font-medium"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span>Xem tất cả</span>
+                </button>
+              </div>
+
+              {/* Content */}
+              <div 
+                className="customer-table-scroll" 
+                style={{ 
+                  maxHeight: '500px',
+                  overflowY: 'auto',
+                  overflowX: 'auto',
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#9ca3af #f3f4f6',
+                  display: 'block',
+                  position: 'relative'
+                }}
+              >
+                <style dangerouslySetInnerHTML={{__html: `
+                  .customer-table-scroll::-webkit-scrollbar {
+                    width: 8px;
+                    height: 8px;
+                  }
+                  .customer-table-scroll::-webkit-scrollbar-track {
+                    background: #f3f4f6;
+                    border-radius: 4px;
+                  }
+                  .customer-table-scroll::-webkit-scrollbar-thumb {
+                    background: #9ca3af;
+                    border-radius: 4px;
+                  }
+                  .customer-table-scroll::-webkit-scrollbar-thumb:hover {
+                    background: #6b7280;
+                  }
+                `}} />
+                {customerLoading || congNoLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-green-600" />
+                    <span className="ml-2 text-gray-600">Đang tải dữ liệu...</span>
+                  </div>
+                ) : customerTableData.length === 0 ? (
+                  <div className="flex items-center justify-center py-8">
+                    <span className="text-gray-500">Không có dữ liệu khách hàng</span>
+                  </div>
+                ) : (
+                  <table className="w-full border-collapse">
+                    <thead className="sticky top-0 z-10 bg-green-600">
+                      <tr>
+                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold bg-green-600 text-white" style={{ fontSize: '11px' }}>
+                          Mã Mới
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold bg-green-600 text-white" style={{ fontSize: '11px' }}>
+                          Công Nợ
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold bg-green-600 text-white" style={{ fontSize: '11px' }}>
+                          Tín Dụng
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold bg-green-600 text-white" style={{ fontSize: '11px' }}>
+                          Tình Trạng
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold bg-green-600 text-white" style={{ fontSize: '11px' }}>
+                          Tab Đơn
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold bg-green-600 text-white" style={{ fontSize: '11px' }}>
+                          Note KT
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {customerTableData.map((row, idx) => {
+                        const debtNum = parseFloat(row.congNo) || 0
+                        const creditNum = parseFloat(row.tinDung) || 0
+                        const balance = creditNum - debtNum
+                        const debtStyle = balance >= 0 
+                          ? { bg: "#dcfce7", text: "#166534" } 
+                          : { bg: "#fecaca", text: "#dc2626" }
+
+                        // Get status color
+                        const statusColors: { [key: string]: { bg: string; text: string } } = {
+                          "Bình thường": { bg: "#dcfce7", text: "#166534" },
+                          "Rủi ro": { bg: "#fef3c7", text: "#d97706" },
+                          "Rủi ro cao": { bg: "#fed7aa", text: "#ea580c" },
+                          "Scam": { bg: "#fecaca", text: "#dc2626" },
+                        }
+                        const statusStyle = statusColors[row.tinhTrang] || { bg: "#f9fafb", text: "#374151" }
+
+                        return (
+                          <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                            <td className="border border-gray-300 px-3 py-2 text-center font-semibold text-red-600" style={{ fontSize: '11px' }}>
+                              {row.maMoi || "-"}
+                            </td>
+                            <td className="border border-gray-300 px-3 py-2 text-center" style={{ fontSize: '11px', backgroundColor: debtStyle.bg, color: debtStyle.text, fontWeight: '500' }}>
+                              {row.congNo || "0"}
+                            </td>
+                            <td className="border border-gray-300 px-3 py-2 text-center" style={{ fontSize: '11px', backgroundColor: debtStyle.bg, color: debtStyle.text, fontWeight: '500' }}>
+                              {row.tinDung || "0"}
+                            </td>
+                            <td className="border border-gray-300 px-3 py-2 text-center" style={{ fontSize: '11px', backgroundColor: statusStyle.bg, color: statusStyle.text, fontWeight: '500' }}>
+                              {row.tinhTrang || "-"}
+                            </td>
+                            <td className="border border-gray-300 px-3 py-2 text-center" style={{ fontSize: '11px' }}>
+                              {row.tabDon ? (
+                                <a 
+                                  href={row.tabDon} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 underline truncate block max-w-[200px]"
+                                  title={row.tabDon}
+                                >
+                                  {row.tabDon.length > 30 ? row.tabDon.substring(0, 30) + "..." : row.tabDon}
+                                </a>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                            <td className="border border-gray-300 px-3 py-2 text-left" style={{ fontSize: '11px', maxWidth: '200px' }}>
+                              <div className="truncate" title={row.noteKT}>
+                                {row.noteKT || "-"}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quiz Modal */}

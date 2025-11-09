@@ -14,6 +14,7 @@ type WheelData = {
         [username: string]: {
             wheel: number
             wage: number
+            penalty: number
         }
     }
 }
@@ -58,7 +59,8 @@ export async function GET(request: Request) {
             if (!acc[month][displayKey]) {
                 acc[month][displayKey] = {
                     wheel: 0,
-                    wage: 0
+                    wage: 0,
+                    penalty: 0
                 }
             }
 
@@ -102,12 +104,70 @@ export async function GET(request: Request) {
             if (!wheelData[month][displayKey]) {
                 wheelData[month][displayKey] = {
                     wheel: 0,
-                    wage: 0
+                    wage: 0,
+                    penalty: 0
                 }
             }
 
             // Count attendance days and calculate wage (302 per day)
             wheelData[month][displayKey].wage += 302000
+        })
+
+        // Get penalty data (daily_task_penalty - bao gồm cả daily và weekly penalties)
+        // Xử lý trường hợp Prisma Client chưa có model mới
+        let dailyPenalties: any[] = []
+        
+        try {
+            // @ts-expect-error - daily_task_penalty model chưa có trong Prisma Client, cần regenerate
+            if (prisma.daily_task_penalty && typeof prisma.daily_task_penalty.findMany === 'function') {
+                dailyPenalties = await prisma.daily_task_penalty.findMany()
+            }
+        } catch (error) {
+            console.log('[Money API] daily_task_penalty model chưa có trong Prisma Client, bỏ qua')
+        }
+        
+        // Process penalties (bao gồm cả daily và weekly penalties - đều lưu trong daily_task_penalty)
+        dailyPenalties.forEach((penalty) => {
+            if (!penalty.penalty_date || !penalty.username) return
+
+            const month = moment(penalty.penalty_date).format('YYYY-MM')
+            if (!wheelData[month]) {
+                wheelData[month] = {}
+            }
+
+            // Create username-name key
+            const name = usernameToNameMap.get(penalty.username) || ''
+            const displayKey = name ? `${penalty.username}-${name}` : penalty.username
+
+            if (!wheelData[month][displayKey]) {
+                wheelData[month][displayKey] = {
+                    wheel: 0,
+                    wage: 0,
+                    penalty: 0
+                }
+            }
+
+            // Parse penalty amount (format: "-200000" hoặc "- 200.000")
+            // Trong database lưu là "-200000" (string) hoặc -200000 (number)
+            // Nếu có 2 records: -200000 và -200000 thì tổng phải là 400000
+            let penaltyAmount = 0
+            if (typeof penalty.penalty_amount === 'string') {
+                // Xóa tất cả ký tự không phải số và dấu trừ
+                const cleanValue = penalty.penalty_amount.replace(/[^0-9-]/g, '')
+                penaltyAmount = parseInt(cleanValue, 10) || 0
+            } else {
+                penaltyAmount = Number(penalty.penalty_amount) || 0
+            }
+
+            // Lấy giá trị tuyệt đối để cộng dồn (vì trong DB lưu âm, nhưng ta cộng dồn dương)
+            // Ví dụ: -200000 -> Math.abs -> 200000
+            const penaltyValue = Math.abs(penaltyAmount)
+            
+            // Cộng dồn: nếu có 2 lần -200000 thì tổng = 200000 + 200000 = 400000
+            const oldPenalty = wheelData[month][displayKey].penalty
+            wheelData[month][displayKey].penalty += penaltyValue
+            
+            console.log(`[Penalty] ${penalty.username} - ${penalty.penalty_date} - DB: ${penalty.penalty_amount} -> Parsed: ${penaltyAmount} -> Value: ${penaltyValue} -> Old: ${oldPenalty} -> New Total: ${wheelData[month][displayKey].penalty}`)
         })
 
         // Format the final output

@@ -119,6 +119,7 @@ export default function AttendanceTracker() {
     interface Totals {
         totalWheel: number;
         totalWage: number;
+        totalPenalty: number;
         totalAmount: number;
         employeeCount: number;
     }
@@ -127,10 +128,11 @@ export default function AttendanceTracker() {
         const totals = Object.values(monthInfo).reduce((acc: Totals, info: any) => {
             acc.totalWheel += info.wheel || 0;
             acc.totalWage += info.wage || 0;
-            acc.totalAmount += (info.wheel || 0) + (info.wage || 0);
+            acc.totalPenalty += info.penalty || 0;
+            acc.totalAmount += (info.wheel || 0) + (info.wage || 0) - (info.penalty || 0);
             acc.employeeCount += 1;
             return acc;
-        }, { totalWheel: 0, totalWage: 0, totalAmount: 0, employeeCount: 0 });
+        }, { totalWheel: 0, totalWage: 0, totalPenalty: 0, totalAmount: 0, employeeCount: 0 });
 
         return totals;
     };
@@ -308,6 +310,12 @@ export default function AttendanceTracker() {
                                                 </th>
                                                 <th className="px-6 py-4 border-b border-blue-500 text-left text-xs font-medium uppercase tracking-wider">
                                                     <div className="flex items-center gap-2">
+                                                        <X className="h-4 w-4" />
+                                                        <span>Bé hư</span>
+                                                    </div>
+                                                </th>
+                                                <th className="px-6 py-4 border-b border-blue-500 text-left text-xs font-medium uppercase tracking-wider">
+                                                    <div className="flex items-center gap-2">
                                                         <Calculator className="h-4 w-4" />
                                                         <span>Tổng tiền</span>
                                                     </div>
@@ -318,7 +326,8 @@ export default function AttendanceTracker() {
                                             {employees.map(([username, info]: [string, any], index) => {
                                                 // Calculate total
                                                 const wage = info.wage > 8000000 ? 8000000 : info.wage
-                                                const total = info.wheel + wage
+                                                const penalty = info.penalty || 0
+                                                const total = info.wheel + wage - penalty
 
                                                 return (
                                                     <tr
@@ -334,6 +343,9 @@ export default function AttendanceTracker() {
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                                                             {formatCurrency(wage)}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                                                            {penalty > 0 ? `-${formatCurrency(penalty).replace('₫', '').trim()}` : formatCurrency(0)}
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-700 bg-blue-50/50 rounded-lg">
                                                             <div className="flex items-center gap-1">
