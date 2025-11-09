@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma, connectDB } from "@/lib/db"
 import { cookies } from "next/headers"
-import moment from "moment"
+import moment from "moment-timezone"
 
 // Add dynamic route configuration
 export const dynamic = 'force-dynamic';
@@ -129,16 +129,16 @@ export async function GET(request: Request) {
     // Ensure database connection
     await connectDB()
 
-    // LUÔN LUÔN lấy tuần trước từ hệ thống (không phụ thuộc database)
-    const today = moment()
-    const lastWeek = moment().subtract(1, 'week')
+    // LUÔN LUÔN lấy tuần trước từ hệ thống theo giờ Việt Nam (không phụ thuộc database)
+    const today = moment.tz('Asia/Ho_Chi_Minh')
+    const lastWeek = moment.tz('Asia/Ho_Chi_Minh').subtract(1, 'week')
     const lastWeekNumber = getWeekNumber(lastWeek).toString()
 
     // Tính ngày bắt đầu và kết thúc tuần trước
-    const lastWeekStart = moment(lastWeek).startOf('week').add(1, 'day') // Thứ 2
-    const lastWeekEnd = moment(lastWeek).endOf('week').add(1, 'day') // Chủ nhật
+    const lastWeekStart = moment.tz('Asia/Ho_Chi_Minh').subtract(1, 'week').startOf('week').add(1, 'day') // Thứ 2
+    const lastWeekEnd = moment.tz('Asia/Ho_Chi_Minh').subtract(1, 'week').endOf('week').add(1, 'day') // Chủ nhật
 
-    console.log(`[Weekly Task Penalty] ⚠️ LUÔN LẤY TUẦN TRƯỚC: Week ${lastWeekNumber}, Start: ${lastWeekStart.format('YYYY-MM-DD')}, End: ${lastWeekEnd.format('YYYY-MM-DD')}`)
+    console.log(`[Weekly Task Penalty] ⚠️ LUÔN LẤY TUẦN TRƯỚC (VN): Week ${lastWeekNumber}, Start: ${lastWeekStart.format('YYYY-MM-DD')}, End: ${lastWeekEnd.format('YYYY-MM-DD')}`)
 
     // Lấy tất cả nhân viên
     const accounts = await prisma.account.findMany({
@@ -254,7 +254,7 @@ export async function GET(request: Request) {
     // Dùng ngày Thứ 2 của tuần trước làm penalty_date
     const penaltyDate = lastWeekStart.format('YYYY-MM-DD') // Thứ 2 của tuần trước
     const penaltyAmount = "- 200.000" // Số tiền xử phạt: -200.000 VND
-    const now = moment().format("YYYY-MM-DD HH:mm:ss")
+    const now = moment.tz('Asia/Ho_Chi_Minh').format("YYYY-MM-DD HH:mm:ss")
     const savedPenalties: Array<{ username: string, penalty_date: string }> = []
 
     // Lưu vào database cho từng người chưa hoàn thành
@@ -297,8 +297,8 @@ export async function GET(request: Request) {
 
     // Gửi tin nhắn xử phạt cho những người chưa làm tuần trước
     if (usersNotCompleted.length > 0) {
-      // Thời gian xử phạt
-      const penaltyTime = moment().format('HH:mm:ss DD/MM/YYYY')
+      // Thời gian xử phạt theo giờ Việt Nam
+      const penaltyTime = moment.tz('Asia/Ho_Chi_Minh').format('HH:mm:ss DD/MM/YYYY')
       const weekRange = `${lastWeekStart.format('DD/MM/YYYY')} - ${lastWeekEnd.format('DD/MM/YYYY')}`
 
       // Tạo tin nhắn với chi tiết công việc chưa làm

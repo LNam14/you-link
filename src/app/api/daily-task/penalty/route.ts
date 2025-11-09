@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma, connectDB } from "@/lib/db"
 import { cookies } from "next/headers"
-import moment from "moment"
+import moment from "moment-timezone"
 
 // Add dynamic route configuration
 export const dynamic = 'force-dynamic';
@@ -147,9 +147,9 @@ export async function GET(request: Request) {
     // Ensure database connection
     await connectDB()
 
-    // LUÔN LUÔN lấy ngày hôm qua từ hệ thống (không phụ thuộc database)
-    const yesterday = moment().subtract(1, 'days').format("YYYY-MM-DD")
-    console.log(`[Daily Task Penalty] ⚠️ LUÔN LẤY NGÀY HÔM QUA: ${yesterday}`)
+    // LUÔN LUÔN lấy ngày hôm qua từ hệ thống theo giờ Việt Nam (không phụ thuộc database)
+    const yesterday = moment.tz('Asia/Ho_Chi_Minh').subtract(1, 'days').format("YYYY-MM-DD")
+    console.log(`[Daily Task Penalty] ⚠️ LUÔN LẤY NGÀY HÔM QUA (VN): ${yesterday}`)
 
     // Lấy tất cả nhân viên
     const accounts = await prisma.account.findMany({
@@ -305,7 +305,7 @@ export async function GET(request: Request) {
 
     // Lưu dữ liệu xử phạt vào database và gửi tin nhắn
     const penaltyAmount = "- 200.000" // Số tiền xử phạt: -200.000 VND
-    const now = moment().format("YYYY-MM-DD HH:mm:ss")
+    const now = moment.tz('Asia/Ho_Chi_Minh').format("YYYY-MM-DD HH:mm:ss")
     const savedPenalties: Array<{ username: string, penalty_date: string }> = []
 
     // Lưu vào database cho từng người chưa hoàn thành
@@ -349,9 +349,9 @@ export async function GET(request: Request) {
 
     // Gửi tin nhắn xử phạt cho những người chưa làm ngày hôm qua
     if (usersNotCompleted.length > 0) {
-      // Thời gian xử phạt
-      const penaltyTime = moment().format('HH:mm:ss DD/MM/YYYY')
-      const yesterdayFormatted = moment(yesterday).format('DD/MM/YYYY')
+      // Thời gian xử phạt theo giờ Việt Nam
+      const penaltyTime = moment.tz('Asia/Ho_Chi_Minh').format('HH:mm:ss DD/MM/YYYY')
+      const yesterdayFormatted = moment.tz(yesterday, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
 
       // Tạo tin nhắn với chi tiết công việc chưa làm
       const messageParts: string[] = []

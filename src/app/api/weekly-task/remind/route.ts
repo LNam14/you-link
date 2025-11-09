@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma, connectDB } from "@/lib/db"
 import { cookies } from "next/headers"
-import moment from "moment"
+import moment from "moment-timezone"
 
 // Add dynamic route configuration
 export const dynamic = 'force-dynamic';
@@ -129,12 +129,12 @@ export async function GET(request: Request) {
     // Ensure database connection
     await connectDB()
 
-    // LUÔN LUÔN lấy tuần hiện tại từ hệ thống (không phụ thuộc database)
-    const today = moment().format("YYYY-MM-DD")
-    const todayDate = moment(today)
+    // LUÔN LUÔN lấy tuần hiện tại từ hệ thống theo giờ Việt Nam (không phụ thuộc database)
+    const today = moment.tz('Asia/Ho_Chi_Minh').format("YYYY-MM-DD")
+    const todayDate = moment.tz('Asia/Ho_Chi_Minh')
     const currentWeekNumber = getWeekNumber(todayDate).toString()
 
-    console.log(`[Weekly Task Remind] ⚠️ LUÔN LẤY TUẦN HIỆN TẠI: Week ${currentWeekNumber} (Today: ${today})`)
+    console.log(`[Weekly Task Remind] ⚠️ LUÔN LẤY TUẦN HIỆN TẠI (VN): Week ${currentWeekNumber} (Today: ${today})`)
 
     // Lấy tất cả nhân viên
     const accounts = await prisma.account.findMany({
@@ -247,9 +247,9 @@ export async function GET(request: Request) {
 
     // Gửi tin nhắn nhắc nhở cho những người chưa làm
     if (usersNotCompleted.length > 0) {
-      // Tính thời gian còn lại trong tuần
-      const now = moment()
-      const endOfWeek = moment().endOf('week').add(1, 'day') // Chủ nhật cuối tuần
+      // Tính thời gian còn lại trong tuần theo giờ Việt Nam
+      const now = moment.tz('Asia/Ho_Chi_Minh')
+      const endOfWeek = moment.tz('Asia/Ho_Chi_Minh').endOf('week').add(1, 'day') // Chủ nhật cuối tuần
       const timeRemaining = moment.duration(endOfWeek.diff(now))
       const daysRemaining = Math.floor(timeRemaining.asDays())
       const hoursRemaining = timeRemaining.hours()
@@ -262,11 +262,11 @@ export async function GET(request: Request) {
         timeRemainingText = `${hoursRemaining} giờ`
       }
 
-      // Thời gian nhắc nhở
+      // Thời gian nhắc nhở theo giờ Việt Nam
       const remindTime = now.format('HH:mm:ss DD/MM/YYYY')
 
-      // Tính ngày kết thúc tuần
-      const weekEndDate = moment().endOf('week').add(1, 'day').format('DD/MM/YYYY')
+      // Tính ngày kết thúc tuần theo giờ Việt Nam
+      const weekEndDate = moment.tz('Asia/Ho_Chi_Minh').endOf('week').add(1, 'day').format('DD/MM/YYYY')
 
       // Tạo tin nhắn với chi tiết công việc chưa làm
       const messageParts: string[] = []

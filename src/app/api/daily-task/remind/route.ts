@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma, connectDB } from "@/lib/db"
 import { cookies } from "next/headers"
-import moment from "moment"
+import moment from "moment-timezone"
 
 // Add dynamic route configuration
 export const dynamic = 'force-dynamic';
@@ -148,9 +148,9 @@ export async function GET(request: Request) {
     // Ensure database connection
     await connectDB()
 
-    // LUÔN LUÔN lấy ngày hôm nay từ hệ thống (không phụ thuộc database)
-    const today = moment().format("YYYY-MM-DD")
-    console.log(`[Daily Task Remind] ⚠️ LUÔN LẤY NGÀY HÔM NAY: ${today}`)
+    // LUÔN LUÔN lấy ngày hôm nay từ hệ thống theo giờ Việt Nam (không phụ thuộc database)
+    const today = moment.tz('Asia/Ho_Chi_Minh').format("YYYY-MM-DD")
+    console.log(`[Daily Task Remind] ⚠️ LUÔN LẤY NGÀY HÔM NAY (VN): ${today}`)
 
     // Lấy tất cả nhân viên
     const accounts = await prisma.account.findMany({
@@ -295,9 +295,9 @@ export async function GET(request: Request) {
 
     // Gửi tin nhắn nhắc nhở cho những người chưa làm
     if (usersNotCompleted.length > 0) {
-      // Tính thời gian còn lại trong ngày
-      const now = moment()
-      const endOfDay = moment().endOf('day')
+      // Tính thời gian còn lại trong ngày theo giờ Việt Nam
+      const now = moment.tz('Asia/Ho_Chi_Minh')
+      const endOfDay = moment.tz('Asia/Ho_Chi_Minh').endOf('day')
       const timeRemaining = moment.duration(endOfDay.diff(now))
       const hoursRemaining = Math.floor(timeRemaining.asHours())
       const minutesRemaining = timeRemaining.minutes()
@@ -310,7 +310,7 @@ export async function GET(request: Request) {
         timeRemainingText = `${minutesRemaining} phút`
       }
 
-      // Thời gian nhắc nhở
+      // Thời gian nhắc nhở theo giờ Việt Nam
       const remindTime = now.format('HH:mm:ss DD/MM/YYYY')
 
       // Tạo tin nhắn với chi tiết công việc chưa làm
