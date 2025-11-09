@@ -147,25 +147,9 @@ export async function GET(request: Request) {
     // Ensure database connection
     await connectDB()
 
-    // Lấy ngày hôm qua (yesterday)
+    // LUÔN LUÔN lấy ngày hôm qua từ hệ thống (không phụ thuộc database)
     const yesterday = moment().subtract(1, 'days').format("YYYY-MM-DD")
-    const yesterdayDate = moment(yesterday)
-    
-    // Tính tuần của ngày hôm qua theo logic ISO (tuần bắt đầu từ Thứ 2)
-    // Giống như logic trong frontend: getWeekNumber
-    const getWeekNumber = (date: moment.Moment): number => {
-      const d = new Date(Date.UTC(date.year(), date.month(), date.date()))
-      const dayNum = d.getUTCDay() || 7
-      d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-      return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
-    }
-    
-    const weekNumber = getWeekNumber(yesterdayDate).toString()
-    // Tính tuần trước đó (nếu yesterday là Chủ nhật, có thể thuộc tuần trước)
-    const previousWeekNumber = getWeekNumber(yesterdayDate.clone().subtract(7, 'days')).toString()
-
-    console.log(`[Daily Task Penalty] Yesterday: ${yesterday}, Week: ${weekNumber}, Previous Week: ${previousWeekNumber}`)
+    console.log(`[Daily Task Penalty] ⚠️ LUÔN LẤY NGÀY HÔM QUA: ${yesterday}`)
 
     // Lấy tất cả nhân viên
     const accounts = await prisma.account.findMany({
@@ -256,7 +240,7 @@ export async function GET(request: Request) {
       }
     })
 
-    console.log(`[Daily Task Penalty] Yesterday: ${yesterday}, Week: ${weekNumber}`)
+    console.log(`[Daily Task Penalty] Yesterday: ${yesterday}`)
     console.log(`[Daily Task Penalty] Total users: ${accounts.length}, Users with data: ${Object.keys(workTaskDataByUser).length}`)
 
     // Danh sách người chưa làm công việc ngày hôm qua với chi tiết công việc chưa làm

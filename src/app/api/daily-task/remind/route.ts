@@ -148,13 +148,9 @@ export async function GET(request: Request) {
     // Ensure database connection
     await connectDB()
 
-    // Lấy ngày hôm nay
+    // LUÔN LUÔN lấy ngày hôm nay từ hệ thống (không phụ thuộc database)
     const today = moment().format("YYYY-MM-DD")
-    const todayDate = moment(today)
-    
-    // Lấy số tuần hiện tại
-    const currentWeekNumber = todayDate.week().toString()
-    const weekKey = `week_${currentWeekNumber}`
+    console.log(`[Daily Task Remind] ⚠️ LUÔN LẤY NGÀY HÔM NAY: ${today}`)
 
     // Lấy tất cả nhân viên
     const accounts = await prisma.account.findMany({
@@ -234,7 +230,7 @@ export async function GET(request: Request) {
       }
     })
 
-    console.log(`[Daily Task Remind] Today: ${today}, Week: ${currentWeekNumber}`)
+    console.log(`[Daily Task Remind] Today: ${today}`)
     console.log(`[Daily Task Remind] Total users: ${accounts.length}, Users with data: ${Object.keys(workTaskDataByUser).length}`)
 
     // Danh sách người chưa làm công việc với chi tiết công việc chưa làm
