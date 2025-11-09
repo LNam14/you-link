@@ -187,34 +187,50 @@ export async function GET(request: Request) {
       ? JSON.parse(template.template_data) 
       : template.template_data
 
-    // Lấy work task data của tất cả users
+    // Lấy tất cả work task data của tất cả users (không filter theo week_number)
+    // Vì có thể dữ liệu trong database có week_number khác với tuần hiện tại
     const workTasks = await prisma.work_task.findMany({
-      where: {
-        week_number: currentWeekNumber
+      orderBy: {
+        updated_at: 'desc'
       }
     })
 
-    // Parse và group work task data - lấy record mới nhất cho mỗi user
+    // Parse và group work task data - tìm dailyTask có date = today trong tất cả work_task
     const workTaskDataByUser: { [username: string]: any } = {}
-    const workTaskRecordsByUser: { [username: string]: any } = {}
     
-    // Tìm record mới nhất cho mỗi user
+    // Group work tasks theo username
+    const workTasksByUsername: { [username: string]: any[] } = {}
     workTasks.forEach((task) => {
       if (!task.username) return
-      
-      if (!workTaskRecordsByUser[task.username] || 
-          new Date(task.updated_at) > new Date(workTaskRecordsByUser[task.username].updated_at)) {
-        workTaskRecordsByUser[task.username] = task
+      if (!workTasksByUsername[task.username]) {
+        workTasksByUsername[task.username] = []
       }
+      workTasksByUsername[task.username].push(task)
     })
     
-    // Parse dữ liệu từ record mới nhất
-    Object.keys(workTaskRecordsByUser).forEach((username) => {
-      const task = workTaskRecordsByUser[username]
-      const weekData = typeof task.week_data === 'string' ? JSON.parse(task.week_data) : task.week_data
-      if (weekData && weekData.dailyTasks) {
-        workTaskDataByUser[username] = weekData.dailyTasks
-        console.log(`[Parse Data] ${username} - Found ${weekData.dailyTasks.length} dailyTasks, updated_at: ${task.updated_at}`)
+    // Tìm dailyTask có date = today trong tất cả work_task của mỗi user
+    Object.keys(workTasksByUsername).forEach((username) => {
+      const userTasks = workTasksByUsername[username]
+      
+      // Tìm dailyTask có date = today trong tất cả work_task (sắp xếp theo updated_at desc)
+      for (const task of userTasks) {
+        const weekData = typeof task.week_data === 'string' ? JSON.parse(task.week_data) : task.week_data
+        if (weekData && weekData.dailyTasks && Array.isArray(weekData.dailyTasks)) {
+          const todayTask = weekData.dailyTasks.find((dt: any) => dt.date === today)
+          if (todayTask) {
+            // Tìm thấy dailyTask có date = today
+            // Lưu tất cả dailyTasks của tuần này (để có thể kiểm tra các task khác nếu cần)
+            workTaskDataByUser[username] = weekData.dailyTasks
+            console.log(`[Parse Data] ${username} - Found today task in week ${task.week_number}, updated_at: ${task.updated_at}`)
+            console.log(`[Parse Data] ${username} - Today task data:`, JSON.stringify(todayTask))
+            break // Đã tìm thấy, không cần tìm tiếp
+          }
+        }
+      }
+      
+      // Nếu không tìm thấy, log để debug
+      if (!workTaskDataByUser[username]) {
+        console.log(`[Parse Data] ${username} - No dailyTask found for date ${today} in any work_task`)
       }
     })
 

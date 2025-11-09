@@ -129,7 +129,7 @@ export async function GET(request: Request) {
     // Ensure database connection
     await connectDB()
 
-    // Lấy ngày hôm nay và tính tuần hiện tại
+    // Lấy ngày hôm nay và tính tuần hiện tại (theo logic ISO - tuần bắt đầu từ Thứ 2)
     const today = moment().format("YYYY-MM-DD")
     const todayDate = moment(today)
     const currentWeekNumber = getWeekNumber(todayDate).toString()
@@ -148,34 +148,48 @@ export async function GET(request: Request) {
       }
     })
 
-    // Lấy work task data của tất cả users cho tuần hiện tại
+    // Lấy tất cả work task data (không filter theo week_number trong database)
+    // Vì có thể dữ liệu trong database có week_number khác với tuần hiện tại
+    // Chúng ta sẽ filter theo week_number tính từ ngày hôm nay
     const workTasks = await prisma.work_task.findMany({
-      where: {
-        week_number: currentWeekNumber
+      orderBy: {
+        updated_at: 'desc'
       }
     })
 
-    // Parse và group work task data - lấy record mới nhất cho mỗi user
+    // Parse và group work task data - tìm work_task có week_number = currentWeekNumber
     const workTaskDataByUser: { [username: string]: any } = {}
-    const workTaskRecordsByUser: { [username: string]: any } = {}
     
-    // Tìm record mới nhất cho mỗi user
+    // Group work tasks theo username và tìm record có week_number = currentWeekNumber
+    const workTasksByUsername: { [username: string]: any[] } = {}
     workTasks.forEach((task) => {
       if (!task.username) return
-      
-      if (!workTaskRecordsByUser[task.username] || 
-          new Date(task.updated_at) > new Date(workTaskRecordsByUser[task.username].updated_at)) {
-        workTaskRecordsByUser[task.username] = task
+      if (!workTasksByUsername[task.username]) {
+        workTasksByUsername[task.username] = []
       }
+      workTasksByUsername[task.username].push(task)
     })
     
-    // Parse dữ liệu từ record mới nhất
-    Object.keys(workTaskRecordsByUser).forEach((username) => {
-      const task = workTaskRecordsByUser[username]
-      const weekData = typeof task.week_data === 'string' ? JSON.parse(task.week_data) : task.week_data
-      if (weekData) {
-        workTaskDataByUser[username] = weekData
-        console.log(`[Parse Data] ${username} - Found week data, updated_at: ${task.updated_at}`)
+    // Tìm work_task có week_number = currentWeekNumber cho mỗi user
+    Object.keys(workTasksByUsername).forEach((username) => {
+      const userTasks = workTasksByUsername[username]
+      
+      // Tìm work_task có week_number = currentWeekNumber (sắp xếp theo updated_at desc)
+      for (const task of userTasks) {
+        if (task.week_number === currentWeekNumber) {
+          const weekData = typeof task.week_data === 'string' ? JSON.parse(task.week_data) : task.week_data
+          if (weekData) {
+            workTaskDataByUser[username] = weekData
+            console.log(`[Parse Data] ${username} - Found week ${currentWeekNumber} data, updated_at: ${task.updated_at}`)
+            break // Đã tìm thấy, không cần tìm tiếp
+          }
+        }
+      }
+      
+      // Nếu không tìm thấy, log để debug
+      if (!workTaskDataByUser[username]) {
+        console.log(`[Parse Data] ${username} - No week data found for week ${currentWeekNumber}`)
+        console.log(`[Parse Data] ${username} - Available week_numbers:`, userTasks.map(t => t.week_number))
       }
     })
 
