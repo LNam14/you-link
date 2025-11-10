@@ -68,39 +68,6 @@ async function sendTelegramNotification(message: string): Promise<void> {
 function getIncompleteTasks(dailyTask: any, dailyTaskTemplate: any[], username: string, date: string): string[] {
   const incompleteTasks: string[] = [];
 
-  // Kiểm tra spamMKT - phải có ít nhất 1 mục không rỗng
-  let spamMKT = dailyTask.spamMKT;
-  
-  console.log(`[Check Task] ${username} - ${date} - Raw spamMKT:`, spamMKT, 'Type:', typeof spamMKT, 'IsArray:', Array.isArray(spamMKT));
-  
-  // Đảm bảo spamMKT là array
-  if (!Array.isArray(spamMKT)) {
-    console.log(`[Check Task] ${username} - ${date} - spamMKT is not array, converting to array`);
-    spamMKT = [];
-  }
-  
-  // Kiểm tra xem có ít nhất 1 mục không rỗng không
-  const hasSpamMKT = spamMKT.length > 0 && spamMKT.some((item: any) => {
-    if (item === null || item === undefined) {
-      console.log(`[Check Task] ${username} - ${date} - spamMKT item is null/undefined:`, item);
-      return false;
-    }
-    const itemStr = String(item);
-    const trimmed = itemStr.trim();
-    const isValid = trimmed !== '';
-    console.log(`[Check Task] ${username} - ${date} - spamMKT item: "${item}" -> "${trimmed}" -> isValid: ${isValid}`);
-    return isValid;
-  });
-  
-  console.log(`[Check Task] ${username} - ${date} - spamMKT:`, JSON.stringify(spamMKT), 'length:', spamMKT.length, 'hasSpamMKT:', hasSpamMKT);
-  
-  if (!hasSpamMKT) {
-    console.log(`[Check Task] ${username} - ${date} - Spam MKT chưa làm -> thêm vào incompleteTasks`);
-    incompleteTasks.push('Spam MKT');
-  } else {
-    console.log(`[Check Task] ${username} - ${date} - Spam MKT đã làm -> KHÔNG thêm vào incompleteTasks`);
-  }
-
   // Kiểm tra các custom tasks
   for (const task of dailyTaskTemplate) {
     const taskValue = dailyTask[task.id];
@@ -278,7 +245,7 @@ export async function GET(request: Request) {
 
       if (!yesterdayTask) {
         // Chưa có dữ liệu cho ngày hôm qua - tất cả công việc đều chưa làm
-        const allTasks = ['Spam MKT', ...dailyTaskTemplate.map((t: any) => t.name || t.id)]
+        const allTasks = dailyTaskTemplate.map((t: any) => t.name || t.id)
         usersNotCompleted.push({
           username: account.username,
           name: account.name || account.username,

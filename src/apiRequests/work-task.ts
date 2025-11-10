@@ -11,7 +11,6 @@ export interface DailyTaskData {
   day: string
   date: string
   chamCong: boolean
-  spamMKT: string[]
   [key: string]: boolean | string[] | string
 }
 

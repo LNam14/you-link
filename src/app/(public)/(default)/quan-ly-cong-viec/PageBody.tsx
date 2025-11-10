@@ -60,7 +60,6 @@ interface DailyTaskData {
   day: string
   date: string
   chamCong: boolean
-  spamMKT: string[]
   [key: string]: boolean | string[] | string
 }
 
@@ -350,7 +349,7 @@ const AddTaskDialog: React.FC<{ onAdd: (name: string, type: DailyTaskDataType) =
           style={{ fontSize: '12px' }}
         >
           <option value="boolean">True/False (giống Chấm công)</option>
-          <option value="text">Text (giống Spam MKT)</option>
+          <option value="text">Text (danh sách)</option>
         </select>
         <div className="flex gap-2">
           <button
@@ -728,7 +727,6 @@ const PageBody: React.FC = () => {
   const [workTaskIds, setWorkTaskIds] = useState<{ [key: string]: number }>({}) // Key format: "username_weekNumber"
   const [isSavingWorkTask, setIsSavingWorkTask] = useState(false)
   const [isLoadingWorkTask, setIsLoadingWorkTask] = useState(false)
-  const [savingSpamMKT, setSavingSpamMKT] = useState<string | null>(null)
   const [savingCustomTask, setSavingCustomTask] = useState<{ [key: string]: boolean }>({})
 
   const [editingDeXuat, setEditingDeXuat] = useState<{ [index: number]: string }>({})
@@ -806,7 +804,6 @@ const PageBody: React.FC = () => {
         day: dayName,
         date: dateKey,
         chamCong: false,
-        spamMKT: [],
       }
 
       // Initialize custom daily tasks from template
@@ -1758,208 +1755,10 @@ const PageBody: React.FC = () => {
     )
   }
 
-  const [editingSpamMKT, setEditingSpamMKT] = useState<{ [key: string]: { index: number | null; value: string } }>({})
-  // State để edit các custom task text (giống spamMKT)
+  // State để edit các custom task text
   const [editingCustomTaskText, setEditingCustomTaskText] = useState<{ [key: string]: { index: number | null; value: string } }>({})
 
-  const addSpamMktInput = (date: string) => {
-    // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
-    const today = getTodayLocal()
-    if (date !== today) {
-      toast.error("Chỉ có thể cập nhật công việc hàng ngày trong ngày hôm nay")
-      return
-    }
-
-    const key = `${date}_new`
-    setEditingSpamMKT((prev) => ({
-      ...prev,
-      [key]: { index: null, value: "" },
-    }))
-  }
-
-  const saveSpamMktInput = async (date: string, index: number | null, value: string) => {
-    // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
-    const today = getTodayLocal()
-    if (date !== today) {
-      toast.error("Chỉ có thể cập nhật công việc hàng ngày trong ngày hôm nay")
-      const key = index !== null ? `${date}_${index}` : `${date}_new`
-      setEditingSpamMKT((prev) => {
-        const newState = { ...prev }
-        delete newState[key]
-        return newState
-      })
-      return
-    }
-
-    if (!value.trim()) {
-      const key = index !== null ? `${date}_${index}` : `${date}_new`
-      setEditingSpamMKT((prev) => {
-        const newState = { ...prev }
-        delete newState[key]
-        return newState
-      })
-      return
-    }
-
-    const weekKey = getWeekKey(weeklyTasksWeekDates.weekNumber)
-    const currentUser = usersData.users[username] || { weeks: {} }
-    const current = currentUser.weeks[weekKey] || initializeWeekData(weeklyTasksWeekOffset)
-
-    // Kiểm tra xem dailyTask cho ngày này có tồn tại không
-    const existingTaskIndex = current.dailyTasks.findIndex((task) => task.date === date)
-    
-    let updatedWeekData: WeekData
-    
-    if (existingTaskIndex === -1) {
-      // Nếu không tồn tại, tạo mới dailyTask cho ngày này
-      const dateObj = new Date(date)
-      const dayName = dayNames[dateObj.getDay()]
-      const newTask: DailyTaskData = {
-        day: dayName,
-        date: date,
-        chamCong: false,
-        spamMKT: [],
-      }
-      
-      // Khởi tạo tất cả các task từ template
-      dailyTaskTemplate.forEach((templateTask) => {
-        if (templateTask.type === "boolean") {
-          newTask[templateTask.id] = false
-        } else {
-          newTask[templateTask.id] = []
-        }
-      })
-      
-      // Thêm giá trị mới vào spamMKT
-      const spamMKT = newTask.spamMKT || []
-      if (index !== null) {
-        newTask.spamMKT = spamMKT.map((item, i) => (i === index ? value.trim() : item))
-      } else {
-        newTask.spamMKT = [...spamMKT, value.trim()]
-      }
-      
-      updatedWeekData = {
-        ...current,
-        dailyTasks: [...current.dailyTasks, newTask],
-      }
-    } else {
-      // Nếu đã tồn tại, cập nhật
-      updatedWeekData = {
-        ...current,
-        dailyTasks: current.dailyTasks.map((task) => {
-          if (task.date === date) {
-            const spamMKT = task.spamMKT || []
-            if (index !== null) {
-              return { ...task, spamMKT: spamMKT.map((item, i) => (i === index ? value.trim() : item)) }
-            } else {
-              return { ...task, spamMKT: [...spamMKT, value.trim()] }
-            }
-          }
-          return task
-        }),
-      }
-    }
-
-    setUsersData((prev) => ({
-      ...prev,
-      users: {
-        ...prev.users,
-        [username]: {
-          weeks: {
-            ...currentUser.weeks,
-            [weekKey]: updatedWeekData,
-          },
-        },
-      },
-    }))
-
-    // Lưu vào database
-    try {
-      setSavingSpamMKT(date)
-      await saveWorkTaskDataImmediate(updatedWeekData, weeklyTasksWeekDates.weekNumber.toString(), false)
-      
-      // Cập nhật giá trị ban đầu sau khi lưu
-      const todayTask = updatedWeekData.dailyTasks.find((task) => task.date === today)
-      if (todayTask) {
-        originalDailyTasksRef.current[today] = { ...todayTask }
-      }
-      
-      toast.success("Đã lưu công việc hàng ngày (spam MKT) thành công!")
-    } catch (error) {
-      console.error("Error saving spam MKT input:", error)
-      toast.error("Có lỗi khi lưu công việc hàng ngày")
-    } finally {
-      setSavingSpamMKT(null)
-    }
-
-    const key = index !== null ? `${date}_${index}` : `${date}_new`
-    setEditingSpamMKT((prev) => {
-      const newState = { ...prev }
-      delete newState[key]
-      return newState
-    })
-  }
-
-  const removeSpamMktInput = async (date: string, index: number) => {
-    // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
-    const today = getTodayLocal()
-    if (date !== today) {
-      toast.error("Chỉ có thể cập nhật công việc hàng ngày trong ngày hôm nay")
-      return
-    }
-
-    const weekKey = getWeekKey(weeklyTasksWeekDates.weekNumber)
-    const currentUser = usersData.users[username] || { weeks: {} }
-    const current = currentUser.weeks[weekKey] || initializeWeekData(weeklyTasksWeekOffset)
-
-    const updatedWeekData: WeekData = {
-      ...current,
-      dailyTasks: current.dailyTasks.map((task) =>
-        task.date === date ? { ...task, spamMKT: (task.spamMKT || []).filter((_, i) => i !== index) } : task,
-      ),
-    }
-
-    setUsersData((prev) => ({
-      ...prev,
-      users: {
-        ...prev.users,
-        [username]: {
-          weeks: {
-            ...currentUser.weeks,
-            [weekKey]: updatedWeekData,
-          },
-        },
-      },
-    }))
-
-    // Không tự động lưu, chỉ cập nhật state
-  }
-
-  const editSpamMktInput = (date: string, index: number, currentValue: string) => {
-    // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
-    const today = getTodayLocal()
-    if (date !== today) {
-      toast.error("Chỉ có thể cập nhật công việc hàng ngày trong ngày hôm nay")
-      return
-    }
-
-    const key = `${date}_${index}`
-    setEditingSpamMKT((prev) => ({
-      ...prev,
-      [key]: { index, value: currentValue },
-    }))
-  }
-
-  const cancelEditSpamMKT = (date: string, index: number | null) => {
-    const key = index !== null ? `${date}_${index}` : `${date}_new`
-    setEditingSpamMKT((prev) => {
-      const newState = { ...prev }
-      delete newState[key]
-      return newState
-    })
-  }
-
-  // Các hàm cho custom task text (giống spamMKT)
+  // Các hàm cho custom task text
   const addCustomTaskTextInput = (date: string, taskId: string) => {
     // Kiểm tra chỉ cho phép sửa trong ngày hôm nay
     const today = getTodayLocal()
@@ -2017,7 +1816,6 @@ const PageBody: React.FC = () => {
         day: dayName,
         date: date,
         chamCong: false,
-        spamMKT: [],
       }
       
       // Khởi tạo tất cả các task từ template
@@ -2762,9 +2560,6 @@ const PageBody: React.FC = () => {
                           </th>
                         )
                       })}
-                      <th className="border border-gray-300 px-3 py-3 text-center font-semibold bg-amber-600 text-white" style={{ fontSize: '11px' }}>
-                        Spam MKT
-                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2935,7 +2730,7 @@ const PageBody: React.FC = () => {
                                         </>
                                       )
                                     ) : (
-                                      // Hiển thị cho ngày hôm nay (có thể chỉnh sửa) - giống spamMKT
+                                      // Hiển thị cho ngày hôm nay (có thể chỉnh sửa)
                                       <>
                                         {(() => {
                                           return textInputs.map((input, idx) => {
@@ -3072,205 +2867,6 @@ const PageBody: React.FC = () => {
                               </td>
                             )
                           })}
-                          <td className="border border-gray-300 px-2 py-2 align-top">
-                            <div className="space-y-1">
-                              {!isToday ? (
-                                // Hiển thị cho ngày hôm trước
-                                (() => {
-                                  const spamMKTItems = dailyTask.spamMKT || []
-                                  const spamKey = `${dateKey}_spamMKT`
-                                  const showFullSpam = showFullInputs[spamKey] || false
-                                  const hasContent = spamMKTItems.length > 0
-                                  
-                                  if (!hasContent) {
-                                    return (
-                                      <div className="flex items-center justify-center py-2">
-                                        <span className="text-xs text-gray-400">Không có gì</span>
-                                      </div>
-                                    )
-                                  }
-                                  
-                                  if (!showFullSpam) {
-                                    return (
-                                      <button
-                                        onClick={() => setShowFullInputs(prev => ({ ...prev, [spamKey]: true }))}
-                                        className="w-full flex items-center justify-center gap-1 px-2 py-1.5 text-xs text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg border border-amber-300 transition-colors"
-                                      >
-                                        <Circle className="h-3 w-3" />
-                                        <span>Xem {spamMKTItems.length} {spamMKTItems.length === 1 ? 'mục' : 'mục'}</span>
-                                      </button>
-                                    )
-                                  }
-                                  
-                                  return (
-                                    <>
-                                      {spamMKTItems.map((item, idx) => (
-                                        <div key={idx} className="px-2 py-1.5 bg-gradient-to-r from-yellow-50 to-orange-50 text-gray-900 rounded-lg border border-yellow-200 break-words" style={{ fontSize: '11px', lineHeight: '1.5' }}>
-                                          {item}
-                                        </div>
-                                      ))}
-                                      <button
-                                        onClick={() => setShowFullInputs(prev => ({ ...prev, [spamKey]: false }))}
-                                        className="w-full flex items-center justify-center gap-1 px-2 py-1.5 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg border border-gray-300 transition-colors"
-                                      >
-                                        <span>Ẩn</span>
-                                      </button>
-                                    </>
-                                  )
-                                })()
-                              ) : (
-                                // Hiển thị cho ngày hôm nay (có thể chỉnh sửa)
-                                <>
-                                  {(() => {
-                                    const spamMKTItems = dailyTask.spamMKT || []
-                                    
-                                    return spamMKTItems.map((item, idx) => {
-                                      const editKey = `${dateKey}_${idx}`
-                                      const isEditing = editingSpamMKT[editKey] !== undefined
-
-                                      if (isEditing) {
-                                        const editValue = editingSpamMKT[editKey].value
-                                        return (
-                                          <div key={idx} className="flex gap-1">
-                                            <input
-                                              type="text"
-                                              value={editValue}
-                                              onChange={(e) =>
-                                                setEditingSpamMKT((prev) => ({
-                                                  ...prev,
-                                                  [editKey]: { index: idx, value: e.target.value },
-                                                }))
-                                              }
-                                              className="flex-1 px-2 py-1.5 bg-white text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                              style={{ fontSize: '11px' }}
-                                              placeholder="Nhập spam MKT..."
-                                              autoFocus
-                                              onKeyDown={(e) => {
-                                                if (e.key === "Enter") {
-                                                  saveSpamMktInput(dateKey, idx, editValue)
-                                                }
-                                                if (e.key === "Escape") {
-                                                  cancelEditSpamMKT(dateKey, idx)
-                                                }
-                                              }}
-                                            />
-                                            <button
-                                              onClick={() => saveSpamMktInput(dateKey, idx, editValue)}
-                                              disabled={savingSpamMKT === dateKey}
-                                              className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg disabled:opacity-50 transition-colors"
-                                              style={{ color: '#2563eb' }}
-                                            >
-                                              {savingSpamMKT === dateKey ? (
-                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                              ) : (
-                                                <CheckCircle2 className="h-3 w-3" />
-                                              )}
-                                            </button>
-                                            <button
-                                              onClick={() => cancelEditSpamMKT(dateKey, idx)}
-                                              className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                                            >
-                                              <X className="h-3 w-3" />
-                                            </button>
-                                          </div>
-                                        )
-                                      }
-
-                                      return (
-                                        <div key={idx} className="flex gap-1 items-center group">
-                                          <span className="flex-1 px-2 py-1.5 bg-gradient-to-r from-yellow-50 to-orange-50 text-gray-900 rounded-lg break-words border border-yellow-200" style={{ fontSize: '11px', lineHeight: '1.5' }}>
-                                            {item}
-                                          </span>
-                                          <button
-                                            onClick={() => editSpamMktInput(dateKey, idx, item)}
-                                            className="opacity-0 group-hover:opacity-100 p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-opacity"
-                                            style={{ color: '#2563eb' }}
-                                          >
-                                            <Edit className="h-3 w-3" />
-                                          </button>
-                                          <button
-                                            onClick={() => removeSpamMktInput(dateKey, idx)}
-                                            disabled={savingSpamMKT === dateKey}
-                                            className="opacity-0 group-hover:opacity-100 p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-opacity disabled:opacity-50"
-                                          >
-                                            {savingSpamMKT === dateKey ? (
-                                              <Loader2 className="h-3 w-3 animate-spin" />
-                                            ) : (
-                                              <Trash2 className="h-3 w-3" />
-                                            )}
-                                          </button>
-                                        </div>
-                                      )
-                                    })
-                                  })()}
-
-                                  {(() => {
-                                    const newKey = `${dateKey}_new`
-                                    const isAddingNew = editingSpamMKT[newKey] !== undefined
-
-                                    if (isAddingNew) {
-                                      const newValue = editingSpamMKT[newKey].value
-                                      return (
-                                        <div className="flex">
-                                          <input
-                                            type="text"
-                                            value={newValue}
-                                            onChange={(e) =>
-                                              setEditingSpamMKT((prev) => ({
-                                                ...prev,
-                                                [newKey]: { index: null, value: e.target.value },
-                                              }))
-                                            }
-                                            className="text-xs w-full flex-1 px-1.5 py-1 bg-white text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            style={{ fontSize: '11px' }}
-                                            placeholder="Nhập spam MKT..."
-                                            autoFocus
-                                            onKeyDown={(e) => {
-                                              if (e.key === "Enter") {
-                                                saveSpamMktInput(dateKey, null, newValue)
-                                              }
-                                              if (e.key === "Escape") {
-                                                cancelEditSpamMKT(dateKey, null)
-                                              }
-                                            }}
-                                          />
-                                          <button
-                                            onClick={() => saveSpamMktInput(dateKey, null, newValue)}
-                                            disabled={savingSpamMKT === dateKey}
-                                            className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg disabled:opacity-50 transition-colors"
-                                            style={{ color: '#2563eb' }}
-                                          >
-                                            {savingSpamMKT === dateKey ? (
-                                              <Loader2 className="h-3 w-3 animate-spin" />
-                                            ) : (
-                                              <CheckCircle2 className="h-3 w-3" />
-                                            )}
-                                          </button>
-                                          <button
-                                            onClick={() => cancelEditSpamMKT(dateKey, null)}
-                                            className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                                          >
-                                            <X className="h-3 w-3" />
-                                          </button>
-                                        </div>
-                                      )
-                                    }
-
-                                    return (
-                                      <button
-                                        onClick={() => addSpamMktInput(dateKey)}
-                                        className="w-full flex items-center justify-center gap-1 px-2 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-yellow-50 rounded-lg border border-dashed border-yellow-300 transition-colors"
-                                        style={{ fontSize: '11px' }}
-                                      >
-                                        <Plus className="h-3 w-3" />
-                                        <span>Thêm</span>
-                                      </button>
-                                    )
-                                  })()}
-                                </>
-                              )}
-                            </div>
-                          </td>
                         </tr>
                       )
                     })}
