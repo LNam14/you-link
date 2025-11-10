@@ -106,13 +106,16 @@ function getIncompleteTasks(dailyTask: any, dailyTaskTemplate: any[], username: 
     const taskValue = dailyTask[task.id];
     const taskName = task.name || task.id;
     
+    console.log(`[Check Task] ${username} - ${date} - Checking task: ${taskName} (type: ${task.type}), value: ${taskValue}, typeof: ${typeof taskValue}`);
+    
     if (task.type === 'boolean') {
       // Nếu là boolean task, phải là true (chính xác true, không phải truthy)
-      if (taskValue !== true) {
+      // Kiểm tra nếu taskValue là undefined, null, false, hoặc bất kỳ giá trị nào khác true
+      if (taskValue === undefined || taskValue === null || taskValue === false || taskValue !== true) {
         incompleteTasks.push(taskName);
-        console.log(`[Check Task] ${username} - ${date} - ${taskName} (boolean): chưa làm (value: ${taskValue})`);
+        console.log(`[Check Task] ${username} - ${date} - ${taskName} (boolean): chưa làm (value: ${taskValue}, type: ${typeof taskValue}) -> thêm vào incompleteTasks`);
       } else {
-        console.log(`[Check Task] ${username} - ${date} - ${taskName} (boolean): đã làm`);
+        console.log(`[Check Task] ${username} - ${date} - ${taskName} (boolean): đã làm (value: ${taskValue})`);
       }
     } else if (task.type === 'text') {
       // Nếu là text task, phải có ít nhất 1 mục không rỗng

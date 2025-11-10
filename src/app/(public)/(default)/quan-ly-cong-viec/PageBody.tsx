@@ -450,15 +450,6 @@ const EditableTaskName: React.FC<{
   )
 }
 
-// Hardcoded daily tasks that are always present
-const HARDCODED_DAILY_TASKS = [
-  { id: "hardcoded_check_bill_cong_no", name: "Check Bill - Công nợ", type: "boolean" as const },
-  { id: "hardcoded_theo_doi_don_dtk", name: "Theo dõi đơn ĐTK", type: "boolean" as const },
-  { id: "hardcoded_check_note_bill_don", name: "Check note Bill - Đơn", type: "boolean" as const },
-]
-
-// Usernames that should have hardcoded tasks auto-completed
-const AUTO_COMPLETE_HARDCODED_TASKS = ["BH12", "BH13"]
 
 const PageBody: React.FC = () => {
   const userInfo = getUserInfo()
@@ -808,9 +799,6 @@ const PageBody: React.FC = () => {
     const fromDate = formatDateLocal(weekDates[0])
     const toDate = formatDateLocal(weekDates[6])
 
-    // Check if current user should have hardcoded tasks auto-completed
-    const shouldAutoComplete = AUTO_COMPLETE_HARDCODED_TASKS.includes(username)
-
     const dailyTasks: DailyTaskData[] = weekDates.map((day, idx) => {
       const dateKey = formatDateLocal(day)
       const dayName = dayNames[day.getDay()]
@@ -820,12 +808,6 @@ const PageBody: React.FC = () => {
         chamCong: false,
         spamMKT: [],
       }
-
-      // Initialize hardcoded tasks
-      HARDCODED_DAILY_TASKS.forEach((hardcodedTask) => {
-        // For BH12 and BH13, auto-complete these tasks (set to true)
-        taskData[hardcodedTask.id] = shouldAutoComplete ? true : false
-      })
 
       // Initialize custom daily tasks from template
       dailyTaskTemplate.forEach((templateTask) => {
@@ -1192,24 +1174,8 @@ const PageBody: React.FC = () => {
             })
           }
 
-          // Check if current user should have hardcoded tasks auto-completed
-          const shouldAutoComplete = AUTO_COMPLETE_HARDCODED_TASKS.includes(username)
-
-          // Ensure hardcoded tasks are initialized in daily tasks
           const dailyTasksWithHardcoded = weekData.dailyTasks.map((task: DailyTaskData) => {
             const updatedTask: any = { ...task, chamCong: checkAttendance(task.date) }
-            
-            // Initialize hardcoded tasks if they don't exist
-            HARDCODED_DAILY_TASKS.forEach((hardcodedTask) => {
-              if (!(hardcodedTask.id in updatedTask)) {
-                // For BH12 and BH13, auto-complete these tasks (set to true)
-                updatedTask[hardcodedTask.id] = shouldAutoComplete ? true : false
-              } else if (shouldAutoComplete && updatedTask[hardcodedTask.id] === false) {
-                // If user is BH12 or BH13 and task is false, set to true
-                updatedTask[hardcodedTask.id] = true
-              }
-            })
-            
             return updatedTask as DailyTaskData
           })
 
@@ -1497,8 +1463,8 @@ const PageBody: React.FC = () => {
     }
   }, [dailyTasks])
 
-  // Combine hardcoded tasks with custom daily tasks
-  const customDailyTasks = [...HARDCODED_DAILY_TASKS, ...dailyTaskTemplate]
+  // Custom daily tasks from template
+  const customDailyTasks = [...dailyTaskTemplate]
 
   const updateWeekData = async (updater: (data: WeekData) => WeekData, shouldSave = true) => {
     if (!username) return
@@ -2781,23 +2747,18 @@ const PageBody: React.FC = () => {
                         Chấm công
                       </th>
                       {customDailyTasks.map((task) => {
-                        const isHardcoded = HARDCODED_DAILY_TASKS.some(ht => ht.id === task.id)
                         return (
                           <th
                             key={task.id}
                             className="border border-gray-300 px-3 py-3 text-center font-semibold bg-indigo-600 text-white"
                             style={{ fontSize: '11px' }}
                           >
-                            {isHardcoded ? (
-                              <span className="font-semibold">{task.name}</span>
-                            ) : (
-                              <EditableTaskName
-                                task={task}
-                                onUpdate={(name, type) => updateCustomDailyTask(task.id, name, type)}
-                                onDelete={() => removeCustomDailyTask(task.id)}
-                                isAdmin={isAdmin}
-                              />
-                            )}
+                            <EditableTaskName
+                              task={task}
+                              onUpdate={(name, type) => updateCustomDailyTask(task.id, name, type)}
+                              onDelete={() => removeCustomDailyTask(task.id)}
+                              isAdmin={isAdmin}
+                            />
                           </th>
                         )
                       })}
