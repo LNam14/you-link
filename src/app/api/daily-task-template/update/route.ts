@@ -147,7 +147,59 @@ export async function PUT(request: Request) {
         const taskNames = newTasks.map(t => t.name).join(', ');
         // Format thời gian thêm (currentDate từ moment)
         const addTime = moment().add(7, 'hours').format("DD/MM/YYYY HH:mm");
-        const message = `📅 <b>Công việc hàng ngày mới</b>\n\n<b>Danh sách công việc:</b>\n${taskNames}\n\n<b>Thời gian áp dụng:</b> ${addTime}\n\n⚠️ <b>Mọi người chú ý thực hiện!</b>`;
+        
+        // Thu thập tất cả usernames từ appliesTo của các tasks mới
+        const allSelectedUsernames = new Set<string>();
+        newTasks.forEach((task: any) => {
+          if (task.appliesTo && Array.isArray(task.appliesTo) && task.appliesTo.length > 0) {
+            task.appliesTo.forEach((username: string) => {
+              allSelectedUsernames.add(username);
+            });
+          }
+        });
+        
+        let message = `📅 <b>Công việc hàng ngày mới</b>\n\n<b>Danh sách công việc:</b>\n${taskNames}\n\n<b>Thời gian áp dụng:</b> ${addTime}\n`;
+        
+        // Nếu có nhân viên được chọn, tag họ
+        if (allSelectedUsernames.size > 0) {
+          try {
+            // Lấy thông tin nhân viên từ database
+            const selectedEmployees = await prisma.account.findMany({
+              where: {
+                username: {
+                  in: Array.from(allSelectedUsernames)
+                }
+              },
+              select: {
+                username: true,
+                name: true,
+                telegram: true
+              }
+            });
+            
+            if (selectedEmployees.length > 0) {
+              message += `\n<b>Nhân viên thực hiện:</b>\n`;
+              selectedEmployees.forEach((emp: any) => {
+                const empName = emp.name || emp.username || '';
+                const telegramMention = emp.telegram 
+                  ? (emp.telegram.startsWith('@') ? emp.telegram : `@${emp.telegram}`)
+                  : `@${emp.username}`;
+                message += `• <b>${emp.username}-${empName}</b> ${telegramMention}\n`;
+              });
+            }
+          } catch (error) {
+            console.error('[Daily Task] ❌ Lỗi khi lấy thông tin nhân viên:', error);
+            // Nếu không lấy được thông tin, vẫn tag username
+            message += `\n<b>Nhân viên thực hiện:</b>\n`;
+            Array.from(allSelectedUsernames).forEach((username: string) => {
+              message += `• <b>${username}</b> @${username}\n`;
+            });
+          }
+        } else {
+          // Không có nhân viên được chọn, áp dụng cho tất cả
+          message += `\n⚠️ <b>Mọi người chú ý thực hiện!</b>`;
+        }
+        
         console.log('[Daily Task] Chuẩn bị gửi Telegram cho công việc:', taskNames);
         try {
           await sendTelegramNotification(message);

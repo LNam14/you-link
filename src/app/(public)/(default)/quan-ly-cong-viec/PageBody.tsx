@@ -46,6 +46,7 @@ interface CustomDailyTask {
   id: string
   name: string
   type: DailyTaskDataType
+  appliesTo?: string[] // Danh sách username của nhân viên áp dụng. Nếu undefined hoặc rỗng thì áp dụng cho tất cả
 }
 
 interface WeeklyTaskData {
@@ -303,16 +304,22 @@ const quizQuestions: QuizQuestion[] = [
     }
   ]
 
-const AddTaskDialog: React.FC<{ onAdd: (name: string, type: DailyTaskDataType) => void }> = ({ onAdd }) => {
+const AddTaskDialog: React.FC<{ 
+  onAdd: (name: string, type: DailyTaskDataType, selectedEmployees: string[]) => void
+  selectableEmployees: string[]
+  isAdmin: boolean
+}> = ({ onAdd, selectableEmployees, isAdmin }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [name, setName] = useState("")
   const [type, setType] = useState<DailyTaskDataType>("boolean")
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([])
 
   const handleSubmit = () => {
     if (name.trim()) {
-      onAdd(name.trim(), type)
+      onAdd(name.trim(), type, selectedEmployees)
       setName("")
       setType("boolean")
+      setSelectedEmployees([])
       setIsOpen(false)
     }
   }
@@ -330,8 +337,24 @@ const AddTaskDialog: React.FC<{ onAdd: (name: string, type: DailyTaskDataType) =
     )
   }
 
+  const toggleEmployee = (username: string) => {
+    setSelectedEmployees(prev => 
+      prev.includes(username) 
+        ? prev.filter(u => u !== username)
+        : [...prev, username]
+    )
+  }
+
+  const selectAll = () => {
+    setSelectedEmployees([...selectableEmployees])
+  }
+
+  const deselectAll = () => {
+    setSelectedEmployees([])
+  }
+
   return (
-    <div className="absolute top-full right-0 mt-2 bg-white border border-blue-300 rounded-lg shadow-xl p-3 z-50 min-w-[200px]">
+    <div className="absolute top-full right-0 mt-2 bg-white border border-blue-300 rounded-lg shadow-xl p-3 z-50 min-w-[300px] max-w-[400px]">
       <div className="space-y-2">
         <input
           type="text"
@@ -348,9 +371,48 @@ const AddTaskDialog: React.FC<{ onAdd: (name: string, type: DailyTaskDataType) =
           className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
           style={{ fontSize: '12px' }}
         >
-          <option value="boolean">True/False (giống Chấm công)</option>
-          <option value="text">Text (danh sách)</option>
+          <option value="boolean">True/False</option>
+          <option value="text">Text</option>
         </select>
+        
+        {isAdmin && selectableEmployees.length > 0 && (
+          <div className="border border-gray-300 rounded-lg p-2 max-h-[200px] overflow-y-auto">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-gray-700">Chọn nhân viên:</label>
+              <div className="flex gap-1">
+                <button
+                  onClick={selectAll}
+                  className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                >
+                  Tất cả
+                </button>
+                <button
+                  onClick={deselectAll}
+                  className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                >
+                  Bỏ chọn
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1">
+              {selectableEmployees.map((username) => (
+                <label key={username} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                  <input
+                    type="checkbox"
+                    checked={selectedEmployees.includes(username)}
+                    onChange={() => toggleEmployee(username)}
+                    className="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
+                  />
+                  <span className="text-xs text-gray-700">{username}</span>
+                </label>
+              ))}
+            </div>
+            {selectedEmployees.length === 0 && (
+              <p className="text-xs text-gray-500 mt-1 italic">Chưa chọn nhân viên nào (sẽ áp dụng cho tất cả)</p>
+            )}
+          </div>
+        )}
+        
         <div className="flex gap-2">
           <button
             onClick={handleSubmit}
@@ -363,6 +425,7 @@ const AddTaskDialog: React.FC<{ onAdd: (name: string, type: DailyTaskDataType) =
             onClick={() => {
               setIsOpen(false)
               setName("")
+              setSelectedEmployees([])
             }}
             className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors"
             style={{ fontSize: '12px' }}
@@ -806,12 +869,19 @@ const PageBody: React.FC = () => {
         chamCong: false,
       }
 
-      // Initialize custom daily tasks from template
+      // Initialize custom daily tasks from template - chỉ khởi tạo tasks áp dụng cho nhân viên hiện tại
       dailyTaskTemplate.forEach((templateTask) => {
-        if (templateTask.type === "boolean") {
-          taskData[templateTask.id] = false
-        } else {
-          taskData[templateTask.id] = []
+        // Kiểm tra xem task có áp dụng cho nhân viên hiện tại không
+        const appliesToUser = !templateTask.appliesTo || 
+                              templateTask.appliesTo.length === 0 || 
+                              (username && templateTask.appliesTo.includes(username))
+        
+        if (appliesToUser) {
+          if (templateTask.type === "boolean") {
+            taskData[templateTask.id] = false
+          } else {
+            taskData[templateTask.id] = []
+          }
         }
       })
 
@@ -1460,8 +1530,17 @@ const PageBody: React.FC = () => {
     }
   }, [dailyTasks])
 
-  // Custom daily tasks from template
-  const customDailyTasks = [...dailyTaskTemplate]
+  // Custom daily tasks from template - chỉ hiển thị tasks áp dụng cho nhân viên hiện tại
+  const customDailyTasks = useMemo(() => {
+    return dailyTaskTemplate.filter((task) => {
+      // Nếu không có appliesTo hoặc appliesTo rỗng, áp dụng cho tất cả
+      if (!task.appliesTo || task.appliesTo.length === 0) {
+        return true
+      }
+      // Nếu có appliesTo, chỉ hiển thị nếu username hiện tại nằm trong danh sách
+      return task.appliesTo.includes(username)
+    })
+  }, [dailyTaskTemplate, username])
 
   const updateWeekData = async (updater: (data: WeekData) => WeekData, shouldSave = true) => {
     if (!username) return
@@ -1615,7 +1694,7 @@ const PageBody: React.FC = () => {
       .replace(/[^a-z0-9]/g, "")
   }
 
-  const addCustomDailyTask = async (name: string, type: DailyTaskDataType) => {
+  const addCustomDailyTask = async (name: string, type: DailyTaskDataType, selectedEmployees: string[] = []) => {
     const taskId = normalizeTaskName(name)
     if (dailyTaskTemplate.some((t) => t.id === taskId)) {
       toast.error("Công việc này đã tồn tại")
@@ -1628,6 +1707,7 @@ const PageBody: React.FC = () => {
       id: taskId,
       name: name.trim(),
       type,
+      appliesTo: selectedEmployees.length > 0 ? selectedEmployees : undefined, // Nếu không chọn nhân viên nào thì undefined (áp dụng cho tất cả)
     }
 
     const updatedTemplate = [...dailyTaskTemplate, newTask]
@@ -1635,20 +1715,29 @@ const PageBody: React.FC = () => {
     try {
       await dailyTaskTemplateApiRequest.update({ template: updatedTemplate })
       setDailyTaskTemplate(updatedTemplate)
-      toast.success("Đã thêm công việc mới. Thay đổi sẽ áp dụng cho tuần tiếp theo.")
-
-      updateWeekData((data) => {
-        return {
-          ...data,
-          dailyTasks: data.dailyTasks.map((task) => {
-            if (type === "boolean") {
-              return { ...task, [taskId]: false }
-            } else {
-              return { ...task, [taskId]: [] }
-            }
-          }),
-        }
-      })
+      
+      // Chỉ cập nhật weekData cho nhân viên hiện tại nếu task áp dụng cho họ
+      const shouldApplyToCurrentUser = !newTask.appliesTo || newTask.appliesTo.length === 0 || newTask.appliesTo.includes(username)
+      
+      if (shouldApplyToCurrentUser) {
+        updateWeekData((data) => {
+          return {
+            ...data,
+            dailyTasks: data.dailyTasks.map((task) => {
+              if (type === "boolean") {
+                return { ...task, [taskId]: false }
+              } else {
+                return { ...task, [taskId]: [] }
+              }
+            }),
+          }
+        })
+      }
+      
+      const employeeText = selectedEmployees.length > 0 
+        ? ` cho ${selectedEmployees.length} nhân viên được chọn`
+        : " cho tất cả nhân viên"
+      toast.success(`Đã thêm công việc mới${employeeText}. Thay đổi sẽ áp dụng cho tuần tiếp theo.`)
     } catch (error: any) {
       console.error("Error adding custom daily task:", error)
       toast.error("Có lỗi xảy ra khi thêm công việc")
@@ -1679,6 +1768,7 @@ const PageBody: React.FC = () => {
           id: newTaskId,
           name: name.trim(),
           type: newType,
+          appliesTo: currentTask.appliesTo, // Giữ nguyên appliesTo khi cập nhật
         }
       }
       return task
@@ -2527,7 +2617,11 @@ const PageBody: React.FC = () => {
 
                   {isAdmin && (
                     <div className="relative">
-                      <AddTaskDialog onAdd={addCustomDailyTask} />
+                      <AddTaskDialog 
+                        onAdd={addCustomDailyTask} 
+                        selectableEmployees={selectableUsers}
+                        isAdmin={isAdmin}
+                      />
                     </div>
                   )}
                 </div>
