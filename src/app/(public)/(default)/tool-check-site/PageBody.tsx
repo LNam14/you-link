@@ -1478,7 +1478,7 @@ export default function PageBody() {
         }
 
         return (
-            <div className="overflow-x-auto w-full max-w-8xl">
+            <div className="overflow-x-auto w-full">
                 <HotTable
                     ref={tableRef}
                     key={`${tableKey}-${selectedCurrency}`}
@@ -1922,19 +1922,21 @@ export default function PageBody() {
                             <Search className="absolute right-3 top-3 text-gray-400 h-5 w-5" />
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    {/* Unified Table Display */}
-                    {loading ? (
-                        <div className="flex justify-center items-center h-64">
-                            <div className="flex flex-col items-center">
-                                <RefreshCw className="h-10 w-10 text-blue-500 animate-spin mb-4" />
-                                <p className="text-gray-500">Đang tải dữ liệu...</p>
-                            </div>
-                        </div>
-                    ) : hasSearched && filteredData.length > 0 ? (
-                        <div className="bg-white p-4">
+            {/* Unified Table Display - Full Width */}
+            {loading ? (
+                <div className="flex justify-center items-center h-64 -mx-4 px-4">
+                    <div className="flex flex-col items-center">
+                        <RefreshCw className="h-10 w-10 text-blue-500 animate-spin mb-4" />
+                        <p className="text-gray-500">Đang tải dữ liệu...</p>
+                    </div>
+                </div>
+            ) : hasSearched && filteredData.length > 0 ? (
+                <div className="w-full bg-white -mx-4">
                             {/* Compact Table Stats and Controls */}
-                            <div className="mb-4">
+                            <div className="mb-4 px-4 pt-4">
                                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3 shadow-sm">
                                     <div className="flex items-center justify-between">
                                         <div className="flex flex-col items-left gap-2">
@@ -2076,7 +2078,7 @@ export default function PageBody() {
 
                             {/* Enhanced Duplicates Table */}
                             {showDuplicates && hasDuplicates && (
-                                <div className="mt-8 border-t-2 border-gray-200 pt-6">
+                                <div className="mt-8 border-t-2 border-gray-200 pt-6 px-4">
                                     <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-xl p-4 mb-4 shadow-sm">
                                         <div className="flex items-center">
                                             <div className="mr-3 p-2 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg shadow-md">
@@ -2100,6 +2102,7 @@ export default function PageBody() {
                                     )}
                                 </div>
                             )}
+                            <div className="pb-4"></div>
                         </div>
                     ) : hasSearched ? (
                         <div className="flex flex-col items-center justify-center py-12 px-4">
@@ -2135,8 +2138,6 @@ export default function PageBody() {
                             </p>
                         </div>
                     )}
-                </div>
-            </div>
 
             {/* Mobile-only floating copy button */}
             <button
