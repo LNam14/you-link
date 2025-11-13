@@ -62,6 +62,7 @@ const ENDPOINTS = {
   GET_ID_NCC: "/sheet/id-ncc",
   GET_ID_KH: "/sheet/id-kh",
   GET_DATA_TOOL: "/sheet/tool-check",
+  GET_DATA_SYNTHETIC: "/sheet/tool-check-synthetic",
   GET_DATA_EXTORT: "/sheet/extort",
   UPDATE_DATA: "/sheet/update",
   BULK_UPDATE: "/sheet/bulk-update", // ✅ thêm endpoint bulk update
@@ -108,6 +109,13 @@ const sheetApiRequest = {
    */
   getDataTool: () => {
     return httpService.post<ToolResponse>(ENDPOINTS.GET_DATA_TOOL, {})
+  },
+
+  /**
+   * Lấy dữ liệu synthetic
+   */
+  getDataSynthetic: () => {
+    return httpService.post<ToolResponse>(ENDPOINTS.GET_DATA_SYNTHETIC, {})
   },
 
   /**

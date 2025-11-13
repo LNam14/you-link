@@ -206,6 +206,12 @@ export default function Header() {
       color: "bg-gradient-to-r from-emerald-500 to-teal-600",
     },
     {
+      name: "Tool Check Synthetic",
+      icon: <CheckCircle className="w-4 h-4" />,
+      href: "/tool-check-synthetic",
+      color: "bg-gradient-to-r from-emerald-500 to-teal-600",
+    },
+    {
       name: "Chấm Công",
       icon: <Clock className="w-4 h-4" />,
       href: "/cham-cong",
