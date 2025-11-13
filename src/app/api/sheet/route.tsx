@@ -14,6 +14,8 @@ const SPREADSHEET_ID =
     "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU";
 const CONTENT_SPREADSHEET_ID =
     "1SDvAA8pPWUl2Fi2ubFIFttS5D7rA1P-DHrHuJj9X4Z8";
+const SYNTHETIC_SPREADSHEET_ID =
+    "19aP7wI2niVMqabvxuo-FIhgEtgO4w8creFUOVECLuFQ";
 
 interface SheetConfig {
     range: string;
@@ -90,6 +92,23 @@ const sheetConfigs: Record<string, SheetConfig> = {
             Note: row[5] || "",
         }),
         spreadsheetId: CONTENT_SPREADSHEET_ID,
+    },
+    synthetic: {
+        range: "C0!A3:U",
+        formatter: (row) => ({
+            "Đuôi": row[0] || "",
+            Domains: row[2] || "",
+            "Ghi chú": row[3] || "",
+            DR: row[4] || "",
+            DA: row[5] || "",
+            TF: row[6] || "",
+            Spam: row[7] || "",
+            Traffic: row[8] || "",
+            "Link out": row[9] || "",
+            "Giá GP": row[10] || "",
+            "Giá Text": row[11] || "",
+        }),
+        spreadsheetId: SYNTHETIC_SPREADSHEET_ID,
     },
 };
 

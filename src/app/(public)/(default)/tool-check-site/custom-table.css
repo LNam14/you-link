@@ -121,3 +121,8 @@
 .handsontable {
     z-index: 0 !important;
 }
+
+/* Add padding-left to table data cells */
+.handsontable td {
+    padding-left: 2px !important;
+}

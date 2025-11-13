@@ -24,6 +24,7 @@ const Product = ({ title }: { title: string }) => {
   const [dataLoaded, setDataLoaded] = useState(false)
   const [dataGPTextVN, setDataGPTextVN] = useState<any[]>([])
   const [dataGPTextNN, setDataGPTextNN] = useState<any[]>([])
+  const [dataSynthetic, setDataSynthetic] = useState<any[]>([])
   const [products, setProducts] = useState<ProductType[]>([])
   const [dataContent, setDataContent] = useState<any[]>([])
 
@@ -37,6 +38,7 @@ const Product = ({ title }: { title: string }) => {
       const data: any = await sheetApiRequest.getData()
       setDataGPTextVN(data.gpTextVN)
       setDataGPTextNN(data.gpTextNN)
+      setDataSynthetic(data.synthetic)
       setDataContent(data.content)
       console.log(data.content)
       setDataLoaded(true)
@@ -129,6 +131,7 @@ const Product = ({ title }: { title: string }) => {
   const tabItems = [
     { id: "GP-Text VN", label: "GP Text VN", icon: <Database className="w-4 h-4" /> },
     { id: "GP-Text NN", label: "GP Text NN", icon: <Globe className="w-4 h-4" /> },
+    { id: "Tổng hợp", label: "Tổng hợp", icon: <Database className="w-4 h-4" /> },
     { id: "Content", label: "Content", icon: <BookOpen className="w-4 h-4" /> },
   ]
 
@@ -222,6 +225,7 @@ const Product = ({ title }: { title: string }) => {
             <div className="shadow-2xl rounded-2xl border border-gray-100 bg-white overflow-hidden w-full">
               {tabs === "GP-Text VN" && <DataSite fetchData={fetchData} data={dataGPTextVN} loading={loading} />}
               {tabs === "GP-Text NN" && <DataSite fetchData={fetchData} data={dataGPTextNN} loading={loading} />}
+              {tabs === "Tổng hợp" && <DataSite fetchData={fetchData} data={dataSynthetic} loading={loading} hideFilters={true} />}
               {tabs === "Content" && <Content fetchData={fetchData} data={dataContent} loading={loading} />}
             </div>
           )}

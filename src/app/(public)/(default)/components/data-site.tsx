@@ -62,7 +62,8 @@ export default function DataSite({
     fetchData,
     data,
     loading,
-}: { fetchData: any; data: any; loading: any }): React.JSX.Element {
+    hideFilters = false,
+}: { fetchData: any; data: any; loading: any; hideFilters?: boolean }): React.JSX.Element {
     const [searchTerm, setSearchTerm] = useState("")
     const [sortField, setSortField] = useState<string | null>(null)
     const [sortOrder, setSortOrder] = useState("asc")
@@ -687,13 +688,15 @@ export default function DataSite({
                     <div className="relative px-4 sm:px-6 mx-auto max-w-7xl">
                         <div className="flex flex-col space-y-4">
                             <div className="flex flex-col md:flex-row gap-2">
-                                <button
-                                    onClick={() => setShowFilters(!showFilters)}
-                                    className="h-11 flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-[10px] hover:from-blue-600 hover:to-indigo-700 transition-all duration-300"
-                                >
-                                    <FaFilter className="w-4 h-4" />
-                                    <span>Bộ lọc</span>
-                                </button>
+                                {!hideFilters && (
+                                    <button
+                                        onClick={() => setShowFilters(!showFilters)}
+                                        className="h-11 flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-[10px] hover:from-blue-600 hover:to-indigo-700 transition-all duration-300"
+                                    >
+                                        <FaFilter className="w-4 h-4" />
+                                        <span>Bộ lọc</span>
+                                    </button>
+                                )}
 
                                 <div className="flex-1">
                                     <textarea
@@ -767,7 +770,7 @@ export default function DataSite({
                 )}
 
                 {/* Custom Filter Panel */}
-                {showFilters && (
+                {!hideFilters && showFilters && (
                     <div 
                         className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
                         onClick={(e) => {
