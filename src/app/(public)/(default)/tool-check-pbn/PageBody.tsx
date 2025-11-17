@@ -1007,7 +1007,7 @@ export default function PageBody() {
                             <div className="flex-1 text-center md:text-left">
                                 <h2 className="text-2xl font-500 text-white flex items-center justify-center md:justify-start gap-2">
                                     <FileText className="h-6 w-6" />
-                                    Tool Check Synthetic
+                                    Tool Check PBN
                                 </h2>
                             </div>
 

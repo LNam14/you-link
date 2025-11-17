@@ -206,9 +206,9 @@ export default function Header() {
       color: "bg-gradient-to-r from-emerald-500 to-teal-600",
     },
     {
-      name: "Tool Check Synthetic",
+      name: "Tool Check PBN",
       icon: <CheckCircle className="w-4 h-4" />,
-      href: "/tool-check-synthetic",
+      href: "/tool-check-pbn",
       color: "bg-gradient-to-r from-emerald-500 to-teal-600",
     },
     {
