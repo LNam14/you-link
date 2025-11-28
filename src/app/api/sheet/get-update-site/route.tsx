@@ -4,7 +4,27 @@ import { cookies } from "next/headers"
 import { cache } from "react"
 import keys from "../../../../../key.json"
 
+// Ensure Node.js runtime and allow longer execution to avoid 504 timeouts
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+// Increase on Vercel (in seconds). Adjust as needed.
+export const maxDuration = 60
+
 const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
+
+// Cache kết quả trong 5 phút
+const CACHE_DURATION = 5 * 60 * 1000; // 5 phút
+const sheetCache = new Map<string, { data: any; expiry: number }>();
+
+// Cleanup cache cũ định kỳ để tránh memory leak
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, value] of sheetCache.entries()) {
+        if (value.expiry < now) {
+            sheetCache.delete(key);
+        }
+    }
+}, 60000); // Cleanup mỗi phút
 
 interface SheetConfig {
     range: string
@@ -81,11 +101,25 @@ const getAuthClient = cache(async () => {
     return client
 })
 
-export async function POST(req: Request) {
+async function handleRequest(req: Request) {
     try {
         const cookieStore = cookies()
         const userInfoCookie = cookieStore.get("userInfo")
         const userInfo = userInfoCookie ? JSON.parse(userInfoCookie.value) : {}
+
+        const cacheKey = `update-site-${SPREADSHEET_ID}-${userInfo.role || "guest"}-${userInfo.username || "anonymous"}`
+        
+        // Check cache
+        const cached = sheetCache.get(cacheKey)
+        if (cached && cached.expiry > Date.now()) {
+            return NextResponse.json(cached.data, {
+                status: 200,
+                headers: {
+                    "Cache-Control": "private, max-age=300, stale-while-revalidate=600",
+                    "CDN-Cache-Control": "public, max-age=300",
+                },
+            })
+        }
 
         const client = await getAuthClient()
         const gsapi = google.sheets({ version: "v4", auth: client })
@@ -121,9 +155,30 @@ export async function POST(req: Request) {
             results[key] = filtered
         }
 
-        return NextResponse.json(results, { status: 200 })
+        // Save to cache
+        sheetCache.set(cacheKey, {
+            data: results,
+            expiry: Date.now() + CACHE_DURATION,
+        })
+
+        return NextResponse.json(results, {
+            status: 200,
+            headers: {
+                "Cache-Control": "private, max-age=300, stale-while-revalidate=600",
+                "CDN-Cache-Control": "public, max-age=300",
+            },
+        })
     } catch (error: any) {
         console.error("Error updateSheets:", error)
         return NextResponse.json({ error: true, message: error.message }, { status: 500 })
     }
+}
+
+// Hỗ trợ cả GET và POST để tối ưu cache
+export async function GET(req: Request) {
+    return handleRequest(req)
+}
+
+export async function POST(req: Request) {
+    return handleRequest(req)
 }

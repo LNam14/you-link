@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import type React from "react"
 
-import sheetApiRequest from "@/apiRequests/sheet"
+import { useSheetToolData } from "@/hooks/useSheetToolData"
 import "./custom-table.css"
 import getUserInfo from "@/components/userInfo"
 import { HotTable, type HotTableRef } from "@handsontable/react-wrapper"
@@ -95,8 +95,6 @@ type RendererFunction = (
 registerAllModules()
 
 export default function PageBody() {
-    const [loading, setLoading] = useState(false)
-    const [allData, setAllData] = useState<SiteData[]>([])
     const [filteredData, setFilteredData] = useState<SiteData[]>([])
     const [searchTerm, setSearchTerm] = useState("")
     const [hasSearched, setHasSearched] = useState(false)
@@ -112,9 +110,14 @@ export default function PageBody() {
     const [selectedNCCs, setSelectedNCCs] = useState<Set<string>>(new Set())
     const [nccList, setNccList] = useState<Array<{ id: string; name: string }>>([])
     const [showDuplicates, setShowDuplicates] = useState(true)
+    const [sendingMessage, setSendingMessage] = useState(false) // Loading state riêng cho việc gửi tin nhắn
     const mainTableRef = useRef<HotTableRef>(null)
     const duplicatesTableRef = useRef<HotTableRef>(null)
     const selectionAnchorRef = useRef<{ row: number; col: number } | null>(null)
+
+    // Sử dụng hook tối ưu để fetch và cache dữ liệu
+    const { data: toolData, loading, refreshing, refetch, isStale } = useSheetToolData(true)
+    const allData = toolData?.gpTextVN || []
 
     // Add click outside handler
     useEffect(() => {
@@ -144,26 +147,24 @@ export default function PageBody() {
         }
     }, [])
 
+    // Fetch dữ liệu mới khi user click refresh
     const fetchData = async () => {
-        try {
-            setLoading(true)
-            const data: any = await sheetApiRequest.getDataTool()
-            console.log("data", data)
-            setAllData(data.gpTextVN || [])
-            if (searchTerm) {
+        await refetch()
+        // Sau khi fetch xong, nếu có searchTerm thì chạy lại search
+        if (searchTerm) {
+            // Delay một chút để đảm bảo allData đã được cập nhật
+            setTimeout(() => {
                 handleSearch(searchTerm)
-            }
-        } catch (error) {
-            console.error("Error fetching data:", error)
-            alert("Không thể tải dữ liệu. Vui lòng thử lại sau.")
-        } finally {
-            setLoading(false)
+            }, 100)
         }
     }
 
+    // Khi dữ liệu được load, tự động chạy search nếu có searchTerm
     useEffect(() => {
-        fetchData()
-    }, [])
+        if (toolData?.gpTextVN && searchTerm) {
+            handleSearch(searchTerm)
+        }
+    }, [toolData, searchTerm]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Normalize URL for comparison
     const normalizeUrl = (url: string): string => {
@@ -1528,7 +1529,7 @@ export default function PageBody() {
             }
 
             try {
-                setLoading(true)
+                setSendingMessage(true)
                 // Lấy unique IdGroup từ filteredData
                 const uniqueIdGroups = new Set<string>()
                 filteredData.forEach((item: SiteData) => {
@@ -1593,7 +1594,7 @@ export default function PageBody() {
                 console.error("Error:", error)
                 alert("Có lỗi xảy ra khi gửi tin nhắn")
             } finally {
-                setLoading(false)
+                setSendingMessage(false)
             }
         },
         [filteredData],
@@ -1814,7 +1815,18 @@ export default function PageBody() {
     }, [])
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 py-6 px-4">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 py-6 px-4 relative">
+            {/* Loading Overlay - Full Screen với backdrop mờ */}
+            {loading && !toolData && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4 min-w-[300px]">
+                        <RefreshCw className="h-12 w-12 text-blue-600 animate-spin" />
+                        <h3 className="text-xl font-semibold text-gray-800">Đang tải dữ liệu...</h3>
+                        <p className="text-sm text-gray-500 text-center">Vui lòng đợi trong khi chúng tôi tải dữ liệu mới nhất</p>
+                    </div>
+                </div>
+            )}
+            
             <div className="max-w-7xl mx-auto">
                 <div className="bg-white rounded-xl shadow-xl overflow-hidden border border-blue-100">
                     <div className="p-4 border-b border-blue-100 bg-gradient-to-r from-blue-500 to-blue-900">
@@ -1893,13 +1905,18 @@ export default function PageBody() {
                                 </div>
 
                                 {/* Nút Refresh */}
-                                <div className="w-full flex">
+                                <div className="w-full flex relative">
                                     <button
                                         onClick={fetchData}
                                         className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors shadow-md"
                                     >
-                                        <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                                        <RefreshCw className={`h-4 w-4 ${loading || refreshing ? "animate-spin" : ""}`} />
                                     </button>
+                                    {(refreshing || isStale) && (
+                                        <div className="absolute -top-1 -right-1 flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium z-10">
+                                            <RefreshCw className={`w-2.5 h-2.5 ${refreshing ? "animate-spin" : ""}`} />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -1926,14 +1943,7 @@ export default function PageBody() {
             </div>
 
             {/* Unified Table Display - Full Width */}
-            {loading ? (
-                <div className="flex justify-center items-center h-64 -mx-4 px-4">
-                    <div className="flex flex-col items-center">
-                        <RefreshCw className="h-10 w-10 text-blue-500 animate-spin mb-4" />
-                        <p className="text-gray-500">Đang tải dữ liệu...</p>
-                    </div>
-                </div>
-            ) : hasSearched && filteredData.length > 0 ? (
+            {hasSearched && filteredData.length > 0 ? (
                 <div className="w-full bg-white -mx-4">
                             {/* Compact Table Stats and Controls */}
                             <div className="mb-4 px-4 pt-4">
@@ -2008,8 +2018,8 @@ export default function PageBody() {
                                                         </button>
                                                         <button
                                                             onClick={openNccSelectionModal}
-                                                            disabled={loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0}
-                                                            className={`hidden md:flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0
+                                                            disabled={sendingMessage || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0}
+                                                            className={`hidden md:flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${sendingMessage || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0
                                                                 ? "bg-gray-400 text-gray-200 cursor-not-allowed"
                                                                 : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:scale-105"
                                                                 }`}
@@ -2025,8 +2035,8 @@ export default function PageBody() {
                                                         </button>
                                                         <button
                                                             onClick={handleMessageAllNCCs}
-                                                            disabled={loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0}
-                                                            className={`hidden md:flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${loading || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0
+                                                            disabled={sendingMessage || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0}
+                                                            className={`hidden md:flex items-center px-2 py-1 text-sm rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform ${sendingMessage || filteredData.length === 0 || getValidNCCsCount(filteredData) === 0
                                                                 ? "bg-gray-400 text-gray-200 cursor-not-allowed"
                                                                 : "bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 hover:scale-105"
                                                                 }`}
@@ -2153,7 +2163,7 @@ export default function PageBody() {
             {/* Direct Message Modal */}
             <DirectMessageModal
                 show={showDirectMessageModal}
-                loading={loading}
+                loading={sendingMessage}
                 onClose={() => setShowDirectMessageModal(false)}
                 onSend={handleDirectMessage}
             />

@@ -1,16 +1,32 @@
 import { google } from "googleapis"
 import keys from "../../../../../key.json"
 import { NextResponse } from "next/server"
+import { cache } from "react"
+
+// Ensure Node.js runtime and allow longer execution to avoid 504 timeouts
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+// Increase on Vercel (in seconds). Adjust as needed.
+export const maxDuration = 60
 
 const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
-// Simple in-memory cache to speed up repeated requests
-let cachedPayload: any | null = null
-let cachedAt = 0
-const CACHE_TTL_MS = 2 * 60 * 1000 // 2 minutes
+// Cache kết quả trong 5 phút (tăng từ 2 phút để giảm số lần gọi API)
+const CACHE_DURATION = 5 * 60 * 1000; // 5 phút
+const sheetCache = new Map<string, { data: any; expiry: number }>();
+
+// Cleanup cache cũ định kỳ để tránh memory leak
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, value] of sheetCache.entries()) {
+        if (value.expiry < now) {
+            sheetCache.delete(key);
+        }
+    }
+}, 60000); // Cleanup mỗi phút
 
 interface SheetConfig {
     range: string
-    formatter: (row: any[], allData: Record<string, any[]>) => Record<string, any>
+    formatter: (row: any[], allData: Record<string, any> & { nccMap?: Map<string, any> }) => Record<string, any>
 }
 
 const sheetConfigs: Record<string, SheetConfig> = {
@@ -46,23 +62,21 @@ const sheetConfigs: Record<string, SheetConfig> = {
             const hoaHongGP = parseNumber(row[22]) || 0
             const hoaHongText = parseNumber(row[23]) || 0
 
-            const giaCuoiGP = formatNumber((parseNumber(row[18]) * (100 - hoaHongGP)) / 100)
-            const giaCuoiText = formatNumber((parseNumber(row[19]) * (100 - hoaHongText)) / 100)
-            const giaCuoiTextHome = formatNumber((parseNumber(row[20]) * (100 - hoaHongText)) / 100)
-            const giaCuoiTextHeader = formatNumber((parseNumber(row[21]) * (100 - hoaHongText)) / 100)
-
-            const giaCuoiGPLio = formatNumber((parseNumber(row[18]) * (100 - hoaHongGP)) / 100)
-            const giaCuoiTextLio = formatNumber((parseNumber(row[19]) * (100 - hoaHongText)) / 100)
-            const giaCuoiTextHomeLio = formatNumber((parseNumber(row[20]) * (100 - hoaHongText)) / 100)
-            const giaCuoiTextHeaderLio = formatNumber((parseNumber(row[21]) * (100 - hoaHongText)) / 100)
+            const giaCuoiGP = row[31]
+            const giaCuoiText = row[32]
+            const giaCuoiTextHome = row[33]
+            const giaCuoiTextHeader = row[34]
 
             const maNCC = row[27]
             let fileNCC = ""
             let groupNCC = ""
             let idGroup = ""
 
-            if (maNCC && allData.ncc) {
-                const matchingNCC = allData.ncc.find((nccRow) => nccRow.MaNCC === maNCC)
+            // Tối ưu: Sử dụng Map lookup (O(1)) thay vì .find() (O(n))
+            if (maNCC) {
+                // Ưu tiên dùng nccMap nếu có (nhanh hơn)
+                const matchingNCC = allData.nccMap?.get(maNCC) || 
+                    (allData.ncc ? allData.ncc.find((nccRow: any) => nccRow.MaNCC === maNCC) : null)
                 if (matchingNCC) {
                     fileNCC = matchingNCC.FileNCC
                     groupNCC = matchingNCC.GroupNCC
@@ -105,10 +119,10 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 giaCuoiText: giaCuoiText || 0,
                 giaCuoiTextHome: giaCuoiTextHome || 0,
                 giaCuoiTextHeader: giaCuoiTextHeader || 0,
-                giaCuoiGPLio: giaCuoiGPLio || 0,
-                giaCuoiTextLio: giaCuoiTextLio || 0,
-                giaCuoiTextHomeLio: giaCuoiTextHomeLio || 0,
-                giaCuoiTextHeaderLio: giaCuoiTextHeaderLio || 0,
+                giaCuoiGPLio: giaCuoiGP || 0,
+                giaCuoiTextLio: giaCuoiText || 0,
+                giaCuoiTextHomeLio: giaCuoiTextHome || 0,
+                giaCuoiTextHeaderLio: giaCuoiTextHeader || 0,
                 loiNhuanGP: safeSubtract(parseNumber(row[13]), parseNumber(giaCuoiGP)),
                 loiNhuanText: safeSubtract(parseNumber(row[14]), parseNumber(giaCuoiText)),
                 loiNhuanTextHome: safeSubtract(parseNumber(row[15]), parseNumber(giaCuoiTextHome)),
@@ -135,51 +149,90 @@ async function getAllSheetData(gsapi: any) {
     // Create a map to hold sheet data, keyed by a logical name
     const allData: Record<string, any[]> = {}
 
-    for (const [key, config] of Object.entries(sheetConfigs)) {
+    // Tối ưu: Gọi song song tất cả các batch requests thay vì tuần tự
+    const fetchPromises = Object.entries(sheetConfigs).map(async ([key, config]) => {
+        const fetchStart = Date.now()
         const ranges = config.range.split(",").map((range) => range.trim())
+        
         const { data } = await gsapi.spreadsheets.values.batchGet({
             spreadsheetId: SPREADSHEET_ID,
             ranges: ranges,
+            // Tối ưu: Chỉ lấy giá trị, không format để nhanh hơn
+            valueRenderOption: "UNFORMATTED_VALUE",
+            dateTimeRenderOption: "SERIAL_NUMBER",
         })
+
+        const fetchTime = Date.now() - fetchStart
+        const totalRows = data.valueRanges?.reduce((sum: number, range: any) => sum + (range.values?.length || 0), 0) || 0
+        console.log(`[tool-check] Fetch ${key}: ${fetchTime}ms (${ranges.length} ranges, ${totalRows} rows)`)
 
         // Ensure data.valueRanges is an array before processing
         const values = data.valueRanges || []
 
         // Flatten the values from all ranges for this config
-        allData[key] = values.flatMap((range: any) => range.values || [])
+        return [key, values.flatMap((range: any) => range.values || [])] as const
+    })
+
+    // Chờ tất cả requests hoàn thành song song
+    const results = await Promise.all(fetchPromises)
+    
+    // Gán kết quả vào allData
+    for (const [key, values] of results) {
+        allData[key] = values
     }
 
     return allData
 }
 
-export async function POST(req: Request) {
+async function handleRequest(req: Request) {
+    const startTime = Date.now()
     try {
         // Check cache unless caller forces refresh via query (?revalidate=1)
         const url = new URL(req.url)
         const forceRefresh = url.searchParams.get("revalidate") === "1"
-        const now = Date.now()
-        if (!forceRefresh && cachedPayload && now - cachedAt < CACHE_TTL_MS) {
-            return NextResponse.json(cachedPayload, {
-                status: 200,
-                headers: {
-                    // Allow CDN/framework to cache as well
-                    "Cache-Control": "public, max-age=0, s-maxage=120, stale-while-revalidate=300",
-                },
-            })
+        const cacheKey = `tool-check-${SPREADSHEET_ID}`
+        
+        if (!forceRefresh) {
+            const cached = sheetCache.get(cacheKey)
+            if (cached && cached.expiry > Date.now()) {
+                console.log(`[tool-check] Cache hit - ${Date.now() - startTime}ms`)
+                return NextResponse.json(cached.data, {
+                    status: 200,
+                    headers: {
+                        "Cache-Control": "private, max-age=300, stale-while-revalidate=600", // Cache 5 phút, stale-while-revalidate 10 phút
+                        "CDN-Cache-Control": "public, max-age=300",
+                    },
+                })
+            }
         }
 
+        const authStart = Date.now()
         const client = new google.auth.JWT(keys.client_email, undefined, keys.private_key, [
             "https://www.googleapis.com/auth/spreadsheets",
         ])
 
         await client.authorize()
+        console.log(`[tool-check] Auth time: ${Date.now() - authStart}ms`)
 
         const gsapi = google.sheets({ version: "v4", auth: client })
 
+        const fetchStart = Date.now()
         const rawData = await getAllSheetData(gsapi)
+        console.log(`[tool-check] Fetch data time: ${Date.now() - fetchStart}ms`)
 
         // Process NCC data first, as it's a dependency for gpTextVN
+        const nccStart = Date.now()
         const nccData = rawData.ncc ? rawData.ncc.map((row) => sheetConfigs.ncc.formatter(row, rawData)) : []
+
+        // Tạo Map lookup cho NCC để tối ưu performance (O(1) thay vì O(n))
+        // Thay vì dùng .find() cho mỗi row, dùng Map để lookup nhanh hơn
+        const nccMap = new Map<string, typeof nccData[0]>()
+        for (const nccItem of nccData) {
+            if (nccItem.MaNCC) {
+                nccMap.set(nccItem.MaNCC, nccItem)
+            }
+        }
+        console.log(`[tool-check] Process NCC time: ${Date.now() - nccStart}ms (${nccData.length} items)`)
 
         // Create a combined object for formatted data
         const formattedData: Record<string, any[]> = {
@@ -187,22 +240,30 @@ export async function POST(req: Request) {
         }
 
         // Now process other sheets which may depend on NCC data
+        const formatStart = Date.now()
         for (const [key, config] of Object.entries(sheetConfigs)) {
             if (key !== "ncc" && rawData[key]) {
-                // Pass the already processed nccData in the `allData` argument
-                const dependencyData = { ...rawData, ncc: nccData }
+                // Pass the already processed nccData và nccMap trong `allData` argument
+                const dependencyData = { ...rawData, ncc: nccData, nccMap: nccMap }
                 formattedData[key] = rawData[key].map((row) => config.formatter(row, dependencyData))
+                console.log(`[tool-check] Process ${key} time: ${Date.now() - formatStart}ms (${rawData[key].length} rows)`)
             }
         }
 
-        // Save to cache
-        cachedPayload = formattedData
-        cachedAt = Date.now()
+        // Save to cache với thời gian dài hơn
+        sheetCache.set(cacheKey, {
+            data: formattedData,
+            expiry: Date.now() + CACHE_DURATION,
+        })
+
+        const totalTime = Date.now() - startTime
+        console.log(`[tool-check] Total processing time: ${totalTime}ms`)
 
         return NextResponse.json(formattedData, {
             status: 200,
             headers: {
-                "Cache-Control": "public, max-age=0, s-maxage=120, stale-while-revalidate=300",
+                "Cache-Control": "private, max-age=300, stale-while-revalidate=600",
+                "CDN-Cache-Control": "public, max-age=300",
             },
         })
     } catch (e: any) {
@@ -211,7 +272,12 @@ export async function POST(req: Request) {
     }
 }
 
-// Optional: support GET with the same caching logic
+// Hỗ trợ cả GET và POST để tối ưu cache
 export async function GET(req: Request) {
-    return POST(req)
+    return handleRequest(req)
 }
+
+export async function POST(req: Request) {
+    return handleRequest(req)
+}
+

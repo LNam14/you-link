@@ -75,13 +75,26 @@ const ENDPOINTS = {
 const sheetApiRequest = {
   /**
    * Lấy dữ liệu sheet
+   * Sử dụng GET để tận dụng cache tốt hơn
    */
   getData: () => {
-    return httpService.post<SheetResponse>(ENDPOINTS.GET_DATA, {})
+    // Thử GET trước, nếu không được thì fallback về POST
+    return httpService.get<any>(ENDPOINTS.GET_DATA).catch(() => {
+      // Fallback về POST nếu GET không được hỗ trợ
+      return httpService.post<SheetResponse>(ENDPOINTS.GET_DATA, {})
+    })
   },
 
+  /**
+   * Lấy dữ liệu update site
+   * Sử dụng GET để tận dụng cache tốt hơn
+   */
   getDataUpdateSite: () => {
-    return httpService.post<SheetResponse>(ENDPOINTS.GET_UPDATE_SITE, {})
+    // Thử GET trước, nếu không được thì fallback về POST
+    return httpService.get<any>(ENDPOINTS.GET_UPDATE_SITE).catch(() => {
+      // Fallback về POST nếu GET không được hỗ trợ
+      return httpService.post<SheetResponse>(ENDPOINTS.GET_UPDATE_SITE, {})
+    })
   },
 
   /**
@@ -106,9 +119,14 @@ const sheetApiRequest = {
 
   /**
    * Lấy dữ liệu công cụ
+   * Sử dụng GET để tận dụng cache tốt hơn
    */
   getDataTool: () => {
-    return httpService.post<ToolResponse>(ENDPOINTS.GET_DATA_TOOL, {})
+    // Thử GET trước, nếu không được thì fallback về POST
+    return httpService.get<any>(ENDPOINTS.GET_DATA_TOOL).catch(() => {
+      // Fallback về POST nếu GET không được hỗ trợ
+      return httpService.post<ToolResponse>(ENDPOINTS.GET_DATA_TOOL, {})
+    })
   },
 
   /**

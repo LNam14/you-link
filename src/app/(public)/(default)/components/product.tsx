@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import DataSite from "./data-site"
 import getUserInfo from "@/components/userInfo"
-import sheetApiRequest from "@/apiRequests/sheet"
+import { useSheetData } from "@/hooks/useSheetData"
 import { Database, Globe, BookOpen, RefreshCw } from "lucide-react"
 import { database } from "@/app/firebase/firebase"
 import { ref, onValue, set } from "firebase/database"
@@ -20,34 +20,26 @@ interface ProductType {
 
 const Product = ({ title }: { title: string }) => {
   const [tabs, setTabs] = useState("GP-Text VN")
-  const [loading, setLoading] = useState(false)
-  const [dataLoaded, setDataLoaded] = useState(false)
-  const [dataGPTextVN, setDataGPTextVN] = useState<any[]>([])
-  const [dataGPTextNN, setDataGPTextNN] = useState<any[]>([])
-  const [dataSynthetic, setDataSynthetic] = useState<any[]>([])
   const [products, setProducts] = useState<ProductType[]>([])
-  const [dataContent, setDataContent] = useState<any[]>([])
+  
+  // Sử dụng hook tối ưu để fetch và cache dữ liệu
+  const { data: sheetData, loading, refreshing, refetch, isStale } = useSheetData(true)
 
   const handleSelectTabs = (tab: string) => {
     setTabs(tab)
   }
 
+  // Fetch dữ liệu mới khi user click refresh
   const fetchData = async () => {
-    try {
-      setLoading(true)
-      const data: any = await sheetApiRequest.getData()
-      setDataGPTextVN(data.gpTextVN)
-      setDataGPTextNN(data.gpTextNN)
-      setDataSynthetic(data.synthetic)
-      setDataContent(data.content)
-      console.log(data.content)
-      setDataLoaded(true)
-    } catch (error) {
-      console.error("Error fetching data:", error)
-    } finally {
-      setLoading(false)
-    }
+    await refetch()
   }
+
+  // Kiểm tra xem dữ liệu đã load chưa
+  const dataLoaded = !!sheetData
+  const dataGPTextVN = sheetData?.gpTextVN || []
+  const dataGPTextNN = sheetData?.gpTextNN || []
+  const dataSynthetic = sheetData?.synthetic || []
+  const dataContent = sheetData?.content || []
 
   const userInfo = getUserInfo()
   const [mounted, setMounted] = useState(false)
@@ -87,18 +79,15 @@ const Product = ({ title }: { title: string }) => {
               console.log("No products found")
               setProducts([])
             }
-            setLoading(false)
           },
           (error: Error) => {
             console.error("Firebase data fetch error:", error)
             toast.error("Lỗi khi tải dữ liệu")
-            setLoading(false)
           },
         )
       } catch (error) {
         console.error("Error in fetchProducts:", error)
         toast.error("Không thể tải dữ liệu sản phẩm")
-        setLoading(false)
       }
     }
 
@@ -172,7 +161,13 @@ const Product = ({ title }: { title: string }) => {
         <div>
           {dataLoaded ? (
             <div className="mx-auto max-w-7xl px-4 sm:px-6">
-              <div className="flex flex-wrap justify-start gap-3 md:gap-4 w-full p-2 bg-white/80 backdrop-blur rounded-xl border border-gray-200 shadow-md">
+              <div className="flex flex-wrap justify-start gap-3 md:gap-4 w-full p-2 bg-white/80 backdrop-blur rounded-xl border border-gray-200 shadow-md relative">
+                {(refreshing || isStale) && (
+                  <div className="absolute top-2 right-2 flex items-center gap-2 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium z-10">
+                    <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
+                    {refreshing ? "Đang cập nhật..." : "Đang tải mới..."}
+                  </div>
+                )}
                 {tabItems.map((item, idx) => (
                   <button
                     key={item.id}
@@ -223,10 +218,11 @@ const Product = ({ title }: { title: string }) => {
 
           {dataLoaded && (
             <div className="shadow-2xl rounded-2xl border border-gray-100 bg-white overflow-hidden w-full">
-              {tabs === "GP-Text VN" && <DataSite fetchData={fetchData} data={dataGPTextVN} loading={loading} />}
-              {tabs === "GP-Text NN" && <DataSite fetchData={fetchData} data={dataGPTextNN} loading={loading} />}
-              {tabs === "Tổng hợp" && <DataSite fetchData={fetchData} data={dataSynthetic} loading={loading} hideFilters={true} />}
-              {tabs === "Content" && <Content fetchData={fetchData} data={dataContent} loading={loading} />}
+              {/* Chỉ truyền loading khi thực sự đang load lần đầu, không truyền khi refresh background */}
+              {tabs === "GP-Text VN" && <DataSite fetchData={fetchData} data={dataGPTextVN} loading={loading && !refreshing} />}
+              {tabs === "GP-Text NN" && <DataSite fetchData={fetchData} data={dataGPTextNN} loading={loading && !refreshing} />}
+              {tabs === "Tổng hợp" && <DataSite fetchData={fetchData} data={dataSynthetic} loading={loading && !refreshing} hideFilters={true} />}
+              {tabs === "Content" && <Content fetchData={fetchData} data={dataContent} loading={loading && !refreshing} />}
             </div>
           )}
         </div>

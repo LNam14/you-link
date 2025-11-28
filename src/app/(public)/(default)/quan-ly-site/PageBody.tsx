@@ -8,6 +8,7 @@ import Handsontable from "handsontable"
 import "handsontable/styles/handsontable.css"
 import "handsontable/styles/ht-theme-main.css"
 import "handsontable/styles/ht-theme-horizon.css"
+import { useSheetUpdateSiteData } from "@/hooks/useSheetUpdateSiteData"
 import sheetApiRequest from "@/apiRequests/sheet"
 import { Modal, message, Spin } from "antd"
 import CurrencyConverterModal from "@/components/CurrencyConverterModal"
@@ -205,9 +206,6 @@ const withEllipsis = (
 }
 
 export default function PageBody() {
-    const [loading, setLoading] = useState(false)
-    const [dataVN, setDataVN] = useState<any[]>([])
-    const [dataNN, setDataNN] = useState<any[]>([])
     const [searchText, setSearchText] = useState("")
     const [filteredData, setFilteredData] = useState<any[]>([])
     const [missingSites, setMissingSites] = useState<string[]>([])
@@ -216,7 +214,12 @@ export default function PageBody() {
     const [numberOfRows, setNumberOfRows] = useState(1)
     const [pendingRows, setPendingRows] = useState<any[]>([])
     const [messageApi, contextHolder] = message.useMessage()
-    const [initialLoading, setInitialLoading] = useState(true)
+    const [saving, setSaving] = useState(false) // Loading state riêng cho việc save
+
+    // Sử dụng hook tối ưu để fetch và cache dữ liệu
+    const { data: updateSiteData, loading, refreshing, refetch, isStale, error } = useSheetUpdateSiteData(true)
+    const dataVN = updateSiteData?.updateVN || []
+    const dataNN = updateSiteData?.updateNN || []
     const [showSearchHelp, setShowSearchHelp] = useState(false)
     const [activeTab, setActiveTab] = useState<"data" | "pending">("data")
     const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; row: number }>({
@@ -225,7 +228,6 @@ export default function PageBody() {
         y: 0,
         row: -1,
     })
-    const [configError, setConfigError] = useState<string | null>(null)
     const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false)
     const [currencyMode, setCurrencyMode] = useState<"USD" | "VND">("USD")
     const [exchangeRate, setExchangeRate] = useState<string>("28000")
@@ -235,6 +237,12 @@ export default function PageBody() {
     const dataTableRef = useRef<any>(null)
 
     const userInfo = getUserInfo()
+
+    // Xử lý error từ hook
+    const configError = error?.message.includes("REPLACE_WITH_YOUR_ACTUAL_PRIVATE_KEY") || 
+                       error?.message.includes("your-google-cloud-project-id")
+                       ? "Vui lòng cấu hình file key.json với thông tin Google Service Account thực tế"
+                       : null
 
 
     // Stats for dashboard
@@ -247,22 +255,21 @@ export default function PageBody() {
         }
     }, [dataType, dataVN, dataNN])
 
+    // Fetch dữ liệu mới khi user click refresh
     const fetchData = useCallback(async () => {
         try {
-            setLoading(true)
-            setConfigError(null)
-            console.log("[v0] Starting data fetch...")
-            const data: any = await sheetApiRequest.getDataUpdateSite()
-            console.log("[v0] Data fetch completed successfully")
-            setDataVN(data.updateVN)
-            setDataNN(data.updateNN)
+            await refetch()
         } catch (error: any) {
             console.error("[v0] Error fetching data:", error)
             if (
                 error.message.includes("REPLACE_WITH_YOUR_ACTUAL_PRIVATE_KEY") ||
                 error.message.includes("your-google-cloud-project-id")
             ) {
-                setConfigError("Vui lòng cấu hình file key.json với thông tin Google Service Account thực tế")
+                messageApi.error({
+                    content: "Vui lòng cấu hình file key.json với thông tin Google Service Account thực tế",
+                    icon: <AlertCircle className="text-red-500 mr-2" size={16} />,
+                    duration: 8,
+                })
             } else if (error.message.includes("timeout") || error.message.includes("Request timeout")) {
                 messageApi.error({
                     content: "Kết nối quá chậm (timeout 120s), vui lòng kiểm tra kết nối mạng và thử lại",
@@ -276,15 +283,8 @@ export default function PageBody() {
                     duration: 5,
                 })
             }
-        } finally {
-            setLoading(false)
-            setInitialLoading(false)
         }
-    }, [messageApi])
-
-    useEffect(() => {
-        fetchData()
-    }, [])
+    }, [refetch, messageApi])
 
     useEffect(() => {
         if (searchText.trim()) {
@@ -466,7 +466,7 @@ export default function PageBody() {
         }
 
         try {
-            setLoading(true)
+            setSaving(true)
             // Prepare updates for Google Sheets (only new values)
             const updates = Object.values(pendingChanges).map(update => ({
                 ...update,
@@ -538,9 +538,9 @@ export default function PageBody() {
                 })
             }
         } finally {
-            setLoading(false)
+            setSaving(false)
         }
-    }, [hasUnsavedChanges, pendingChanges, dataType, messageApi])
+    }, [hasUnsavedChanges, pendingChanges, dataType, messageApi, userInfo?.username])
 
     const handleAfterPaste = useCallback(
         (data: any[][], coords: any[]) => {
@@ -848,17 +848,6 @@ export default function PageBody() {
         [dataType, dataVN, dataNN, filteredData, searchText, messageApi, fetchData],
     )
 
-    if (initialLoading) {
-        return (
-            <div className="w-full h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
-                <div className="text-center bg-white p-8 rounded-2xl shadow-lg border border-blue-100 animate-pulse">
-                    <Spin size="large" />
-                    <p className="mt-6 text-blue-800 font-medium text-lg">Đang tải dữ liệu...</p>
-                    <p className="text-blue-600 text-sm mt-2">Vui lòng đợi trong giây lát</p>
-                </div>
-            </div>
-        )
-    }
 
     if (configError) {
         return (
@@ -888,8 +877,19 @@ export default function PageBody() {
     }
 
     return (
-        <div className="w-full min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex flex-col p-4 space-y-4">
+        <div className="w-full min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex flex-col p-4 space-y-4 relative">
             {contextHolder}
+
+            {/* Loading Overlay - Full Screen với backdrop mờ */}
+            {loading && !updateSiteData && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4 min-w-[300px]">
+                        <RefreshCw className="h-12 w-12 text-blue-600 animate-spin" />
+                        <h3 className="text-xl font-semibold text-gray-800">Đang tải dữ liệu...</h3>
+                        <p className="text-sm text-gray-500 text-center">Vui lòng đợi trong khi chúng tôi tải dữ liệu mới nhất</p>
+                    </div>
+                </div>
+            )}
 
             {/* Header Section */}
             <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100 transition-all duration-300 hover:shadow-lg">
@@ -918,15 +918,20 @@ export default function PageBody() {
                         </button> */}
                         <button
                             onClick={handleSaveChanges}
-                            disabled={!hasUnsavedChanges || loading}
-                            className="flex text-sm items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 shadow-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={!hasUnsavedChanges || saving}
+                            className="flex text-sm items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 shadow-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed relative"
                         >
-                            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                             Lưu thay đổi
                             {hasUnsavedChanges && (
                                 <span className="ml-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                                     {Object.keys(pendingChanges).length}
                                 </span>
+                            )}
+                            {(refreshing || isStale) && (
+                                <div className="absolute -top-1 -right-1 flex items-center gap-1 px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium z-10">
+                                    <RefreshCw className={`w-2.5 h-2.5 ${refreshing ? "animate-spin" : ""}`} />
+                                </div>
                             )}
                         </button>
                         <button

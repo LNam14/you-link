@@ -125,8 +125,19 @@ const getAuthClient = cache(async () => {
     return client;
 });
 
-// Cache kết quả trong 3 phút
+// Cache kết quả trong 5 phút (tăng từ 3 phút để giảm số lần gọi API)
+const CACHE_DURATION = 5 * 60 * 1000; // 5 phút
 const sheetCache = new Map<string, { data: any; expiry: number }>();
+
+// Cleanup cache cũ định kỳ để tránh memory leak
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, value] of sheetCache.entries()) {
+        if (value.expiry < now) {
+            sheetCache.delete(key);
+        }
+    }
+}, 60000); // Cleanup mỗi phút
 
 async function getSheetsData(
     gsapi: any,
@@ -144,7 +155,7 @@ async function getSheetsData(
     const results: Record<string, any> = {};
 
     for (const [spreadsheetId, items] of Object.entries(grouped)) {
-        const cacheKey = `${spreadsheetId}-${userInfo.role}-${userInfo.username}`;
+        const cacheKey = `${spreadsheetId}-${userInfo.role || "guest"}-${userInfo.username || "anonymous"}`;
         const cached = sheetCache.get(cacheKey);
         if (cached && cached.expiry > Date.now()) {
             Object.assign(results, cached.data);
@@ -194,17 +205,17 @@ async function getSheetsData(
             results[key] = filtered;
         }
 
-        // Lưu cache 3 phút
+        // Lưu cache với thời gian dài hơn
         sheetCache.set(cacheKey, {
             data: results,
-            expiry: Date.now() + 1000 * 60 * 3,
+            expiry: Date.now() + CACHE_DURATION,
         });
     }
 
     return results;
 }
 
-export async function POST(req: Request) {
+async function handleRequest(req: Request) {
     try {
         const cookieStore = cookies();
         const userInfoCookie = cookieStore.get("userInfo");
@@ -217,7 +228,14 @@ export async function POST(req: Request) {
 
         const results = await getSheetsData(gsapi, sheetConfigs, userInfo);
 
-        return NextResponse.json(results, { status: 200 });
+        // Thêm cache headers để browser/CDN có thể cache
+        return NextResponse.json(results, {
+            status: 200,
+            headers: {
+                "Cache-Control": "private, max-age=300, stale-while-revalidate=600", // Cache 5 phút, stale-while-revalidate 10 phút
+                "CDN-Cache-Control": "public, max-age=300",
+            },
+        });
     } catch (error: any) {
         console.error("Error accessing Google Sheets API:", error);
         return NextResponse.json(
@@ -225,4 +243,13 @@ export async function POST(req: Request) {
             { status: 500 }
         );
     }
+}
+
+// Hỗ trợ cả GET và POST để tối ưu cache
+export async function GET(req: Request) {
+    return handleRequest(req);
+}
+
+export async function POST(req: Request) {
+    return handleRequest(req);
 }
