@@ -38,8 +38,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 if (typeof value === "string") {
                     return Number.parseFloat(value.replace(",", "."))
                 }
-                if (typeof value === "number") return value
-                return null
+                return typeof value === "number" ? value : null
             }
 
             const formatNumber = (value: number | null) =>
@@ -48,27 +47,32 @@ const sheetConfigs: Record<string, SheetConfig> = {
             const safeSubtract = (a: number | null, b: number | null) =>
                 a !== null && b !== null ? formatNumber(a - b) : null
 
-            // Làm tròn toàn bộ giá trước khi trả về
-            const giaBanGPNumber = parseNumber(row[13])
-            const giaBanTextNumber = parseNumber(row[14])
-            const giaBanTextHomeNumber = parseNumber(row[15])
-            const giaBanTextHeaderNumber = parseNumber(row[16])
-            const giaBanGPLioNumber = parseNumber(row[39])
-            const giaBanTextLioNumber = parseNumber(row[40])
-            const giaBanTextHomeLioNumber = parseNumber(row[41])
-            const giaBanTextHeaderLioNumber = parseNumber(row[42])
+            const roundIfNumber = (value: any) => {
+                const num = parseNumber(value)
+                if (num === null) return value
+                // Là số: làm tròn xuống (21.2 -> 21)
+                return Math.floor(num)
+            }
 
-            const giaMuaGPNumber = parseNumber(row[18])
-            const giaMuaTextNumber = parseNumber(row[19])
-            const giaMuaTextHomeNumber = parseNumber(row[20])
-            const giaMuaTextHeaderNumber = parseNumber(row[21])
+            const giaBanGP = roundIfNumber(row[13])
+            const giaBanText = roundIfNumber(row[14])
+            const giaBanTextHome = roundIfNumber(row[15])
+            const giaBanTextHeader = roundIfNumber(row[16])
+            const giaBanGPLio = roundIfNumber(row[39])
+            const giaBanTextLio = roundIfNumber(row[40])
+            const giaBanTextHomeLio = roundIfNumber(row[41])
+            const giaBanTextHeaderLio = roundIfNumber(row[42])
+            const giaMuaGP = roundIfNumber(row[18])
+            const giaMuaText = roundIfNumber(row[19])
+            const giaMuaTextHome = roundIfNumber(row[20])
+            const giaMuaTextHeader = roundIfNumber(row[21])
             const hoaHongGP = parseNumber(row[22]) || 0
             const hoaHongText = parseNumber(row[23]) || 0
 
-            const giaCuoiGPNumber = parseNumber(row[31])
-            const giaCuoiTextNumber = parseNumber(row[32])
-            const giaCuoiTextHomeNumber = parseNumber(row[33])
-            const giaCuoiTextHeaderNumber = parseNumber(row[34])
+            const giaCuoiGP = roundIfNumber(row[31])
+            const giaCuoiText = roundIfNumber(row[32])
+            const giaCuoiTextHome = roundIfNumber(row[33])
+            const giaCuoiTextHeader = roundIfNumber(row[34])
 
             const maNCC = row[27]
             let fileNCC = ""
@@ -97,43 +101,43 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 trafficTool: row[10],
                 ghiChu: row[11],
                 tinhTrang: row[12],
-                giaBanGP: formatNumber(giaBanGPNumber) ?? 0,
-                giaBanText: formatNumber(giaBanTextNumber) ?? 0,
+                giaBanGP,
+                giaBanText,
                 timeText: 1,
-                giaBanTextHome: formatNumber(giaBanTextHomeNumber) ?? 0,
-                giaBanTextHeader: formatNumber(giaBanTextHeaderNumber) ?? 0,
-                giaBanGPLio: formatNumber(giaBanGPLioNumber) ?? 0,
-                giaBanTextLio: formatNumber(giaBanTextLioNumber) ?? 0,
-                giaBanTextHomeLio: formatNumber(giaBanTextHomeLioNumber) ?? 0,
-                giaBanTextHeaderLio: formatNumber(giaBanTextHeaderLioNumber) ?? 0,
-                giaMuaGP: formatNumber(giaMuaGPNumber) ?? 0,
-                giaMuaText: formatNumber(giaMuaTextNumber) ?? 0,
+                giaBanTextHome,
+                giaBanTextHeader,
+                giaBanGPLio,
+                giaBanTextLio,
+                giaBanTextHomeLio,
+                giaBanTextHeaderLio,
+                giaMuaGP,
+                giaMuaText,
                 hoaHongGP: hoaHongGP || 0,
                 hoaHongText: hoaHongText || 0,
-                giaMuaTextHome: formatNumber(giaMuaTextHomeNumber) ?? 0,
-                giaMuaTextHeader: formatNumber(giaMuaTextHeaderNumber) ?? 0,
+                giaMuaTextHome,
+                giaMuaTextHeader,
                 NCC: row[26],
                 MaNCC: maNCC,
                 FileNCC: fileNCC,
                 GroupNCC: groupNCC,
                 IdGroup: idGroup,
                 GhiChuNCC: row[28],
-                giaCuoiGP: formatNumber(giaCuoiGPNumber) ?? 0,
-                giaCuoiText: formatNumber(giaCuoiTextNumber) ?? 0,
-                giaCuoiTextHome: formatNumber(giaCuoiTextHomeNumber) ?? 0,
-                giaCuoiTextHeader: formatNumber(giaCuoiTextHeaderNumber) ?? 0,
-                giaCuoiGPLio: formatNumber(giaCuoiGPNumber) ?? 0,
-                giaCuoiTextLio: formatNumber(giaCuoiTextNumber) ?? 0,
-                giaCuoiTextHomeLio: formatNumber(giaCuoiTextHomeNumber) ?? 0,
-                giaCuoiTextHeaderLio: formatNumber(giaCuoiTextHeaderNumber) ?? 0,
-                loiNhuanGP: safeSubtract(giaBanGPNumber, giaCuoiGPNumber),
-                loiNhuanText: safeSubtract(giaBanTextNumber, giaCuoiTextNumber),
-                loiNhuanTextHome: safeSubtract(giaBanTextHomeNumber, giaCuoiTextHomeNumber),
-                loiNhuanTextHeader: safeSubtract(giaBanTextHeaderNumber, giaCuoiTextHeaderNumber),
-                loiNhuanGPLio: safeSubtract(giaBanGPLioNumber, giaCuoiGPNumber),
-                loiNhuanTextLio: safeSubtract(giaBanTextLioNumber, giaCuoiTextNumber),
-                loiNhuanTextHomeLio: safeSubtract(giaBanTextHomeLioNumber, giaCuoiTextHomeNumber),
-                loiNhuanTextHeaderLio: safeSubtract(giaBanTextHeaderLioNumber, giaCuoiTextHeaderNumber),
+                giaCuoiGP: giaCuoiGP || 0,
+                giaCuoiText: giaCuoiText || 0,
+                giaCuoiTextHome: giaCuoiTextHome || 0,
+                giaCuoiTextHeader: giaCuoiTextHeader || 0,
+                giaCuoiGPLio: giaCuoiGP || 0,
+                giaCuoiTextLio: giaCuoiText || 0,
+                giaCuoiTextHomeLio: giaCuoiTextHome || 0,
+                giaCuoiTextHeaderLio: giaCuoiTextHeader || 0,
+                loiNhuanGP: safeSubtract(parseNumber(row[13]), parseNumber(giaCuoiGP)),
+                loiNhuanText: safeSubtract(parseNumber(row[14]), parseNumber(giaCuoiText)),
+                loiNhuanTextHome: safeSubtract(parseNumber(row[15]), parseNumber(giaCuoiTextHome)),
+                loiNhuanTextHeader: safeSubtract(parseNumber(row[16]), parseNumber(giaCuoiTextHeader)),
+                loiNhuanGPLio: safeSubtract(parseNumber(giaBanGPLio), parseNumber(giaCuoiGP)),
+                loiNhuanTextLio: safeSubtract(parseNumber(giaBanTextLio), parseNumber(giaCuoiText)),
+                loiNhuanTextHomeLio: safeSubtract(parseNumber(giaBanTextHomeLio), parseNumber(giaCuoiTextHome)),
+                loiNhuanTextHeaderLio: safeSubtract(parseNumber(giaBanTextHeaderLio), parseNumber(giaCuoiTextHeader)),
             }
         },
     },

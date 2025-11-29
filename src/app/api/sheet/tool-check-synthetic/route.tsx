@@ -17,23 +17,6 @@ const sheetConfigs: Record<string, SheetConfig> = {
     extension: {
         range: "C0!A3:U",
         formatter: (row, allData) => {
-            const parseNumber = (value: any) => {
-                if (value === null || value === undefined) return null
-                if (typeof value === "string") {
-                    return Number.parseFloat(value.replace(",", "."))
-                }
-                if (typeof value === "number") return value
-                return null
-            }
-
-            const formatNumber = (value: number | null) =>
-                value !== null && !isNaN(value) ? value.toFixed(0).replace(".", ",") : null
-
-            const giaBanGPNumber = parseNumber(row[10])
-            const giaBanTextNumber = parseNumber(row[11])
-            const giaMuaGPNumber = parseNumber(row[15])
-            const giaMuaTextNumber = parseNumber(row[16])
-
             return {
               Extension: row[0],    
               NCC: row[1],
@@ -45,12 +28,12 @@ const sheetConfigs: Record<string, SheetConfig> = {
               Spam: row[7],
               Traffic: row[8],
               LinkOut: row[9],
-              GiaBanGP: formatNumber(giaBanGPNumber) ?? 0,
-              GiaBanText: formatNumber(giaBanTextNumber) ?? 0,
+              GiaBanGP: row[10],
+              GiaBanText: row[11],
               MaSP: row[13],
               TenNCC: row[14],
-              GiaMuaGP: formatNumber(giaMuaGPNumber) ?? 0,
-              GiaMuaText: formatNumber(giaMuaTextNumber) ?? 0,
+              GiaMuaGP: row[15],
+              GiaMuaText: row[16],
               HHGP: row[17],
               HHText: row[18],
               KeGP: row[19],

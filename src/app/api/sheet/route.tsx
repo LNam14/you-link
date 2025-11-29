@@ -23,18 +23,6 @@ interface SheetConfig {
     spreadsheetId?: string;
 }
 
-const parseNumber = (value: any) => {
-    if (value === null || value === undefined) return null;
-    if (typeof value === "string") {
-        return Number.parseFloat(value.replace(",", "."));
-    }
-    if (typeof value === "number") return value;
-    return null;
-};
-
-const formatNumber = (value: number | null) =>
-    value !== null && !isNaN(value) ? value.toFixed(0).replace(".", ",") : null;
-
 const sheetConfigs: Record<string, SheetConfig> = {
     gpTextVN: {
         range: "1!B3:AM,4!B3:AM",
@@ -50,16 +38,16 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "Traffic Tool": row[9] || "",
             "Ghi chú": row[10] || "",
             "Tình trạng": row[11] || "",
-            "Giá GP": formatNumber(parseNumber(row[12])) ?? 0,
-            "Giá Footer": formatNumber(parseNumber(row[13])) ?? 0,
-            "Giá Home": formatNumber(parseNumber(row[14])) ?? 0,
-            "Giá Header": formatNumber(parseNumber(row[15])) ?? 0,
-            GiaMuaGP: formatNumber(parseNumber(row[17])) ?? 0,
-            GiaMuaText: formatNumber(parseNumber(row[18])) ?? 0,
-            GiaMuaTextHome: formatNumber(parseNumber(row[19])) ?? 0,
-            GiaMuaTextHeader: formatNumber(parseNumber(row[20])) ?? 0,
-            HoaHongGP: formatNumber(parseNumber(row[21])) ?? 0,
-            HoaHongText: formatNumber(parseNumber(row[22])) ?? 0,
+            "Giá GP": row[12] || "",
+            "Giá Footer": row[13] || "",
+            "Giá Home": row[14] || "",
+            "Giá Header": row[15] || "",
+            GiaMuaGP: row[17] || 0,
+            GiaMuaText: row[18] || 0,
+            GiaMuaTextHome: row[19] || 0,
+            GiaMuaTextHeader: row[20] || 0,
+            HoaHongGP: row[21] || 0,
+            HoaHongText: row[22] || 0,
             NCC: row[25] || "",
             MaNCC: row[26] || "",
         }),
@@ -79,16 +67,16 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "Traffic Tool": row[9] || "",
             "Ghi chú": row[10] || "",
             "Tình trạng": row[11] || "",
-            "Giá GP": formatNumber(parseNumber(row[12])) ?? 0,
-            "Giá Footer": formatNumber(parseNumber(row[13])) ?? 0,
-            "Giá Home": formatNumber(parseNumber(row[14])) ?? 0,
-            "Giá Header": formatNumber(parseNumber(row[15])) ?? 0,
-            GiaMuaGP: formatNumber(parseNumber(row[17])) ?? 0,
-            GiaMuaText: formatNumber(parseNumber(row[18])) ?? 0,
-            GiaMuaTextHome: formatNumber(parseNumber(row[19])) ?? 0,
-            GiaMuaTextHeader: formatNumber(parseNumber(row[20])) ?? 0,
-            HoaHongGP: formatNumber(parseNumber(row[21])) ?? 0,
-            HoaHongText: formatNumber(parseNumber(row[22])) ?? 0,
+            "Giá GP": row[12] || "",
+            "Giá Footer": row[13] || "",
+            "Giá Home": row[14] || "",
+            "Giá Header": row[15] || "",
+            GiaMuaGP: row[17] || 0,
+            GiaMuaText: row[18] || 0,
+            GiaMuaTextHome: row[19] || 0,
+            GiaMuaTextHeader: row[20] || 0,
+            HoaHongGP: row[21] || 0,
+            HoaHongText: row[22] || 0,
             NCC: row[25] || "",
             MaNCC: row[26] || "",
         }),
@@ -99,8 +87,8 @@ const sheetConfigs: Record<string, SheetConfig> = {
         formatter: (row) => ({
             MaNCC: row[0] || "",
             TenSP: row[1] || "",
-            GiaMua: formatNumber(parseNumber(row[3])) ?? 0,
-            GiaBan: formatNumber(parseNumber(row[4])) ?? 0,
+            GiaMua: row[3] || 0,
+            GiaBan: row[4] || 0,
             Note: row[5] || "",
         }),
         spreadsheetId: CONTENT_SPREADSHEET_ID,
@@ -117,8 +105,8 @@ const sheetConfigs: Record<string, SheetConfig> = {
             Spam: row[7] || "",
             Traffic: row[8] || "",
             "Link out": row[9] || "",
-            "Giá GP": formatNumber(parseNumber(row[10])) ?? 0,
-            "Giá Text": formatNumber(parseNumber(row[11])) ?? 0,
+            "Giá GP": row[10] || "",
+            "Giá Text": row[11] || "",
         }),
         spreadsheetId: SYNTHETIC_SPREADSHEET_ID,
     },
