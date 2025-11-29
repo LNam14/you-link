@@ -73,7 +73,7 @@ interface SiteData {
     GroupNCC: string[] | string
     GhiChuNCC: string
     timeText: string
-    IdGroup?: string
+    IdGroup?: string | number | null
 }
 
 type PriceType = "GP" | "Text" | "TextHome" | "TextHeader"
@@ -93,6 +93,18 @@ type RendererFunction = (
 ) => HTMLTableCellElement
 
 registerAllModules()
+
+const normalizeIdGroup = (value: SiteData["IdGroup"]): string => {
+    if (value === undefined || value === null) return ""
+    if (typeof value === "string") return value.trim()
+    if (typeof value === "number") return value.toString().trim()
+
+    try {
+        return String(value).trim()
+    } catch {
+        return ""
+    }
+}
 
 export default function PageBody() {
     const [filteredData, setFilteredData] = useState<SiteData[]>([])
@@ -1196,9 +1208,9 @@ export default function PageBody() {
         return summary as SiteData & { _fileUrls?: string[]; _groupUrls?: string[] }
     }
 
-    // Add a function to count NCCs with valid IdGroup
+    // Count NCCs with usable IdGroup (handles non-string values safely)
     const getValidNCCsCount = (data: SiteData[]) => {
-        return data.filter((item) => item.IdGroup && item.IdGroup.trim() !== "").length
+        return data.filter((item) => normalizeIdGroup(item.IdGroup) !== "").length
     }
 
     // Add the beforeCopy handler function using useCallback
@@ -1533,8 +1545,9 @@ export default function PageBody() {
                 // Lấy unique IdGroup từ filteredData
                 const uniqueIdGroups = new Set<string>()
                 filteredData.forEach((item: SiteData) => {
-                    if (item.IdGroup && item.IdGroup.trim() !== "") {
-                        let chatId = item.IdGroup.trim()
+                    const chatIdRaw = normalizeIdGroup(item.IdGroup)
+                    if (chatIdRaw !== "") {
+                        let chatId = chatIdRaw
                         if (chatId.startsWith("#")) {
                             chatId = chatId.replace("#", "")
                         }
@@ -1605,8 +1618,9 @@ export default function PageBody() {
         const uniqueNccs = new Map<string, { id: string; name: string }>()
 
         filteredData.forEach((result) => {
-            if (result.IdGroup && result.IdGroup.trim() !== "" && result.NCC) {
-                let chatId = result.IdGroup.trim()
+            const chatIdRaw = normalizeIdGroup(result.IdGroup)
+            if (chatIdRaw !== "" && result.NCC) {
+                let chatId = chatIdRaw
                 if (chatId.startsWith("#")) {
                     chatId = chatId.replace("#", "")
                 }
@@ -1651,8 +1665,9 @@ export default function PageBody() {
 
                 alert(`Đang gửi tin nhắn cho ${selectedChatIds.length} NCC...`)
             } else if (data) {
-                if (data.IdGroup && data.IdGroup.trim() !== "") {
-                    let chatId = data.IdGroup.trim()
+                const chatIdRaw = normalizeIdGroup(data.IdGroup)
+                if (chatIdRaw !== "") {
+                    let chatId = chatIdRaw
                     if (chatId.startsWith("#")) {
                         chatId = chatId.replace("#", "")
                     }
@@ -1706,14 +1721,21 @@ export default function PageBody() {
 
     const handleMessageAllNCCs = useCallback(async () => {
         const validNCCs = filteredData
-            .filter((result) => result.IdGroup && result.IdGroup.trim() !== "" && result.NCC)
             .map((result) => {
-                let chatId = result.IdGroup ? result.IdGroup.trim() : ""
+                const chatIdRaw = normalizeIdGroup(result.IdGroup)
+                return {
+                    chatId: chatIdRaw,
+                    result,
+                }
+            })
+            .filter(({ chatId, result }) => chatId !== "" && !!result.NCC)
+            .map(({ chatId, result }) => {
+                let normalizedChatId = chatId
                 if (chatId.startsWith("#")) {
                     chatId = chatId.replace("#", "")
                 }
                 return {
-                    value: chatId,
+                    value: normalizedChatId,
                     label: result.NCC || "NCC",
                 }
             })
