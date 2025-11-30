@@ -225,7 +225,7 @@ export default function PageBody() {
                 }
             } else {
                 // For NCC search, only process terms that start with "N" (case insensitive)
-                const normalizedMaNCC = searchField.toLowerCase().trim()
+                const normalizedMaNCC = String(searchField || "").toLowerCase().trim()
 
                 for (const term of searchTerms) {
                     const trimmedTerm = term.trim()
@@ -306,7 +306,7 @@ export default function PageBody() {
                         const normalizedSite = normalizeUrl(item.site)
                         return normalizedSite === normalizedTerm
                     } else {
-                        const normalizedMaNCC = (item.MaNCC || "").toUpperCase().trim()
+                        const normalizedMaNCC = String(item.MaNCC || "").toUpperCase().trim()
                         return normalizedMaNCC === normalizedTerm || normalizedMaNCC.startsWith(normalizedTerm)
                     }
                 })
