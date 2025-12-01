@@ -158,6 +158,7 @@ export async function POST(req: Request) {
             Kê_Text: getColumnLetter(26), // Z
             Tên: getColumnLetter(27), // AA
             NCC: getColumnLetter(28), // AB
+            Note_NB: getColumnLetter(29), // AC
         }
 
         console.log("📊 Column mapping:", columnMapping)
@@ -194,6 +195,7 @@ export async function POST(req: Request) {
                 row["Kê Text"] || "", // Z - Kê Text
                 row["Tên"] || "", // AA - Tên
                 role === "NCC" ? username : row["NCC"] || "", // AB - NCC
+                row["Note NB"] || "", // AC - Note NB
             ]
             
             console.log("🔍 Original row:", JSON.stringify(row, null, 2))
@@ -209,7 +211,7 @@ export async function POST(req: Request) {
         // First, get the current data to find the last row with actual data
         const getLastRowResponse = await gsapi.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${targetSheetName}!A:AB`, // Get all data to find last row with content
+            range: `${targetSheetName}!A:AC`, // Get all data to find last row with content
         })
         
         // Find the last row that has actual data (not empty)
@@ -233,7 +235,7 @@ export async function POST(req: Request) {
         // Double-check that the target range is empty to avoid overwriting
         const checkRangeResponse = await gsapi.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${targetSheetName}!A${startRow}:AB${endRow}`,
+            range: `${targetSheetName}!A${startRow}:AC${endRow}`,
         })
         
         let finalStartRow = startRow
@@ -260,7 +262,7 @@ export async function POST(req: Request) {
         // Use batchUpdate to insert data at specific position
         const response = await gsapi.spreadsheets.values.update({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${targetSheetName}!A${finalStartRow}:AB${finalEndRow}`, // Specific range from A to AB
+            range: `${targetSheetName}!A${finalStartRow}:AC${finalEndRow}`, // Specific range from A to AC
             valueInputOption: "USER_ENTERED",
             requestBody: {
                 values: valuesToAppend,

@@ -34,7 +34,7 @@ interface SheetConfig {
 
 const sheetConfigs: Record<string, SheetConfig> = {
     updateVN: {
-        range: "1!A3:AM,4!A3:AM",
+        range: "1!A3:AN,4!A3:AN",
         formatter: (row, index) => ({
             rowIndex: index + 3,
             CS: row[0] || "",
@@ -59,11 +59,12 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "Kê Text": row[25] || 0,
             "Tên": row[26] || "",
             NCC: row[27] || "",
+            "Note NB": row[28] || "",
         }),
         spreadsheetId: SPREADSHEET_ID,
     },
     updateNN: {
-        range: "2!A3:AM,5!A3:AM",
+        range: "2!A3:AN,5!A3:AN",
         formatter: (row, index) => ({
             rowIndex: index + 3,
             CS: row[0] || "",
@@ -88,6 +89,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "Kê Text": row[25] || 0,
             "Tên": row[26] || "",
             NCC: row[27] || "",
+            "Note NB": row[28] || "",
         }),
         spreadsheetId: SPREADSHEET_ID,
     },

@@ -59,6 +59,7 @@ const RowHeader1 = [
     "Kê Text",
     "Tên",
     "NCC",
+    "Note NB",
 ]
 
 const RowHeader11: any = [
@@ -93,6 +94,7 @@ const RowHeader2 = [
     "Kê Text",
     "Tên",
     "NCC",
+    "Note NB",
 ]
 
 const getInitialDataType = () => {
@@ -166,7 +168,7 @@ const normalizeExact = (input: string | undefined | null) => {
 // Fixed column widths: 1-3 => 30px (STT/Site/Bóng), 4-6 => 50px (Bet/Chủ đề/Nước), others 100px
 const getColWidthsForHeaders = (headers: string[]) => {
     return headers.map((header) => {
-        if (["STT", "Bet", "Bóng", "DR", "HH GP", "HH Text", "Kê GP", "Kê Text", "CS", "Tên", "NCC"].includes(header)) return 60
+        if (["STT", "Bet", "Bóng", "DR", "HH GP", "HH Text", "Kê GP", "Kê Text", "CS", "Tên", "NCC", "Note NB"].includes(header)) return 60
         if (["Link out", "Chủ đề", "Keywords", "Traffic Tool", "GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"].includes(header)) return 76
         return 90
     })
@@ -670,6 +672,7 @@ export default function PageBody() {
                     "HH Text": "",
                     "Kê GP": "",
                     "Kê Text": "",
+                    "Note NB": "",
                 }
 
                 if (userInfo?.role !== "NCC") {
@@ -1149,7 +1152,7 @@ export default function PageBody() {
                                             manualRowResize={true}
                                             className="custom-table"
                                             colWidths={getColWidthsForHeaders(RowHeader1)}
-                                            hiddenColumns={userInfo?.role === "NCC" ? { columns: [6, 19, 20, 21, 22, 23], indicators: true } : { columns: [6, 23] }}
+                                            hiddenColumns={userInfo?.role === "NCC" ? { columns: [0, 6, 19, 20, 21, 22, 24], indicators: true } : { columns: [0, 6, 24] }}
                                             licenseKey="non-commercial-and-evaluation"
                                             data={displayData}
                                             beforeChange={handleBeforeChange}

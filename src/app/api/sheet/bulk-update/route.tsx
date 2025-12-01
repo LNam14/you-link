@@ -43,6 +43,7 @@ const COLUMN_MAPPING = {
     "Kê GP": "Y",
     "Kê Text": "Z",
     NCC: "AB",
+    "Note NB": "AC",
 }
 
 export async function POST(req: Request) {
