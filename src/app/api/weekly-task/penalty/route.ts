@@ -220,14 +220,9 @@ export async function GET(request: Request) {
       const weekData = workTaskDataByUser[account.username]
       
       if (!weekData) {
-        // Chưa có dữ liệu cho tuần trước - chỉ báo đề xuất chưa làm (không báo công việc khác vì chưa có công việc khác được giao)
-        usersNotCompleted.push({
-          username: account.username,
-          name: account.name || account.username,
-          telegram: account.telegram || `@${account.username}`,
-          incompleteTasks: ['Đề xuất']
-        })
-        console.log(`[Check User] ${account.username} - No week data found for week ${lastWeekNumber}, only check Đề xuất`)
+        // Chưa có dữ liệu cho tuần trước - không trừ tiền nếu không có dữ liệu
+        // Chỉ trừ tiền khi có dữ liệu và xác nhận chưa hoàn thành
+        console.log(`[Check User] ${account.username} - Không có dữ liệu cho tuần ${lastWeekNumber}, bỏ qua (không trừ tiền)`)
         continue
       }
 

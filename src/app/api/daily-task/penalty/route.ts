@@ -244,14 +244,9 @@ export async function GET(request: Request) {
       }
 
       if (!yesterdayTask) {
-        // Chưa có dữ liệu cho ngày hôm qua - tất cả công việc đều chưa làm
-        const allTasks = dailyTaskTemplate.map((t: any) => t.name || t.id)
-        usersNotCompleted.push({
-          username: account.username,
-          name: account.name || account.username,
-          telegram: account.telegram || `@${account.username}`,
-          incompleteTasks: allTasks
-        })
+        // Chưa có dữ liệu cho ngày hôm qua - không trừ tiền nếu không có dữ liệu
+        // Chỉ trừ tiền khi có dữ liệu và xác nhận chưa hoàn thành
+        console.log(`[Check User] ${account.username} - Không có dữ liệu cho ngày ${yesterday}, bỏ qua (không trừ tiền)`)
         continue
       }
 
@@ -283,7 +278,6 @@ export async function GET(request: Request) {
       try {
         // Kiểm tra xem đã có record cho username và penalty_date chưa (tránh duplicate)
         // Note: Prisma Client cần được regenerate sau khi thêm model mới (chạy: npx prisma generate)
-        // @ts-expect-error - daily_task_penalty model chưa có trong Prisma Client, cần regenerate
         const existingPenalty = await prisma.daily_task_penalty.findFirst({
           where: {
             username: user.username,
@@ -293,7 +287,6 @@ export async function GET(request: Request) {
 
         if (!existingPenalty) {
           // Tạo mới record xử phạt
-          // @ts-expect-error - daily_task_penalty model chưa có trong Prisma Client, cần regenerate
           await prisma.daily_task_penalty.create({
             data: {
               username: user.username,
