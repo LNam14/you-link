@@ -69,11 +69,16 @@ export async function POST(req: Request) {
 
         // Process each update
         for (const update of data) {
-            const { rowIndex, changes } = update
+            const { rowIndex, changes, siteName, sheetName } = update
 
             if (!rowIndex || !changes) {
                 console.warn("Invalid update format:", update)
                 continue
+            }
+
+            // Log update info for debugging
+            if (siteName) {
+                console.log(`[v0] Processing update for site: ${siteName}, row: ${rowIndex}, sheet: ${sheetName || defaultSheetName}`)
             }
 
             // Process each column change
@@ -81,7 +86,7 @@ export async function POST(req: Request) {
                 const columnLetter = COLUMN_MAPPING[columnName as keyof typeof COLUMN_MAPPING]
 
                 if (!columnLetter) {
-                    console.warn(`Unknown column: ${columnName}`)
+                    console.warn(`Unknown column: ${columnName} - Available columns: ${Object.keys(COLUMN_MAPPING).join(", ")}`)
                     continue
                 }
 
@@ -111,17 +116,18 @@ export async function POST(req: Request) {
 
         console.log(`[v0] Update completed: ${response.data.totalUpdatedCells} cells updated`)
 
-        // Send Telegram notification for all updated sites in one message
+        // Telegram notification is now handled by frontend to ensure proper old/new value tracking
+        // This section is kept for logging/debugging purposes only
         try {
             const validUpdates = [];
             
             for (const update of data) {
-                const { changes, rowIndex } = update;
+                const { changes, rowIndex, siteName: updateSiteName } = update;
                 if (changes && Object.keys(changes).length > 0) {
-                    // Get site name from changes, or try to get from original data
-                    let siteName = changes.Site;
+                    // Priority: use siteName from frontend, then from changes.Site, then query from Google Sheets
+                    let siteName = updateSiteName || changes.Site;
                     
-                    // If Site is not in changes, try to get it from the original row data
+                    // If still no site name, try to get it from the original row data
                     if (!siteName) {
                         try {
                             // Get the current row data to find the site name
@@ -141,27 +147,17 @@ export async function POST(req: Request) {
                         }
                     }
                     
-                    // Convert changes to include old and new values
-                    const changesWithOldNew = Object.entries(changes).reduce((acc, [field, newValue]) => {
-                        acc[field] = {
-                            oldValue: null, // We don't have old value in this context, will be handled in frontend
-                            newValue: newValue
-                        };
-                        return acc;
-                    }, {} as Record<string, { oldValue: any; newValue: any }>);
-
                     validUpdates.push({
                         site: siteName,
-                        changes: changesWithOldNew
+                        changesCount: Object.keys(changes).length
                     });
                 }
             }
             
-            // Telegram notification is now handled by frontend to ensure proper old/new value tracking
-            console.log('📝 Updates processed:', validUpdates.length);
-        } catch (telegramError) {
-            console.error('Failed to process Telegram notification:', telegramError);
-            // Don't fail the main update if Telegram fails
+            console.log('📝 Updates processed:', validUpdates.length, 'sites');
+        } catch (error) {
+            console.error('Failed to process update logging:', error);
+            // Don't fail the main update if logging fails
         }
 
         return NextResponse.json(

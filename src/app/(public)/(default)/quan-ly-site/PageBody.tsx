@@ -431,7 +431,8 @@ export default function PageBody() {
                     }
 
                     const priceFields = ["GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"]
-                    const rawValue = newValue === null ? "" : newValue
+                    // Normalize empty values: null, undefined, empty string all become empty string
+                    const rawValue = (newValue === null || newValue === undefined || newValue === "") ? "" : newValue
                     let finalValue = rawValue
                     
                     if (priceFields.includes(columnName) && currencyMode === "VND") {
@@ -579,11 +580,13 @@ export default function PageBody() {
 
                 const actualRowIndex = currentRow.rowIndex
                 const sheetName = currentRow.sheetName
+                const siteName = currentRow?.Site || 'Unknown'
                 
                 if (!newPendingChanges[currentRowIndex]) {
                     newPendingChanges[currentRowIndex] = {
                         rowIndex: actualRowIndex,
                         sheetName,
+                        siteName,
                         changes: {},
                     }
                 }
@@ -592,7 +595,8 @@ export default function PageBody() {
                     const columnName = RowHeader1[startCol + colIndex]
                     if (columnName) {
                         const priceFields = ["GP ($)", "Text Footer ($)", "Text Home ($)", "Text Header ($)"]
-                        const rawValue = value === null ? "" : value
+                        // Normalize empty values: null, undefined, empty string all become empty string
+                        const rawValue = (value === null || value === undefined || value === "") ? "" : value
                         let finalValue = rawValue
                         
                         if (priceFields.includes(columnName) && currencyMode === "VND") {
@@ -607,10 +611,11 @@ export default function PageBody() {
                             } catch { }
                         }
 
-                        // Store both old and new values (for paste, old value is the current value in the cell)
-                        const currentValue = currentRow[columnName] || ""
+                        // Store both old and new values (for paste, try to use original value first, then fall back to current value)
+                        const key = `${siteName}_${columnName}`
+                        const actualOldValue = originalValues[key] !== undefined ? originalValues[key] : (currentRow[columnName] || "")
                         newPendingChanges[currentRowIndex].changes[columnName] = {
-                            oldValue: currentValue,
+                            oldValue: actualOldValue,
                             newValue: finalValue
                         }
                         hasChanges = true
@@ -623,7 +628,7 @@ export default function PageBody() {
                 setHasUnsavedChanges(true)
             }
         },
-        [dataType, dataVN, dataNN, filteredData, searchText, currencyMode, exchangeRate, pendingChanges],
+        [dataType, dataVN, dataNN, filteredData, searchText, currencyMode, exchangeRate, pendingChanges, originalValues],
     )
 
     const handleAfterRemoveRow = useCallback(

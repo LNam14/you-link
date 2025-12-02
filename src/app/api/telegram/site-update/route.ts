@@ -108,24 +108,39 @@ export async function POST(request: NextRequest) {
       // Format chi tiết cho cập nhật site - gộp tất cả vào 1 tin nhắn
       const updatesText = updates.map(update => {
         try {
-          if (!update.changes || typeof update.changes !== 'object') {
-            return `🌐 <b>${update.site || 'Unknown'}</b>\n  Không có thay đổi`;
-          }
+         
 
           const changesText = Object.entries(update.changes)
             .filter(([field, changeData]) => {
-              return changeData && 
-                     typeof changeData === 'object' && 
-                     'newValue' in changeData &&
-                     'oldValue' in changeData &&
-                     field !== 'Site' &&
-                     // Include changes where oldValue and newValue are different
-                     (changeData.oldValue !== changeData.newValue);
+              if (!changeData || typeof changeData !== 'object' || !('newValue' in changeData) || !('oldValue' in changeData)) {
+                return false;
+              }
+              
+              // Skip Site field
+              if (field === 'Site') {
+                return false;
+              }
+              
+              const change = changeData as { oldValue: any; newValue: any };
+              
+              // Normalize values for comparison (treat null, undefined, empty string as equivalent)
+              const normalizeValue = (val: any): string => {
+                if (val === null || val === undefined || val === '') {
+                  return '';
+                }
+                return String(val).trim();
+              };
+              
+              const normalizedOld = normalizeValue(change.oldValue);
+              const normalizedNew = normalizeValue(change.newValue);
+              
+              // Include changes where oldValue and newValue are different (including deletion: "2" → "")
+              return normalizedOld !== normalizedNew;
             })
             .map(([field, changeData]) => {
               const change = changeData as { oldValue: any; newValue: any };
-              const oldValue = change.oldValue === null || change.oldValue === undefined || change.oldValue === '' ? '(trống)' : change.oldValue;
-              const newValue = change.newValue === null || change.newValue === undefined || change.newValue === '' ? '(trống)' : change.newValue;
+              const oldValue = change.oldValue === null || change.oldValue === undefined || change.oldValue === '' ? '(trống)' : String(change.oldValue);
+              const newValue = change.newValue === null || change.newValue === undefined || change.newValue === '' ? '(trống)' : String(change.newValue);
               return `  • <b>${field}:</b> ${oldValue} → ${newValue}`;
             })
             .join('\n');
