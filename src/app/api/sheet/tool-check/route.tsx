@@ -36,13 +36,16 @@ const sheetConfigs: Record<string, SheetConfig> = {
             const parseNumber = (value: any) => {
                 if (value === null || value === undefined) return null
                 if (typeof value === "string") {
-                    return Number.parseFloat(value.replace(",", "."))
+                    // Xử lý string đã format từ sheet (có thể có dấu phẩy, khoảng trắng, v.v.)
+                    const cleaned = value.replace(/,/g, ".").replace(/\s/g, "")
+                    const parsed = Number.parseFloat(cleaned)
+                    return isNaN(parsed) ? null : parsed
                 }
                 return typeof value === "number" ? value : null
             }
 
             const formatNumber = (value: number | null) =>
-                value !== null && !isNaN(value) ? value.toFixed(0).replace(".", ",") : null
+                value !== null && !isNaN(value) ? value.toString().replace(".", ",") : null
 
             const safeSubtract = (a: number | null, b: number | null) =>
                 a !== null && b !== null ? formatNumber(a - b) : null
@@ -50,8 +53,8 @@ const sheetConfigs: Record<string, SheetConfig> = {
             const roundIfNumber = (value: any) => {
                 const num = parseNumber(value)
                 if (num === null) return value
-                // Là số: làm tròn xuống (21.2 -> 21)
-                return Math.floor(num)
+                // Trả về số gốc không làm tròn
+                return num
             }
 
             const giaBanGP = roundIfNumber(row[13])
@@ -164,8 +167,8 @@ async function getAllSheetData(gsapi: any) {
         const { data } = await gsapi.spreadsheets.values.batchGet({
             spreadsheetId: SPREADSHEET_ID,
             ranges: ranges,
-            // Tối ưu: Chỉ lấy giá trị, không format để nhanh hơn
-            valueRenderOption: "UNFORMATTED_VALUE",
+            // Lấy giá trị đã format từ sheet (để lấy giá trị đã làm tròn như hiển thị trong sheet)
+            valueRenderOption: key === "gpTextVN" ? "FORMATTED_VALUE" : "UNFORMATTED_VALUE",
             dateTimeRenderOption: "SERIAL_NUMBER",
         })
 

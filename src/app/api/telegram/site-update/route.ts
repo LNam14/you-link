@@ -108,7 +108,15 @@ export async function POST(request: NextRequest) {
       // Format chi tiết cho cập nhật site - gộp tất cả vào 1 tin nhắn
       const updatesText = updates.map(update => {
         try {
-         
+          // Helper function to check if value is a number (including string numbers)
+          const isNumeric = (val: any): boolean => {
+            if (val === null || val === undefined || val === '') {
+              return false;
+            }
+            // Remove commas and spaces for number checking
+            const cleaned = String(val).replace(/[,\s]/g, '');
+            return !isNaN(Number(cleaned)) && cleaned !== '';
+          };
 
           const changesText = Object.entries(update.changes)
             .filter(([field, changeData]) => {
@@ -124,10 +132,18 @@ export async function POST(request: NextRequest) {
               const change = changeData as { oldValue: any; newValue: any };
               
               // Normalize values for comparison (treat null, undefined, empty string as equivalent)
-              const normalizeValue = (val: any): string => {
+              // For numbers, compare numeric values; for strings, compare as strings
+              const normalizeValue = (val: any): string | number => {
                 if (val === null || val === undefined || val === '') {
                   return '';
                 }
+                
+                // If it's a number or numeric string, normalize to number for comparison
+                if (isNumeric(val)) {
+                  const cleaned = String(val).replace(/[,\s]/g, '');
+                  return Number(cleaned);
+                }
+                
                 return String(val).trim();
               };
               
@@ -139,8 +155,32 @@ export async function POST(request: NextRequest) {
             })
             .map(([field, changeData]) => {
               const change = changeData as { oldValue: any; newValue: any };
-              const oldValue = change.oldValue === null || change.oldValue === undefined || change.oldValue === '' ? '(trống)' : String(change.oldValue);
-              const newValue = change.newValue === null || change.newValue === undefined || change.newValue === '' ? '(trống)' : String(change.newValue);
+              
+              // Helper function to format value for display
+              const formatValue = (val: any): string => {
+                if (val === null || val === undefined || val === '') {
+                  return '(trống)';
+                }
+                
+                // Check if it's a number (including string numbers)
+                if (isNumeric(val)) {
+                  const cleaned = String(val).replace(/[,\s]/g, '');
+                  const num = Number(cleaned);
+                  // Format number with thousand separators if it's a whole number
+                  if (Number.isInteger(num)) {
+                    return num.toLocaleString('vi-VN');
+                  } else {
+                    // For decimals, show with appropriate precision
+                    return num.toString();
+                  }
+                }
+                
+                return String(val);
+              };
+              
+              const oldValue = formatValue(change.oldValue);
+              const newValue = formatValue(change.newValue);
+              
               return `  • <b>${field}:</b> ${oldValue} → ${newValue}`;
             })
             .join('\n');

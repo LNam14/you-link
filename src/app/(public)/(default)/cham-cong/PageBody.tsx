@@ -35,213 +35,223 @@ interface QuizQuestion {
 // Danh sách câu hỏi
 const quizQuestions: QuizQuestion[] = [
     {
-      "CâuHỏi": "VD có KH order 1 đơn tổng hợp (vd entity, PBN...) thì bạn sẽ làm sao",
-      "ĐápÁn": {
-        "A": "Nói bên mình không có bán",
-        "B": "Phớt lờ KH",
-        "C": "Tag An Nhiên vô nhóm, hoặc gửi thông tin đó cho An Nhiên"
+      CâuHỏi: "Content thường giá sao?",
+      ĐápÁn: {
+        A: "Hình như odr 1 và 7 là 60k thì phải",
+        B: "Thường thì odr nào viết giá 50-60k là content viết tay, 25-30k là viết AI",
+        C: "Hỏi ad cho nhanh"
       },
-      "ĐápÁnĐúng": "C"
+      ĐápÁnĐúng: "B"
     },
     {
-      "CâuHỏi": "GP có gia hạn hàng tháng hay không",
-      "ĐápÁn": {
-        "A": "Tùy theo yêu cầu của KH",
-        "B": "Có chứ",
-        "C": "Không nha"
+      CâuHỏi: "Có bao nhiêu vị trí text?",
+      ĐápÁn: {
+        A: "Có 1 vị trí là footer",
+        B: "Text Footer và home",
+        C: "Text Footer, home và header"
       },
-      "ĐápÁnĐúng": "C"
+      ĐápÁnĐúng: "C"
     },
     {
-      "CâuHỏi": "Đơn đã xong nhưng KH muốn giảm giá. VD giá đang là 200u, khách muốn giảm xuống 198u",
-      "ĐápÁn": {
-        "A": "Không cho giảm vì không đúng với báo giá bên mình. Đồng thời, nếu giảm thì site đó âm tiền",
-        "B": "Chờ hỏi ad",
-        "C": "Có thể linh hoạt cho giảm. Mặc dù 1 site đó âm lợi nhuận, nhưng tổng đơn vẫn có lợi nhuận. Như vậy, đỡ mất nhiều time mà vẫn có lợi cho mình, hài lòng khách hàng."
+      CâuHỏi: "Cty tên gì, slogan là gì?",
+      ĐápÁn: {
+        A: "Chang You - tự do, hòa bình, tình yêu, phẩm giá",
+        B: "Panda - tự do, hoà bình, tình yêu, phẩm giá",
+        C: "Mỗi team 1 tên slogan là tự do, hoà bình, tình yêu, phẩm giá"
       },
-      "ĐápÁnĐúng": "C"
+      ĐápÁnĐúng: "A"
     },
     {
-      "CâuHỏi": "Khi gia hạn đơn text cần làm gì",
-      "ĐápÁn": {
-        "A": "Copy đơn text cũ và báo gia hạn cho ncc",
-        "B": "Tạo mã đơn mới rồi mới báo gia hạn cho ncc",
-        "C": "Chỉ cần báo ncc gia hạn là được"
+      CâuHỏi: "Con mèo của cty tên gì?",
+      ĐápÁn: {
+        A: "Mi",
+        B: "Si",
+        C: "Di"
       },
-      "ĐápÁnĐúng": "B"
+      ĐápÁnĐúng: "A"
     },
     {
-      "CâuHỏi": "Đầu tuần check gia hạn text xong thì note ở file nào",
-      "ĐápÁn": {
-        "A": "File khách hàng",
-        "B": "File KT4",
-        "C": "Không cần note"
+      CâuHỏi: "Hiện tại công việc của chúng ta làm gì?",
+      ĐápÁn: {
+        A: "Bán backlink",
+        B: "Chúng ta kinh doanh, công việc là Kinh Doanh",
+        C: "SEO mớ website để bán backlink"
       },
-      "ĐápÁnĐúng": "B"
+      ĐápÁnĐúng: "B"
     },
     {
-      "CâuHỏi": "KH OS cần chiết khấu riêng thì sao",
-      "ĐápÁn": {
-        "A": "Nên cho CKR cho nhân viên bên OS, để họ ưu tiên book đơn mình nhiều",
-        "B": "Tùy số tiền đó nhiều hay ít, nếu ít vẫn được",
-        "C": "Không nên cho CKR"
+      CâuHỏi: "Giờ nên làm gì?",
+      ĐápÁn: {
+        A: "Toả sáng và nổi bật",
+        B: "Ngẫm về cuộc đời và tương lai",
+        C: "Ngẫm về quá khứ và sai lầm"
       },
-      "ĐápÁnĐúng": "C"
+      ĐápÁnĐúng: "A"
     },
     {
-      "CâuHỏi": "Đơn text tháng 9 giá 1000u, gia hạn tháng 10 là 1008u, thì nên làm gì",
-      "ĐápÁn": {
-        "A": "Báo KH tăng giá thêm 8u, KH đồng ý gia hạn thì gia hạn, không đồng ý thì hủy",
-        "B": "Vẫn tính KH 1000u, vì lệch có 8u, tức là 0.8% cũng không nhiều, khỏi mất công KH suy nghĩ",
-        "C": "Ngồi suy nghĩ"
+      CâuHỏi: "Khách hỏi mình có phải chủ site không thì nói sao?",
+      ĐápÁn: {
+        A: "Em chủ site khoảng 50 site và giá tốt trên thị trường",
+        B: "Bên em ctv thôi",
+        C: "Em ctv cấp 1 giá tốt"
       },
-      "ĐápÁnĐúng": "B"
+      ĐápÁnĐúng: "A"
     },
     {
-      "CâuHỏi": "Làm sao để hạn chế mất tele",
-      "ĐápÁn": {
-        "A": "Khi nhắn tin người lạ, nên kết bạn trước rồi mới nhắn. Nhắn người lạ tầm 3-5 người 1 lần, cách 3-5 tiếng mới nhắn tiếp, 1 ngày 2-4 lần",
-        "B": "Nhắn tin người lạ tầm 3-5 người 1 lần thôi, không cần đăng ký tele vip",
-        "C": "Đăng ký tele vip và nhắn tin người lạ tầm 10 người 1 lần"
+      CâuHỏi: "Có cần check lại content khi lên GP không?",
+      ĐápÁn: {
+        A: "Lên luôn khỏi check vì bên content đã làm rồi hoặc khách đã đưa",
+        B: "Check qua xem anchor và link đã chèn đúng chưa hoặc chưa chèn",
+        C: "Đủ số lượng là được"
       },
-      "ĐápÁnĐúng": "A"
+      ĐápÁnĐúng: "B"
     },
     {
-      "CâuHỏi": "Textlink có gia hạn hàng tháng không",
-      "ĐápÁn": {
-        "A": "Không nha, trừ khi KH yêu cầu đổi anchor, link out",
-        "B": "Cũng tùy, KH yêu cầu gia hạn thì gia hạn, không thì thôi",
-        "C": "Đương nhiên không, mua 1 lần thì vĩnh viễn theo site cho KH"
+      CâuHỏi: "Payment: KH đang check đi đơn mà site ngưng không có trong file báo giá thì xử lý sao?",
+      ĐápÁn: {
+        A: "Báo data fix lại",
+        B: "Có thể tự fix trên youlink và cập nhật phần ghi chú là 'Ngưng GP' hoặc 'Ngưng Text'",
+        C: "A, B hoặc báo AD xử lý cho nhanh"
       },
-      "ĐápÁnĐúng": "B"
+      ĐápÁnĐúng: "C"
     },
     {
-      "CâuHỏi": "NCC báo trong nhóm site tăng giá, giảm giá, thêm site mới, hay ngưng site, thì làm gì",
-      "ĐápÁn": {
-        "A": "Tag data",
-        "B": "Nhớ là được",
-        "C": "Tag chị San để chị ấy biết"
+      CâuHỏi: "Payment: site gia hạn bị gỡ text do NCC miss, payment phạt tiền, bán hàng nên làm gì?",
+      ĐápÁn: {
+        A: "Báo chủ site về vấn đề họ miss và đề nghị họ chịu 100% hoặc chia 50-50",
+        B: "Báo chủ site huỷ text gia hạn để không bị phạt",
+        C: "Báo khách về việc chủ site chịu bù ngày gia hạn, NCC và BH tự thương lượng"
       },
-      "ĐápÁnĐúng": "A"
+      ĐápÁnĐúng: "C"
     },
     {
-      "CâuHỏi": "Data gồm những ai",
-      "ĐápÁn": {
-        "A": "Phương Quân, Phương San",
-        "B": "Phương Hạ, Phương Quân",
-        "C": "Phương Quân, Phương Tuấn"
+      CâuHỏi: "Payment check nghiệm thu nhưng giá GP đã thay đổi, bán hàng nên làm gì?",
+      ĐápÁn: {
+        A: "Cân nhắc thay đổi giá linh hoạt cho khách",
+        B: "Cứng nhắc không deal lại giá",
+        C: "Linh hoạt theo giá khách và xin họ chụp lại báo giá thời điểm đó"
       },
-      "ĐápÁnĐúng": "B"
+      ĐápÁnĐúng: "C"
     },
     {
-      "CâuHỏi": "ChangYou có bao nhiêu team",
-      "ĐápÁn": {
-        "A": "4 team (tính luôn team BĐS)",
-        "B": "5 team (tính luôn team BĐS)",
-        "C": "6 team (tính luôn team BĐS)"
+      CâuHỏi: "Chủ site báo cần thêm đuôi //3399,... thì bán hàng nên làm gì?",
+      ĐápÁn: {
+        A: "Lơ đi",
+        B: "Check khách có lên bài không và báo khách",
+        C: "Tag ad, data, Phương Tuấn vào nhận thông tin"
       },
-      "ĐápÁnĐúng": "C"
+      ĐápÁnĐúng: "B"
     },
     {
-      "CâuHỏi": "Data làm thời gian nào",
-      "ĐápÁn": {
-        "A": "Làm full time",
-        "B": "Làm 8-12h và 14-18h thứ 2 đến thứ 7",
-        "C": "Làm 8-12h và 14-18h thứ 2 đến thứ 7, ngoài giờ này tag Du hoặc Min hoặc Tuấn để xử lý sớm"
+      CâuHỏi: "Một bài GP có bao nhiêu link Dofollow?",
+      ĐápÁn: {
+        A: "Nhiều link tùy NCC",
+        B: "1–2 link Dofollow",
+        C: "Không có link dofollow"
       },
-      "ĐápÁnĐúng": "C"
+      ĐápÁnĐúng: "B"
     },
     {
-      "CâuHỏi": "Khi gia hạn nên check giá và báo khách gia hạn trong khoảng thời gian nào?",
-      "ĐápÁn": {
-        "A": "Check giá mới, báo thay đổi giá và ngày hết hạn cho khách trước 2-7 ngày",
-        "B": "Check giá mới, báo thay đổi giá và ngày hết hạn cho khách trước 1 ngày",
-        "C": "Check giá cũ, báo thay đổi giá và ngày hết hạn cho khách trước 2-7 ngày"
+      CâuHỏi: "Link Nofollow trong bài GP có chấp nhận không?",
+      ĐápÁn: {
+        A: "Không, phải là link dofollow",
+        B: "Có, đủ anchor url là được",
+        C: "Cả 2"
       },
-      "ĐápÁnĐúng": "A"
+      ĐápÁnĐúng: "B"
     },
     {
-      "CâuHỏi": "Khi 1 nhóm khách hàng mới order đơn bằng File order cá nhân khách đưa, chúng ta phải note mấy file từ lúc khách order đến khi hoàn thành đơn",
-      "ĐápÁn": {
-        "A": "File order cá nhân khách đưa + File KT4 + File ncc + File khách hàng",
-        "B": "File KT4 + File ncc + File khách hàng",
-        "C": "File order cá nhân khách đưa + File KT4 + File ncc"
+      CâuHỏi: "Căn nguyên mọi vấn đề do đâu?",
+      ĐápÁn: {
+        A: "Do thị trường",
+        B: "Do bản thân mình",
+        C: "Do yếu tố xung quanh"
       },
-      "ĐápÁnĐúng": "A"
+      ĐápÁnĐúng: "B"
     },
     {
-      "CâuHỏi": "1 bài content có tối đa bao nhiêu cặp text (anchor + url)?",
-      "ĐápÁn": {
-        "A": "1",
-        "B": "2",
-        "C": "3"
+      CâuHỏi: "Đâu là mã ví thanh toán Tron (USDT)?",
+      ĐápÁn: {
+        A: "TRC20\nTVFNucFznW6sDxU2uA2c2z9wmy2Xmd3qMV",
+        B: "TRC20\nTVFNucFznW6sDxU2uA2c2z9wmy2Xmd0sRX",
+        C: "TRC20\n0x8ae92d5cd95c0bec95a352df16f40eacb83837b8"
       },
-      "ĐápÁnĐúng": "B"
+      ĐápÁnĐúng: "A"
     },
     {
-      "CâuHỏi": "Check site cho khách nhưng ncc không rep hoặc rep lâu thì phải làm gì?",
-      "ĐápÁn": {
-        "A": "Nhờ Data check hộ",
-        "B": "Nhờ AD check hộ và đợi ncc trả lời",
-        "C": "Chủ động báo lại khách đổi site và đề xuất những site khác có Traffic và DA tương tự cho khách hoặc nhờ data check hộ"
+      CâuHỏi: "Khi check site phát hiện giá sai trên hệ thống thì làm gì?",
+      ĐápÁn: {
+        A: "Báo lại data check giá và đợi phản hồi",
+        B: "Chủ động check file NCC rồi báo data fix",
+        C: "Thấy lời thì bán"
       },
-      "ĐápÁnĐúng": "C"
+      ĐápÁnĐúng: "B"
     },
     {
-      "CâuHỏi": "KH order 10 site thì nên làm như nào",
-      "ĐápÁn": {
-        "A": "Nên kêu khách lựa thêm 2-4 site, để site có vấn đề gì, để mình thay luôn, không cần hỏi lại",
-        "B": "Báo cho khách thời gian dự kiến xong đơn này",
-        "C": "Nên đi đơn sớm, có vấn đề gì, báo liền NCC"
+      CâuHỏi: "Tại sao BH spam mãi nhưng không có đơn?",
+      ĐápÁn: {
+        A: "Chưa có niềm tin và lý tưởng công việc",
+        B: "Giao tiếp kém, sợ bị nói",
+        C: "Lười online"
       },
-      "ĐápÁnĐúng": "A"
+      ĐápÁnĐúng: "A"
     },
     {
-      "CâuHỏi": "KH mới, đi đơn đầu tiên, cần làm gì",
-      "ĐápÁn": {
-        "A": "Báo Phương Du cấp tín dụng",
-        "B": "Đi đơn nhanh chóng, care thu tiền, tránh lừa đảo",
-        "C": "Xem KH uy tín không, rồi cấp tín dụng cho KH"
+      CâuHỏi: "Đâu là mã ví thanh toán BSC (USDT)?",
+      ĐápÁn: {
+        A: "Bep20\n0x8ae92d5cd95c0bec95a352df16f40eacb83837b8",
+        B: "Bep20\nTVFNucFznW6sDxU2uA2c2z9wmy2Xmd3qMV",
+        C: "Bep20\n0x8ae92d5cd95c0bec95a352df16f40eacb8388b37"
       },
-      "ĐápÁnĐúng": "A"
+      ĐápÁnĐúng: "A"
     },
     {
-      "CâuHỏi": "Có khúc mắc xảy ra với khách hàng nên xử lý thế nào?",
-      "ĐápÁn": {
-        "A": "Bình tĩnh. Xác định kỹ nguyên nhân ở đâu. Trước tiên, dù sai hay đúng hãy xin lỗi KH vì trải nghiệm không tốt. Sau đó, chỉ rõ vấn đề và hướng họ tới cách khắc phục mà họ mong đợi.",
-        "B": "Check lại thông tin thấy mình đúng phải nói cho rõ ràng phải trái.",
-        "C": "Ý A và báo lại với ad nữa"
+      CâuHỏi: "Tỉ giá USD hiện nay là bao nhiêu VNĐ?",
+      ĐápÁn: {
+        A: "27.000 VNĐ",
+        B: "27.500 VNĐ",
+        C: "28.000 VNĐ"
       },
-      "ĐápÁnĐúng": "C"
+      ĐápÁnĐúng: "C"
     },
     {
-      "CâuHỏi": "Nên nói chuyện riêng với khách hàng không?",
-      "ĐápÁn": {
-        "A": "Không. Không quen biết nên ngoài công việc cũng không biết nói gì.",
-        "B": "Người nào thích thì nói, người nào khó tính thì thôi.",
-        "C": "Có. Nói chuyện là cách tốt nhất để làm thân với khách. Họ có thể giới thiệu cho mình nhiều khách khác. Có thể hỏi thăm công việc, nói chuyện như những người bạn làm thân dần dần."
+      CâuHỏi: "Khách muốn lọc site GP traffic >50k, DR >20, giá <2tr thì lọc cột nào?",
+      ĐápÁn: {
+        A: "DR, link out, giá GP",
+        B: "DR, traffic, giá GP",
+        C: "DR, traffic, giá text"
       },
-      "ĐápÁnĐúng": "C"
+      ĐápÁnĐúng: "B"
     },
     {
-      "CâuHỏi": "Khi khách cần bảo hành nên làm thế nào?",
-      "ĐápÁn": {
-        "A": "Nhận lời rồi để đó làm sau.",
-        "B": "Phản hồi ngay. Đơn cần bảo hành tức là đơn có vấn đề, tâm lý khách đang không hài lòng. Phải giải quyết ngay để họ có được lòng tin vào mình và dịch vụ của mình.",
-        "C": "Kệ, không rep đi đơn trước đã. Bảo hành tính sau."
+      CâuHỏi: "Khách đặt text 10 ngày rồi báo huỷ, xử lý sao?",
+      ĐápÁn: {
+        A: "Đồng ý huỷ và báo NCC gỡ text",
+        B: "Xin huỷ NCC — NCC nào cho huỷ thì OK, NCC nào không thì tính tiền số ngày đã đặt",
+        C: "Không cho huỷ vì đã 10 ngày"
       },
-      "ĐápÁnĐúng": "B"
+      ĐápÁnĐúng: "B"
     },
     {
-      "CâuHỏi": "Xong đơn có cần báo lại khách không?",
-      "ĐápÁn": {
-        "A": "Có. Cần phải thông báo tình trạng đơn trong nhóm làm việc để SEO còn nắm bắt kịp thời. Nhiều SEO bận, họ quên, để đến khi họ kiểm tra sẽ khó chịu vì xong không báo lại họ.",
-        "B": "Không, khách tự vào file order kiểm tra cho nhanh.",
-        "C": "Tùy khách, người nào cần nhanh thì báo, không thì thôi."
+      CâuHỏi: "GP: sau bao lâu không index thì nên huỷ bài?",
+      ĐápÁn: {
+        A: "Khoảng 2 tuần",
+        B: "Khoảng 10 ngày",
+        C: "Khoảng 20 ngày"
       },
-      "ĐápÁnĐúng": "A"
+      ĐápÁnĐúng: "A"
+    },
+    {
+      CâuHỏi: "Khách mua text bị âm 5u sau CK8% thì xử lý sao?",
+      ĐápÁn: {
+        A: "Báo data kê giá cao lên 1 chút",
+        B: "Kệ, đi luôn",
+        C: "Báo data kê giá để tránh âm, sau đó báo lại giá mới cho khách"
+      },
+      ĐápÁnĐúng: "C"
     }
-  ]
+  ];
+  
   
 
 export default function AttendanceTracker() {
