@@ -100,6 +100,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 bong: row[2],
                 bet: row[3],
                 chuDe: row[4],
+                linkOut: row[7],
                 DR: row[8],
                 trafficTool: row[10],
                 ghiChu: row[11],

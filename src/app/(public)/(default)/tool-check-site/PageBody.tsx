@@ -38,6 +38,7 @@ interface SiteData {
     bong: string
     bet: string
     chuDe: string
+    linkOut: string
     DR: string
     trafficTool: string
     ghiChu: string
@@ -348,6 +349,7 @@ export default function PageBody() {
                         bong: "",
                         bet: "",
                         chuDe: "",
+                        linkOut: "",
                         DR: "",
                         trafficTool: "",
                         ghiChu: "",
@@ -534,6 +536,74 @@ export default function PageBody() {
         }) as RendererFunction
     }
 
+    // Generate nested headers for 2-level header structure
+    const generateNestedHeaders = (columns: any[]) => {
+        // First row: Group headers (top level)
+        const firstRow: Array<{ label: string; colspan: number }> = []
+        // Second row: Column titles (bottom level)
+        const secondRow: string[] = []
+        
+        interface GroupInfo {
+            label: string
+            startCol: number
+            colspan: number
+        }
+        let currentGroup: GroupInfo | null = null
+        
+        for (let index = 0; index < columns.length; index++) {
+            const col = columns[index]
+            const colData = col.data as string
+            
+            // Determine which group this column belongs to
+            let groupLabel = ""
+            if (colData.includes("giaBan") || colData.includes("giaMua") || colData.includes("hoaHong") || colData.includes("giaCuoi") || colData.includes("loiNhuan")) {
+                groupLabel = "Giá cả"
+            } else if (["NCC", "MaNCC", "FileNCC", "GroupNCC", "GhiChuNCC"].includes(colData)) {
+                groupLabel = "Thông tin NCC"
+            } else {
+                groupLabel = ""
+            }
+            
+            // If starting a new group or first column
+            if (!currentGroup || currentGroup.label !== groupLabel) {
+                // Close previous group if exists
+                if (currentGroup) {
+                    firstRow.push({
+                        label: currentGroup.label,
+                        colspan: currentGroup.colspan,
+                    })
+                    // Fill second row for previous group
+                    for (let i = 0; i < currentGroup.colspan; i++) {
+                        secondRow.push(columns[currentGroup.startCol + i].title)
+                    }
+                }
+                // Start new group
+                currentGroup = {
+                    label: groupLabel,
+                    startCol: index,
+                    colspan: 1,
+                }
+            } else {
+                // Continue current group
+                currentGroup.colspan++
+            }
+        }
+        
+        // Close last group
+        if (currentGroup) {
+            firstRow.push({
+                label: currentGroup.label,
+                colspan: currentGroup.colspan,
+            })
+            // Fill second row for last group
+            for (let i = 0; i < currentGroup.colspan; i++) {
+                secondRow.push(columns[currentGroup.startCol + i].title)
+            }
+        }
+        
+        return [firstRow, secondRow]
+    }
+
     const generateColumns = () => {
         // Add debug log to check user role
         console.log("Current user role:", userInfo?.role)
@@ -566,7 +636,7 @@ export default function PageBody() {
             {
                 title: "Tình Trạng",
                 data: "tinhTrang",
-                width: 95,
+                width: 70,
                 className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
@@ -589,7 +659,7 @@ export default function PageBody() {
             {
                 title: "Bóng",
                 data: "bong",
-                width: 50,
+                width: 40,
                 className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
@@ -658,7 +728,7 @@ export default function PageBody() {
             {
                 title: "Chủ đề",
                 data: "chuDe",
-                width: 95,
+                width: 70,
                 className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
@@ -675,6 +745,48 @@ export default function PageBody() {
                     td.style.textAlign = "center"
                     td.title = value || ""
                     td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+            {
+                title: "Link Out",
+                data: "linkOut",
+                width: 50,
+                className: "htMiddle text-center",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
+
+                    if (value && typeof value === "string" && value.trim() !== "" && value !== "No") {
+                        // Check if it's a URL
+                        const isUrl = /^https?:\/\//i.test(value.trim())
+                        if (isUrl) {
+                            td.onclick = (e: MouseEvent) => {
+                                e.preventDefault()
+                                window.open(value, "_blank")
+                            }
+                            td.style.color = "#2563EB"
+                            td.style.textDecoration = "underline"
+                            td.style.cursor = "pointer"
+                            td.textContent = "Link"
+                        } else {
+                            td.textContent = value
+                        }
+                    } else {
+                        td.textContent = value || ""
+                    }
+
+                    td.title = value || ""
                     return td
                 }) as RendererFunction,
             },
@@ -704,7 +816,7 @@ export default function PageBody() {
             {
                 title: "Traffic",
                 data: "trafficTool",
-                width: 80,
+                width: 70,
                 className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
@@ -758,9 +870,9 @@ export default function PageBody() {
         // Add single price column based on selected type and brand
         const sellPriceColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaBan")
         baseColumns.push({
-            title: `Giá Bán`,
+            title: `Bán`,
             data: sellPriceColumn,
-            width: 65,
+            width: 45,
             className: "htMiddle",
             renderer: createPriceRenderer(sellPriceColumn),
         })
@@ -778,6 +890,7 @@ export default function PageBody() {
                 "bet",
                 "site",
                 "chuDe",
+                "linkOut",
                 "DR",
                 "trafficTool",
                 "ghiChu",
@@ -801,9 +914,9 @@ export default function PageBody() {
 
         const additionalColumns = [
             {
-                title: `Giá Mua`,
+                title: `Mua`,
                 data: buyPriceColumn,
-                width: 70,
+                width: 45,
                 className: "htMiddle",
                 renderer: createPriceRenderer(buyPriceColumn),
             },
@@ -815,9 +928,9 @@ export default function PageBody() {
                 renderer: createPriceRenderer(commissionColumn),
             },
             {
-                title: `Giá Cuối`,
+                title: `Cuối`,
                 data: finalPriceColumn,
-                width: 69,
+                width: 45,
                 className: "htMiddle",
                 renderer: createPriceRenderer(finalPriceColumn),
             },
@@ -831,7 +944,7 @@ export default function PageBody() {
             {
                 title: "Time",
                 data: "timeText",
-                width: 50,
+                width: 38,
                 className: "htMiddle",
                 renderer: ((
                     instance: Handsontable,
@@ -854,7 +967,7 @@ export default function PageBody() {
             {
                 title: "Tên",
                 data: "NCC",
-                width: 70,
+                width: 60,
                 className: "htMiddle",
                 renderer: ((
                     instance: Handsontable,
@@ -1464,6 +1577,9 @@ export default function PageBody() {
             generatedColumns.map((col) => col.data),
         )
 
+        // Generate nested headers
+        const nestedHeaders = generateNestedHeaders(generatedColumns)
+
         // Enable two-tap range selection for touch/mobile: first tap sets anchor, second tap selects rectangle
         const onCellMouseDown = (event: any, coords: any) => {
             if (!coords) return
@@ -1505,6 +1621,7 @@ export default function PageBody() {
                         className: col.className,
                         renderer: col.renderer,
                     }))}
+                    nestedHeaders={nestedHeaders}
                     height="auto"
                     width="100%"
                     licenseKey="non-commercial-and-evaluation"
