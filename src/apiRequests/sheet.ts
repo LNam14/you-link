@@ -88,12 +88,14 @@ const sheetApiRequest = {
   /**
    * Lấy dữ liệu update site
    * Sử dụng GET để tận dụng cache tốt hơn
+   * @param revalidate - Nếu true, sẽ force refresh cache bằng cách thêm query parameter revalidate=1
    */
-  getDataUpdateSite: () => {
+  getDataUpdateSite: (revalidate = false) => {
+    const params = revalidate ? { revalidate: "1" } : undefined
     // Thử GET trước, nếu không được thì fallback về POST
-    return httpService.get<any>(ENDPOINTS.GET_UPDATE_SITE).catch(() => {
+    return httpService.get<any>(ENDPOINTS.GET_UPDATE_SITE, params, { cache: false }).catch(() => {
       // Fallback về POST nếu GET không được hỗ trợ
-      return httpService.post<SheetResponse>(ENDPOINTS.GET_UPDATE_SITE, {})
+      return httpService.post<SheetResponse>(ENDPOINTS.GET_UPDATE_SITE, revalidate ? { revalidate: "1" } : {})
     })
   },
 

@@ -522,6 +522,9 @@ export default function PageBody() {
             setHasUnsavedChanges(false)
             setOriginalValues({})
             
+            // Reload data to reflect the changes - force refresh để bypass cache
+            await refetch(true)
+            
             messageApi.success({
                 content: `Đã lưu thành công ${updates.length} thay đổi`,
                 icon: <CheckCircle2 className="text-green-500 mr-2" size={16} />,
@@ -543,7 +546,7 @@ export default function PageBody() {
         } finally {
             setSaving(false)
         }
-    }, [hasUnsavedChanges, pendingChanges, dataType, messageApi, userInfo?.username])
+    }, [hasUnsavedChanges, pendingChanges, dataType, messageApi, userInfo?.username, fetchData])
 
     const handleAfterPaste = useCallback(
         (data: any[][], coords: any[]) => {
@@ -773,7 +776,7 @@ export default function PageBody() {
                     onOk: async () => {
                         const convertedRows = rowsToSave.map(convertRowIfNeeded)
                         await sheetApiRequest.appendRows(convertedRows, dataType)
-                        await fetchData() // Reload data after adding new rows
+                        await refetch(true) // Reload data after adding new rows - force refresh để bypass cache
                         setPendingRows([])
                         setActiveTab("data")
                         messageApi.success({
@@ -831,7 +834,7 @@ export default function PageBody() {
                     onOk: async () => {
                         try {
                             await sheetApiRequest.deleteRow(actualRowIndex, dataType)
-                            await fetchData() // Reload data after deletion
+                            await refetch(true) // Reload data after deletion - force refresh để bypass cache
                             messageApi.success({
                                 content: "Đã xóa dòng thành công",
                                 icon: <CheckCircle2 className="text-green-500 mr-2" size={16} />,

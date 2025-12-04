@@ -14,7 +14,9 @@ const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
 
 // Cache kết quả trong 5 phút
 const CACHE_DURATION = 5 * 60 * 1000; // 5 phút
-const sheetCache = new Map<string, { data: any; expiry: number }>();
+const sheetCache = new Map<string, { data: any; expiry: number; modifiedTime?: string }>();
+// Cache modifiedTime của spreadsheet để phát hiện thay đổi
+const spreadsheetModifiedTime = new Map<string, string>();
 
 // Cleanup cache cũ định kỳ để tránh memory leak
 setInterval(() => {
@@ -46,7 +48,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "Link out": row[7] || "",
             DR: row[8] || "",
             Keywords: row[9] || "",
-            "Traffic Tool": row[9] || "",
+            "Traffic Tool": row[10] || "",
             "Ghi chú": row[11] || "",
             "Tình trạng": row[12] || "",
             "GP ($)": row[18] || 0,
@@ -76,7 +78,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
             "Link out": row[7] || "",
             DR: row[8] || "",
             Keywords: row[9] || "",
-            "Traffic Tool": row[9] || "",
+            "Traffic Tool": row[10] || "",
             "Ghi chú": row[11] || "",
             "Tình trạng": row[12] || "",
             "GP ($)": row[18] || 0,
@@ -109,11 +111,51 @@ async function handleRequest(req: Request) {
         const userInfoCookie = cookieStore.get("userInfo")
         const userInfo = userInfoCookie ? JSON.parse(userInfoCookie.value) : {}
 
+        // Kiểm tra query parameter để force refresh cache
+        const url = new URL(req.url)
+        const forceRefresh = url.searchParams.get("revalidate") === "1"
+
         const cacheKey = `update-site-${SPREADSHEET_ID}-${userInfo.role || "guest"}-${userInfo.username || "anonymous"}`
         
-        // Check cache
+        const client = await getAuthClient()
+        const gsapi = google.sheets({ version: "v4", auth: client })
+
+        // Kiểm tra modifiedTime của spreadsheet để phát hiện thay đổi
+        let shouldInvalidateCache = forceRefresh
+        let currentModifiedTime = ""
+        
+        try {
+            const spreadsheetInfo = await gsapi.spreadsheets.get({
+                spreadsheetId: SPREADSHEET_ID,
+                fields: "properties.modifiedTime",
+            })
+            // Type assertion vì Google API types có thể không đầy đủ
+            currentModifiedTime = (spreadsheetInfo.data.properties as any)?.modifiedTime || ""
+            const cachedModifiedTime = spreadsheetModifiedTime.get(SPREADSHEET_ID)
+            
+            // Nếu modifiedTime thay đổi, invalidate cache
+            if (cachedModifiedTime && cachedModifiedTime !== currentModifiedTime) {
+                shouldInvalidateCache = true
+                // Xóa tất cả cache liên quan đến spreadsheet này
+                for (const [key] of sheetCache.entries()) {
+                    if (key.includes(SPREADSHEET_ID)) {
+                        sheetCache.delete(key)
+                    }
+                }
+            }
+            
+            // Lưu modifiedTime mới nhất
+            if (currentModifiedTime) {
+                spreadsheetModifiedTime.set(SPREADSHEET_ID, currentModifiedTime)
+            }
+        } catch (error) {
+            // Nếu không lấy được modifiedTime, vẫn tiếp tục với logic cache thông thường
+            console.warn("Could not check spreadsheet modifiedTime:", error)
+        }
+        
+        // Check cache (sau khi đã kiểm tra modifiedTime)
         const cached = sheetCache.get(cacheKey)
-        if (cached && cached.expiry > Date.now()) {
+        if (!shouldInvalidateCache && cached && cached.expiry > Date.now()) {
             return NextResponse.json(cached.data, {
                 status: 200,
                 headers: {
@@ -122,9 +164,6 @@ async function handleRequest(req: Request) {
                 },
             })
         }
-
-        const client = await getAuthClient()
-        const gsapi = google.sheets({ version: "v4", auth: client })
 
         const results: Record<string, any> = {}
 
@@ -157,10 +196,16 @@ async function handleRequest(req: Request) {
             results[key] = filtered
         }
 
-        // Save to cache
+        // Lấy modifiedTime hiện tại để lưu vào cache (đã lấy ở trên)
+        if (!currentModifiedTime) {
+            currentModifiedTime = spreadsheetModifiedTime.get(SPREADSHEET_ID) || ""
+        }
+
+        // Save to cache với modifiedTime
         sheetCache.set(cacheKey, {
             data: results,
             expiry: Date.now() + CACHE_DURATION,
+            modifiedTime: currentModifiedTime,
         })
 
         return NextResponse.json(results, {
@@ -183,4 +228,38 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
     return handleRequest(req)
+}
+
+// Endpoint để xóa cache thủ công
+export async function DELETE(req: Request) {
+    try {
+        const cookieStore = cookies()
+        const userInfoCookie = cookieStore.get("userInfo")
+        const userInfo = userInfoCookie ? JSON.parse(userInfoCookie.value) : {}
+
+        // Xóa cache của user hiện tại hoặc tất cả cache
+        const url = new URL(req.url)
+        const clearAll = url.searchParams.get("all") === "1"
+
+        if (clearAll) {
+            // Xóa tất cả cache
+            sheetCache.clear()
+            spreadsheetModifiedTime.clear()
+            return NextResponse.json({ 
+                success: true, 
+                message: "All cache cleared" 
+            })
+        } else {
+            // Xóa cache của user hiện tại
+            const cacheKey = `update-site-${SPREADSHEET_ID}-${userInfo.role || "guest"}-${userInfo.username || "anonymous"}`
+            sheetCache.delete(cacheKey)
+            return NextResponse.json({ 
+                success: true, 
+                message: "User cache cleared" 
+            })
+        }
+    } catch (error: any) {
+        console.error("Error clearing cache:", error)
+        return NextResponse.json({ error: true, message: error.message }, { status: 500 })
+    }
 }
