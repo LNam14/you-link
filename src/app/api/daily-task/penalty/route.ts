@@ -68,8 +68,20 @@ async function sendTelegramNotification(message: string): Promise<void> {
 function getIncompleteTasks(dailyTask: any, dailyTaskTemplate: any[], username: string, date: string): string[] {
   const incompleteTasks: string[] = [];
 
-  // Kiểm tra các custom tasks
-  for (const task of dailyTaskTemplate) {
+  // Lọc các tasks áp dụng cho user này
+  const applicableTasks = dailyTaskTemplate.filter((task) => {
+    // Nếu không có appliesTo hoặc appliesTo rỗng, áp dụng cho tất cả
+    if (!task.appliesTo || task.appliesTo.length === 0) {
+      return true;
+    }
+    // Nếu có appliesTo, chỉ áp dụng nếu username nằm trong danh sách
+    return task.appliesTo.includes(username);
+  });
+
+  console.log(`[Check User] ${username} - ${date} - Total tasks in template: ${dailyTaskTemplate.length}, Applicable tasks: ${applicableTasks.length}`);
+
+  // Kiểm tra các custom tasks áp dụng cho user này
+  for (const task of applicableTasks) {
     const taskValue = dailyTask[task.id];
     const taskName = task.name || task.id;
     
@@ -311,11 +323,10 @@ export async function GET(request: Request) {
     }
 
     // Gửi tin nhắn xử phạt cho những người chưa làm ngày hôm qua
-    if (usersNotCompleted.length > 0) {
-      // Thời gian xử phạt theo giờ Việt Nam
-      const penaltyTime = moment.tz('Asia/Ho_Chi_Minh').format('HH:mm:ss DD/MM/YYYY')
-      const yesterdayFormatted = moment.tz(yesterday, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+    const penaltyTime = moment.tz('Asia/Ho_Chi_Minh').format('HH:mm:ss DD/MM/YYYY')
+    const yesterdayFormatted = moment.tz(yesterday, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
 
+    if (usersNotCompleted.length > 0) {
       // Tạo tin nhắn với chi tiết công việc chưa làm
       const messageParts: string[] = []
       messageParts.push('⚠️ <b>Phiếu bé hư - Chưa hoàn thành công việc hàng ngày</b>')
@@ -357,11 +368,27 @@ export async function GET(request: Request) {
 
       const message = messageParts.join('\n')
       await sendTelegramNotification(message)
+    } else {
+      // Gửi tin nhắn cổ động khi tất cả đều hoàn thành
+      const messageParts: string[] = []
+      messageParts.push('🎉 <b>Chúc mừng - Tất cả đã hoàn thành công việc hàng ngày!</b>')
+      messageParts.push(`\n📅 <b>Ngày kiểm tra:</b> ${yesterdayFormatted}`)
+      messageParts.push(`⏰ <b>Thời gian kiểm tra:</b> ${penaltyTime}`)
+      messageParts.push(`\n✅ Tất cả nhân viên đã hoàn thành đầy đủ công việc hàng ngày vào ngày ${yesterdayFormatted}.`)
+      messageParts.push(`\n💪 <b>Cố gắng phát huy và duy trì tinh thần làm việc tích cực!</b>`)
+      messageParts.push(`🌟 <b>Tiếp tục nỗ lực trong những ngày tiếp theo!</b>`)
+
+      const message = messageParts.join('\n')
+      await sendTelegramNotification(message)
     }
+
+    const responseMessage = usersNotCompleted.length > 0
+      ? `Đã kiểm tra và gửi phiếu bé hư cho ${usersNotCompleted.length} người chưa hoàn thành công việc ngày ${yesterday}`
+      : `Đã kiểm tra và gửi tin nhắn cổ động - Tất cả nhân viên đã hoàn thành công việc ngày ${yesterday}`
 
     return NextResponse.json({
       success: true,
-      message: `Đã kiểm tra và gửi phiếu bé hư cho ${usersNotCompleted.length} người chưa hoàn thành công việc ngày ${yesterday}`,
+      message: responseMessage,
       penalized: usersNotCompleted.map(u => ({
         username: u.username,
         name: u.name,
@@ -373,7 +400,8 @@ export async function GET(request: Request) {
       penaltyAmount: penaltyAmount,
       total: accounts.length,
       notCompleted: usersNotCompleted.length,
-      saved: savedPenalties.length
+      saved: savedPenalties.length,
+      allCompleted: usersNotCompleted.length === 0
     }, { status: 200 })
 
   } catch (error: any) {
