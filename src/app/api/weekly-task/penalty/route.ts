@@ -291,11 +291,10 @@ export async function GET(request: Request) {
     }
 
     // Gửi tin nhắn xử phạt cho những người chưa làm tuần trước
-    if (usersNotCompleted.length > 0) {
-      // Thời gian xử phạt theo giờ Việt Nam
-      const penaltyTime = moment.tz('Asia/Ho_Chi_Minh').format('HH:mm:ss DD/MM/YYYY')
-      const weekRange = `${lastWeekStart.format('DD/MM/YYYY')} - ${lastWeekEnd.format('DD/MM/YYYY')}`
+    const penaltyTime = moment.tz('Asia/Ho_Chi_Minh').format('HH:mm:ss DD/MM/YYYY')
+    const weekRange = `${lastWeekStart.format('DD/MM/YYYY')} - ${lastWeekEnd.format('DD/MM/YYYY')}`
 
+    if (usersNotCompleted.length > 0) {
       // Tạo tin nhắn với chi tiết công việc chưa làm
       const messageParts: string[] = []
       messageParts.push('⚠️ <b>Phiếu bé hư - Chưa hoàn thành công việc tuần</b>')
@@ -337,11 +336,27 @@ export async function GET(request: Request) {
 
       const message = messageParts.join('\n')
       await sendTelegramNotification(message)
+    } else {
+      // Gửi tin nhắn cổ động khi tất cả đều hoàn thành
+      const messageParts: string[] = []
+      messageParts.push('🎉 <b>Chúc mừng - Tất cả đã hoàn thành công việc tuần!</b>')
+      messageParts.push(`\n📅 <b>Tuần kiểm tra:</b> Tuần ${lastWeekNumber} (${weekRange})`)
+      messageParts.push(`⏰ <b>Thời gian kiểm tra:</b> ${penaltyTime}`)
+      messageParts.push(`\n✅ Tất cả nhân viên đã hoàn thành đầy đủ công việc tuần ${lastWeekNumber} (${weekRange}).`)
+      messageParts.push(`\n💪 <b>Cố gắng phát huy và duy trì tinh thần làm việc tích cực!</b>`)
+      messageParts.push(`🌟 <b>Tiếp tục nỗ lực trong những tuần tiếp theo!</b>`)
+
+      const message = messageParts.join('\n')
+      await sendTelegramNotification(message)
     }
+
+    const responseMessage = usersNotCompleted.length > 0
+      ? `Đã kiểm tra và gửi phiếu bé hư cho ${usersNotCompleted.length} người chưa hoàn thành công việc tuần ${lastWeekNumber}`
+      : `Đã kiểm tra và gửi tin nhắn cổ động - Tất cả nhân viên đã hoàn thành công việc tuần ${lastWeekNumber}`
 
     return NextResponse.json({
       success: true,
-      message: `Đã kiểm tra và gửi phiếu bé hư cho ${usersNotCompleted.length} người chưa hoàn thành công việc tuần ${lastWeekNumber}`,
+      message: responseMessage,
       penalized: usersNotCompleted.map(u => ({
         username: u.username,
         name: u.name,
@@ -355,7 +370,8 @@ export async function GET(request: Request) {
       penaltyAmount: penaltyAmount,
       total: accounts.length,
       notCompleted: usersNotCompleted.length,
-      saved: savedPenalties.length
+      saved: savedPenalties.length,
+      allCompleted: usersNotCompleted.length === 0
     }, { status: 200 })
 
   } catch (error: any) {
