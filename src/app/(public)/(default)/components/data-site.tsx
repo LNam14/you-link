@@ -112,11 +112,14 @@ export default function DataSite({
         const checkSelection = () => {
             const hotInstance = hotRef.current?.hotInstance
             if (!hotInstance) {
+                console.log("🔍 [Selection Check] No hotInstance, setting hasSelection to false")
                 setHasSelection(false)
                 return
             }
             const selected = hotInstance.getSelected()
-            setHasSelection(Boolean(selected && selected.length > 0))
+            const hasSel = Boolean(selected && selected.length > 0)
+            console.log("🔍 [Selection Check] Selected:", selected, "hasSelection:", hasSel)
+            setHasSelection(hasSel)
         }
 
         // Check selection periodically and on events
@@ -130,9 +133,19 @@ export default function DataSite({
 
         return () => {
             clearInterval(interval)
-            if (hotInstance) {
-                hotInstance.removeHook('afterSelection', checkSelection)
-                hotInstance.removeHook('afterDeselect', checkSelection)
+            // Check if instance still exists before removing hooks
+            const currentInstance = hotRef.current?.hotInstance
+            if (currentInstance) {
+                try {
+                    // Check if instance has the method before calling
+                    if (typeof currentInstance.removeHook === 'function') {
+                        currentInstance.removeHook('afterSelection', checkSelection)
+                        currentInstance.removeHook('afterDeselect', checkSelection)
+                    }
+                } catch (err) {
+                    // Instance might be destroyed, ignore error silently
+                    // This is expected when component unmounts or table is recreated
+                }
             }
         }
     }, [dataColumn])
@@ -682,15 +695,19 @@ export default function DataSite({
     // Add the beforeCopy handler function using useCallback
     const handleBeforeCopy = useCallback(
         (data: string[][], coords: any[], copiedHeadersCount: { columnHeadersCount: number }): boolean | void => {
+            console.log("🔄 [Ctrl+C] Copy triggered via keyboard shortcut")
             const hotInstance = hotRef.current?.hotInstance
 
             if (!hotInstance) {
+                console.error("❌ [Ctrl+C] HotTable instance not found")
                 console.warn("Handsontable instance not found for copy.")
                 return
             }
 
             const selected = hotInstance.getSelected()
+            console.log("📋 [Ctrl+C] Selected ranges:", selected)
             if (!selected || selected.length === 0) {
+                console.warn("⚠️ [Ctrl+C] No selection found")
                 console.warn("No selection found for copy.")
                 return
             }
@@ -720,7 +737,7 @@ export default function DataSite({
                 const rowStart = Math.min(startRow, endRow)
                 const rowEnd = Math.max(startRow, endRow)
                 const colStart = Math.min(startCol, endCol)
-                const colEnd = Math.max(startCol, endCol)
+                const colEnd = Math.max(colStart, endCol)
 
                 for (let r = rowStart; r <= rowEnd; r++) {
                     for (let c = colStart; c <= colEnd; c++) {
@@ -735,65 +752,84 @@ export default function DataSite({
 
             // Format the 2D array into a tab-separated string
             const finalData = copiedDataArray.map((row) => row.join("\t")).join("\n")
+            console.log("📝 [Ctrl+C] Data to copy (first 200 chars):", finalData.substring(0, 200))
+            console.log("📏 [Ctrl+C] Total data length:", finalData.length, "characters")
 
-            // Synchronous copy method using execCommand (works immediately)
-            const copyToClipboardSync = (text: string): boolean => {
-                try {
-                    // Create a temporary textarea element
-                    const textArea = document.createElement("textarea")
-                    textArea.value = text
-                    textArea.style.position = "fixed"
-                    textArea.style.left = "-999999px"
-                    textArea.style.top = "-999999px"
-                    textArea.setAttribute("readonly", "")
-                    textArea.style.opacity = "0"
+            // Try synchronous copy first (execCommand works immediately in user event context)
+            console.log("📋 [Ctrl+C] Attempting synchronous copy with execCommand...")
+            try {
+                const textArea = document.createElement("textarea")
+                textArea.value = finalData
+                textArea.style.position = "fixed"
+                textArea.style.left = "-999999px"
+                textArea.style.top = "-999999px"
+                textArea.setAttribute("readonly", "")
+                textArea.style.opacity = "0"
 
-                    document.body.appendChild(textArea)
+                document.body.appendChild(textArea)
 
-                    // For mobile devices, we need to make the textarea visible and focusable
-                    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-                        textArea.style.position = "absolute"
-                        textArea.style.left = "0px"
-                        textArea.style.top = "0px"
-                        textArea.style.opacity = "1"
-                        textArea.style.zIndex = "9999"
-                        textArea.style.fontSize = "16px" // Prevent zoom on iOS
-                    }
+                // For mobile devices, we need to make the textarea visible and focusable
+                if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                    textArea.style.position = "absolute"
+                    textArea.style.left = "0px"
+                    textArea.style.top = "0px"
+                    textArea.style.opacity = "1"
+                    textArea.style.zIndex = "9999"
+                    textArea.style.fontSize = "16px" // Prevent zoom on iOS
+                }
 
-                    textArea.focus()
-                    textArea.select()
-                    textArea.setSelectionRange(0, text.length)
+                textArea.focus()
+                textArea.select()
+                textArea.setSelectionRange(0, finalData.length)
 
-                    const successful = document.execCommand("copy")
-                    document.body.removeChild(textArea)
+                textArea.focus()
+                textArea.select()
+                textArea.setSelectionRange(0, finalData.length)
+                console.log("📋 [Ctrl+C] Textarea selected, attempting execCommand('copy')")
 
-                    if (successful) {
-                        message.success("Đã copy thành công!")
-                        return true
-                    }
-                    return false
-                } catch (err) {
-                    console.error("Sync copy failed:", err)
+                const successful = document.execCommand("copy")
+                document.body.removeChild(textArea)
+
+                if (successful) {
+                    console.log("✅ [Ctrl+C] execCommand copy successful!")
+                    console.log("Data copied to clipboard successfully.")
+                    // Prevent Handsontable's default copy behavior since we handled it
                     return false
                 }
+                console.warn("⚠️ [Ctrl+C] execCommand returned false")
+            } catch (syncErr) {
+                console.error("❌ [Ctrl+C] Synchronous copy failed:", syncErr)
+                console.warn("Synchronous copy failed, trying async method:", syncErr)
             }
 
-            // Try synchronous copy first (works immediately)
-            const syncSuccess = copyToClipboardSync(finalData)
-            
-            // If sync copy failed, try async clipboard API as fallback
-            if (!syncSuccess && navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(finalData)
-                    .then(() => {
-                        message.success("Đã copy thành công!")
-                    })
-                    .catch((err) => {
-                        console.error("Async copy failed:", err)
-                        message.error("Copy thất bại. Vui lòng thử lại.")
-                    })
-            } else if (!syncSuccess) {
-                message.error("Copy thất bại. Vui lòng thử lại.")
+            // Fallback to async clipboard API if sync copy failed
+            console.log("📋 [Ctrl+C] Trying async Clipboard API as fallback...")
+            const copyToClipboard = async (text: string) => {
+                if (navigator.clipboard && window.isSecureContext) {
+                    console.log("✅ [Ctrl+C] Using Clipboard API")
+                    try {
+                        await navigator.clipboard.writeText(text)
+                        console.log("✅ [Ctrl+C] Clipboard API copy successful!")
+                        console.log("Data copied to clipboard successfully.")
+                        return true
+                    } catch (err) {
+                        console.error("❌ [Ctrl+C] Clipboard API failed:", err)
+                        console.warn("Clipboard API failed:", err)
+                    }
+                } else {
+                    console.warn("⚠️ [Ctrl+C] Clipboard API not available")
+                }
+                return false
             }
+
+            // Use async copy as fallback (fire and forget)
+            copyToClipboard(finalData)
+                .then((result) => {
+                    console.log("🏁 [Ctrl+C] Async copy completed. Result:", result ? "SUCCESS" : "FAILED")
+                })
+                .catch((err) => {
+                    console.error("❌ [Ctrl+C] Async copy failed:", err)
+                })
 
             // Prevent Handsontable's default copy behavior since we handled it
             return false
@@ -803,16 +839,22 @@ export default function DataSite({
 
     // Mobile copy handler to copy current selection from table
     const handleMobileCopySelection = useCallback(async () => {
+        console.log("🔄 [Copy Button] ========== FUNCTION CALLED ==========")
+        console.log("🔄 [Copy Button] Button clicked - Starting copy process")
+        console.log("🔄 [Copy Button] hasSelection state:", hasSelection)
         const hotInstance = hotRef.current?.hotInstance
 
         if (!hotInstance) {
-            message.warning("Không tìm thấy bảng để copy")
+            console.error("❌ [Copy Button] HotTable instance not found")
+            alert("Không tìm thấy bảng để copy")
             return
         }
 
         const selected = hotInstance.getSelected()
+        console.log("📋 [Copy Button] Selected ranges:", selected)
         if (!selected || selected.length === 0) {
-            message.warning("Vui lòng chọn vùng cần copy")
+            console.warn("⚠️ [Copy Button] No selection found")
+            alert("Vui lòng chọn ô cần copy")
             return
         }
 
@@ -849,59 +891,71 @@ export default function DataSite({
         })
 
         const finalData = copiedDataArray.map((row) => row.join("\t")).join("\n")
+        console.log("📝 [Copy Button] Data to copy (first 200 chars):", finalData.substring(0, 200))
+        console.log("📏 [Copy Button] Total data length:", finalData.length, "characters")
 
-        // Try synchronous copy first (works immediately)
-        try {
-            const textArea = document.createElement("textarea")
-            textArea.value = finalData
-            textArea.style.position = "fixed"
-            textArea.style.left = "-999999px"
-            textArea.style.top = "-999999px"
-            textArea.setAttribute("readonly", "")
-            textArea.style.opacity = "0"
-            document.body.appendChild(textArea)
-
-            if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-                textArea.style.position = "absolute"
-                textArea.style.left = "0px"
-                textArea.style.top = "0px"
-                textArea.style.opacity = "1"
-                textArea.style.zIndex = "9999"
-                textArea.style.fontSize = "16px"
-            }
-
-            textArea.focus()
-            textArea.select()
-            textArea.setSelectionRange(0, finalData.length)
-
-            const successful = document.execCommand("copy")
-            document.body.removeChild(textArea)
-            
-            if (successful) {
-                message.success("Đã copy thành công!")
-                return
-            }
-        } catch (syncErr) {
-            console.error("Sync copy failed:", syncErr)
-        }
-
-        // Fallback to async clipboard API if sync copy failed
-        if (navigator.clipboard && window.isSecureContext) {
-            try {
-                await navigator.clipboard.writeText(finalData)
-                message.success("Đã copy thành công!")
-            } catch (asyncErr) {
-                console.error("Async copy failed:", asyncErr)
-                if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-                    const shortData = finalData.length > 200 ? finalData.substring(0, 200) + "..." : finalData
-                    alert(`Copy failed. Data to copy:\n${shortData}`)
-                } else {
-                    message.error("Copy thất bại. Vui lòng thử lại.")
+        const copyToClipboard = async (text: string) => {
+            console.log("📋 [Copy Button] Attempting to copy to clipboard...")
+            if (navigator.clipboard && window.isSecureContext) {
+                console.log("✅ [Copy Button] Using Clipboard API")
+                try {
+                    await navigator.clipboard.writeText(text)
+                    console.log("✅ [Copy Button] Clipboard API copy successful!")
+                    return true
+                } catch (err) {
+                    console.warn("⚠️ [Copy Button] Clipboard API failed:", err)
+                    // fallthrough
                 }
+            } else {
+                console.log("⚠️ [Copy Button] Clipboard API not available, using fallback method")
             }
-        } else {
-            message.error("Copy thất bại. Trình duyệt không hỗ trợ copy.")
+
+            try {
+                console.log("📋 [Copy Button] Using execCommand fallback method")
+                const textArea = document.createElement("textarea")
+                textArea.value = text
+                textArea.style.position = "fixed"
+                textArea.style.left = "-999999px"
+                textArea.style.top = "-999999px"
+                textArea.setAttribute("readonly", "")
+                textArea.style.opacity = "0"
+                document.body.appendChild(textArea)
+
+                if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                    console.log("📱 [Copy Button] Mobile device detected, adjusting textarea")
+                    textArea.style.position = "absolute"
+                    textArea.style.left = "0px"
+                    textArea.style.top = "0px"
+                    textArea.style.opacity = "1"
+                    textArea.style.zIndex = "9999"
+                    textArea.style.fontSize = "16px"
+                }
+
+                textArea.focus()
+                textArea.select()
+                textArea.setSelectionRange(0, text.length)
+                console.log("📋 [Copy Button] Textarea selected, attempting execCommand('copy')")
+
+                const successful = document.execCommand("copy")
+                document.body.removeChild(textArea)
+                if (successful) {
+                    console.log("✅ [Copy Button] execCommand copy successful!")
+                    return true
+                }
+                throw new Error("execCommand copy failed")
+            } catch (fallbackErr) {
+                console.error("❌ [Copy Button] execCommand copy failed:", fallbackErr)
+                if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                    const shortData = text.length > 200 ? text.substring(0, 200) + "..." : text
+                    alert(`Copy failed. Data to copy:\n${shortData}`)
+                }
+                return false
+            }
         }
+
+        console.log("🚀 [Copy Button] Calling copyToClipboard function")
+        const result = await copyToClipboard(finalData)
+        console.log("🏁 [Copy Button] Copy process completed. Result:", result ? "SUCCESS" : "FAILED")
     }, [hotRef])
 
     return (
@@ -1514,20 +1568,42 @@ export default function DataSite({
             )}
 
             {/* Mobile-only floating copy button */}
-            <button
-                id="mobile-copy-btn"
-                onClick={handleMobileCopySelection}
-                disabled={!hasSelection}
-                className={`md:hidden fixed bottom-4 right-4 z-[2000] rounded-full shadow-lg p-3 active:scale-95 transition-all ${
-                    hasSelection
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "bg-gray-400 text-gray-200 cursor-not-allowed opacity-50"
-                }`}
-                aria-label="Copy selection"
-                title={hasSelection ? "Copy vùng đã chọn" : "Vui lòng chọn vùng cần copy"}
-            >
-                <Copy className="h-6 w-6" />
-            </button>
+            {(() => {
+                console.log("🎨 [Copy Button] Rendering button - hasSelection:", hasSelection, "disabled:", !hasSelection)
+                return (
+                    <button
+                        id="mobile-copy-btn"
+                        onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            console.log("🔘 [Copy Button] Button clicked event triggered", e)
+                            console.log("🔘 [Copy Button] hasSelection:", hasSelection)
+                            console.log("🔘 [Copy Button] disabled:", !hasSelection)
+                            if (!hasSelection) {
+                                console.warn("⚠️ [Copy Button] Button is disabled, ignoring click")
+                                return
+                            }
+                            handleMobileCopySelection()
+                        }}
+                        disabled={!hasSelection}
+                        className={`md:hidden fixed bottom-4 right-4 z-[2000] rounded-full shadow-lg p-3 active:scale-95 transition-all ${
+                            hasSelection
+                                ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+                                : "bg-gray-400 text-gray-200 cursor-not-allowed opacity-50"
+                        }`}
+                        aria-label="Copy selection"
+                        title={hasSelection ? "Copy vùng đã chọn" : "Vui lòng chọn vùng cần copy"}
+                        onMouseDown={(e) => {
+                            console.log("🖱️ [Copy Button] Mouse down event", e)
+                        }}
+                        onTouchStart={(e) => {
+                            console.log("👆 [Copy Button] Touch start event", e)
+                        }}
+                    >
+                        <Copy className="h-6 w-6" />
+                    </button>
+                )
+            })()}
         </div>
     )
 }
