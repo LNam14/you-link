@@ -135,7 +135,7 @@ export default function DataSite({
                 hotInstance.removeHook('afterDeselect', checkSelection)
             }
         }
-    }, [dataColumn, currentPage, productsPerPage])
+    }, [dataColumn])
 
     const extractDomain = (url: string): string => {
         return url
@@ -1394,7 +1394,7 @@ export default function DataSite({
                     <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
                 </div>
             ) : (
-                <div className="overflow-x-auto w-full max-w-8xl relative">
+                <div className="overflow-x-auto w-full max-w-8xl">
                     <HotTable
                         ref={hotRef}
                         data={currentProducts}
@@ -1427,23 +1427,6 @@ export default function DataSite({
                             // Các cell khác sẽ được xử lý bởi Handsontable selection mặc định
                         }}
                     />
-                    
-                    {/* Mobile-only floating copy button - inside table container */}
-                    <button
-                        id="mobile-copy-btn"
-                        onClick={handleMobileCopySelection}
-                        disabled={!hasSelection}
-                        className={`md:hidden absolute bottom-4 right-4 z-[2000] rounded-full shadow-lg p-3 active:scale-95 transition-all ${
-                            hasSelection
-                                ? "bg-blue-600 text-white hover:bg-blue-700"
-                                : "bg-gray-400 text-gray-200 cursor-not-allowed opacity-50"
-                        }`}
-                        aria-label="Copy selection"
-                        title={hasSelection ? "Copy vùng đã chọn" : "Vui lòng chọn vùng cần copy"}
-                    >
-                        <Copy className="h-6 w-6" />
-                    </button>
-                    
                     <div className="mt-4 mb-4 flex justify-center gap-10 text-xs items-center">
                         <div className="flex items-center space-x-2">
                             <span>Hiển thị</span>
@@ -1540,6 +1523,22 @@ export default function DataSite({
                     </div>
                 </div>
             )}
+
+            {/* Mobile-only floating copy button */}
+            <button
+                id="mobile-copy-btn"
+                onClick={handleMobileCopySelection}
+                disabled={!hasSelection}
+                className={`md:hidden fixed bottom-4 right-4 z-[2000] rounded-full shadow-lg p-3 active:scale-95 transition-all ${
+                    hasSelection
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                        : "bg-gray-400 text-gray-200 cursor-not-allowed opacity-50"
+                }`}
+                aria-label="Copy selection"
+                title={hasSelection ? "Copy vùng đã chọn" : "Vui lòng chọn vùng cần copy"}
+            >
+                <Copy className="h-6 w-6" />
+            </button>
         </div>
     )
 }
