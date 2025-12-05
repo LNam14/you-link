@@ -116,7 +116,7 @@ export default function DataSite({
                 return
             }
             const selected = hotInstance.getSelected()
-            setHasSelection(selected && selected.length > 0)
+            setHasSelection(Boolean(selected && selected.length > 0))
         }
 
         // Check selection periodically and on events
@@ -135,7 +135,7 @@ export default function DataSite({
                 hotInstance.removeHook('afterDeselect', checkSelection)
             }
         }
-    }, [currentProducts])
+    }, [dataColumn, currentPage, productsPerPage])
 
     const extractDomain = (url: string): string => {
         return url
@@ -798,8 +798,10 @@ export default function DataSite({
                 }
             }
 
-            // Use the enhanced copy function
-            await copyToClipboard(finalData)
+            // Use the enhanced copy function (fire and forget)
+            copyToClipboard(finalData).catch((err) => {
+                console.error("Copy error:", err)
+            })
 
             // Prevent Handsontable's default copy behavior since we handled it
             return false
