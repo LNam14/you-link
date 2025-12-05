@@ -78,6 +78,7 @@ export default function DataSite({
     const [cartItems, setCartItems] = useState<any[]>([])
     const [showCartPreview, setShowCartPreview] = useState(false)
     const [addedToCartAnimation, setAddedToCartAnimation] = useState(false)
+    const [hasSelection, setHasSelection] = useState(false)
     const hotRef = useRef<HotTableRef>(null)
 
     const user = getUserInfo()
@@ -105,6 +106,36 @@ export default function DataSite({
 
         return () => unsubscribe()
     }, [user?.id])
+
+    // Track selection changes for copy button
+    useEffect(() => {
+        const checkSelection = () => {
+            const hotInstance = hotRef.current?.hotInstance
+            if (!hotInstance) {
+                setHasSelection(false)
+                return
+            }
+            const selected = hotInstance.getSelected()
+            setHasSelection(selected && selected.length > 0)
+        }
+
+        // Check selection periodically and on events
+        const interval = setInterval(checkSelection, 200)
+        const hotInstance = hotRef.current?.hotInstance
+        
+        if (hotInstance) {
+            hotInstance.addHook('afterSelection', checkSelection)
+            hotInstance.addHook('afterDeselect', checkSelection)
+        }
+
+        return () => {
+            clearInterval(interval)
+            if (hotInstance) {
+                hotInstance.removeHook('afterSelection', checkSelection)
+                hotInstance.removeHook('afterDeselect', checkSelection)
+            }
+        }
+    }, [currentProducts])
 
     const extractDomain = (url: string): string => {
         return url
@@ -710,7 +741,7 @@ export default function DataSite({
                 if (navigator.clipboard && window.isSecureContext) {
                     try {
                         await navigator.clipboard.writeText(text)
-                        console.log("Data copied to clipboard successfully.")
+                        message.success("Đã copy thành công!")
                         return true
                     } catch (err) {
                         console.warn("Clipboard API failed, trying fallback:", err)
@@ -748,7 +779,7 @@ export default function DataSite({
                     document.body.removeChild(textArea)
 
                     if (successful) {
-                        console.log("Data copied using fallback method.")
+                        message.success("Đã copy thành công!")
                         return true
                     } else {
                         throw new Error("execCommand copy failed")
@@ -760,13 +791,15 @@ export default function DataSite({
                     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
                         const shortData = text.length > 200 ? text.substring(0, 200) + "..." : text
                         alert(`Copy failed. Data to copy:\n${shortData}`)
+                    } else {
+                        message.error("Copy thất bại. Vui lòng thử lại.")
                     }
                     return false
                 }
             }
 
             // Use the enhanced copy function
-            copyToClipboard(finalData)
+            await copyToClipboard(finalData)
 
             // Prevent Handsontable's default copy behavior since we handled it
             return false
@@ -779,13 +812,13 @@ export default function DataSite({
         const hotInstance = hotRef.current?.hotInstance
 
         if (!hotInstance) {
-            alert("Không tìm thấy bảng để copy")
+            message.warning("Không tìm thấy bảng để copy")
             return
         }
 
         const selected = hotInstance.getSelected()
         if (!selected || selected.length === 0) {
-            alert("Vui lòng chọn ô cần copy")
+            message.warning("Vui lòng chọn vùng cần copy")
             return
         }
 
@@ -858,18 +891,26 @@ export default function DataSite({
 
                 const successful = document.execCommand("copy")
                 document.body.removeChild(textArea)
-                if (successful) return true
+                if (successful) {
+                    message.success("Đã copy thành công!")
+                    return true
+                }
                 throw new Error("execCommand copy failed")
             } catch (fallbackErr) {
                 if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
                     const shortData = text.length > 200 ? text.substring(0, 200) + "..." : text
                     alert(`Copy failed. Data to copy:\n${shortData}`)
+                } else {
+                    message.error("Copy thất bại. Vui lòng thử lại.")
                 }
                 return false
             }
         }
 
-        await copyToClipboard(finalData)
+        const success = await copyToClipboard(finalData)
+        if (success && navigator.clipboard) {
+            message.success("Đã copy thành công!")
+        }
     }, [hotRef])
 
     return (
@@ -1351,7 +1392,7 @@ export default function DataSite({
                     <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
                 </div>
             ) : (
-                <div className="overflow-x-auto w-full max-w-8xl">
+                <div className="overflow-x-auto w-full max-w-8xl relative">
                     <HotTable
                         ref={hotRef}
                         data={currentProducts}
@@ -1375,13 +1416,32 @@ export default function DataSite({
                         themeName="ht-theme-main"
                         selectionMode="multiple"
                         beforeCopy={handleBeforeCopy}
-                        afterOnCellMouseDown={(_, coords) => {
-                            // Chỉ click vào ô checkbox mới toggle chọn
-                            // Column 0 là checkbox, các cột khác bỏ chọn
-                            if (coords.col !== 0) return
-                            // (checkbox dùng event bubbling, nên đã gọi handleRowSelect trong renderer)
+                        afterOnCellMouseDown={(event, coords) => {
+                            // Chỉ xử lý checkbox riêng, các cell khác vẫn cho phép selection bình thường
+                            if (coords.col === 0) {
+                                // Checkbox column - đã được xử lý trong renderer
+                                // Không cần làm gì thêm
+                            }
+                            // Các cell khác sẽ được xử lý bởi Handsontable selection mặc định
                         }}
                     />
+                    
+                    {/* Mobile-only floating copy button - inside table container */}
+                    <button
+                        id="mobile-copy-btn"
+                        onClick={handleMobileCopySelection}
+                        disabled={!hasSelection}
+                        className={`md:hidden absolute bottom-4 right-4 z-[2000] rounded-full shadow-lg p-3 active:scale-95 transition-all ${
+                            hasSelection
+                                ? "bg-blue-600 text-white hover:bg-blue-700"
+                                : "bg-gray-400 text-gray-200 cursor-not-allowed opacity-50"
+                        }`}
+                        aria-label="Copy selection"
+                        title={hasSelection ? "Copy vùng đã chọn" : "Vui lòng chọn vùng cần copy"}
+                    >
+                        <Copy className="h-6 w-6" />
+                    </button>
+                    
                     <div className="mt-4 mb-4 flex justify-center gap-10 text-xs items-center">
                         <div className="flex items-center space-x-2">
                             <span>Hiển thị</span>
@@ -1478,17 +1538,6 @@ export default function DataSite({
                     </div>
                 </div>
             )}
-
-            {/* Mobile-only floating copy button */}
-            <button
-                id="mobile-copy-btn"
-                onClick={handleMobileCopySelection}
-                className="md:hidden fixed bottom-4 right-4 z-[2000] bg-blue-600 text-white rounded-full shadow-lg p-3 active:scale-95"
-                aria-label="Copy selection"
-                title="Copy vùng đã chọn"
-            >
-                <Copy className="h-6 w-6" />
-            </button>
         </div>
     )
 }
