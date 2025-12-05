@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useMemo, useRef } from "react"
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { message, Badge, Tooltip } from "antd"
 import { debounce } from "lodash"
 import {
@@ -26,7 +26,7 @@ import {
     FaShoppingCart,
     FaCheck,
 } from "react-icons/fa"
-import { X } from 'lucide-react'
+import { X, Copy } from 'lucide-react'
 import { get, ref, set, onValue } from "firebase/database"
 import { database } from "@/app/firebase/firebase"
 import getUserInfo from "@/components/userInfo"
@@ -648,6 +648,230 @@ export default function DataSite({
         }))
     ]
 
+    // Add the beforeCopy handler function using useCallback
+    const handleBeforeCopy = useCallback(
+        (data: string[][], coords: any[], copiedHeadersCount: { columnHeadersCount: number }): boolean | void => {
+            const hotInstance = hotRef.current?.hotInstance
+
+            if (!hotInstance) {
+                console.warn("Handsontable instance not found for copy.")
+                return
+            }
+
+            const selected = hotInstance.getSelected()
+            if (!selected || selected.length === 0) {
+                console.warn("No selection found for copy.")
+                return
+            }
+
+            // Calculate the overall bounding box of the selection
+            let minRow = Number.POSITIVE_INFINITY,
+                minCol = Number.POSITIVE_INFINITY,
+                maxRow = Number.NEGATIVE_INFINITY,
+                maxCol = Number.NEGATIVE_INFINITY
+            selected.forEach((range) => {
+                const [startRow, startCol, endRow, endCol] = range
+                minRow = Math.min(minRow, startRow, endRow)
+                minCol = Math.min(minCol, startCol, endCol)
+                maxRow = Math.max(maxRow, startRow, endRow)
+                maxCol = Math.max(maxCol, startCol, endCol)
+            })
+
+            const numRows = maxRow - minRow + 1
+            const numCols = maxCol - minCol + 1
+
+            // Initialize a 2D array with empty strings
+            const copiedDataArray: string[][] = Array.from({ length: numRows }, () => Array(numCols).fill(""))
+
+            // Populate the 2D array with data from selected ranges
+            selected.forEach((range) => {
+                const [startRow, startCol, endRow, endCol] = range
+                const rowStart = Math.min(startRow, endRow)
+                const rowEnd = Math.max(startRow, endRow)
+                const colStart = Math.min(startCol, endCol)
+                const colEnd = Math.max(startCol, endCol)
+
+                for (let r = rowStart; r <= rowEnd; r++) {
+                    for (let c = colStart; c <= colEnd; c++) {
+                        // Get the rendered value from the cell element's textContent
+                        const cellElement = hotInstance.getCell(r, c)
+                        const cellValue = cellElement ? cellElement.textContent || "" : ""
+                        // Place the value in the correct position relative to the bounding box
+                        copiedDataArray[r - minRow][c - minCol] = cellValue
+                    }
+                }
+            })
+
+            // Format the 2D array into a tab-separated string
+            const finalData = copiedDataArray.map((row) => row.join("\t")).join("\n")
+
+            const copyToClipboard = async (text: string) => {
+                // Check if we're in a secure context and clipboard API is available
+                if (navigator.clipboard && window.isSecureContext) {
+                    try {
+                        await navigator.clipboard.writeText(text)
+                        console.log("Data copied to clipboard successfully.")
+                        return true
+                    } catch (err) {
+                        console.warn("Clipboard API failed, trying fallback:", err)
+                    }
+                }
+
+                // Fallback method for mobile devices and older browsers
+                try {
+                    // Create a temporary textarea element
+                    const textArea = document.createElement("textarea")
+                    textArea.value = text
+                    textArea.style.position = "fixed"
+                    textArea.style.left = "-999999px"
+                    textArea.style.top = "-999999px"
+                    textArea.setAttribute("readonly", "")
+                    textArea.style.opacity = "0"
+
+                    document.body.appendChild(textArea)
+
+                    // For mobile devices, we need to make the textarea visible and focusable
+                    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                        textArea.style.position = "absolute"
+                        textArea.style.left = "0px"
+                        textArea.style.top = "0px"
+                        textArea.style.opacity = "1"
+                        textArea.style.zIndex = "9999"
+                        textArea.style.fontSize = "16px" // Prevent zoom on iOS
+                    }
+
+                    textArea.focus()
+                    textArea.select()
+                    textArea.setSelectionRange(0, text.length)
+
+                    const successful = document.execCommand("copy")
+                    document.body.removeChild(textArea)
+
+                    if (successful) {
+                        console.log("Data copied using fallback method.")
+                        return true
+                    } else {
+                        throw new Error("execCommand copy failed")
+                    }
+                } catch (fallbackErr) {
+                    console.error("All copy methods failed:", fallbackErr)
+
+                    // Final fallback: show the data in an alert for manual copy
+                    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                        const shortData = text.length > 200 ? text.substring(0, 200) + "..." : text
+                        alert(`Copy failed. Data to copy:\n${shortData}`)
+                    }
+                    return false
+                }
+            }
+
+            // Use the enhanced copy function
+            copyToClipboard(finalData)
+
+            // Prevent Handsontable's default copy behavior since we handled it
+            return false
+        },
+        [hotRef],
+    )
+
+    // Mobile copy handler to copy current selection from table
+    const handleMobileCopySelection = useCallback(async () => {
+        const hotInstance = hotRef.current?.hotInstance
+
+        if (!hotInstance) {
+            alert("Không tìm thấy bảng để copy")
+            return
+        }
+
+        const selected = hotInstance.getSelected()
+        if (!selected || selected.length === 0) {
+            alert("Vui lòng chọn ô cần copy")
+            return
+        }
+
+        let minRow = Number.POSITIVE_INFINITY,
+            minCol = Number.POSITIVE_INFINITY,
+            maxRow = Number.NEGATIVE_INFINITY,
+            maxCol = Number.NEGATIVE_INFINITY
+        selected.forEach((range: any) => {
+            const [startRow, startCol, endRow, endCol] = range
+            minRow = Math.min(minRow, startRow, endRow)
+            minCol = Math.min(minCol, startCol, endCol)
+            maxRow = Math.max(maxRow, startRow, endRow)
+            maxCol = Math.max(maxCol, startCol, endCol)
+        })
+
+        const numRows = maxRow - minRow + 1
+        const numCols = maxCol - minCol + 1
+        const copiedDataArray: string[][] = Array.from({ length: numRows }, () => Array(numCols).fill(""))
+
+        selected.forEach((range: any) => {
+            const [startRow, startCol, endRow, endCol] = range
+            const rowStart = Math.min(startRow, endRow)
+            const rowEnd = Math.max(startRow, endRow)
+            const colStart = Math.min(startCol, endCol)
+            const colEnd = Math.max(startCol, endCol)
+
+            for (let r = rowStart; r <= rowEnd; r++) {
+                for (let c = colStart; c <= colEnd; c++) {
+                    const cellElement = hotInstance.getCell(r, c)
+                    const cellValue = cellElement ? cellElement.textContent || "" : ""
+                    copiedDataArray[r - minRow][c - minCol] = cellValue
+                }
+            }
+        })
+
+        const finalData = copiedDataArray.map((row) => row.join("\t")).join("\n")
+
+        const copyToClipboard = async (text: string) => {
+            if (navigator.clipboard && window.isSecureContext) {
+                try {
+                    await navigator.clipboard.writeText(text)
+                    return true
+                } catch (err) {
+                    // fallthrough
+                }
+            }
+
+            try {
+                const textArea = document.createElement("textarea")
+                textArea.value = text
+                textArea.style.position = "fixed"
+                textArea.style.left = "-999999px"
+                textArea.style.top = "-999999px"
+                textArea.setAttribute("readonly", "")
+                textArea.style.opacity = "0"
+                document.body.appendChild(textArea)
+
+                if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                    textArea.style.position = "absolute"
+                    textArea.style.left = "0px"
+                    textArea.style.top = "0px"
+                    textArea.style.opacity = "1"
+                    textArea.style.zIndex = "9999"
+                    textArea.style.fontSize = "16px"
+                }
+
+                textArea.focus()
+                textArea.select()
+                textArea.setSelectionRange(0, text.length)
+
+                const successful = document.execCommand("copy")
+                document.body.removeChild(textArea)
+                if (successful) return true
+                throw new Error("execCommand copy failed")
+            } catch (fallbackErr) {
+                if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                    const shortData = text.length > 200 ? text.substring(0, 200) + "..." : text
+                    alert(`Copy failed. Data to copy:\n${shortData}`)
+                }
+                return false
+            }
+        }
+
+        await copyToClipboard(finalData)
+    }, [hotRef])
+
     return (
         <div className="text-sm min-h-[600px]">
             {/* Màu chữ custom cho HotTable và reset cell style */}
@@ -1150,6 +1374,7 @@ export default function DataSite({
                         className="custom-table"
                         themeName="ht-theme-main"
                         selectionMode="multiple"
+                        beforeCopy={handleBeforeCopy}
                         afterOnCellMouseDown={(_, coords) => {
                             // Chỉ click vào ô checkbox mới toggle chọn
                             // Column 0 là checkbox, các cột khác bỏ chọn
@@ -1253,6 +1478,17 @@ export default function DataSite({
                     </div>
                 </div>
             )}
+
+            {/* Mobile-only floating copy button */}
+            <button
+                id="mobile-copy-btn"
+                onClick={handleMobileCopySelection}
+                className="md:hidden fixed bottom-4 right-4 z-[2000] bg-blue-600 text-white rounded-full shadow-lg p-3 active:scale-95"
+                aria-label="Copy selection"
+                title="Copy vùng đã chọn"
+            >
+                <Copy className="h-6 w-6" />
+            </button>
         </div>
     )
 }

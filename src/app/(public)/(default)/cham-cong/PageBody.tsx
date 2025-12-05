@@ -68,7 +68,7 @@ const quizQuestions: QuizQuestion[] = [
         B: "Si",
         C: "Di"
       },
-      ĐápÁnĐúng: "A"
+      ĐápÁnĐúng: "B"
     },
     {
       CâuHỏi: "Hiện tại công việc của chúng ta làm gì?",
