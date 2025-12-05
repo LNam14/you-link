@@ -736,19 +736,8 @@ export default function DataSite({
             // Format the 2D array into a tab-separated string
             const finalData = copiedDataArray.map((row) => row.join("\t")).join("\n")
 
-            const copyToClipboard = async (text: string) => {
-                // Check if we're in a secure context and clipboard API is available
-                if (navigator.clipboard && window.isSecureContext) {
-                    try {
-                        await navigator.clipboard.writeText(text)
-                        message.success("Đã copy thành công!")
-                        return true
-                    } catch (err) {
-                        console.warn("Clipboard API failed, trying fallback:", err)
-                    }
-                }
-
-                // Fallback method for mobile devices and older browsers
+            // Synchronous copy method using execCommand (works immediately)
+            const copyToClipboardSync = (text: string): boolean => {
                 try {
                     // Create a temporary textarea element
                     const textArea = document.createElement("textarea")
@@ -781,27 +770,30 @@ export default function DataSite({
                     if (successful) {
                         message.success("Đã copy thành công!")
                         return true
-                    } else {
-                        throw new Error("execCommand copy failed")
                     }
-                } catch (fallbackErr) {
-                    console.error("All copy methods failed:", fallbackErr)
-
-                    // Final fallback: show the data in an alert for manual copy
-                    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-                        const shortData = text.length > 200 ? text.substring(0, 200) + "..." : text
-                        alert(`Copy failed. Data to copy:\n${shortData}`)
-                    } else {
-                        message.error("Copy thất bại. Vui lòng thử lại.")
-                    }
+                    return false
+                } catch (err) {
+                    console.error("Sync copy failed:", err)
                     return false
                 }
             }
 
-            // Use the enhanced copy function (fire and forget)
-            copyToClipboard(finalData).catch((err) => {
-                console.error("Copy error:", err)
-            })
+            // Try synchronous copy first (works immediately)
+            const syncSuccess = copyToClipboardSync(finalData)
+            
+            // If sync copy failed, try async clipboard API as fallback
+            if (!syncSuccess && navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(finalData)
+                    .then(() => {
+                        message.success("Đã copy thành công!")
+                    })
+                    .catch((err) => {
+                        console.error("Async copy failed:", err)
+                        message.error("Copy thất bại. Vui lòng thử lại.")
+                    })
+            } else if (!syncSuccess) {
+                message.error("Copy thất bại. Vui lòng thử lại.")
+            }
 
             // Prevent Handsontable's default copy behavior since we handled it
             return false
@@ -858,60 +850,57 @@ export default function DataSite({
 
         const finalData = copiedDataArray.map((row) => row.join("\t")).join("\n")
 
-        const copyToClipboard = async (text: string) => {
-            if (navigator.clipboard && window.isSecureContext) {
-                try {
-                    await navigator.clipboard.writeText(text)
-                    return true
-                } catch (err) {
-                    // fallthrough
-                }
+        // Try synchronous copy first (works immediately)
+        try {
+            const textArea = document.createElement("textarea")
+            textArea.value = finalData
+            textArea.style.position = "fixed"
+            textArea.style.left = "-999999px"
+            textArea.style.top = "-999999px"
+            textArea.setAttribute("readonly", "")
+            textArea.style.opacity = "0"
+            document.body.appendChild(textArea)
+
+            if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                textArea.style.position = "absolute"
+                textArea.style.left = "0px"
+                textArea.style.top = "0px"
+                textArea.style.opacity = "1"
+                textArea.style.zIndex = "9999"
+                textArea.style.fontSize = "16px"
             }
 
+            textArea.focus()
+            textArea.select()
+            textArea.setSelectionRange(0, finalData.length)
+
+            const successful = document.execCommand("copy")
+            document.body.removeChild(textArea)
+            
+            if (successful) {
+                message.success("Đã copy thành công!")
+                return
+            }
+        } catch (syncErr) {
+            console.error("Sync copy failed:", syncErr)
+        }
+
+        // Fallback to async clipboard API if sync copy failed
+        if (navigator.clipboard && window.isSecureContext) {
             try {
-                const textArea = document.createElement("textarea")
-                textArea.value = text
-                textArea.style.position = "fixed"
-                textArea.style.left = "-999999px"
-                textArea.style.top = "-999999px"
-                textArea.setAttribute("readonly", "")
-                textArea.style.opacity = "0"
-                document.body.appendChild(textArea)
-
+                await navigator.clipboard.writeText(finalData)
+                message.success("Đã copy thành công!")
+            } catch (asyncErr) {
+                console.error("Async copy failed:", asyncErr)
                 if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-                    textArea.style.position = "absolute"
-                    textArea.style.left = "0px"
-                    textArea.style.top = "0px"
-                    textArea.style.opacity = "1"
-                    textArea.style.zIndex = "9999"
-                    textArea.style.fontSize = "16px"
-                }
-
-                textArea.focus()
-                textArea.select()
-                textArea.setSelectionRange(0, text.length)
-
-                const successful = document.execCommand("copy")
-                document.body.removeChild(textArea)
-                if (successful) {
-                    message.success("Đã copy thành công!")
-                    return true
-                }
-                throw new Error("execCommand copy failed")
-            } catch (fallbackErr) {
-                if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-                    const shortData = text.length > 200 ? text.substring(0, 200) + "..." : text
+                    const shortData = finalData.length > 200 ? finalData.substring(0, 200) + "..." : finalData
                     alert(`Copy failed. Data to copy:\n${shortData}`)
                 } else {
                     message.error("Copy thất bại. Vui lòng thử lại.")
                 }
-                return false
             }
-        }
-
-        const success = await copyToClipboard(finalData)
-        if (success && navigator.clipboard) {
-            message.success("Đã copy thành công!")
+        } else {
+            message.error("Copy thất bại. Trình duyệt không hỗ trợ copy.")
         }
     }, [hotRef])
 
