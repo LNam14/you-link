@@ -4,7 +4,6 @@ import { TelegramService } from "@/lib/services/telegram.service";
 import { CustomerService } from "@/lib/services/customer.service";
 import { UserService } from "@/lib/services/user.service";
 import { successResponse, errorResponse } from "@/lib/utils/response";
-import { verifyAuthToken } from "@/lib/utils/auth";
 import { CustomerResponse } from "@/lib/types";
 
 const telegramService = new TelegramService();
@@ -258,9 +257,6 @@ function getMentionText(customers: CustomerWithCaregivers[]): string {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Require authentication
-    verifyAuthToken(request);
-
     const body = await request.json().catch(() => ({}));
     const chatId = body.chatId || TELEGRAM_GROUP_ID;
 
@@ -394,9 +390,6 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    // Require authentication
-    verifyAuthToken(request);
-
     // Lấy tất cả khách hàng
     const allCustomers = await customerService.getAllCustomers();
     

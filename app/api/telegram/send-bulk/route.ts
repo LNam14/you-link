@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { TelegramService } from "@/lib/services/telegram.service";
 import { successResponse, errorResponse } from "@/lib/utils/response";
-import { verifyAuthToken } from "@/lib/utils/auth";
 
 const telegramService = new TelegramService();
 
@@ -24,9 +23,6 @@ interface SendBulkMessageRequest {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Require authentication
-    verifyAuthToken(request);
-
     const body: SendBulkMessageRequest = await request.json();
 
     // Validation
