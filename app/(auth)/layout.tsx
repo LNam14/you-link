@@ -18,6 +18,13 @@ export default function AuthLayout({
 
   const checkAuth = async () => {
     try {
+      // Don't redirect if we're in the middle of a redirect (prevent loop)
+      const isRedirecting = sessionStorage.getItem("auth-redirecting") === "true";
+      if (isRedirecting) {
+        setIsChecking(false);
+        return;
+      }
+      
       const token = localStorage.getItem("auth-token");
       if (!token) {
         setIsChecking(false);
@@ -35,8 +42,16 @@ export default function AuthLayout({
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
-          // Already logged in, redirect to dashboard
-          window.location.href = "/dashboard";
+          // Already logged in, redirect to dashboard (with delay on mobile)
+          const isMobile = typeof window !== "undefined" && /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
+          const delay = isMobile ? 500 : 200;
+          
+          setTimeout(() => {
+            if (!sessionStorage.getItem("auth-redirecting")) {
+              sessionStorage.setItem("auth-redirecting", "true");
+              window.location.href = "/dashboard";
+            }
+          }, delay);
           return;
         }
       }

@@ -143,14 +143,26 @@ export default function LoginModal({
       // Verify token and wait longer on mobile to ensure localStorage is ready
       // Mobile browsers may need more time to persist localStorage
       const verifyAndRedirect = async () => {
+        // Set flag to prevent redirect loop
+        sessionStorage.setItem("auth-redirecting", "true");
+        
         let retries = 0;
         const maxRetries = 5;
         const delay = 200; // 200ms between retries
+        const isMobile = typeof window !== "undefined" && /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
         
         while (retries < maxRetries) {
           const token = localStorage.getItem("auth-token");
           if (token && token === data.data?.token) {
-            console.log(`Token verified (attempt ${retries + 1}), redirecting to dashboard`);
+            console.log(`Token verified (attempt ${retries + 1}), waiting before redirect`);
+            
+            // Wait a bit more on mobile to ensure useAuth has time to update state
+            const redirectDelay = isMobile ? 800 : 500;
+            await new Promise(resolve => setTimeout(resolve, redirectDelay));
+            
+            // Clear redirect flag and redirect
+            sessionStorage.removeItem("auth-redirecting");
+            console.log("Redirecting to dashboard");
             // Use window.location.href instead of router.push to ensure full page reload
             // This ensures useAuth hook will check auth again
             window.location.href = "/dashboard";
@@ -165,11 +177,14 @@ export default function LoginModal({
         
         // If all retries failed, still try to redirect (token might be there but check failed)
         console.warn("Token verification failed after all retries, redirecting anyway");
+        const finalDelay = isMobile ? 800 : 500;
+        await new Promise(resolve => setTimeout(resolve, finalDelay));
+        sessionStorage.removeItem("auth-redirecting");
         window.location.href = "/dashboard";
       };
 
       // Initial delay before verification (longer on mobile)
-      const initialDelay = typeof window !== "undefined" && /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent) ? 500 : 300;
+      const initialDelay = typeof window !== "undefined" && /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent) ? 600 : 400;
       setTimeout(verifyAndRedirect, initialDelay);
     } catch (err: any) {
       setError(err.message || "Đăng nhập thất bại. Vui lòng thử lại.");

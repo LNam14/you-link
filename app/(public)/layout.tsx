@@ -20,6 +20,13 @@ export default function PublicLayout({
 
   const checkAuth = async () => {
     try {
+      // Don't redirect if we're in the middle of a redirect (prevent loop)
+      const isRedirecting = sessionStorage.getItem("auth-redirecting") === "true";
+      if (isRedirecting) {
+        setIsChecking(false);
+        return;
+      }
+      
       const token = localStorage.getItem("auth-token");
       if (!token) {
         setIsChecking(false);
@@ -38,8 +45,16 @@ export default function PublicLayout({
         const data = await response.json();
         if (data.success && data.data) {
           setUser(data.data);
-          // If user is logged in, redirect to dashboard
-          window.location.href = "/dashboard";
+          // If user is logged in, redirect to dashboard (with delay on mobile)
+          const isMobile = typeof window !== "undefined" && /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
+          const delay = isMobile ? 500 : 200;
+          
+          setTimeout(() => {
+            if (!sessionStorage.getItem("auth-redirecting")) {
+              sessionStorage.setItem("auth-redirecting", "true");
+              window.location.href = "/dashboard";
+            }
+          }, delay);
           return;
         }
       } else {
@@ -65,11 +80,9 @@ export default function PublicLayout({
   };
 
   const handleLoginSuccess = () => {
+    // LoginModal will handle the redirect, so we don't need to do it here
+    // This prevents double redirect
     checkAuth();
-    // Redirect to dashboard after successful login
-    setTimeout(() => {
-      window.location.href = "/dashboard";
-    }, 100);
   };
 
   return (

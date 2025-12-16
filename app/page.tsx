@@ -12,10 +12,26 @@ export default function HomePage() {
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   useEffect(() => {
+    // Don't redirect if we're in the middle of a redirect (prevent loop)
+    const isRedirecting = sessionStorage.getItem("auth-redirecting") === "true";
+    if (isRedirecting) {
+      return;
+    }
+    
     if (!isLoading) {
       if (isAuthenticated) {
-        // Redirect to dashboard if already logged in
-        router.push("/dashboard");
+        // Small delay to ensure state is stable, especially on mobile
+        const isMobile = typeof window !== "undefined" && /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
+        const delay = isMobile ? 300 : 100;
+        
+        setTimeout(() => {
+          // Double-check authentication before redirecting
+          if (isAuthenticated && !sessionStorage.getItem("auth-redirecting")) {
+            sessionStorage.setItem("auth-redirecting", "true");
+            // Use window.location.href for more reliable redirect on mobile
+            window.location.href = "/dashboard";
+          }
+        }, delay);
       } else {
         // Show login modal if not logged in
         setShowLoginModal(true);
