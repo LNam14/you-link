@@ -258,7 +258,7 @@ const EditableTaskName: React.FC<{
   if (isEditing) {
     return (
       <React.Fragment>
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[9998]" onClick={() => {
+        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-[9998]" onClick={() => {
           setName(task.fullname)
           setType(task.type)
           setSelectedEmployees(task.appliesTo || [])
@@ -3278,7 +3278,7 @@ const PageBody: React.FC = () => {
 
       {/* Quiz Modal */}
       {showQuizModal && currentQuestion && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-500 to-blue-900 p-6 rounded-t-2xl">
