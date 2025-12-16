@@ -233,10 +233,16 @@ export const quizQuestions: QuizQuestion[] = [
   }
 ];
 
+export interface WrongAnswerInfo {
+  question: string;
+  selectedAnswer: string;
+  correctAnswer: string;
+}
+
 interface QuizModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (wrongAnswerIndices?: number[]) => void;
+  onSuccess: (wrongAnswers?: WrongAnswerInfo[]) => void;
 }
 
 export default function QuizModal({ isOpen, onClose, onSuccess }: QuizModalProps) {
@@ -246,7 +252,7 @@ export default function QuizModal({ isOpen, onClose, onSuccess }: QuizModalProps
   const [isCorrect, setIsCorrect] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [shuffledQuestions, setShuffledQuestions] = useState<QuizQuestion[]>([]);
-  const [wrongAnswerIndices, setWrongAnswerIndices] = useState<number[]>([]);
+  const [wrongAnswers, setWrongAnswers] = useState<WrongAnswerInfo[]>([]);
 
   // Chọn ngẫu nhiên 3 câu hỏi khi mở modal
   useEffect(() => {
@@ -257,7 +263,7 @@ export default function QuizModal({ isOpen, onClose, onSuccess }: QuizModalProps
       setSelectedAnswer(null);
       setIsAnswered(false);
       setCorrectCount(0);
-      setWrongAnswerIndices([]);
+      setWrongAnswers([]);
     }
   }, [isOpen]);
 
@@ -282,11 +288,11 @@ export default function QuizModal({ isOpen, onClose, onSuccess }: QuizModalProps
       // Nếu đã trả lời đúng 3 câu liên tiếp
       if (newCorrectCount === 3) {
         setTimeout(() => {
-          // Truyền danh sách các câu trả lời sai (đã là số thứ tự từ 1-3)
-          const wrongAnswers = wrongAnswerIndices.length > 0 
-            ? wrongAnswerIndices.sort((a, b) => a - b)
+          // Truyền danh sách các câu trả lời sai với đầy đủ thông tin
+          const wrongAnswersToSend = wrongAnswers.length > 0 
+            ? wrongAnswers
             : undefined;
-          onSuccess(wrongAnswers);
+          onSuccess(wrongAnswersToSend);
           handleClose();
         }, 1000);
       } else {
@@ -298,18 +304,26 @@ export default function QuizModal({ isOpen, onClose, onSuccess }: QuizModalProps
         }, 1500);
       }
     } else {
-      // Lưu số thứ tự câu hỏi sai (số thứ tự trong lần quiz hiện tại: 1, 2, hoặc 3)
-      const questionNumber = currentQuestionIndex + 1;
-      setWrongAnswerIndices((prev) => {
-        // Chỉ thêm nếu chưa có trong danh sách (tránh trùng lặp)
-        if (!prev.includes(questionNumber)) {
-          return [...prev, questionNumber].sort((a, b) => a - b);
+      // Lưu thông tin đầy đủ về câu hỏi sai
+      const wrongAnswerInfo: WrongAnswerInfo = {
+        question: currentQuestion.CâuHỏi,
+        selectedAnswer: currentQuestion.ĐápÁn[selectedAnswer],
+        correctAnswer: currentQuestion.ĐápÁn[currentQuestion.ĐápÁnĐúng],
+      };
+      
+      setWrongAnswers((prev) => {
+        // Kiểm tra xem câu hỏi này đã có trong danh sách chưa (tránh trùng lặp)
+        const isDuplicate = prev.some(
+          (item) => item.question === wrongAnswerInfo.question
+        );
+        if (!isDuplicate) {
+          return [...prev, wrongAnswerInfo];
         }
         return prev;
       });
       
       // Nếu sai, reset về câu đầu và shuffle lại vì phải đúng liên tiếp 3 câu
-      // Lưu ý: KHÔNG reset wrongAnswerIndices để giữ lại tất cả các câu đã sai
+      // Lưu ý: KHÔNG reset wrongAnswers để giữ lại tất cả các câu đã sai
       setTimeout(() => {
         setSelectedAnswer(null);
         setIsAnswered(false);
@@ -327,7 +341,7 @@ export default function QuizModal({ isOpen, onClose, onSuccess }: QuizModalProps
     setSelectedAnswer(null);
     setIsAnswered(false);
     setCorrectCount(0);
-    setWrongAnswerIndices([]);
+    setWrongAnswers([]);
     onClose();
   };
 

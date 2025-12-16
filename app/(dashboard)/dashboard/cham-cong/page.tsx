@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Button from "@/components/ui/Button";
 import { ChevronLeft, ChevronRight, Calendar, CheckCircle2, XCircle, Briefcase, Coffee, Clock } from "lucide-react";
 import { toast } from "sonner";
-import QuizModal from "./QuizModal";
+import QuizModal, { WrongAnswerInfo } from "./QuizModal";
 import { telegramApiRequest } from "@/lib/api/telegram.api";
 
 type AttendanceStatus = "checked" | "off" | null;
@@ -153,7 +153,7 @@ export default function ChamCongPage() {
   };
 
   // Thực hiện chấm công sau khi quiz thành công
-  const handleQuizSuccess = async (wrongAnswerIndices?: number[]) => {
+  const handleQuizSuccess = async (wrongAnswers?: WrongAnswerInfo[]) => {
     if (!pendingCheckInDate || !user?.username) return;
 
     setIsLoading(true);
@@ -193,9 +193,13 @@ export default function ChamCongPage() {
           let message = `${userInfo} vượt qua bài kiểm tra để chấm công`;
           
           // Thêm thông tin các câu trả lời sai nếu có
-          if (wrongAnswerIndices && wrongAnswerIndices.length > 0) {
-            const wrongAnswersText = wrongAnswerIndices.join(", ");
-            message += `\n\nCác câu trả lời sai: ${wrongAnswersText}`;
+          if (wrongAnswers && wrongAnswers.length > 0) {
+            message += `\n\nCác câu trả lời sai: ${wrongAnswers.length}`;
+            wrongAnswers.forEach((wrongAnswer, index) => {
+              message += `\n\n${index + 1}. ${wrongAnswer.question}`;
+              message += `\n   Đã chọn: ${wrongAnswer.selectedAnswer}`;
+              message += `\n   Đáp án đúng: ${wrongAnswer.correctAnswer}`;
+            });
           }
           
           await telegramApiRequest.sendMessage({
