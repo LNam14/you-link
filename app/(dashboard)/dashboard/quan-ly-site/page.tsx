@@ -1306,18 +1306,13 @@ export default function PageBody() {
         )
     }, [mappedColumns, nestedHeaders, handleAfterChange, handleBeforePaste])
 
+    // Show loading spinner when searching, loading, or refreshing
+    const showLoading = isSearching || loading || refreshing
+
     return (
         <div className="relative">
             {/* Loading Overlay */}
-            {loading && !toolData && <LoadingSpinner />}
-            
-            {/* Refreshing indicator - subtle */}
-            {refreshing && toolData && (
-                <div className="fixed top-4 right-4 z-[9998] bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-slide-in">
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    <span className="text-sm font-medium">Đang làm mới dữ liệu...</span>
-                </div>
-            )}
+            {showLoading && <LoadingSpinner />}
             
             <div className="mx-auto">
                 <div className="bg-white rounded-xl shadow-xl overflow-hidden border border-blue-100">

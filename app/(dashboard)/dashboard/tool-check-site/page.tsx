@@ -504,7 +504,7 @@ export default function PageBody() {
                 }
 
                 // Collect matching items - giữ thứ tự tìm kiếm
-                const seen = new Set<string>()
+                // Không loại bỏ site trùng ở đây, để xử lý sau khi group theo site
                 validTerms.forEach((term) => {
                     const matchingItems = dataSource.filter((item) => {
                         if (selectedSearchType === "Site") {
@@ -530,16 +530,8 @@ export default function PageBody() {
                         }
                     })
                     
-                    // Thêm các items match vào kết quả theo thứ tự, bỏ qua items đã thêm trước đó
-                    matchingItems.forEach((item) => {
-                        const key = selectedSearchType === "Site" 
-                            ? normalizeUrl(item.site) 
-                            : `${item.MaNCC}-${item.NCC}`
-                        if (!seen.has(key)) {
-                            seen.add(key)
-                            dataToProcess.push(item)
-                        }
-                    })
+                    // Thêm tất cả items match vào kết quả (không loại bỏ trùng ở đây)
+                    dataToProcess.push(...matchingItems)
                 })
             } else {
                 // No search term, use all data
@@ -622,12 +614,63 @@ export default function PageBody() {
                 siteGroups.set(normalizedSite, group)
             })
 
-            // Process groups
+            // Process groups - chọn item có giá thấp nhất vào mainItems
+            const getPriceColumnFn = getPriceColumnDataRef.current
             siteGroups.forEach((items, normalizedSite) => {
                 if (items.length > 0) {
-                    mainItems.push(items[0])
-                    if (items.length > 1) {
-                        newDuplicateSites[normalizedSite] = items.slice(1)
+                    if (items.length === 1) {
+                        // Chỉ có 1 item, thêm vào mainItems
+                        mainItems.push(items[0])
+                    } else {
+                        // Có nhiều item trùng, tìm item có giá thấp nhất
+                        if (getPriceColumnFn) {
+                            const priceField = getPriceColumnFn(selectedPriceType, selectedBrand, "giaMua")
+                            
+                            // Tìm item có giá thấp nhất (khác 0 và hợp lệ)
+                            let minPriceItem = items[0]
+                            let minPrice = Number.parseFloat((items[0] as any)[priceField] || "0") || 0
+                            
+                            // Nếu giá đầu tiên là 0 hoặc không hợp lệ, tìm giá hợp lệ đầu tiên
+                            if (minPrice === 0 || isNaN(minPrice)) {
+                                for (const item of items) {
+                                    const price = Number.parseFloat((item as any)[priceField] || "0") || 0
+                                    if (price > 0 && !isNaN(price)) {
+                                        minPriceItem = item
+                                        minPrice = price
+                                        break
+                                    }
+                                }
+                            }
+                            
+                            // Tìm item có giá thấp nhất trong các item còn lại
+                            for (let i = 1; i < items.length; i++) {
+                                const price = Number.parseFloat((items[i] as any)[priceField] || "0") || 0
+                                if (price > 0 && !isNaN(price)) {
+                                    if (minPrice === 0 || isNaN(minPrice) || price < minPrice) {
+                                        minPrice = price
+                                        minPriceItem = items[i]
+                                    }
+                                }
+                            }
+                            
+                            // Nếu tất cả giá đều là 0 hoặc không hợp lệ, lấy item đầu tiên
+                            if (minPrice === 0 || isNaN(minPrice)) {
+                                minPriceItem = items[0]
+                            }
+                            
+                            // Thêm item có giá thấp nhất vào mainItems
+                            mainItems.push(minPriceItem)
+                            
+                            // Các item còn lại vào duplicateSites
+                            const duplicates = items.filter(item => item !== minPriceItem)
+                            if (duplicates.length > 0) {
+                                newDuplicateSites[normalizedSite] = duplicates
+                            }
+                        } else {
+                            // Không có getPriceColumnFn, lấy item đầu tiên
+                            mainItems.push(items[0])
+                            newDuplicateSites[normalizedSite] = items.slice(1)
+                        }
                     }
                 }
             })
