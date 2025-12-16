@@ -142,13 +142,6 @@ export default function LoginModal({
     }
   };
 
-  const handleClose = () => {
-    setFormData({ username: "", password: "" });
-    setError("");
-    setIsLoggedIn(false);
-    onClose();
-  };
-
   if (!isOpen) return null;
 
   // If already logged in, show logout option instead
