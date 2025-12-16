@@ -193,18 +193,65 @@ export function useAuth(): UseAuthReturn {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Poll for token changes (for immediate detection after login)
+  useEffect(() => {
+    let lastToken: string | null = null;
+    
+    const checkTokenChange = () => {
+      const currentToken = localStorage.getItem("auth-token");
+      if (currentToken !== lastToken) {
+        lastToken = currentToken;
+        if (currentToken && !user && !isCheckingRef.current) {
+          // Token changed and user not set, check auth immediately
+          hasCheckedRef.current = false;
+          checkAuth(true);
+        }
+      }
+    };
+
+    // Check immediately
+    checkTokenChange();
+    
+    // Poll every 200ms for a short time after mount (to catch login)
+    const pollInterval = setInterval(checkTokenChange, 200);
+    const stopPolling = setTimeout(() => {
+      clearInterval(pollInterval);
+    }, 2000); // Stop polling after 2 seconds
+
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(stopPolling);
+    };
+  }, [user, checkAuth]);
+
   // Also check auth when token appears in localStorage (for login flow)
   // This handles the case when token is set in the same tab (storage event doesn't fire)
   useEffect(() => {
     // Only check if user is not set but token exists
-    if (!user && !isCheckingRef.current && !hasCheckedRef.current) {
+    if (!user && !isCheckingRef.current) {
       const token = localStorage.getItem("auth-token");
       if (token) {
-        // Token exists but user is not set, force check
+        // Token exists but user is not set, force check immediately
+        hasCheckedRef.current = false;
         checkAuth(true);
       }
     }
   }, [user, checkAuth]);
+
+  // Listen for custom event when token is set (from LoginModal)
+  useEffect(() => {
+    const handleTokenSet = (e: CustomEvent) => {
+      const token = e.detail?.token;
+      if (token && !isCheckingRef.current) {
+        // Immediately check auth when token is set
+        hasCheckedRef.current = false;
+        checkAuth(true);
+      }
+    };
+
+    window.addEventListener("auth-token-set", handleTokenSet as EventListener);
+    return () => window.removeEventListener("auth-token-set", handleTokenSet as EventListener);
+  }, [checkAuth]);
 
   // Listen for storage events (when token is set in another tab/window)
   useEffect(() => {

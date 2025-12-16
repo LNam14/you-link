@@ -12,33 +12,37 @@ export default function HomePage() {
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   useEffect(() => {
-    // Check token first - if token exists, user might be authenticated
+    // Check token first
     const token = localStorage.getItem("auth-token");
     
-    // If we have a token, check if user is authenticated
-    if (token) {
-      // If authenticated, redirect immediately (no delay)
-      if (isAuthenticated) {
-        const isRedirecting = sessionStorage.getItem("auth-redirecting") === "true";
-        if (!isRedirecting) {
-          sessionStorage.setItem("auth-redirecting", "true");
-          // Redirect immediately without delay
-          window.location.href = "/dashboard";
-        }
-        return;
-      }
-      // If token exists but not authenticated yet, wait for auth check
-      // Don't show login modal yet
-      if (isLoading) {
-        return;
-      }
+    // If authenticated, redirect immediately
+    if (isAuthenticated) {
+      window.location.href = "/dashboard";
+      return;
     }
     
-    // Only show login modal if no token and not loading
-    if (!isLoading && !token) {
+    // If we have a token but not authenticated yet, wait for auth check
+    // Don't show login modal while checking
+    if (token && isLoading) {
+      return;
+    }
+    
+    // If no token and not loading, show login modal
+    if (!token && !isLoading) {
       setShowLoginModal(true);
     }
-  }, [isAuthenticated, isLoading, router]);
+    
+    // If token exists but auth check failed (not loading, not authenticated), remove token and show modal
+    if (token && !isLoading && !isAuthenticated) {
+      // Token might be invalid, but wait a bit more for auth check to complete
+      const timer = setTimeout(() => {
+        if (!isAuthenticated) {
+          setShowLoginModal(true);
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, isLoading]);
 
   if (isLoading) {
     return (
