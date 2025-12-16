@@ -451,6 +451,7 @@ function filterDataByFilters(data: any[], filters: Record<string, string>): any[
 }
 
 // Helper function to filter data based on search terms
+// Giữ thứ tự tìm kiếm: kết quả hiển thị theo đúng thứ tự các search terms
 function filterDataBySearch(
     data: any[],
     searchTerms: string[],
@@ -461,7 +462,10 @@ function filterDataBySearch(
     }
 
     const matchingItems: any[] = []
+    // Track items đã thêm để tránh duplicate, nhưng giữ thứ tự của term đầu tiên
+    const seen = new Set<string>()
     
+    // Duyệt qua từng search term theo thứ tự
     searchTerms.forEach((term) => {
         const filtered = data.filter((item) => {
             if (searchType === "Site") {
@@ -500,19 +504,18 @@ function filterDataBySearch(
                 return matchMaNCC || matchNCC
             }
         })
-        matchingItems.push(...filtered)
+        
+        // Thêm các items match vào kết quả theo thứ tự, bỏ qua items đã thêm trước đó
+        filtered.forEach((item) => {
+            const key = `${item.sheetName}-${item.rowIndex}`
+            if (!seen.has(key)) {
+                seen.add(key)
+                matchingItems.push(item)
+            }
+        })
     })
 
-    // Remove duplicates based on rowIndex and sheetName
-    const seen = new Set<string>()
-    return matchingItems.filter((item) => {
-        const key = `${item.sheetName}-${item.rowIndex}`
-        if (seen.has(key)) {
-            return false
-        }
-        seen.add(key)
-        return true
-    })
+    return matchingItems
 }
 
 export async function GET(req: Request) {

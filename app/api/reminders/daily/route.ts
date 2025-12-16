@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { ReminderService } from "@/lib/services/reminder.service";
 import { successResponse, errorResponse } from "@/lib/utils/response";
-import { verifyAuthToken } from "@/lib/utils/auth";
 
 const reminderService = new ReminderService();
 
@@ -16,9 +15,6 @@ const reminderService = new ReminderService();
  */
 export async function POST(request: NextRequest) {
   try {
-    // Require authentication
-    verifyAuthToken(request);
-
     const body = await request.json().catch(() => ({}));
     const chatId = body.chatId || "-1003124919874_156";
 
@@ -39,9 +35,6 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    // Require authentication
-    verifyAuthToken(request);
-
     const reminderData = await reminderService.getDailyReminderUsers();
 
     return successResponse(reminderData);

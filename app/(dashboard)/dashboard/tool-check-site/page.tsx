@@ -503,7 +503,8 @@ export default function PageBody() {
                     return
                 }
 
-                // Collect matching items
+                // Collect matching items - giữ thứ tự tìm kiếm
+                const seen = new Set<string>()
                 validTerms.forEach((term) => {
                     const matchingItems = dataSource.filter((item) => {
                         if (selectedSearchType === "Site") {
@@ -528,18 +529,17 @@ export default function PageBody() {
                             return matchMaNCC || matchNCC
                         }
                     })
-                    dataToProcess.push(...matchingItems)
-                })
-
-                // Remove duplicates
-                const seen = new Set<string>()
-                dataToProcess = dataToProcess.filter((item) => {
-                    const key = selectedSearchType === "Site" 
-                        ? normalizeUrl(item.site) 
-                        : `${item.MaNCC}-${item.NCC}`
-                    if (seen.has(key)) return false
-                    seen.add(key)
-                    return true
+                    
+                    // Thêm các items match vào kết quả theo thứ tự, bỏ qua items đã thêm trước đó
+                    matchingItems.forEach((item) => {
+                        const key = selectedSearchType === "Site" 
+                            ? normalizeUrl(item.site) 
+                            : `${item.MaNCC}-${item.NCC}`
+                        if (!seen.has(key)) {
+                            seen.add(key)
+                            dataToProcess.push(item)
+                        }
+                    })
                 })
             } else {
                 // No search term, use all data
@@ -555,8 +555,9 @@ export default function PageBody() {
             }
         }
 
-        // Sort by selected price type if searching by Site - optimize by pre-calculating prices
-        if (selectedSearchType === "Site") {
+        // Sort by selected price type if searching by Site - chỉ sort khi không có search term (giữ thứ tự tìm kiếm)
+        // Khi có search term, giữ nguyên thứ tự tìm kiếm
+        if (selectedSearchType === "Site" && !hasSearchTerm) {
             const getPriceColumnFn = getPriceColumnDataRef.current
             if (getPriceColumnFn) {
                 const priceField = getPriceColumnFn(selectedPriceType, selectedBrand, "giaMua")
