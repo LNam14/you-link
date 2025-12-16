@@ -605,7 +605,7 @@ export default function PageBody() {
 
         const hasSearchTermForDuplicates = searchValue && searchValue.trim().length > 0
         if (selectedSearchType === "Site" && hasSearchTermForDuplicates) {
-            // Group by normalized site for search results - use Map for better performance
+            // Group by normalized site để tách duplicates
             const siteGroups = new Map<string, SiteData[]>()
             convertedItems.forEach((item) => {
                 const normalizedSite = normalizeUrl(item.site)
@@ -674,6 +674,44 @@ export default function PageBody() {
                     }
                 }
             })
+            
+            // Sau khi group, cần đảm bảo số lượng items trong mainItems phù hợp với số lần tìm kiếm
+            // Nếu có nhiều search terms giống nhau, cần duplicate items tương ứng
+            if (hasSearchTerm) {
+                const searchTerms = searchValue.split(/[,\n\s]+/).filter((term) => term.trim() !== "")
+                const validTerms = searchTerms.map((term) => normalizeUrl(term.trim())).filter((term) => term !== "")
+                
+                // Đếm số lần mỗi term xuất hiện
+                const termCounts = new Map<string, number>()
+                validTerms.forEach((term) => {
+                    termCounts.set(term, (termCounts.get(term) || 0) + 1)
+                })
+                
+                // Tạo lại mainItems dựa trên số lần mỗi term xuất hiện
+                const newMainItems: SiteData[] = []
+                termCounts.forEach((count, term) => {
+                    // Tìm items match với term này trong mainItems hiện tại
+                    const matchingItems = mainItems.filter((item) => {
+                        const normalizedSite = normalizeUrl(item.site)
+                        return normalizedSite === term
+                    })
+                    
+                    // Nếu có items match, thêm vào newMainItems theo số lần count
+                    if (matchingItems.length > 0) {
+                        // Thêm item đầu tiên count lần (để đúng với số lần tìm kiếm)
+                        for (let i = 0; i < count; i++) {
+                            newMainItems.push(matchingItems[0])
+                        }
+                        // Nếu có nhiều items unique cho cùng 1 site (không nên xảy ra sau khi group), thêm các items còn lại
+                        if (matchingItems.length > 1) {
+                            newMainItems.push(...matchingItems.slice(1))
+                        }
+                    }
+                })
+                
+                // Cập nhật mainItems với kết quả mới
+                mainItems = newMainItems
+            }
         } else {
             // For filter-only or NCC search, show all items
             mainItems = convertedItems

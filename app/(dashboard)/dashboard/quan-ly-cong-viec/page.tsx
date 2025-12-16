@@ -224,57 +224,135 @@ const AddTaskDialog: React.FC<{
 
 const EditableTaskName: React.FC<{
   task: CustomDailyTask
-  onUpdate: (name: string, type?: DailyTaskDataType) => void
+  onUpdate: (name: string, type?: DailyTaskDataType, selectedEmployees?: string[]) => void
   onDelete: () => void
   isAdmin?: boolean
-}> = ({ task, onUpdate, onDelete, isAdmin = false }) => {
+  selectableEmployees?: string[]
+}> = ({ task, onUpdate, onDelete, isAdmin = false, selectableEmployees = [] }) => {
   const [isEditing, setIsEditing] = useState(false)
   const [name, setName] = useState(task.fullname)
   const [type, setType] = useState(task.type)
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>(task.appliesTo || [])
 
   const handleSave = () => {
-    onUpdate(name.trim(), type !== task.type ? type : undefined)
+    onUpdate(name.trim(), type !== task.type ? type : undefined, selectedEmployees)
     setIsEditing(false)
+  }
+
+  const toggleEmployee = (username: string) => {
+    setSelectedEmployees(prev => 
+      prev.includes(username) 
+        ? prev.filter(u => u !== username)
+        : [...prev, username]
+    )
+  }
+
+  const selectAll = () => {
+    setSelectedEmployees([...selectableEmployees])
+  }
+
+  const deselectAll = () => {
+    setSelectedEmployees([])
   }
 
   if (isEditing) {
     return (
-      <div className="flex items-center gap-1">
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="flex-1 px-2 py-1 text-xs bg-white text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-          style={{ fontSize: '11px' }}
-          autoFocus
-          onBlur={handleSave}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSave()
-            if (e.key === "Escape") {
-              setName(task.fullname)
-              setIsEditing(false)
-            }
-          }}
-        />
-        <select
-          value={type}
-          onChange={(e) => setType(e.target.value as DailyTaskDataType)}
-          className="w-24 px-2 py-1 text-xs bg-white text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-          style={{ fontSize: '12px' }}
-          onBlur={handleSave}
-        >
-          <option value="boolean">True/False</option>
-          <option value="text">Text</option>
-        </select>
-        <button onClick={handleSave} className="p-1 text-cyan-500 hover:bg-cyan-50 rounded-lg transition-colors" style={{ color: '#06b6d4' }}>
-          <CheckCircle2 className="h-3 w-3" />
-        </button>
-      </div>
+      <>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[9998]" onClick={() => {
+          setName(task.fullname)
+          setType(task.type)
+          setSelectedEmployees(task.appliesTo || [])
+          setIsEditing(false)
+        }} />
+        <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-20 pointer-events-none">
+          <div className="bg-white border border-gray-300 rounded-lg shadow-2xl p-3 min-w-[300px] max-w-[400px] max-h-[80vh] overflow-y-auto pointer-events-auto">
+          <div className="space-y-2">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full px-2 py-1 text-xs bg-white text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            style={{ fontSize: '11px' }}
+            autoFocus
+            placeholder="Tên công việc..."
+          />
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value as DailyTaskDataType)}
+            className="w-full px-2 py-1 text-xs bg-white text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            style={{ fontSize: '12px' }}
+          >
+            <option value="boolean">True/False</option>
+            <option value="text">Text</option>
+          </select>
+          
+          {isAdmin && selectableEmployees.length > 0 && (
+            <div className="border border-gray-300 rounded-lg p-2 max-h-[200px] overflow-y-auto">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-gray-700">Chọn nhân viên:</label>
+                <div className="flex gap-1">
+                  <button
+                    onClick={selectAll}
+                    className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                  >
+                    Tất cả
+                  </button>
+                  <button
+                    onClick={deselectAll}
+                    className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                  >
+                    Bỏ chọn
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-1">
+                {selectableEmployees.map((username) => (
+                  <label key={username} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                    <input
+                      type="checkbox"
+                      checked={selectedEmployees.includes(username)}
+                      onChange={() => toggleEmployee(username)}
+                      className="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
+                    />
+                    <span className="text-xs text-gray-700">{username}</span>
+                  </label>
+                ))}
+              </div>
+              {selectedEmployees.length === 0 && (
+                <p className="text-xs text-gray-500 mt-1 italic">Chưa chọn nhân viên nào (sẽ áp dụng cho tất cả)</p>
+              )}
+            </div>
+          )}
+          
+          <div className="flex gap-2">
+            <button
+              onClick={handleSave}
+              className="flex-1 px-3 py-2 text-white rounded-lg font-medium transition-colors"
+              style={{ background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)', fontSize: '12px' }}
+            >
+              Lưu
+            </button>
+            <button
+              onClick={() => {
+                setName(task.fullname)
+                setType(task.type)
+                setSelectedEmployees(task.appliesTo || [])
+                setIsEditing(false)
+              }}
+              className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors"
+              style={{ fontSize: '12px' }}
+            >
+              Hủy
+            </button>
+          </div>
+          </div>
+        </div>
+      </>
     )
   }
 
   return (
-    <div className="flex items-center gap-1 group">
+    <div className="flex items-center gap-1 group relative">
       <span className="font-medium text-white" style={{ fontSize: '11px' }}>{task.fullname}</span>
       {isAdmin && (
         <>
@@ -1519,12 +1597,16 @@ const PageBody: React.FC = () => {
     }
   }
 
-  const updateCustomDailyTask = async (taskId: string, name: string, type?: DailyTaskDataType) => {
+  const updateCustomDailyTask = async (taskId: string, name: string, type?: DailyTaskDataType, selectedEmployees?: string[]) => {
     const newTaskId = normalizeTaskName(name)
     const currentTask = dailyTaskTemplate.find((t) => t.id === taskId)
     if (!currentTask) return
 
     const newType = type || currentTask.type
+    // Cập nhật appliesTo: nếu có selectedEmployees thì dùng, nếu không thì giữ nguyên
+    const newAppliesTo = selectedEmployees !== undefined 
+      ? (selectedEmployees.length > 0 ? selectedEmployees : undefined)
+      : currentTask.appliesTo
 
     if (newTaskId !== taskId) {
       if (dailyTaskTemplate.some((t) => t.id === newTaskId && t.id !== taskId)) {
@@ -1541,7 +1623,7 @@ const PageBody: React.FC = () => {
           id: newTaskId,
           fullname: name.trim(),
           type: newType,
-          appliesTo: currentTask.appliesTo, // Giữ nguyên appliesTo khi cập nhật
+          appliesTo: newAppliesTo, // Cập nhật appliesTo
         }
       }
       return task
@@ -1550,7 +1632,11 @@ const PageBody: React.FC = () => {
     try {
       await dailyTaskTemplateApiRequest.update({ template: updatedTemplate })
       setDailyTaskTemplate(updatedTemplate)
-      toast.success("Đã cập nhật công việc. Thay đổi sẽ áp dụng cho tuần tiếp theo.", { duration: 3000 })
+      
+      const employeeText = newAppliesTo && newAppliesTo.length > 0 
+        ? ` cho ${newAppliesTo.length} nhân viên được chọn`
+        : " cho tất cả nhân viên"
+      toast.success(`Đã cập nhật công việc${employeeText}. Thay đổi sẽ áp dụng cho tuần tiếp theo.`, { duration: 3000 })
 
       if (newTaskId !== taskId || (type && type !== currentTask.type)) {
         updateWeekData((data) => {
@@ -2496,9 +2582,10 @@ const PageBody: React.FC = () => {
                           >
                             <EditableTaskName
                               task={task}
-                              onUpdate={(name, type) => updateCustomDailyTask(task.id, name, type)}
+                              onUpdate={(name, type, selectedEmployees) => updateCustomDailyTask(task.id, name, type, selectedEmployees)}
                               onDelete={() => removeCustomDailyTask(task.id)}
                               isAdmin={isAdmin}
+                              selectableEmployees={selectableUsers}
                             />
                           </th>
                         )
