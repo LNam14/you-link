@@ -123,14 +123,28 @@ export function useAuth(): UseAuthReturn {
       const data = await response.json();
 
       if (data.success && data.data) {
+        // Set user first, then update loading state
+        // This ensures isAuthenticated becomes true before isLoading becomes false
         setUser(data.data);
         // Mark as checked successfully
         if (!force) {
           hasCheckedRef.current = true;
         }
+        // Small delay on mobile to ensure state is updated before setting isLoading = false
+        const isMobile = typeof window !== "undefined" && /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
+        if (isMobile) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        setIsLoading(false);
+        isCheckingRef.current = false;
       } else {
         setUser(null);
         localStorage.removeItem("auth-token");
+        setIsLoading(false);
+        if (!force) {
+          hasCheckedRef.current = true;
+        }
+        isCheckingRef.current = false;
       }
     } catch (error) {
       console.error("Auth check error:", error);
@@ -142,7 +156,6 @@ export function useAuth(): UseAuthReturn {
         localStorage.removeItem("auth-token");
       }
       // Don't clear user on network errors - keep current state
-    } finally {
       setIsLoading(false);
       if (!force) {
         hasCheckedRef.current = true;

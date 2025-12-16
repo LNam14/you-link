@@ -30,9 +30,16 @@ export default function DashboardLayout({
     setMenuGroups(getMenuGroups(user?.role));
   }, [user?.role]);
 
-  // Don't render if redirecting
+  // Show loading state if checking auth, don't show blank screen
   if (!shouldRender) {
-    return null;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+          <p className="mt-4 text-gray-600">Đang kiểm tra xác thực...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
