@@ -12,7 +12,12 @@ export function useAuthGuard() {
       hasCheckedOnMountRef.current = true;
       // Only check if not already authenticated and not currently loading
       if (!isAuthenticated) {
-        checkAuth(true);
+        // On mobile, wait a bit longer before checking to ensure localStorage is ready
+        const isMobile = typeof window !== "undefined" && /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
+        const delay = isMobile ? 200 : 100;
+        setTimeout(() => {
+          checkAuth(true);
+        }, delay);
       }
     }
   }, [checkAuth, isAuthenticated, isLoading]);
@@ -20,13 +25,19 @@ export function useAuthGuard() {
   // Redirect to home if not authenticated (only once)
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !hasRedirectedRef.current) {
-      // Give a small delay to allow checkAuth to complete
+      // Give more time on mobile to allow checkAuth to complete
+      // Mobile browsers may need more time for localStorage operations
+      const isMobile = typeof window !== "undefined" && /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
+      const delay = isMobile ? 1000 : 500;
+      
       const timer = setTimeout(() => {
-        if (!isAuthenticated) {
+        // Double-check authentication status before redirecting
+        const token = localStorage.getItem("auth-token");
+        if (!token && !isAuthenticated) {
           hasRedirectedRef.current = true;
           window.location.href = "/";
         }
-      }, 500);
+      }, delay);
       
       return () => clearTimeout(timer);
     }

@@ -107,15 +107,27 @@ export default function LoginModal({
       // Lưu token vào localStorage
       if (data.data?.token) {
         console.log("Saving token to localStorage");
-        localStorage.setItem("auth-token", data.data.token);
-        console.log("Token saved");
-        
-        // Trigger storage event để useAuth hook có thể detect token mới
-        window.dispatchEvent(new StorageEvent("storage", {
-          key: "auth-token",
-          newValue: data.data.token,
-          storageArea: localStorage,
-        }));
+        try {
+          localStorage.setItem("auth-token", data.data.token);
+          console.log("Token saved to localStorage");
+          
+          // Verify token was saved (important for mobile)
+          const savedToken = localStorage.getItem("auth-token");
+          if (!savedToken || savedToken !== data.data.token) {
+            console.error("Token verification failed after save");
+            throw new Error("Không thể lưu token. Vui lòng thử lại.");
+          }
+          
+          // Trigger storage event để useAuth hook có thể detect token mới
+          window.dispatchEvent(new StorageEvent("storage", {
+            key: "auth-token",
+            newValue: data.data.token,
+            storageArea: localStorage,
+          }));
+        } catch (storageError) {
+          console.error("localStorage error:", storageError);
+          throw new Error("Trình duyệt không hỗ trợ lưu trữ. Vui lòng kiểm tra cài đặt trình duyệt.");
+        }
       } else {
         console.error("No token in response:", data);
         throw new Error("Không nhận được token từ server");
@@ -128,13 +140,37 @@ export default function LoginModal({
       // Close modal
       onClose();
 
-      // Wait a bit to ensure token is saved and useAuth has time to check, then redirect
-      setTimeout(() => {
-        console.log("Redirecting to dashboard");
-        // Use window.location.href instead of router.push to ensure full page reload
-        // This ensures useAuth hook will check auth again
+      // Verify token and wait longer on mobile to ensure localStorage is ready
+      // Mobile browsers may need more time to persist localStorage
+      const verifyAndRedirect = async () => {
+        let retries = 0;
+        const maxRetries = 5;
+        const delay = 200; // 200ms between retries
+        
+        while (retries < maxRetries) {
+          const token = localStorage.getItem("auth-token");
+          if (token && token === data.data?.token) {
+            console.log(`Token verified (attempt ${retries + 1}), redirecting to dashboard`);
+            // Use window.location.href instead of router.push to ensure full page reload
+            // This ensures useAuth hook will check auth again
+            window.location.href = "/dashboard";
+            return;
+          }
+          retries++;
+          if (retries < maxRetries) {
+            console.log(`Token not verified yet, retrying in ${delay}ms (attempt ${retries}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+        
+        // If all retries failed, still try to redirect (token might be there but check failed)
+        console.warn("Token verification failed after all retries, redirecting anyway");
         window.location.href = "/dashboard";
-      }, 300);
+      };
+
+      // Initial delay before verification (longer on mobile)
+      const initialDelay = typeof window !== "undefined" && /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent) ? 500 : 300;
+      setTimeout(verifyAndRedirect, initialDelay);
     } catch (err: any) {
       setError(err.message || "Đăng nhập thất bại. Vui lòng thử lại.");
     } finally {

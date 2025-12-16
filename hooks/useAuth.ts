@@ -38,10 +38,32 @@ export function useAuth(): UseAuthReturn {
       isCheckingRef.current = true;
       setIsLoading(true);
       
-      // Small delay to ensure localStorage is ready (especially after redirect)
-      await new Promise(resolve => setTimeout(resolve, 50));
+      // Longer delay on mobile to ensure localStorage is ready (especially after redirect)
+      // Mobile browsers may need more time to persist localStorage
+      const isMobile = typeof window !== "undefined" && /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
+      const delay = isMobile ? 150 : 50;
+      await new Promise(resolve => setTimeout(resolve, delay));
       
-      const token = localStorage.getItem("auth-token");
+      // Try to get token with retry logic for mobile
+      let token: string | null = null;
+      let retries = 0;
+      const maxRetries = 3;
+      
+      while (retries < maxRetries && !token) {
+        try {
+          token = localStorage.getItem("auth-token");
+          if (!token && retries < maxRetries - 1) {
+            // Wait a bit longer before retry on mobile
+            await new Promise(resolve => setTimeout(resolve, isMobile ? 100 : 50));
+          }
+        } catch (e) {
+          console.error("Error accessing localStorage:", e);
+          if (retries < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, isMobile ? 100 : 50));
+          }
+        }
+        retries++;
+      }
 
       if (!token) {
         setUser(null);
