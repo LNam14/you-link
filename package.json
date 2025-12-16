@@ -17,7 +17,7 @@
     "handsontable": "^16.2.0",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.561.0",
-    "next": "16.0.4",
+    "next": "16.0.7",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "sonner": "^2.0.7"
@@ -33,7 +33,7 @@
     "baseline-browser-mapping": "^2.9.7",
     "dotenv": "^17.2.3",
     "eslint": "^9",
-    "eslint-config-next": "16.0.4",
+    "eslint-config-next": "16.0.7",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5"
