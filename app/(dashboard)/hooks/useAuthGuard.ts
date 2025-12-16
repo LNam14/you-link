@@ -86,15 +86,23 @@ export function useAuthGuard() {
   }, [isLoading, isAuthenticated, isCheckingAuth]);
 
   // Render logic:
-  // - Always render if loading (show loading state)
-  // - Always render if authenticated (show content)
-  // - Render if checking auth (don't show blank screen during check)
-  // - Only don't render if definitely not authenticated AND not checking
-  const shouldRender = isLoading || isAuthenticated || isCheckingAuth;
+  // - Always render if authenticated (show content immediately)
+  // - Render if loading or checking auth (but with timeout to prevent infinite loading)
+  // - Only don't render if definitely not authenticated AND not checking AND no token
+  const token = typeof window !== "undefined" ? localStorage.getItem("auth-token") : null;
+  
+  // If authenticated, always render
+  // If we have a token, render (might be validating)
+  // If loading or checking, render (but will show loading state)
+  const shouldRender = isAuthenticated || isLoading || isCheckingAuth || !!token;
+
+  // If authenticated, don't show loading state
+  // Only show loading if we're actually checking and not authenticated yet
+  const showLoading = (isLoading || isCheckingAuth) && !isAuthenticated;
 
   return {
     shouldRender,
-    isLoading: isLoading || isCheckingAuth, // Show loading during check
+    isLoading: showLoading,
     isAuthenticated,
   };
 }

@@ -30,8 +30,25 @@ export default function DashboardLayout({
     setMenuGroups(getMenuGroups(user?.role));
   }, [user?.role]);
 
-  // Show loading state if checking auth, don't show blank screen
-  if (!shouldRender) {
+  // Show loading state if checking auth, but limit the time to avoid infinite loading
+  // If loading takes too long, allow render anyway (might be network issue)
+  const [showLoadingTimeout, setShowLoadingTimeout] = useState(false);
+  
+  useEffect(() => {
+    if (!shouldRender) {
+      // Set timeout to show content even if auth check is slow
+      const timer = setTimeout(() => {
+        setShowLoadingTimeout(true);
+      }, 3000); // 3 seconds max loading
+      
+      return () => clearTimeout(timer);
+    } else {
+      setShowLoadingTimeout(false);
+    }
+  }, [shouldRender]);
+  
+  // Show loading only if not timed out
+  if (!shouldRender && !showLoadingTimeout) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -41,6 +58,9 @@ export default function DashboardLayout({
       </div>
     );
   }
+  
+  // If timed out or should render, show content
+  // This prevents infinite loading screen
 
   return (
     <HeaderProvider>

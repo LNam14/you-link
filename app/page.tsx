@@ -12,30 +12,31 @@ export default function HomePage() {
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   useEffect(() => {
-    // Don't redirect if we're in the middle of a redirect (prevent loop)
-    const isRedirecting = sessionStorage.getItem("auth-redirecting") === "true";
-    if (isRedirecting) {
-      return;
+    // Check token first - if token exists, user might be authenticated
+    const token = localStorage.getItem("auth-token");
+    
+    // If we have a token, check if user is authenticated
+    if (token) {
+      // If authenticated, redirect immediately (no delay)
+      if (isAuthenticated) {
+        const isRedirecting = sessionStorage.getItem("auth-redirecting") === "true";
+        if (!isRedirecting) {
+          sessionStorage.setItem("auth-redirecting", "true");
+          // Redirect immediately without delay
+          window.location.href = "/dashboard";
+        }
+        return;
+      }
+      // If token exists but not authenticated yet, wait for auth check
+      // Don't show login modal yet
+      if (isLoading) {
+        return;
+      }
     }
     
-    if (!isLoading) {
-      if (isAuthenticated) {
-        // Small delay to ensure state is stable, especially on mobile
-        const isMobile = typeof window !== "undefined" && /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
-        const delay = isMobile ? 300 : 100;
-        
-        setTimeout(() => {
-          // Double-check authentication before redirecting
-          if (isAuthenticated && !sessionStorage.getItem("auth-redirecting")) {
-            sessionStorage.setItem("auth-redirecting", "true");
-            // Use window.location.href for more reliable redirect on mobile
-            window.location.href = "/dashboard";
-          }
-        }, delay);
-      } else {
-        // Show login modal if not logged in
-        setShowLoginModal(true);
-      }
+    // Only show login modal if no token and not loading
+    if (!isLoading && !token) {
+      setShowLoginModal(true);
     }
   }, [isAuthenticated, isLoading, router]);
 
