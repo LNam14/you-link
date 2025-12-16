@@ -1,0 +1,37 @@
+{
+  "rules": {
+    "users": {
+      ".read": true,
+      ".write": true
+    },
+    "teams": {
+      ".read": true,
+      ".write": true
+    },
+    "attendance": {
+      ".read": true,
+      ".write": true
+    },
+    "workTasks": {
+      ".read": true,
+      ".write": true
+    },
+    "dailyTaskTemplates": {
+      ".read": true,
+      ".write": true
+    },
+    "customers": {
+      ".read": true,
+      ".write": true
+    },
+    "penalties": {
+      ".read": true,
+      ".write": true
+    },
+    "rewards": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
+

@@ -1,0 +1,163 @@
+.handsontable thead tr th .relative {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: #eff6ff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.handsontable tbody tr th .relative {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: #eff6ff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.handsontable thead tr th .relative:hover,
+.handsontable tbody tr th .relative:hover {
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.custom-table .ht_master .wtHolder {
+    overflow-x: auto;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.custom-table .ht_master .wtHolder::-webkit-scrollbar {
+    display: block;
+    height: 8px;
+}
+
+.custom-table .ht_master .wtHolder::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.custom-table .ht_master .wtHolder::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.custom-table .ht_master .wtHolder::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Add these styles to fix the header visibility issue */
+.handsontable .ht_master .wtHider {
+    overflow: visible;
+}
+
+.handsontable .ht_clone_top {
+    z-index: 1 !important;
+}
+
+.handsontable .ht_clone_top .wtHider {
+    overflow: visible;
+}
+
+/* Increase the height of the header rows to ensure text is fully visible */
+.handsontable .ht_clone_top .wtHolder {
+    overflow: visible;
+}
+
+/* Ensure the nested headers have enough height */
+.handsontable th {
+    height: auto !important;
+    white-space: nowrap !important;
+    padding: 8px 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Sync header scroll with body */
+.handsontable .ht_clone_top .wtHolder {
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+}
+
+/* Ensure header stays aligned with body */
+.handsontable .ht_clone_top {
+    position: relative;
+}
+
+/* Fix for the specific header "Thông tin tài khoản" */
+.handsontable .ht_clone_top .htCore thead tr th {
+    height: auto !important;
+    line-height: 1.5;
+    vertical-align: middle;
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Override column sorting styles */
+.handsontable .columnSorting:not(.indicatorDisabled).sortAction {
+    padding-inline-start: 4px !important;
+    padding-inline-end: 4px !important;
+    min-width: auto !important;
+    max-width: none !important;
+}
+
+/* Disable column sorting indicators completely if needed */
+.handsontable .columnSorting.sortAction::after {
+    display: none !important;
+}
+
+/* Alternative: Hide all column sorting functionality */
+.handsontable .columnSorting {
+    padding: 4px !important;
+}
+
+/* Remove sorting cursor */
+.handsontable .columnSorting.sortAction {
+    cursor: default !important;
+}
+
+/* Ensure modal is always on top */
+.fixed.inset-0.bg-black.bg-opacity-50 {
+    z-index: 9999 !important;
+}
+
+/* Ensure table content stays below modal */
+.handsontable {
+    z-index: 0 !important;
+}
+
+/* Add border bottom for summary row (row 0) - only when summary-row-border class is present */
+.summary-row-border .handsontable tbody tr:first-child td {
+    border-bottom: 2px solid #d60b0b !important;
+}
+
+.handsontable thead tr th .relative {
+    padding: 0px !important;
+}
+
+/* Ensure table cells display content on single line with ellipsis */
+.handsontable tbody td {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Also apply to header cells */
+.handsontable thead th {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-weight: 500 !important;
+}
+
+/* Ensure background color is not overridden by other styles */
+.handsontable tbody tr td {
+    background-color: inherit !important;
+}
+
+/* Re-apply zebra striping with higher specificity */
+.handsontable .htCore tbody tr:nth-child(even) td {
+    background-color: #ffffff !important;
+}
+
+.handsontable .htCore tbody tr:nth-child(odd) td {
+    background-color: #f0fdf4 !important;
+}
