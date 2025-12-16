@@ -64,6 +64,10 @@ interface SiteData {
     giaCuoiText: string
     giaCuoiTextHome: string
     giaCuoiTextHeader: string
+    giaCuoiGPLio: string
+    giaCuoiTextLio: string
+    giaCuoiTextHomeLio: string
+    giaCuoiTextHeaderLio: string
     loiNhuanGP: string
     loiNhuanText: string
     loiNhuanTextHome: string

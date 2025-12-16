@@ -37,6 +37,10 @@ interface SiteData {
   giaCuoiText: string;
   giaCuoiTextHome: string;
   giaCuoiTextHeader: string;
+  giaCuoiGPLio: string;
+  giaCuoiTextLio: string;
+  giaCuoiTextHomeLio: string;
+  giaCuoiTextHeaderLio: string;
   loiNhuanGP: string;
   loiNhuanText: string;
   loiNhuanTextHome: string;
@@ -139,6 +143,10 @@ function convertToSiteData(row: FormattedRow): SiteData {
     giaCuoiText: convertValue(row.giaCuoiText),
     giaCuoiTextHome: convertValue(row.giaCuoiTextHome),
     giaCuoiTextHeader: convertValue(row.giaCuoiTextHeader),
+    giaCuoiGPLio: convertValue(row.giaCuoiGPLio),
+    giaCuoiTextLio: convertValue(row.giaCuoiTextLio),
+    giaCuoiTextHomeLio: convertValue(row.giaCuoiTextHomeLio),
+    giaCuoiTextHeaderLio: convertValue(row.giaCuoiTextHeaderLio),
     loiNhuanGP: convertValue(row.loiNhuanGP),
     loiNhuanText: convertValue(row.loiNhuanText),
     loiNhuanTextHome: convertValue(row.loiNhuanTextHome),
