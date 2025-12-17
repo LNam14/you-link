@@ -216,17 +216,20 @@ export function useSheetToolData(
         setLoading(true);
       }
 
-      // Get auth token from localStorage
+      // Get auth token từ localStorage (không bắt buộc cho tool công khai)
       const token = localStorage.getItem("auth-token");
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
 
-      // Prepare headers with cache validation
+      // Prepare headers với cache validation; chỉ thêm Authorization nếu có token
       const headers: HeadersInit = {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      // Thêm API key (nếu được cấu hình) để hạn chế truy cập công khai
+      if (process.env.NEXT_PUBLIC_TOOL_API_KEY) {
+        headers["x-api-key"] = process.env.NEXT_PUBLIC_TOOL_API_KEY;
+      }
       
       // Add ETag for cache validation (unless forcing refresh)
       if (!isRefresh && etagRef.current) {

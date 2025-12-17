@@ -1,87 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
 
 export default function HomePage() {
-  const [user, setUser] = useState<any>(null);
-  const [isChecking, setIsChecking] = useState(true);
-
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    try {
-      const token = localStorage.getItem("auth-token");
-      if (!token) {
-        setIsChecking(false);
-        return;
-      }
-
-      const response = await fetch("/api/auth/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data) {
-          setUser(data.data);
-        }
-      } else {
-        localStorage.removeItem("auth-token");
-      }
-    } catch (error) {
-      console.error("Auth check error:", error);
-      localStorage.removeItem("auth-token");
-    } finally {
-      setIsChecking(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      localStorage.removeItem("auth-token");
-      setUser(null);
-      window.location.reload();
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-  };
-
   return (
     <div className="container mx-auto px-4 py-16 sm:px-6 lg:px-8">
-      {/* User Info Banner */}
-      {!isChecking && user && (
-        <div className="mb-8 rounded-lg bg-indigo-50 border border-indigo-200 p-4 dark:bg-indigo-900/20 dark:border-indigo-800">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">
-                Bạn đã đăng nhập với tài khoản: <span className="font-bold">{user.fullname}</span>
-              </p>
-              <p className="text-xs text-indigo-700 dark:text-indigo-300 mt-1">
-                Vai trò: {user.role}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Link href="/dashboard">
-                <Button variant="primary" size="sm">
-                  Vào Dashboard
-                </Button>
-              </Link>
-              <Button variant="danger" size="sm" onClick={handleLogout}>
-                Đăng xuất
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
       <div className="mx-auto max-w-4xl text-center">
         <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">
           Welcome to You Link

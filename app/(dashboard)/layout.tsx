@@ -9,7 +9,6 @@ import DashboardHeader from "@/components/ui/DashboardHeader";
 import Sidebar from "./components/Sidebar";
 import SidebarOverlay from "./components/SidebarOverlay";
 import { useSidebar } from "./hooks/useSidebar";
-import { useAuthGuard } from "./hooks/useAuthGuard";
 import { getMenuGroups, MenuGroup } from "./config/menu.config";
 
 export default function DashboardLayout({
@@ -20,7 +19,6 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { isSidebarOpen, closeSidebar, toggleSidebar } = useSidebar();
-  const { shouldRender } = useAuthGuard();
   const [menuGroups, setMenuGroups] = useState<MenuGroup[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -29,38 +27,6 @@ export default function DashboardLayout({
     setIsMounted(true);
     setMenuGroups(getMenuGroups(user?.role));
   }, [user?.role]);
-
-  // Show loading state if checking auth, but limit the time to avoid infinite loading
-  // If loading takes too long, allow render anyway (might be network issue)
-  const [showLoadingTimeout, setShowLoadingTimeout] = useState(false);
-  
-  useEffect(() => {
-    if (!shouldRender) {
-      // Set timeout to show content even if auth check is slow
-      const timer = setTimeout(() => {
-        setShowLoadingTimeout(true);
-      }, 3000); // 3 seconds max loading
-      
-      return () => clearTimeout(timer);
-    } else {
-      setShowLoadingTimeout(false);
-    }
-  }, [shouldRender]);
-  
-  // Show loading only if not timed out
-  if (!shouldRender && !showLoadingTimeout) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
-          <p className="mt-4 text-gray-600">Đang kiểm tra xác thực...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // If timed out or should render, show content
-  // This prevents infinite loading screen
 
   return (
     <HeaderProvider>

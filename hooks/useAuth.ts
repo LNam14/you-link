@@ -65,42 +65,37 @@ export function useAuth(): UseAuthReturn {
         retries++;
       }
 
-      if (!token) {
-        setUser(null);
-        setIsLoading(false);
-        if (!force) {
-          hasCheckedRef.current = true;
+      // Nếu có token trong localStorage, kiểm tra hạn trước khi gọi API
+      if (token) {
+        try {
+          const tokenParts = token.split('.');
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            const exp = payload.exp;
+            if (exp && exp * 1000 < Date.now()) {
+              // Token hết hạn
+              localStorage.removeItem("auth-token");
+              setUser(null);
+              setIsLoading(false);
+              if (!force) {
+                hasCheckedRef.current = true;
+              }
+              isCheckingRef.current = false;
+              return;
+            }
+          }
+        } catch (e) {
+          // Token hỏng thì vẫn tiếp tục gọi API để xác thực bằng cookie
         }
-        isCheckingRef.current = false;
-        return;
       }
 
-      // Check token expiry before making API call
-      try {
-        const tokenParts = token.split('.');
-        if (tokenParts.length === 3) {
-          const payload = JSON.parse(atob(tokenParts[1]));
-          const exp = payload.exp;
-          if (exp && exp * 1000 < Date.now()) {
-            // Token expired
-            localStorage.removeItem("auth-token");
-            setUser(null);
-            setIsLoading(false);
-            if (!force) {
-              hasCheckedRef.current = true;
-            }
-            isCheckingRef.current = false;
-            return;
-          }
-        }
-      } catch (e) {
-        // Invalid token format, continue to API check
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
       }
 
       const response = await fetch("/api/auth/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         credentials: "include",
         cache: "no-store",
       });

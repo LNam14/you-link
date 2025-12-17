@@ -71,10 +71,21 @@ export default function LoginModal({
     }
   };
 
+  const setClientCookie = (token: string) => {
+    const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
+    const maxAge = 60 * 60 * 24 * 3; // 3 ngày
+    document.cookie = `auth-token=${token}; Path=/; SameSite=Lax; Max-Age=${maxAge}${isSecure ? "; Secure" : ""}`;
+  };
+
+  const clearClientCookie = () => {
+    document.cookie = "auth-token=; Path=/; Max-Age=0; SameSite=Lax";
+  };
+
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
       localStorage.removeItem("auth-token");
+      clearClientCookie();
       setIsLoggedIn(false);
       setError("");
       // Reload page to update UI
@@ -95,6 +106,8 @@ export default function LoginModal({
         headers: {
           "Content-Type": "application/json",
         },
+        // Cần include để nhận Set-Cookie (auth-token) từ server
+        credentials: "include",
         body: JSON.stringify(formData),
       });
 
@@ -109,6 +122,8 @@ export default function LoginModal({
         console.log("Saving token to localStorage");
         try {
           localStorage.setItem("auth-token", data.data.token);
+          // Đồng bộ cookie phía client để middleware đọc được ngay
+          setClientCookie(data.data.token);
           console.log("Token saved to localStorage");
           
           // Verify token was saved (important for mobile)

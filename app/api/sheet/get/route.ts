@@ -521,6 +521,15 @@ function filterDataBySearch(
 export async function GET(req: Request) {
     const startTime = Date.now()
     try {
+        // Simple API key guard to tránh lộ dữ liệu khi endpoint công khai
+        const apiKeyHeader = req.headers.get("x-api-key")?.trim()
+        // Ưu tiên key riêng cho server, fallback sang key public để tránh mismatch cấu hình
+        const expectedApiKey = (process.env.SHEET_TOOL_API_KEY || process.env.NEXT_PUBLIC_TOOL_API_KEY || "").trim()
+
+        if (expectedApiKey && apiKeyHeader !== expectedApiKey) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+        }
+
         const url = new URL(req.url)
         const forceRefresh = url.searchParams.get("revalidate") === "1"
         const searchParam = url.searchParams.get("search") || ""

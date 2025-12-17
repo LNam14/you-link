@@ -75,18 +75,20 @@ export default function DashboardHeader({
                 </div>
               </div>
             )}
-            {/* Hamburger Menu Button */}
-            <button
-              onClick={onToggleSidebar}
-              className="cursor-pointer p-2.5 sm:p-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-white/30 hover:scale-105 transition-all text-white flex-shrink-0 shadow-lg"
-              aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
-            >
-              {isSidebarOpen ? (
-                <X className="h-5 w-5 sm:h-6 sm:w-6" />
-              ) : (
-                <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
-              )}
-            </button>
+            {/* Hamburger Menu Button - chỉ hiển thị khi đã đăng nhập */}
+            {user && (
+              <button
+                onClick={onToggleSidebar}
+                className="cursor-pointer p-2.5 sm:p-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-white/30 hover:scale-105 transition-all text-white flex-shrink-0 shadow-lg"
+                aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
+              >
+                {isSidebarOpen ? (
+                  <X className="h-5 w-5 sm:h-6 sm:w-6" />
+                ) : (
+                  <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
+                )}
+              </button>
+            )}
           </div>
         </div>
 

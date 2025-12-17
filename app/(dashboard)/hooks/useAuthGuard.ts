@@ -10,12 +10,10 @@ export function useAuthGuard() {
 
   // Force check auth when entering dashboard (in case token was just set)
   useEffect(() => {
-    // Check if we have a token but user is not authenticated yet
-    const token = localStorage.getItem("auth-token");
     const isRedirecting = sessionStorage.getItem("auth-redirecting") === "true";
     
-    // If we have a token but not authenticated, and not already checking, check auth
-    if (token && !isAuthenticated && !isLoading && !isCheckingAuth && !isRedirecting) {
+    // Nếu chưa authenticated và không bận check, luôn cưỡng bức checkAuth
+    if (!isAuthenticated && !isLoading && !isCheckingAuth && !isRedirecting) {
       if (!hasCheckedOnMountRef.current) {
         hasCheckedOnMountRef.current = true;
         // On mobile, wait a bit longer before checking to ensure localStorage is ready
@@ -35,10 +33,7 @@ export function useAuthGuard() {
           }
         }, delay);
       }
-    } else if (!token && !isAuthenticated && !isLoading) {
-      // No token and not authenticated, mark as checked
-      hasCheckedOnMountRef.current = true;
-    }
+    } 
     
     return () => {
       if (checkAuthTimeoutRef.current) {
@@ -62,12 +57,10 @@ export function useAuthGuard() {
       const delay = isMobile ? 1500 : 800; // Increased delay to ensure checkAuth completes
       
       const timer = setTimeout(() => {
-        // Triple-check: token, isAuthenticated state, and check if we're in redirect loop
-        const token = localStorage.getItem("auth-token");
         const isRedirecting = sessionStorage.getItem("auth-redirecting") === "true";
         
-        // Don't redirect if token exists (might still be validating) or already redirecting
-        if (!token && !isAuthenticated && !isRedirecting) {
+        // Don't redirect if we're already redirecting
+        if (!isAuthenticated && !isRedirecting) {
           hasRedirectedRef.current = true;
           sessionStorage.setItem("auth-redirecting", "true");
           // Clear the flag after a short delay to allow normal navigation
@@ -85,19 +78,9 @@ export function useAuthGuard() {
     }
   }, [isLoading, isAuthenticated, isCheckingAuth]);
 
-  // Render logic:
-  // - Always render if authenticated (show content immediately)
-  // - Render if loading or checking auth (but with timeout to prevent infinite loading)
-  // - Only don't render if definitely not authenticated AND not checking AND no token
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth-token") : null;
-  
-  // If authenticated, always render
-  // If we have a token, render (might be validating)
-  // If loading or checking, render (but will show loading state)
-  const shouldRender = isAuthenticated || isLoading || isCheckingAuth || !!token;
+  // Render logic: cho phép render khi đang loading/checking hoặc đã authenticated
+  const shouldRender = isAuthenticated || isLoading || isCheckingAuth;
 
-  // If authenticated, don't show loading state
-  // Only show loading if we're actually checking and not authenticated yet
   const showLoading = (isLoading || isCheckingAuth) && !isAuthenticated;
 
   return {

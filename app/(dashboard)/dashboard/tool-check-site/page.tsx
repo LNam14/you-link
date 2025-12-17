@@ -2533,10 +2533,12 @@ export default function PageBody() {
                                                     className="px-3 py-1.5 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors shadow-sm"
                                                 >
                                                     <option value={10}>10</option>
-                                                    <option value={20}>20</option>
-                                                    <option value={30}>30</option>
-                                                    <option value={40}>40</option>
                                                     <option value={50}>50</option>
+                                                    <option value={100}>100</option>
+                                                    <option value={200}>200</option>
+                                                    <option value={300}>300</option>
+                                                    <option value={400}>400</option>
+                                                    <option value={500}>500</option>
                                                 </select>
                                                 <span className="text-sm text-gray-600 whitespace-nowrap">dữ liệu/trang</span>
                                             </div>

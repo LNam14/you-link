@@ -14,59 +14,59 @@ export default function PublicLayout({
   const [user, setUser] = useState<any>(null);
   const [isChecking, setIsChecking] = useState(true);
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
+  // useEffect(() => {
+  //   checkAuth();
+  // }, []);
 
-  const checkAuth = async () => {
-    try {
-      // Don't redirect if we're in the middle of a redirect (prevent loop)
-      const isRedirecting = sessionStorage.getItem("auth-redirecting") === "true";
-      if (isRedirecting) {
-        setIsChecking(false);
-        return;
-      }
+  // const checkAuth = async () => {
+  //   try {
+  //     // Don't redirect if we're in the middle of a redirect (prevent loop)
+  //     const isRedirecting = sessionStorage.getItem("auth-redirecting") === "true";
+  //     if (isRedirecting) {
+  //       setIsChecking(false);
+  //       return;
+  //     }
       
-      const token = localStorage.getItem("auth-token");
-      if (!token) {
-        setIsChecking(false);
-        return;
-      }
+  //     const token = localStorage.getItem("auth-token");
+  //     if (!token) {
+  //       setIsChecking(false);
+  //       return;
+  //     }
 
-      const response = await fetch("/api/auth/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        credentials: "include",
-        cache: "no-store",
-      });
+  //     const response = await fetch("/api/auth/me", {
+  //       headers: {
+  //         Authorization: `Bearer ${token}`,
+  //       },
+  //       credentials: "include",
+  //       cache: "no-store",
+  //     });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data) {
-          setUser(data.data);
-          // If user is logged in, redirect to dashboard (with delay on mobile)
-          const isMobile = typeof window !== "undefined" && /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
-          const delay = isMobile ? 500 : 200;
+  //     if (response.ok) {
+  //       const data = await response.json();
+  //       if (data.success && data.data) {
+  //         setUser(data.data);
+  //         // If user is logged in, redirect to dashboard (with delay on mobile)
+  //         const isMobile = typeof window !== "undefined" && /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
+  //         const delay = isMobile ? 500 : 200;
           
-          setTimeout(() => {
-            if (!sessionStorage.getItem("auth-redirecting")) {
-              sessionStorage.setItem("auth-redirecting", "true");
-              window.location.href = "/dashboard";
-            }
-          }, delay);
-          return;
-        }
-      } else {
-        localStorage.removeItem("auth-token");
-      }
-    } catch (error) {
-      console.error("Auth check error:", error);
-      localStorage.removeItem("auth-token");
-    } finally {
-      setIsChecking(false);
-    }
-  };
+  //         setTimeout(() => {
+  //           if (!sessionStorage.getItem("auth-redirecting")) {
+  //             sessionStorage.setItem("auth-redirecting", "true");
+  //             window.location.href = "/dashboard";
+  //           }
+  //         }, delay);
+  //         return;
+  //       }
+  //     } else {
+  //       localStorage.removeItem("auth-token");
+  //     }
+  //   } catch (error) {
+  //     console.error("Auth check error:", error);
+  //     localStorage.removeItem("auth-token");
+  //   } finally {
+  //     setIsChecking(false);
+  //   }
+  // };
 
   const handleLogout = async () => {
     try {
@@ -79,11 +79,11 @@ export default function PublicLayout({
     }
   };
 
-  const handleLoginSuccess = () => {
-    // LoginModal will handle the redirect, so we don't need to do it here
-    // This prevents double redirect
-    checkAuth();
-  };
+  // const handleLoginSuccess = () => {
+  //   // LoginModal will handle the redirect, so we don't need to do it here
+  //   // This prevents double redirect
+  //   checkAuth();
+  // };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -206,12 +206,12 @@ export default function PublicLayout({
         </div>
       </footer>
 
-      {/* Login Modal */}
+      {/* Login Modal 
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
         onSuccess={handleLoginSuccess}
-      />
+      />*/}
     </div>
   );
 }

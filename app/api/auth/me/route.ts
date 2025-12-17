@@ -11,7 +11,11 @@ export async function GET(request: NextRequest) {
     // Get token from header or cookie
     const token = getAuthTokenOptional(request);
     
+    console.log("token1", token);
+    
     if (!token) {
+      console.log("token2", token);
+      console.log("errorResponse", errorResponse(new Error("Authentication required"), 401));
       return errorResponse(new Error("Authentication required"), 401);
     }
 
@@ -20,7 +24,8 @@ export async function GET(request: NextRequest) {
 
     // Get full user information
     const user = await authService.getCurrentUser(decoded.userId);
-
+ console.log("user", user);
+ console.log("decoded", decoded);
     // Check if username in token matches current username in DB
     // If username was changed by admin, user should be logged out
     if (user.username !== decoded.username) {
