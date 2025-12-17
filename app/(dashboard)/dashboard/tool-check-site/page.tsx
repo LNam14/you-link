@@ -465,6 +465,7 @@ export default function PageBody() {
 
         // Start with data source
         let dataToProcess: SiteData[] = []
+        let normalizedSearchTerms: string[] = []
 
         // Check if we have active filters
         const hasActiveFilters = Object.keys(filters).some(key => filters[key] !== undefined && filters[key] !== "")
@@ -494,6 +495,9 @@ export default function PageBody() {
                         .filter((term) => term.trim().length > 0)
                         .map((term) => term.trim().toUpperCase())
                 }
+
+                // Lưu thứ tự term sau khi normalize để tái tạo đúng thứ tự hiển thị
+                normalizedSearchTerms = [...validTerms]
 
                 if (validTerms.length === 0) {
                     setFilteredData([])
@@ -676,42 +680,35 @@ export default function PageBody() {
                 }
             })
             
-            // Sau khi group, cần đảm bảo số lượng items trong mainItems phù hợp với số lần tìm kiếm
-            // Nếu có nhiều search terms giống nhau, cần duplicate items tương ứng
-            if (hasSearchTerm) {
-                const searchTerms = searchValue.split(/[,\n\s]+/).filter((term) => term.trim() !== "")
-                const validTerms = searchTerms.map((term) => normalizeUrl(term.trim())).filter((term) => term !== "")
-                
-                // Đếm số lần mỗi term xuất hiện
-                const termCounts = new Map<string, number>()
-                validTerms.forEach((term) => {
-                    termCounts.set(term, (termCounts.get(term) || 0) + 1)
+            // Khôi phục thứ tự hiển thị đúng theo thứ tự người dùng nhập (kể cả term trùng lặp)
+            if (hasSearchTerm && normalizedSearchTerms.length > 0) {
+                const siteToMainItem = new Map<string, SiteData>()
+                mainItems.forEach((item) => {
+                    const normalizedSite = normalizeUrl(item.site)
+                    siteToMainItem.set(normalizedSite, item)
                 })
-                
-                // Tạo lại mainItems dựa trên số lần mỗi term xuất hiện
-                const newMainItems: SiteData[] = []
-                termCounts.forEach((count, term) => {
-                    // Tìm items match với term này trong mainItems hiện tại
-                    const matchingItems = mainItems.filter((item) => {
-                        const normalizedSite = normalizeUrl(item.site)
-                        return normalizedSite === term
-                    })
-                    
-                    // Nếu có items match, thêm vào newMainItems theo số lần count
-                    if (matchingItems.length > 0) {
-                        // Thêm item đầu tiên count lần (để đúng với số lần tìm kiếm)
-                        for (let i = 0; i < count; i++) {
-                            newMainItems.push(matchingItems[0])
-                        }
-                        // Nếu có nhiều items unique cho cùng 1 site (không nên xảy ra sau khi group), thêm các items còn lại
-                        if (matchingItems.length > 1) {
-                            newMainItems.push(...matchingItems.slice(1))
-                        }
+
+                const orderedMainItems: SiteData[] = []
+                normalizedSearchTerms.forEach((term) => {
+                    const normalizedTerm = normalizeUrl(term)
+                    const matched = siteToMainItem.get(normalizedTerm)
+                    if (matched) {
+                        orderedMainItems.push(matched)
                     }
                 })
-                
-                // Cập nhật mainItems với kết quả mới
-                mainItems = newMainItems
+
+                // Nếu có site thỏa điều kiện nhưng không có trong danh sách term (trường hợp hiếm),
+                // thêm chúng ở cuối để không bị mất dữ liệu
+                if (orderedMainItems.length < mainItems.length) {
+                    const orderedSet = new Set(orderedMainItems)
+                    mainItems.forEach((item) => {
+                        if (!orderedSet.has(item)) {
+                            orderedMainItems.push(item)
+                        }
+                    })
+                }
+
+                mainItems = orderedMainItems
             }
         } else {
             // For filter-only or NCC search, show all items
