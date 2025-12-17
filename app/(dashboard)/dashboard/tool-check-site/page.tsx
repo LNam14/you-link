@@ -182,6 +182,8 @@ export default function PageBody() {
 
     // Track khi đang tải dữ liệu từ nút "Tải dữ liệu"
     const isLoadingDataRef = useRef(false)
+    // Đánh dấu cần auto-apply kết quả ngay sau khi tải xong
+    const autoApplyAfterLoadRef = useRef(false)
 
     // Lưu dữ liệu vào localData khi allData được fetch từ nút "Tải dữ liệu"
     useEffect(() => {
@@ -191,13 +193,8 @@ export default function PageBody() {
             setLocalData([...allData])
             setDataLoaded(true)
             setIsSearching(false)
-            setHasSearched(true)
-            setSearchCompleted(true)
+            autoApplyAfterLoadRef.current = true // Kích hoạt auto apply để hiển thị ngay
             isLoadingDataRef.current = false // Reset flag
-            // Hiển thị dữ liệu ngay khi tải xong
-            if (applySearchAndFiltersRef.current) {
-                applySearchAndFiltersRef.current("")
-            }
         }
     }, [allData, loading, refreshing])
 
@@ -733,6 +730,16 @@ export default function PageBody() {
     useEffect(() => {
         applySearchAndFiltersRef.current = applySearchAndFilters
     }, [applySearchAndFilters])
+
+    // Tự động hiển thị dữ liệu vừa tải vào table ngay sau khi tải xong
+    useEffect(() => {
+        if (!dataLoaded || localData.length === 0) return
+        if (!autoApplyAfterLoadRef.current) return
+
+        const normalizedSearch = searchTerm && searchTerm.trim() ? searchTerm : ""
+        applySearchAndFiltersRef.current?.(normalizedSearch)
+        autoApplyAfterLoadRef.current = false
+    }, [dataLoaded, localData, searchTerm])
 
     // Convert filters to API format - memoized to avoid recalculation
     const apiFilters = useMemo(() => {
