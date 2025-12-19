@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     // Lấy thông tin user đầy đủ (cần fullname và telegram)
     const user = await authService.getCurrentUser(userId);
     const fullname = user.fullname || user.username;
-    const telegram = user.telegram || user.phone || user.username;
+    const telegram = user.telegram ||user.username;
 
     // Lấy ngày hiện tại (YYYY-MM-DD) - sử dụng lại biến now đã tạo ở trên
     const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
