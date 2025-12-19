@@ -23,6 +23,17 @@ const ANIMALS: Animal[] = [
   { type: "tom", name: "Tôm", image: "/bau-cua/tom.jpg" },
 ];
 
+/**
+ * Get current time in Vietnam timezone (UTC+7) - Client-side version
+ */
+function getVietnamTime(): Date {
+  const now = new Date();
+  // Get UTC time and add 7 hours for Vietnam timezone
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
+  const vietnamTime = new Date(utcTime + (7 * 60 * 60 * 1000));
+  return vietnamTime;
+}
+
 export default function BauCua() {
   const { user } = useAuth();
   const [selectedAnimal, setSelectedAnimal] = useState<AnimalType | null>(null);
@@ -32,27 +43,27 @@ export default function BauCua() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [newChoice, setNewChoice] = useState<AnimalType | null>(null);
-  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const [currentTime, setCurrentTime] = useState<Date>(getVietnamTime());
 
   // Set isClient to true after mount
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // Update current time every minute
+  // Update current time every minute - sử dụng múi giờ Việt Nam
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date());
+      setCurrentTime(getVietnamTime());
     }, 60000); // Update every minute
 
     return () => clearInterval(timer);
   }, []);
 
-  // Kiểm tra thời gian có nằm trong khoảng 12:00 - 22:55 không
+  // Kiểm tra thời gian có nằm trong khoảng 12:00 - 22:55 không - sử dụng múi giờ Việt Nam
   const isWithinAllowedHours = () => {
-    const now = currentTime;
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
+    const vietnamNow = getVietnamTime();
+    const hours = vietnamNow.getHours();
+    const minutes = vietnamNow.getMinutes();
     const currentMinutes = hours * 60 + minutes;
     const startMinutes = 12 * 60; // 12:00
     const endMinutes = 22 * 60 + 55; // 22:55

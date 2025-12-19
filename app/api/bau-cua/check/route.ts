@@ -3,6 +3,7 @@ import { BauCuaRepository } from "@/lib/repositories/bau-cua.repository";
 import { getAuthToken } from "@/lib/utils/auth";
 import { verifyToken } from "@/lib/utils/jwt";
 import { successResponse, errorResponse } from "@/lib/utils/response";
+import { getVietnamDate } from "@/lib/utils/date";
 
 const bauCuaRepository = new BauCuaRepository();
 
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
     const decoded = verifyToken(token);
     const username = decoded.username;
 
-    // Lấy date từ query params hoặc dùng ngày hôm nay
+    // Lấy date từ query params hoặc dùng ngày hôm nay - sử dụng múi giờ Việt Nam
     const searchParams = request.nextUrl.searchParams;
     const dateParam = searchParams.get("date");
 
@@ -29,8 +30,7 @@ export async function GET(request: NextRequest) {
     if (dateParam) {
       date = dateParam;
     } else {
-      const now = new Date();
-      date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      date = getVietnamDate();
     }
 
     // Kiểm tra xem user đã chọn chưa

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { BauCuaRepository, AnimalType } from "@/lib/repositories/bau-cua.repository";
 import { TelegramService } from "@/lib/services/telegram.service";
 import { successResponse, errorResponse } from "@/lib/utils/response";
+import { getVietnamTime, getVietnamDate, formatVietnamTime } from "@/lib/utils/date";
 
 const bauCuaRepository = new BauCuaRepository();
 const telegramService = new TelegramService();
@@ -24,13 +25,12 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const dateParam = searchParams.get("date");
 
-    // Nếu không có date, dùng ngày hôm nay
+    // Nếu không có date, dùng ngày hôm nay - sử dụng múi giờ Việt Nam
     let date: string;
     if (dateParam) {
       date = dateParam;
     } else {
-      const now = new Date();
-      date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      date = getVietnamDate();
     }
 
     // Lấy thống kê
@@ -53,9 +53,8 @@ export async function GET(request: NextRequest) {
     const [year, month, day] = date.split("-");
     const displayDate = `${day}/${month}/${year}`;
 
-    // Tạo message kết quả
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    // Tạo message kết quả - sử dụng múi giờ Việt Nam
+    const timeStr = formatVietnamTime();
 
     let resultMessage = `🎉 KẾT QUẢ BẦU CUA HÔM NAY 🎉\n\n`;
 

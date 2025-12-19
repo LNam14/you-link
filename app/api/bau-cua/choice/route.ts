@@ -5,7 +5,7 @@ import { AuthService } from "@/lib/services/auth.service";
 import { getAuthToken } from "@/lib/utils/auth";
 import { verifyToken } from "@/lib/utils/jwt";
 import { successResponse, errorResponse } from "@/lib/utils/response";
-import { formatDateTime } from "@/lib/utils/date";
+import { formatDateTime, getVietnamTime, getVietnamHours, getVietnamMinutes, formatVietnamTime, getVietnamDate } from "@/lib/utils/date";
 
 const bauCuaRepository = new BauCuaRepository();
 const telegramService = new TelegramService();
@@ -39,10 +39,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Kiểm tra thời gian (chỉ cho phép từ 12:00 đến 22:55)
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
+    // Kiểm tra thời gian (chỉ cho phép từ 12:00 đến 22:55) - sử dụng múi giờ Việt Nam
+    const vietnamNow = getVietnamTime();
+    const hours = getVietnamHours();
+    const minutes = getVietnamMinutes();
     const currentMinutes = hours * 60 + minutes;
     const startMinutes = 12 * 60; // 12:00
     const endMinutes = 22 * 60 + 55; // 22:55
@@ -69,8 +69,8 @@ export async function POST(request: NextRequest) {
     const fullname = user.fullname || user.username;
     const telegram = user.telegram ||user.username;
 
-    // Lấy ngày hiện tại (YYYY-MM-DD) - sử dụng lại biến now đã tạo ở trên
-    const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    // Lấy ngày hiện tại (YYYY-MM-DD) - sử dụng múi giờ Việt Nam
+    const date = getVietnamDate();
 
     // Kiểm tra xem user đã chọn trong ngày hôm nay chưa
     const existingChoice = await bauCuaRepository.getUserChoice(date, username);
@@ -81,8 +81,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Lưu lựa chọn
-    const timestamp = formatDateTime(now);
+    // Lưu lựa chọn - sử dụng múi giờ Việt Nam
+    const timestamp = formatDateTime(vietnamNow);
     await bauCuaRepository.saveChoice({
       animal: body.animal,
       fullname,
@@ -91,9 +91,9 @@ export async function POST(request: NextRequest) {
       date,
     });
 
-    // Gửi tin nhắn Telegram
+    // Gửi tin nhắn Telegram - sử dụng múi giờ Việt Nam
     const telegramHandle = telegram.replace("@", "");
-    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const timeStr = formatVietnamTime();
     
     const message = `🎲 BẦU CUA TÔM CÁ 🎲\n\n` +
       `👤 Người chơi: ${fullname} (@${telegramHandle})\n` +
