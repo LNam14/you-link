@@ -134,6 +134,9 @@ export default function PageBody() {
     const [showFilters, setShowFilters] = useState(false)
     const [filters, setFilters] = useState<{ [key: string]: string | undefined }>({})
     const [selectedTopics, setSelectedTopics] = useState<string[]>([])
+    const [selectedExtensions, setSelectedExtensions] = useState<string[]>([])
+    const [extensionSearchInput, setExtensionSearchInput] = useState<string>("")
+    const [showExtensionDropdown, setShowExtensionDropdown] = useState(false)
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage, setItemsPerPage] = useState(10)
     const [localData, setLocalData] = useState<SiteData[]>([]) // Dữ liệu đã tải vào table
@@ -223,12 +226,38 @@ export default function PageBody() {
         })
     }, [selectedSearchType, selectedCurrency, selectedBrand, exchangeRate, loading, refreshing, isStale, setHeaderData, fetchData])
 
+    // Sync selectedExtensions with filters["Site"] when filter is cleared externally
+    useEffect(() => {
+        const siteFilter = filters["Site"]
+        if (!siteFilter) {
+            // If filter is cleared, clear selectedExtensions
+            setSelectedExtensions([])
+        } else {
+            // Parse extensions from filter and sync with selectedExtensions
+            const extensions = siteFilter.split(",").map(ext => {
+                const trimmed = ext.trim().toLowerCase()
+                return trimmed.startsWith(".") ? trimmed : `.${trimmed}`
+            }).filter(ext => ext.length > 0)
+            
+            // Update selectedExtensions only if different
+            setSelectedExtensions((prev) => {
+                const prevStr = [...prev].sort().join(",")
+                const newStr = [...extensions].sort().join(",")
+                if (prevStr !== newStr) {
+                    return extensions
+                }
+                return prev
+            })
+        }
+    }, [filters["Site"]])
+
     // Add click outside handler
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             const target = event.target as HTMLElement
             const isClickInsideTable = target.closest(".handsontable")
             const isClickOnMobileCopy = target.closest("#mobile-copy-btn")
+            const isClickOnExtensionDropdown = target.closest("[data-extension-dropdown]")
 
             if (!isClickInsideTable && !isClickOnMobileCopy) {
                 // Clear selection for main table
@@ -243,13 +272,18 @@ export default function PageBody() {
                     duplicatesTableInstance.deselectCell()
                 }
             }
+
+            // Close extension dropdown if clicking outside
+            if (!isClickOnExtensionDropdown && showExtensionDropdown) {
+                setShowExtensionDropdown(false)
+            }
         }
 
         document.addEventListener("mousedown", handleClickOutside)
         return () => {
             document.removeEventListener("mousedown", handleClickOutside)
         }
-    }, [])
+    }, [showExtensionDropdown])
 
 
     // Note: Removed auto-search on data load - user must click search button
@@ -428,9 +462,95 @@ export default function PageBody() {
         })
     }, [])
 
+    const handleExtensionSelection = useCallback((extension: string) => {
+        setSelectedExtensions((prevExtensions) => {
+            // Normalize extension: ensure it starts with . and is lowercase
+            const normalizedExt = extension.toLowerCase().startsWith(".") 
+                ? extension.toLowerCase() 
+                : `.${extension.toLowerCase()}`
+            
+            const isSelected = prevExtensions.includes(normalizedExt)
+            const newExtensions = isSelected
+                ? prevExtensions.filter((e) => e !== normalizedExt)
+                : [...prevExtensions, normalizedExt]
+            
+            // Update filters
+            setFilters((prevFilters) => ({
+                ...prevFilters,
+                "Site": newExtensions.length > 0 ? newExtensions.join(",") : undefined,
+            }))
+            
+            return newExtensions
+        })
+    }, [])
+
+    // Parse and add extensions from input (supports space or comma separated)
+    const parseAndAddExtensions = useCallback((input: string) => {
+        if (!input.trim()) {
+            return
+        }
+
+        // Split by space or comma
+        const parts = input.split(/[\s,]+/).filter(part => part.trim().length > 0)
+        
+        const newExtensions: string[] = []
+        
+        for (const part of parts) {
+            const trimmed = part.trim().toLowerCase()
+            if (!trimmed) continue
+            
+            // Normalize extension: ensure it starts with .
+            let normalizedExt = trimmed.startsWith(".") ? trimmed : `.${trimmed}`
+            
+            // Remove any extra dots
+            normalizedExt = normalizedExt.replace(/^\.+/, ".")
+            
+            // Validate extension format (only letters and numbers after the dot)
+            const cleanPart = normalizedExt.substring(1) // Remove leading dot
+            if (/^[a-zA-Z0-9]+$/.test(cleanPart) && cleanPart.length > 0) {
+                // Add if not already selected
+                if (!selectedExtensions.includes(normalizedExt) && !newExtensions.includes(normalizedExt)) {
+                    newExtensions.push(normalizedExt)
+                }
+            }
+        }
+        
+        // Add all new extensions
+        if (newExtensions.length > 0) {
+            setSelectedExtensions((prev) => {
+                const updated = [...prev, ...newExtensions]
+                // Update filters
+                setFilters((prevFilters) => ({
+                    ...prevFilters,
+                    "Site": updated.length > 0 ? updated.join(",") : undefined,
+                }))
+                return updated
+            })
+            // Clear input after adding
+            setExtensionSearchInput("")
+        }
+    }, [selectedExtensions])
+
+    // Get available extensions for display (filter defaults by search)
+    const availableExtensions = useMemo(() => {
+        const defaults = [".br", ".ph", ".edu", ".vn"]
+        const searchLower = extensionSearchInput.trim().toLowerCase()
+        
+        if (!searchLower) {
+            return defaults
+        }
+        
+        // Filter defaults by search
+        return defaults.filter(ext => 
+            ext.toLowerCase().includes(searchLower)
+        )
+    }, [extensionSearchInput])
+
     const resetFilters = useCallback(() => {
         setFilters({})
         setSelectedTopics([])
+        setSelectedExtensions([])
+        setExtensionSearchInput("")
         // Clear results if no search term
         if (!searchTerm || !searchTerm.trim()) {
             setFilteredData([])
@@ -998,16 +1118,23 @@ export default function PageBody() {
             }
         }
 
-        // Site .vn filter
+        // Site extension filter (multiple extensions, case-insensitive)
         if (filters["Site"]) {
             const siteValue = filters["Site"]
             const itemSite = (item.site || "").toLowerCase()
-            const isVnSite = itemSite.endsWith(".vn")
-            if (siteValue === "yes" && !isVnSite) {
-                return false
-            }
-            if (siteValue === "no" && isVnSite) {
-                return false
+            
+            // Parse extensions from filter (comma-separated)
+            const extensions = siteValue.split(",").map(ext => {
+                const trimmed = ext.trim().toLowerCase()
+                return trimmed.startsWith(".") ? trimmed : `.${trimmed}`
+            }).filter(ext => ext.length > 0)
+            
+            if (extensions.length > 0) {
+                // Check if site ends with any of the selected extensions
+                const matchesExtension = extensions.some(ext => itemSite.endsWith(ext))
+                if (!matchesExtension) {
+                    return false
+                }
             }
         }
 
@@ -2829,39 +2956,120 @@ export default function PageBody() {
                                         </div>
                                     </div>
 
-                                    {/* Site .vn */}
+                                    {/* Site Extension Filter */}
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
                                         <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
                                             <Globe className="w-4 h-4 text-green-500" />
-                                            Site .vn
+                                            Đuôi Site
                                         </h3>
-                                        <div className="flex gap-3">
-                                            <label className="flex items-center cursor-pointer group">
-                                                <input
-                                                    type="radio"
-                                                    className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                                                    name="siteVN"
-                                                    value="yes"
-                                                    checked={filters["Site"] === "yes"}
-                                                    onChange={(e) => handleFilterChange("Site", e.target.value)}
-                                                />
-                                                <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
-                                                    Có
+                                        <div className="relative" data-extension-dropdown>
+                                            {/* Multi-select button */}
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowExtensionDropdown(!showExtensionDropdown)}
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm text-left flex items-center justify-between"
+                                            >
+                                                <span className="text-gray-700">
+                                                    {selectedExtensions.length > 0
+                                                        ? `${selectedExtensions.length} đuôi đã chọn`
+                                                        : "Chọn đuôi site..."}
                                                 </span>
-                                            </label>
-                                            <label className="flex items-center cursor-pointer group">
-                                                <input
-                                                    type="radio"
-                                                    className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                                                    name="siteVN"
-                                                    value="no"
-                                                    checked={filters["Site"] === "no"}
-                                                    onChange={(e) => handleFilterChange("Site", e.target.value)}
+                                                <ChevronRight
+                                                    className={`w-4 h-4 text-gray-500 transition-transform ${
+                                                        showExtensionDropdown ? "rotate-90" : ""
+                                                    }`}
                                                 />
-                                                <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
-                                                    Không
-                                                </span>
-                                            </label>
+                                            </button>
+                                            
+                                            {/* Dropdown menu */}
+                                            {showExtensionDropdown && (
+                                                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-hidden">
+                                                    {/* Search input */}
+                                                    <div className="p-2 border-b border-gray-200">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Nhập đuôi xong ấn enter"
+                                                            className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                            value={extensionSearchInput}
+                                                            onChange={(e) => {
+                                                                const value = e.target.value
+                                                                setExtensionSearchInput(value)
+                                                                
+                                                                // Auto-parse when user types space or comma (indicating multiple extensions)
+                                                                if (/[\s,]+/.test(value)) {
+                                                                    // Parse all extensions including the one before the separator
+                                                                    parseAndAddExtensions(value)
+                                                                }
+                                                            }}
+                                                            onBlur={(e) => {
+                                                                // Parse and add when user leaves the input
+                                                                if (extensionSearchInput.trim()) {
+                                                                    parseAndAddExtensions(extensionSearchInput)
+                                                                }
+                                                            }}
+                                                            onKeyDown={(e) => {
+                                                                // Parse on Enter or Space
+                                                                if (e.key === "Enter" && extensionSearchInput.trim()) {
+                                                                    e.preventDefault()
+                                                                    parseAndAddExtensions(extensionSearchInput)
+                                                                }
+                                                            }}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    </div>
+                                                    
+                                                    {/* Options list */}
+                                                    <div className="max-h-48 overflow-y-auto">
+                                                        {availableExtensions.length > 0 ? (
+                                                            availableExtensions.map((ext) => (
+                                                                <label
+                                                                    key={ext}
+                                                                    className="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                                        checked={selectedExtensions.includes(ext)}
+                                                                        onChange={() => handleExtensionSelection(ext)}
+                                                                    />
+                                                                    <span className="ml-2 text-sm text-gray-700">{ext}</span>
+                                                                </label>
+                                                            ))
+                                                        ) : (
+                                                            <div className="px-3 py-2 text-xs text-gray-500">
+                                                                Đã thêm đuôi này vào danh sách tìm kiếm
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    
+                                                    {/* Selected extensions tags */}
+                                                    {selectedExtensions.length > 0 && (
+                                                        <div className="p-2 border-t border-gray-200 bg-gray-50">
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {selectedExtensions.map((ext) => (
+                                                                    <span
+                                                                        key={ext}
+                                                                        className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium"
+                                                                    >
+                                                                        {ext}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation()
+                                                                                handleExtensionSelection(ext)
+                                                                            }}
+                                                                            className="hover:text-blue-600"
+                                                                        >
+                                                                            <X className="w-3 h-3" />
+                                                                        </button>
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 

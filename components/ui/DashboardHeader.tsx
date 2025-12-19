@@ -26,7 +26,7 @@ export default function DashboardHeader({
     <header className="z-30 bg-gradient-to-r from-blue-500 to-blue-900 shadow-lg">
       <div className="p-4">
         {/* Row 1: Title + SubTitle (left) | User Info + Menu (right) */}
-        <div className="flex items-start justify-between gap-4 mb-3">
+        <div className="flex items-center justify-between gap-4">
           {/* Left side - Title and SubTitle */}
           <div className="flex flex-col flex-shrink-0 min-w-0">
             {title && (

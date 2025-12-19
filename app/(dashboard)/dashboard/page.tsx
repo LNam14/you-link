@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useHeader } from "../contexts/HeaderContext";
+import BauCua from "@/components/bau-cua/BauCua";
 
 export default function DashboardPage() {
   const { setHeaderData } = useHeader();
@@ -21,8 +22,8 @@ export default function DashboardPage() {
   }, [setHeaderData]);
 
   return (
-    <div className="p-6">
-      <div className="bg-white rounded-lg shadow-lg p-6 flex flex-col items-center justify-center min-h-[400px]">
+    <div>
+      {/* <div className="bg-white rounded-lg shadow-lg p-6 flex flex-col items-center justify-center min-h-[400px]">
       <Link href="/" className="flex items-center space-x-1 text-4xl font-bold group">
                 <span className="relative bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-500 transition-all duration-300 group-hover:drop-shadow-lg">
                   You
@@ -48,7 +49,8 @@ export default function DashboardPage() {
         <p className="text-gray-600 text-lg">
           Chào mừng đến với hệ thống quản lý You Link
         </p>
-      </div>
+      </div> */}
+      <BauCua />
     </div>
   );
 }

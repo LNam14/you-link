@@ -1,4 +1,4 @@
-import { Home, Users, UserCircle, Calendar, DollarSign, ClipboardList, FileText, Package, LayoutGrid, LucideIcon } from "lucide-react";
+import { Home, Users, UserCircle, Calendar, DollarSign, ClipboardList, FileText, Package, LayoutGrid, Dice6, LucideIcon } from "lucide-react";
 
 export interface MenuItem {
   href: string;
