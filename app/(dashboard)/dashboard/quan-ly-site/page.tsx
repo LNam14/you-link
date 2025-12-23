@@ -1454,6 +1454,7 @@ export default function PageBody() {
         }
 
         setIsDeleting(true)
+        setIsSearching(true)
         try {
             if (newRowIndexes.length) {
                 console.log("[delete] removing new rows (unsaved):", newRowIndexes)
@@ -1536,6 +1537,7 @@ export default function PageBody() {
             toast.error(`Xóa dữ liệu thất bại: ${error?.message || "Không thể xóa"}`)
         } finally {
             setIsDeleting(false)
+            setIsSearching(false)
         }
     }, [filteredData, newRows, newRowsSheetMap, selectedSearchType, getRowsFromSelection, getRowKey])
 
