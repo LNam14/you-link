@@ -236,16 +236,47 @@ export function useSheetToolData(
         if (filterParams.chuDe) searchParams.set("chuDe", filterParams.chuDe);
       }
       
-      const url = `/api/sheet/get?${searchParams.toString()}`;
-        
-      const response = await fetch(url, {
-        method: "GET",
-        headers,
-        credentials: "include",
-        // Luôn bỏ qua cache trình duyệt để đảm bảo bắt kịp thay đổi sheet.
-        // Máy chủ đã tự quản lý cache và tự reset khi sheet đổi.
-        cache: "no-store",
-      });
+      const buildUrl = (base?: string) => {
+        const normalizedBase = base ? base.replace(/\/$/, "") : "";
+        const prefix = normalizedBase || "";
+        return `${prefix}/api/sheet/get?${searchParams.toString()}`;
+      };
+
+      const candidateUrls: string[] = [];
+      if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+        candidateUrls.push(buildUrl(process.env.NEXT_PUBLIC_API_BASE_URL));
+      }
+      candidateUrls.push(buildUrl());
+      if (typeof window !== "undefined") {
+        candidateUrls.push(buildUrl(window.location.origin));
+      }
+
+      let response: Response | null = null;
+      let lastError: any = null;
+
+      for (const url of candidateUrls) {
+        try {
+          response = await fetch(url, {
+            method: "GET",
+            headers,
+            credentials: "include",
+            cache: "no-store",
+          });
+
+          if (response.status !== 404) {
+            break;
+          }
+          // If 404, try next candidate
+          lastError = new Error(`HTTP 404 at ${url}`);
+        } catch (err) {
+          lastError = err;
+          continue;
+        }
+      }
+
+      if (!response) {
+        throw lastError || new Error("Không thể kết nối API sheet/get");
+      }
 
       // Handle 304 Not Modified
       if (response.status === 304) {

@@ -86,10 +86,12 @@ export default function PageBody() {
     const [newRows, setNewRows] = useState<SiteData[]>([]) // Các site mới thêm, luôn hiển thị
     const [localAddedRows, setLocalAddedRows] = useState<SiteData[]>([]) // Các site đã lưu thành công nhưng chưa refetch
     const [localUpdatedRows, setLocalUpdatedRows] = useState<Map<string, SiteData>>(new Map()) // Cache các dòng đã update để không cần refetch
+    const [localRemovedKeys, setLocalRemovedKeys] = useState<Set<string>>(new Set()) // Cache các dòng đã xóa để ẩn ngay
     const [searchTerm, setSearchTerm] = useState("")
     const [hasSearched, setHasSearched] = useState(false)
     const [isSearching, setIsSearching] = useState(false) // State để track khi đang tìm kiếm
     const [isSaving, setIsSaving] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
     const [selectedSearchType, setSelectedSearchType] = useState<SearchType>("Site")
     const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>("USDT")
     const [exchangeRate, setExchangeRate] = useState<string>("28")
@@ -287,6 +289,11 @@ export default function PageBody() {
             if (!searchValue) return []
 
             const sourceData = applyLocalUpdates([...allData, ...localAddedRows], overrideUpdatedRows)
+                .filter((item) => {
+                    const key = getRowKey(item.sheetName, item.rowIndex, item.site)
+                    if (!key) return true
+                    return !localRemovedKeys.has(key)
+                })
             if (!sourceData || sourceData.length === 0) return []
 
             const rawTerms = searchValue
@@ -324,7 +331,7 @@ export default function PageBody() {
             // Áp dụng chuyển đổi tiền tệ trên dữ liệu đã lọc
             return applyCurrencyConversion(filtered)
         },
-        [allData, localAddedRows, selectedSearchType, normalizeUrl, applyCurrencyConversion, applyLocalUpdates],
+        [allData, localAddedRows, selectedSearchType, normalizeUrl, applyCurrencyConversion, applyLocalUpdates, localRemovedKeys],
     )
 
     // Core search logic - tìm kiếm trên dữ liệu đã fetch sẵn (client-side)
@@ -1305,72 +1312,11 @@ export default function PageBody() {
                 }
             }
 
-            if (addedRowsRaw.length > 0) {
-                // Lưu cache tạm để không cần refetch và vẫn hiển thị ngay
-                setLocalAddedRows((prev) => {
-                    const existing = new Set(prev.map((item) => normalizeUrl(item.site || "")))
-                    const rowsToStore = addedRowsRaw.filter((row) => {
-                        const key = normalizeUrl(row.site || "")
-                        if (!key) return true
-                        if (existing.has(key)) return false
-                        existing.add(key)
-                        return true
-                    })
-                    if (!rowsToStore.length) return prev
-                    return [...prev, ...rowsToStore]
-                })
-
-                const convertedRows = applyCurrencyConversion(addedRowsRaw)
-                setFilteredData((prev) => {
-                    const existing = new Set(prev.map((item) => normalizeUrl(item.site || "")))
-                    const rowsToAdd = convertedRows.filter((row) => {
-                        const key = normalizeUrl(row.site || "")
-                        if (!key) return true
-                        if (existing.has(key)) return false
-                        existing.add(key)
-                        return true
-                    })
-                    if (!rowsToAdd.length) return prev
-                    return [...prev, ...rowsToAdd]
-                })
-
-                if (newRowIndicesToRemove.length) {
-                    const indicesSet = new Set(newRowIndicesToRemove)
-                    setNewRows((prev) => prev.filter((_, idx) => !indicesSet.has(idx)))
-                    setNewRowsSheetMap((prev) => {
-                        const remaining = Array.from(prev.entries())
-                            .filter(([idx]) => !indicesSet.has(idx))
-                            .sort((a, b) => a[0] - b[0])
-                        const remapped = new Map<number, string>()
-                        remaining.forEach(([, sheet], idx) => {
-                            remapped.set(idx, sheet)
-                        })
-                        return remapped
-                    })
-                }
-            } else {
-                // Không có dòng thêm mới -> vẫn xoá dòng trống tạm nếu có
-                setNewRows((prev) => prev)
-                setNewRowsSheetMap((prev) => prev)
-            }
-
-            if (updatedRowsRaw.length > 0) {
-                const updatedMap = new Map(localUpdatedRows)
-                updatedRowsRaw.forEach((row) => {
-                    const key = getRowKey(row.sheetName, row.rowIndex, row.site)
-                    if (key) {
-                        updatedMap.set(key, row)
-                    }
-                })
-                setLocalUpdatedRows(updatedMap)
-
-                if (hasSearched && searchTermRef.current) {
-                    const filteredItems = filterDataBySearch(searchTermRef.current, updatedMap)
-                    setFilteredData(filteredItems)
-                    setHasSearched(true)
-                }
-            }
-
+            // Dọn dẹp dòng tạm sau khi lưu (sẽ tải lại dữ liệu thay vì trộn local)
+            setNewRows([])
+            setNewRowsSheetMap(new Map())
+            setLocalAddedRows([])
+            setLocalUpdatedRows(new Map())
             setPendingChanges(new Map())
 
             // Gửi Telegram summary một lần cho cả thêm và cập nhật
@@ -1400,6 +1346,15 @@ export default function PageBody() {
                 console.error("Telegram summary error:", telegramError)
             }
 
+            // Luôn tải lại dữ liệu mới nhất thay vì trộn dữ liệu cục bộ
+            try {
+                await refetch("", selectedSearchType, undefined, true)
+            } catch (refreshError: any) {
+                console.error("Refresh after save failed:", refreshError)
+                toast.error("Đã lưu nhưng tải lại dữ liệu thất bại, vui lòng thử lại")
+                return
+            }
+
             toast.success("Đã lưu dữ liệu thành công")
         } catch (error: any) {
             console.error("Save changes error:", error)
@@ -1413,13 +1368,176 @@ export default function PageBody() {
         applyCurrencyConversion,
         normalizeUrl,
         getRowKey,
-        localUpdatedRows,
-        localAddedRows,
         filteredData,
-        allData,
         filterDataBySearch,
         hasSearched,
+        refetch,
+        selectedSearchType,
+        allData,
     ])
+
+    const getRowsFromSelection = useCallback((selection: any, totalRows: number): Set<number> => {
+        const rows = new Set<number>()
+        if (!selection) return rows
+
+        const normalized: Array<any> = Array.isArray(selection) ? selection : [selection]
+
+        normalized.forEach((item) => {
+            if (Array.isArray(item)) {
+                const [startRow, , endRow] = item
+                if (typeof startRow === "number") {
+                    const from = Math.max(0, Math.min(startRow, (typeof endRow === "number" ? endRow : startRow)))
+                    const to = Math.min(totalRows - 1, Math.max(startRow, (typeof endRow === "number" ? endRow : startRow)))
+                    for (let r = from; r <= to; r++) rows.add(r)
+                }
+            } else if (item && typeof item === "object") {
+                // Handsontable selection may be { start: {row, col}, end: {row, col} }
+                const startRow = (item as any).startRow ?? (item as any).start?.row
+                const endRowRaw = (item as any).endRow ?? (item as any).end?.row
+                const endRow = typeof endRowRaw === "number" ? endRowRaw : startRow
+
+                if (typeof startRow === "number") {
+                    const from = Math.max(0, Math.min(startRow, endRow))
+                    const to = Math.min(totalRows - 1, Math.max(startRow, endRow))
+                    for (let r = from; r <= to; r++) rows.add(r)
+                }
+            }
+        })
+
+        return rows
+    }, [])
+
+    const handleDeleteRows = useCallback(async (selectionOverride?: any[]) => {
+        const hotInstance = mainTableRef.current?.hotInstance
+        const mergedData = [...filteredData, ...newRows]
+
+        if (!hotInstance || mergedData.length === 0) {
+            toast.warning("Không có dữ liệu để xóa")
+            return
+        }
+
+        const selection = selectionOverride || hotInstance.getSelected()
+        if (!selection || selection.length === 0) {
+            toast.warning("Vui lòng chọn ít nhất một dòng để xóa")
+            return
+        }
+
+        const rowsToDelete = getRowsFromSelection(selection, mergedData.length)
+        console.log("[delete] raw selection:", selection)
+        console.log("[delete] rowsToDelete:", Array.from(rowsToDelete))
+
+        if (!rowsToDelete.size) {
+            toast.warning("Không tìm thấy dòng hợp lệ để xóa")
+            return
+        }
+
+        const existingRows: SiteData[] = []
+        const newRowIndexes: number[] = []
+
+        rowsToDelete.forEach((rowIdx) => {
+            if (rowIdx < filteredData.length) {
+                const rowData = filteredData[rowIdx]
+                if (rowData?.sheetName && rowData?.rowIndex && rowData.rowIndex >= 3) {
+                    existingRows.push(rowData)
+                }
+            } else {
+                const newRowIdx = rowIdx - filteredData.length
+                if (newRowIdx >= 0 && newRowIdx < newRows.length) {
+                    newRowIndexes.push(newRowIdx)
+                }
+            }
+        })
+
+        if (!existingRows.length && !newRowIndexes.length) {
+            toast.warning("Không có dòng hợp lệ để xóa")
+            return
+        }
+
+        setIsDeleting(true)
+        try {
+            if (newRowIndexes.length) {
+                console.log("[delete] removing new rows (unsaved):", newRowIndexes)
+                const removeSet = new Set(newRowIndexes)
+                setNewRows((prev) => prev.filter((_, idx) => !removeSet.has(idx)))
+                setNewRowsSheetMap((prev) => {
+                    const remaining = Array.from(prev.entries())
+                        .filter(([idx]) => !removeSet.has(idx))
+                        .sort((a, b) => a[0] - b[0])
+                    const remapped = new Map<number, string>()
+                    remaining.forEach(([, sheet], idx) => {
+                        remapped.set(idx, sheet)
+                    })
+                    return remapped
+                })
+                setPendingChanges((prev) => {
+                    const updated = new Map(prev)
+                    removeSet.forEach((idx) => {
+                        const sheetName = newRowsSheetMap.get(idx)
+                        if (sheetName) {
+                            updated.delete(`add-${sheetName}-${idx}`)
+                        }
+                    })
+                    return updated
+                })
+            }
+
+            if (existingRows.length) {
+                console.log("[delete] deleting existing rows:", existingRows.map((r) => ({ sheetName: r.sheetName, rowIndex: r.rowIndex, site: r.site })))
+                await Promise.all(
+                    existingRows.map(async (row) => {
+                        const response = await fetch("/api/sheet/delete", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                sheetName: row.sheetName,
+                                rowIndex: row.rowIndex,
+                            }),
+                        })
+
+                        const result = await response.json().catch(() => ({}))
+                        console.log("[delete] api response:", { sheetName: row.sheetName, rowIndex: row.rowIndex, ok: response.ok, result })
+                        if (!response.ok) {
+                            throw new Error(result.message || "Xóa thất bại")
+                        }
+                    }),
+                )
+
+                setPendingChanges((prev) => {
+                    const updated = new Map(prev)
+                    existingRows.forEach((row) => {
+                        updated.delete(`update-${row.sheetName}-${row.rowIndex}`)
+                    })
+                    return updated
+                })
+            }
+
+            const removedKeys = new Set<string>()
+            existingRows.forEach((row) => {
+                const key = getRowKey(row.sheetName, row.rowIndex, row.site)
+                if (key) removedKeys.add(key)
+            })
+
+            if (removedKeys.size) {
+                setLocalRemovedKeys((prev) => {
+                    const next = new Set(prev)
+                    removedKeys.forEach((k) => next.add(k))
+                    return next
+                })
+                setFilteredData((prev) => prev.filter((item) => {
+                    const key = getRowKey(item.sheetName, item.rowIndex, item.site)
+                    if (!key) return true
+                    return !removedKeys.has(key)
+                }))
+            }
+
+            toast.success("Đã xóa dòng thành công")
+        } catch (error: any) {
+            console.error("Delete rows error:", error)
+            toast.error(`Xóa dữ liệu thất bại: ${error?.message || "Không thể xóa"}`)
+        } finally {
+            setIsDeleting(false)
+        }
+    }, [filteredData, newRows, newRowsSheetMap, selectedSearchType, getRowsFromSelection, getRowKey])
 
     // Modal handlers
     const handleOpenModal = useCallback(() => {
@@ -1550,6 +1668,22 @@ export default function PageBody() {
     }, [filteredData, newRows])
 
     // Render table
+    const contextMenuCustomItems = useMemo(() => {
+        return {
+            delete_selected_rows: {
+                name(this: any, selection: any[]) {
+                    const mergedData = [...filteredData, ...newRows]
+                    const rows = getRowsFromSelection(selection || this?.getSelected?.(), mergedData.length)
+                    const count = rows.size || 0
+                    return `Xóa ${count} dòng`
+                },
+                callback: (_key: string, selection: any[]) => {
+                    handleDeleteRows(selection)
+                },
+            },
+        }
+    }, [filteredData, newRows, getRowsFromSelection, handleDeleteRows])
+
     const renderHotTable = useCallback((data: SiteData[]) => {
         if (!data || data.length === 0) return null
 
@@ -1561,6 +1695,8 @@ export default function PageBody() {
                     data={data}
                     columns={mappedColumns}
                     nestedHeaders={nestedHeaders}
+                    contextMenuOptions={{ showAddRow: false, showRemoveRow: false }}
+                    contextMenuCustomItems={contextMenuCustomItems}
                     height="auto"
                     width="100%"
                     licenseKey="non-commercial-and-evaluation"
@@ -1595,7 +1731,7 @@ export default function PageBody() {
                 />
             </div>
         )
-    }, [mappedColumns, nestedHeaders, handleAfterChange, handleBeforePaste])
+    }, [mappedColumns, nestedHeaders, handleAfterChange, handleBeforePaste, contextMenuCustomItems])
 
     // Show loading spinner when searching, loading, or refreshing
     const showLoading = isSearching || loading || refreshing

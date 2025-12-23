@@ -24,6 +24,7 @@ interface HotTableProps {
     showAddRow?: boolean;
     showRemoveRow?: boolean;
   };
+  contextMenuCustomItems?: Record<string, any>;
   hiddenColumns?: number[];
   invalidCells?: Map<string, string>; // Map of "row-col" to error message
   onValidationError?: (row: number, col: number, message: string) => void;
@@ -87,6 +88,7 @@ const HotTableComponent = forwardRef<HotTableRef, HotTableProps>(({
   readOnly = false,
   className = "",
   contextMenuOptions = { showAddRow: true, showRemoveRow: true },
+  contextMenuCustomItems = {},
   hiddenColumns = [],
   invalidCells = new Map(),
   onValidationError,
@@ -510,6 +512,11 @@ const HotTableComponent = forwardRef<HotTableRef, HotTableProps>(({
     contextMenuItems.remove_row = {
       name: "Xóa dòng",
     };
+  }
+
+  // Append custom context menu items (used for dynamic labels/callbacks)
+  if (contextMenuCustomItems && typeof contextMenuCustomItems === "object") {
+    Object.assign(contextMenuItems, contextMenuCustomItems);
   }
   
   // Build context menu config with items structure
