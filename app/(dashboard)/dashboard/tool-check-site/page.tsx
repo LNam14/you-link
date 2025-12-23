@@ -45,7 +45,6 @@ interface SiteData {
     linkOut: string
     DR: string
     trafficTool: string
-    ghiChu: string
     noteKH: string
     noteNB: string
     giaBanGP: string
@@ -70,7 +69,6 @@ interface SiteData {
     MaNCC: string
     FileNCC: string[] | string
     GroupNCC: string[] | string
-    GhiChuNCC: string
     timeText: string
     IdGroup?: string | number | null
 }
