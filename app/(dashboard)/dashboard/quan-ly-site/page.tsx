@@ -235,6 +235,38 @@ export default function PageBody() {
         [getRowKey, localUpdatedRows],
     )
 
+    // Create placeholder row when a searched site is not found
+    const createPlaceholderRow = useCallback((siteValue: string): SiteData => {
+        return {
+            rowIndex: 0,
+            sheetName: "",
+            cs: "",
+            tinhTrang: "",
+            site: siteValue,
+            bong: "",
+            bet: "",
+            chuDe: "",
+            linkOut: "",
+            DR: "",
+            keywords: "",
+            trafficTool: "",
+            noteKH: "",
+            noteNB: "",
+            giaMuaGP: "",
+            giaMuaText: "",
+            giaMuaTextHome: "",
+            giaMuaTextHeader: "",
+            hoaHongGP: "",
+            hoaHongText: "",
+            KeGP: "",
+            KeText: "",
+            loiNhuanGP: "",
+            loiNhuanText: "",
+            NCC: "",
+            MaNCC: "",
+        }
+    }, [])
+
     // Apply currency conversion helper
     const applyCurrencyConversion = useCallback((dataToConvert: SiteData[]): SiteData[] => {
         return dataToConvert.map((item) => {
@@ -288,14 +320,6 @@ export default function PageBody() {
             const searchValue = value.trim()
             if (!searchValue) return []
 
-            const sourceData = applyLocalUpdates([...allData, ...localAddedRows], overrideUpdatedRows)
-                .filter((item) => {
-                    const key = getRowKey(item.sheetName, item.rowIndex, item.site)
-                    if (!key) return true
-                    return !localRemovedKeys.has(key)
-                })
-            if (!sourceData || sourceData.length === 0) return []
-
             const rawTerms = searchValue
                 .split(/[,\n\s]+/)
                 .map((term) => term.trim())
@@ -303,20 +327,42 @@ export default function PageBody() {
 
             if (rawTerms.length === 0) return []
 
+            const sourceData = applyLocalUpdates([...allData, ...localAddedRows], overrideUpdatedRows)
+                .filter((item) => {
+                    const key = getRowKey(item.sheetName, item.rowIndex, item.site)
+                    if (!key) return true
+                    return !localRemovedKeys.has(key)
+                })
+
             let filtered: SiteData[] = []
 
             if (selectedSearchType === "Site") {
                 // Chuẩn hóa domain để so sánh
                 const normalizedTerms = rawTerms.map((t) => normalizeUrl(t))
-                filtered = sourceData.filter((item: SiteData) => {
-                    const itemSite = normalizeUrl(item.site || "")
-                    if (!itemSite) return false
-                    // Khớp chính xác domain đã chuẩn hóa
-                    return normalizedTerms.some((term) => term && itemSite === term)
+                const siteMap = new Map<string, SiteData>()
+
+                // Map nhanh để lấy đúng site đã có dữ liệu
+                sourceData.forEach((item) => {
+                    const key = normalizeUrl(item.site || "")
+                    if (key && !siteMap.has(key)) {
+                        siteMap.set(key, item)
+                    }
+                })
+
+                // Duyệt theo thứ tự người dùng nhập để giữ nguyên thứ tự hiển thị
+                filtered = rawTerms.map((term, idx) => {
+                    const normalizedTerm = normalizedTerms[idx]
+                    if (normalizedTerm) {
+                        const matched = siteMap.get(normalizedTerm)
+                        if (matched) return matched
+                    }
+                    // Không tìm thấy -> tạo dòng rỗng chỉ với site
+                    return createPlaceholderRow(term)
                 })
             } else {
                 // Tìm theo NCC: theo mã NCC hoặc tên NCC (không phân biệt hoa thường)
                 const lowerTerms = rawTerms.map((t) => t.toLowerCase())
+                if (!sourceData || sourceData.length === 0) return []
                 filtered = sourceData.filter((item: SiteData) => {
                     const nccName = (item.NCC || "").toLowerCase()
                     const nccCode = (item.MaNCC || "").toLowerCase()
@@ -331,7 +377,16 @@ export default function PageBody() {
             // Áp dụng chuyển đổi tiền tệ trên dữ liệu đã lọc
             return applyCurrencyConversion(filtered)
         },
-        [allData, localAddedRows, selectedSearchType, normalizeUrl, applyCurrencyConversion, applyLocalUpdates, localRemovedKeys],
+        [
+            allData,
+            localAddedRows,
+            selectedSearchType,
+            normalizeUrl,
+            applyCurrencyConversion,
+            applyLocalUpdates,
+            localRemovedKeys,
+            createPlaceholderRow,
+        ],
     )
 
     // Core search logic - tìm kiếm trên dữ liệu đã fetch sẵn (client-side)

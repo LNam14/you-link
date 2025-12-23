@@ -417,6 +417,45 @@ export default function PageBody() {
         [selectedSearchType],
     )
 
+// Tạo dòng rỗng cho các site không tìm thấy trong dữ liệu
+const createEmptySiteEntry = (siteTerm: string): SiteData => ({
+    cs: "",
+    tinhTrang: "",
+    site: siteTerm,
+    bong: "",
+    bet: "",
+    chuDe: "",
+    linkOut: "",
+    DR: "",
+    trafficTool: "",
+    noteKH: "",
+    noteNB: "",
+    giaBanGP: "",
+    giaBanText: "",
+    giaBanTextHome: "",
+    giaBanTextHeader: "",
+    giaMuaGP: "",
+    giaMuaText: "",
+    giaMuaTextHome: "",
+    giaMuaTextHeader: "",
+    hoaHongGP: "",
+    hoaHongText: "",
+    giaCuoiGP: "",
+    giaCuoiText: "",
+    giaCuoiTextHome: "",
+    giaCuoiTextHeader: "",
+    loiNhuanGP: "",
+    loiNhuanText: "",
+    loiNhuanTextHome: "",
+    loiNhuanTextHeader: "",
+    NCC: "",
+    MaNCC: "",
+    FileNCC: "",
+    GroupNCC: "",
+    timeText: "",
+    IdGroup: null,
+})
+
     // Debounce function to prevent too many searches while typing
     const debounce = (func: Function, delay: number) => {
         let timeoutId: NodeJS.Timeout
@@ -646,6 +685,11 @@ export default function PageBody() {
                     
                     // Thêm tất cả items match vào kết quả (không loại bỏ trùng ở đây)
                     dataToProcess.push(...matchingItems)
+
+                    // Nếu không tìm thấy site nào khớp, vẫn thêm một dòng rỗng để hiển thị đúng thứ tự nhập
+                    if (selectedSearchType === "Site" && matchingItems.length === 0) {
+                        dataToProcess.push(createEmptySiteEntry(term))
+                    }
                 })
             } else {
                 // No search term, use all data
