@@ -124,7 +124,7 @@ export default function PageBody() {
     const [extensionSearchInput, setExtensionSearchInput] = useState<string>("")
     const [showExtensionDropdown, setShowExtensionDropdown] = useState(false)
     const [currentPage, setCurrentPage] = useState(1)
-    const [itemsPerPage, setItemsPerPage] = useState(10)
+    const [itemsPerPage, setItemsPerPage] = useState(50)
     const [localData, setLocalData] = useState<SiteData[]>([]) // Dữ liệu đã tải vào table
     const [dataLoaded, setDataLoaded] = useState(false) // Flag để biết đã tải dữ liệu chưa
     const mainTableRef = useRef<HotTableRef>(null)
@@ -2658,7 +2658,6 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                                                     onChange={(e) => setItemsPerPage(Number.parseInt(e.target.value))}
                                                     className="px-3 py-1.5 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors shadow-sm"
                                                 >
-                                                    <option value={10}>10</option>
                                                     <option value={50}>50</option>
                                                     <option value={100}>100</option>
                                                     <option value={200}>200</option>
