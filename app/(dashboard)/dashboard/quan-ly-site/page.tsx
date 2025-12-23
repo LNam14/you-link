@@ -1260,17 +1260,12 @@ export default function PageBody() {
             for (const change of pendingChanges.values()) {
                 if (change.type === "add") {
                     const { rowData, sheetName } = change
-                    const site = rowData.site ? String(rowData.site).trim() : ""
-                    const trafficTool = rowData.trafficTool ? String(rowData.trafficTool).trim() : ""
 
                     if (!sheetName) {
                         console.warn(`[handleSaveChanges] Thiếu sheetName cho dòng mới, bỏ qua`)
                         continue
                     }
-                    if (!site || !trafficTool) {
-                        toast.warning("Dòng mới cần có Site và Traffic Tool trước khi lưu")
-                        continue
-                    }
+                  
 
                     const response = await fetch("/api/sheet/add", {
                         method: "POST",

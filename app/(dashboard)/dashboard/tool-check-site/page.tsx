@@ -2350,6 +2350,12 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
         renderer: col.renderer as any,
     })), [generatedColumns])
 
+    // Ẩn cột Tình Trạng bằng hiddenColumns
+    const hiddenColumnsSettings = useMemo(() => {
+        const idx = mappedColumns.findIndex((c) => c.data === "tinhTrang")
+        return idx >= 0 ? [idx] : undefined
+    }, [mappedColumns])
+
     // Enable two-tap range selection for touch/mobile: first tap sets anchor, second tap selects rectangle
     // Create handlers for both tables at the top level to maintain hook order
     const onMainTableCellMouseDown = useCallback((event: any, coords: any) => {
@@ -2438,6 +2444,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                     className="custom-table"
                     themeName="ht-theme-main"
                     outsideClickDeselects={false}
+                    hiddenColumns={hiddenColumnsSettings}
                     fillHandle={true}
                     selectionMode="multiple"
                     beforeCopy={handleBeforeCopy}
@@ -2447,7 +2454,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 />
             </div>
         )
-    }, [mappedColumns, nestedHeaders, selectedCurrency, handleBeforeCopy, calculateSummary])
+    }, [mappedColumns, nestedHeaders, selectedCurrency, hiddenColumnsSettings, handleBeforeCopy, calculateSummary])
 
     const hasDuplicates = Object.keys(duplicateSites).length > 0
     const duplicatesCount = Object.values(duplicateSites).flat().length
