@@ -987,6 +987,11 @@ export default function PageBody() {
     ) => {
         setIsUpdating(true)
         try {
+            // Lấy thông tin user để gửi kèm trong request (format: username-fullname)
+            const username = userInfo?.username || ""
+            const fullname = userInfo?.fullname || ""
+            const userDisplayName = `${username}-${fullname}`
+
             // Nếu có rowIndex và sheetName, sử dụng trực tiếp (nhanh nhất - không cần tìm kiếm)
             if (rowIndex !== undefined && rowIndex !== null && sheetName) {
                 console.log(`[updateSiteData] Using rowIndex ${rowIndex} directly in sheet ${sheetName}`)
@@ -1003,6 +1008,7 @@ export default function PageBody() {
                             rowIndex,  // Sử dụng rowIndex trực tiếp
                             site,      // Optional, chỉ để logging
                             maNCC,     // Optional
+                            username: userDisplayName, // Gửi username-fullname
                         }),
                     })
 
@@ -1021,6 +1027,12 @@ export default function PageBody() {
             } else {
                 // Fallback: Tìm trong tất cả các sheet có thể (chỉ khi không có rowIndex/sheetName)
                 console.warn(`[updateSiteData] Fallback: Missing rowIndex or sheetName. Searching for site "${site}" in all sheets (slow path - update by site search)`)
+                
+                // Lấy thông tin user để gửi kèm trong request
+                const username = userInfo?.username || ""
+                const fullname = userInfo?.fullname || ""
+                const userDisplayName = fullname ? `${username}-${fullname}` : username
+
                 // Fallback: Tìm trong tất cả các sheet có thể
                 const possibleSheets: Array<"1" | "2" | "4" | "5"> = ["1", "2", "4", "5"]
                 let updateSuccess = false
@@ -1040,6 +1052,7 @@ export default function PageBody() {
                                 updates,
                                 rowIndex,
                                 maNCC,
+                                username: userDisplayName, // Gửi username-fullname
                             }),
                         })
 
@@ -1071,7 +1084,7 @@ export default function PageBody() {
         } finally {
             setIsUpdating(false)
         }
-    }, [])
+    }, [userInfo])
 
     // Handle cell changes in table - chỉ lưu vào danh sách chờ, cần bấm "Lưu dữ liệu" để đẩy lên server
     const handleAfterChange = useCallback((changes: any[] | null, source: string) => {

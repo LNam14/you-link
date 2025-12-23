@@ -1833,6 +1833,29 @@ const PageBody: React.FC = () => {
       }
       
       toast.success(TOAST_MESSAGES.SAVE_SUCCESS, { duration: 2000 })
+      
+      // Gửi tin nhắn Telegram khi nhập công việc hàng ngày
+      if (value.trim()) {
+        try {
+          const currentName = employeeInfo.fullname || userInfo?.fullname || username
+          const taskTemplate = dailyTaskTemplate.find((t) => t.id === taskId)
+          const taskName = taskTemplate?.fullname || taskId
+          
+          // Format ngày: DD/MM/YYYY
+          const dateObj = new Date(date)
+          const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}/${dateObj.getFullYear()}`
+          
+          const message = `${username}-${currentName}\ncông việc:\n- ${value.trim()}\nngày làm nhé ${formattedDate}`
+          
+          await telegramApiRequest.sendMessage({
+            chatId: "-5095859903",
+            message: message,
+          })
+        } catch (telegramError) {
+          console.error("Error sending daily task to Telegram:", telegramError)
+          // Không hiển thị lỗi cho user, chỉ log
+        }
+      }
     } catch (error) {
       console.error("Error saving custom task text input:", error)
       toast.error(TOAST_MESSAGES.SAVE_ERROR, { duration: 3000 })
@@ -2009,6 +2032,34 @@ const PageBody: React.FC = () => {
     try {
       await saveWorkTaskDataImmediate(updatedWeekData, weeklyTasksWeekDates.weekNumber.toString())
       toast.success(TOAST_MESSAGES.SAVE_SUCCESS, { duration: 2000 })
+      
+      // Gửi tin nhắn Telegram khi nhập công việc tuần (không phải đề xuất)
+      if (value.trim()) {
+        const task = (current.weeklyTasks || []).find((t) => t.id === taskId)
+        // Kiểm tra không phải đề xuất
+        if (task && task.title && task.title !== "Đề xuất 1" && task.title !== "Đề xuất 2" && task.title !== "Đề xuất 3") {
+          try {
+            const currentName = employeeInfo.fullname || userInfo?.fullname || username
+            const taskName = task.title || "Công việc khác"
+            
+            // Format ngày: DD/MM/YYYY - DD/MM/YYYY
+            const startDateObj = new Date(weeklyTasksWeekDates.startDate)
+            const endDateObj = new Date(weeklyTasksWeekDates.endDate)
+            const formattedStartDate = `${String(startDateObj.getDate()).padStart(2, '0')}/${String(startDateObj.getMonth() + 1).padStart(2, '0')}/${startDateObj.getFullYear()}`
+            const formattedEndDate = `${String(endDateObj.getDate()).padStart(2, '0')}/${String(endDateObj.getMonth() + 1).padStart(2, '0')}/${endDateObj.getFullYear()}`
+            
+            const message = `${username}-${currentName}\ncông việc:\n- ${value.trim()}\nngày làm nhé ${formattedStartDate} - ${formattedEndDate}`
+            
+            await telegramApiRequest.sendMessage({
+              chatId: "-5095859903",
+              message: message,
+            })
+          } catch (telegramError) {
+            console.error("Error sending weekly task to Telegram:", telegramError)
+            // Không hiển thị lỗi cho user, chỉ log
+          }
+        }
+      }
     } catch (error) {
       console.error("Error saving weekly task:", error)
       toast.error(TOAST_MESSAGES.SAVE_ERROR, { duration: 3000 })

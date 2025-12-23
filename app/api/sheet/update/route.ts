@@ -220,7 +220,12 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json()
-        const { site, sheetName, updates, rowIndex, maNCC } = body
+        const { site, sheetName, updates, rowIndex, maNCC, username: usernameFromBody } = body
+        
+        // Ưu tiên sử dụng username từ body (có thể chứa fullname), nếu không có thì dùng từ token
+        if (usernameFromBody) {
+            username = usernameFromBody
+        }
 
         // Validate required fields
         // Nếu có rowIndex và sheetName, không cần site (ưu tiên rowIndex)
@@ -375,7 +380,7 @@ export async function POST(req: NextRequest) {
                 for (const [currentSite, siteChangeList] of siteChanges) {
                     // Build Telegram message
                     let message = `🔄 CẬP NHẬT SITE 🔄\n\n`
-                    message += `👤 Người thực hiện: ${username}\n\n`
+                    message += `👤 Người thực hiện: ${username || "Unknown"}\n\n`
                     message += `📝 Chi tiết cập nhật:\n\n`
                     message += `🌐 ${currentSite}\n`
                     
