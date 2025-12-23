@@ -2439,7 +2439,6 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                     className="custom-table"
                     themeName="ht-theme-main"
                     outsideClickDeselects={false}
-                    hiddenColumns={[9]}
                     fillHandle={true}
                     selectionMode="multiple"
                     beforeCopy={handleBeforeCopy}

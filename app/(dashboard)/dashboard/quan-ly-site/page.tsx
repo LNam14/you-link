@@ -1757,6 +1757,7 @@ export default function PageBody() {
                     rowHeaders={false}
                     colHeaders={true}
                     copyPaste={true}
+                    hiddenColumns={[9]}
                     columnSorting={false}
                     autoColumnSize={false}
                     preventOverflow="horizontal"
