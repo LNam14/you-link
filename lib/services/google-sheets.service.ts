@@ -21,17 +21,15 @@ export interface FormattedRow {
   DR: any;
   keywords: any;
   trafficTool: any;
-  ghiChu: any;
+  noteKH: any;
+  noteNB: any;
+  noteNCC: any;
   tinhTrang: any;
   giaBanGP: any;
   giaBanText: any;
   timeText: number;
   giaBanTextHome: any;
   giaBanTextHeader: any;
-  giaBanGPLio: any;
-  giaBanTextLio: any;
-  giaBanTextHomeLio: any;
-  giaBanTextHeaderLio: any;
   giaMuaGP: any;
   giaMuaText: any;
   hoaHongGP: number;
@@ -45,23 +43,14 @@ export interface FormattedRow {
   FileNCC: string;
   GroupNCC: string;
   IdGroup: string;
-  GhiChuNCC: string;
   giaCuoiGP: number;
   giaCuoiText: number;
   giaCuoiTextHome: number;
   giaCuoiTextHeader: number;
-  giaCuoiGPLio: number;
-  giaCuoiTextLio: number;
-  giaCuoiTextHomeLio: number;
-  giaCuoiTextHeaderLio: number;
   loiNhuanGP: string | null;
   loiNhuanText: string | null;
   loiNhuanTextHome: string | null;
   loiNhuanTextHeader: string | null;
-  loiNhuanGPLio: string | null;
-  loiNhuanTextLio: string | null;
-  loiNhuanTextHomeLio: string | null;
-  loiNhuanTextHeaderLio: string | null;
 }
 
 export interface NCCData {
@@ -354,10 +343,6 @@ export class GoogleSheetsService {
     const giaBanText = roundIfNumber(row[14]);
     const giaBanTextHome = roundIfNumber(row[15]);
     const giaBanTextHeader = roundIfNumber(row[16]);
-    const giaBanGPLio = roundIfNumber(row[39]);
-    const giaBanTextLio = roundIfNumber(row[40]);
-    const giaBanTextHomeLio = roundIfNumber(row[41]);
-    const giaBanTextHeaderLio = roundIfNumber(row[42]);
     const giaMuaGP = roundIfNumber(row[18]);
     const giaMuaText = roundIfNumber(row[19]);
     const giaMuaTextHome = roundIfNumber(row[20]);
@@ -402,62 +387,36 @@ export class GoogleSheetsService {
       DR: row[8],
       keywords: row[9],
       trafficTool: row[10],
-      ghiChu: row[11],
-      tinhTrang: row[12],
-      giaBanGP,
-      giaBanText,
+      noteKH: row[11],
+      noteNB: row[12],
+      noteNCC: row[13],
+      tinhTrang: row[14],
       timeText: 1,
-      giaBanTextHome,
-      giaBanTextHeader,
-      giaBanGPLio,
-      giaBanTextLio,
-      giaBanTextHomeLio,
-      giaBanTextHeaderLio,
-      giaMuaGP,
-      giaMuaText,
       hoaHongGP: hoaHongGP || 0,
       hoaHongText: hoaHongText || 0,
       KeGP: roundIfNumber(row[24]),
       KeText: roundIfNumber(row[25]),
-      giaMuaTextHome,
-      giaMuaTextHeader,
       NCC: row[26],
       MaNCC: maNCC,
       FileNCC: fileNCC,
       GroupNCC: groupNCC,
       IdGroup: idGroup,
-      GhiChuNCC: row[28],
+      giaBanGP,
+      giaBanText,
+      giaBanTextHome,
+      giaBanTextHeader,
+      giaMuaGP,
+      giaMuaText,
+      giaMuaTextHome,
+      giaMuaTextHeader,
       giaCuoiGP: giaCuoiGP || 0,
       giaCuoiText: giaCuoiText || 0,
       giaCuoiTextHome: giaCuoiTextHome || 0,
       giaCuoiTextHeader: giaCuoiTextHeader || 0,
-      giaCuoiGPLio: giaCuoiGP || 0,
-      giaCuoiTextLio: giaCuoiText || 0,
-      giaCuoiTextHomeLio: giaCuoiTextHome || 0,
-      giaCuoiTextHeaderLio: giaCuoiTextHeader || 0,
-      loiNhuanGP: safeSubtract(parseNumber(row[13]), parseNumber(giaCuoiGP)),
-      loiNhuanText: safeSubtract(parseNumber(row[14]), parseNumber(giaCuoiText)),
-      loiNhuanTextHome: safeSubtract(
-        parseNumber(row[15]),
-        parseNumber(giaCuoiTextHome)
-      ),
-      loiNhuanTextHeader: safeSubtract(
-        parseNumber(row[16]),
-        parseNumber(giaCuoiTextHeader)
-      ),
-      loiNhuanGPLio: safeSubtract(parseNumber(giaBanGPLio), parseNumber(giaCuoiGP)),
-      loiNhuanTextLio: safeSubtract(
-        parseNumber(giaBanTextLio),
-        parseNumber(giaCuoiText)
-      ),
-      loiNhuanTextHomeLio: safeSubtract(
-        parseNumber(giaBanTextHomeLio),
-        parseNumber(giaCuoiTextHome)
-      ),
-      loiNhuanTextHeaderLio: safeSubtract(
-        parseNumber(giaBanTextHeaderLio),
-        parseNumber(giaCuoiTextHeader)
-      ),
+      loiNhuanGP: safeSubtract(parseNumber(giaBanGP), parseNumber(giaCuoiGP)),
+      loiNhuanText: safeSubtract(parseNumber(giaBanText), parseNumber(giaCuoiText)),
+      loiNhuanTextHome: safeSubtract(parseNumber(giaBanTextHome), parseNumber(giaCuoiTextHome)),
+      loiNhuanTextHeader: safeSubtract(parseNumber(giaBanTextHeader), parseNumber(giaCuoiTextHeader)),
     };
   }
 }

@@ -8,12 +8,13 @@ export const maxDuration = 60
 
 const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
 
-import { sheetCache, getCacheKey, getCachedData, setCachedData, CACHE_DURATION } from "@/lib/cache/sheetCache"
+import { sheetCache, getCacheKey, getCachedData, setCachedData, CACHE_DURATION, invalidateAllCache } from "@/lib/cache/sheetCache"
 
 // Cache auth client để tránh tạo lại mỗi lần
 let cachedAuthClient: any = null
 let authClientExpiry = 0
 const AUTH_CLIENT_TTL = 50 * 60 * 1000 // 50 phút
+let lastModifiedTime: string | null = null
 
 // Cleanup auth client định kỳ
 if (typeof setInterval !== "undefined") {
@@ -95,44 +96,36 @@ const sheetConfigs: Record<string, SheetConfig> = {
             }
 
             // Optimize: Parse numbers once and reuse
-            const giaBanGPNum = parseNumber(row[13])
-            const giaBanTextNum = parseNumber(row[14])
-            const giaBanTextHomeNum = parseNumber(row[15])
-            const giaBanTextHeaderNum = parseNumber(row[16])
-            const giaBanGPLioNum = parseNumber(row[39])
-            const giaBanTextLioNum = parseNumber(row[40])
-            const giaBanTextHomeLioNum = parseNumber(row[41])
-            const giaBanTextHeaderLioNum = parseNumber(row[42])
-            const giaMuaGPNum = parseNumber(row[18])
-            const giaMuaTextNum = parseNumber(row[19])
-            const giaMuaTextHomeNum = parseNumber(row[20])
-            const giaMuaTextHeaderNum = parseNumber(row[21])
-            const hoaHongGP = parseNumber(row[22]) || 0
-            const hoaHongText = parseNumber(row[23]) || 0
-            const giaCuoiGPNum = parseNumber(row[31])
-            const giaCuoiTextNum = parseNumber(row[32])
-            const giaCuoiTextHomeNum = parseNumber(row[33])
-            const giaCuoiTextHeaderNum = parseNumber(row[34])
+            const giaBanGPNum = parseNumber(row[31])
+            const giaBanTextNum = parseNumber(row[32])
+            const giaBanTextHomeNum = parseNumber(row[33])
+            const giaBanTextHeaderNum = parseNumber(row[34])
+            const giaMuaGPNum = parseNumber(row[16])
+            const giaMuaTextNum = parseNumber(row[17])
+            const giaMuaTextHomeNum = parseNumber(row[18])
+            const giaMuaTextHeaderNum = parseNumber(row[19])
+            const hoaHongGP = parseNumber(row[20]) || 0
+            const hoaHongText = parseNumber(row[21]) || 0
+            const giaCuoiGPNum = parseNumber(row[27])
+            const giaCuoiTextNum = parseNumber(row[28])
+            const giaCuoiTextHomeNum = parseNumber(row[29])
+            const giaCuoiTextHeaderNum = parseNumber(row[30])
 
             // Convert numbers to formatted strings or keep original text (e.g., "ngưng")
-            const giaBanGP = formatNumberOrKeepText(row[13], giaBanGPNum)
-            const giaBanText = formatNumberOrKeepText(row[14], giaBanTextNum)
-            const giaBanTextHome = formatNumberOrKeepText(row[15], giaBanTextHomeNum)
-            const giaBanTextHeader = formatNumberOrKeepText(row[16], giaBanTextHeaderNum)
-            const giaBanGPLio = formatNumberOrKeepText(row[39], giaBanGPLioNum)
-            const giaBanTextLio = formatNumberOrKeepText(row[40], giaBanTextLioNum)
-            const giaBanTextHomeLio = formatNumberOrKeepText(row[41], giaBanTextHomeLioNum)
-            const giaBanTextHeaderLio = formatNumberOrKeepText(row[42], giaBanTextHeaderLioNum)
-            const giaMuaGP = formatNumberOrKeepText(row[18], giaMuaGPNum)
-            const giaMuaText = formatNumberOrKeepText(row[19], giaMuaTextNum)
-            const giaMuaTextHome = formatNumberOrKeepText(row[20], giaMuaTextHomeNum)
-            const giaMuaTextHeader = formatNumberOrKeepText(row[21], giaMuaTextHeaderNum)
-            const giaCuoiGP = formatNumberOrKeepText(row[31], giaCuoiGPNum)
-            const giaCuoiText = formatNumberOrKeepText(row[32], giaCuoiTextNum)
-            const giaCuoiTextHome = formatNumberOrKeepText(row[33], giaCuoiTextHomeNum)
-            const giaCuoiTextHeader = formatNumberOrKeepText(row[34], giaCuoiTextHeaderNum)
+            const giaBanGP = formatNumberOrKeepText(row[31], giaBanGPNum)
+            const giaBanText = formatNumberOrKeepText(row[32], giaBanTextNum)
+            const giaBanTextHome = formatNumberOrKeepText(row[33], giaBanTextHomeNum)
+            const giaBanTextHeader = formatNumberOrKeepText(row[34], giaBanTextHeaderNum)
+            const giaMuaGP = formatNumberOrKeepText(row[16], giaMuaGPNum)
+            const giaMuaText = formatNumberOrKeepText(row[17], giaMuaTextNum)
+            const giaMuaTextHome = formatNumberOrKeepText(row[18], giaMuaTextHomeNum)
+            const giaMuaTextHeader = formatNumberOrKeepText(row[19], giaMuaTextHeaderNum)
+            const giaCuoiGP = formatNumberOrKeepText(row[27], giaCuoiGPNum)
+            const giaCuoiText = formatNumberOrKeepText(row[28], giaCuoiTextNum)
+            const giaCuoiTextHome = formatNumberOrKeepText(row[29], giaCuoiTextHomeNum)
+            const giaCuoiTextHeader = formatNumberOrKeepText(row[30], giaCuoiTextHeaderNum)
 
-            const maNCC = row[27]
+            const maNCC = row[25]
             let fileNCC = ""
             let groupNCC = ""
             let idGroup = ""
@@ -147,60 +140,51 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 }
             }
 
+            // Debug: Log row length và các giá trị để kiểm tra cấu trúc
+            // Nếu row.length < 11, có thể các cột bị thiếu
+            // Map các giá trị với fallback để tránh undefined
             return {
                 cs: row[0],
                 site: row[1],
                 bong: row[2],
                 bet: row[3],
                 chuDe: row[4],
-                linkOut: row[7],
+                linkOut:row[7],
                 DR: row[8],
                 keywords: row[9],
                 trafficTool: row[10],
-                ghiChu: row[11],
-                tinhTrang: row[12],
-                giaBanGP,
-                giaBanText,
+                noteKH: row[11],
+                noteNB:row[12],
+                noteNCC:row[13],
+                tinhTrang: row[14],             
                 timeText: 1,
-                giaBanTextHome,
-                giaBanTextHeader,
-                giaBanGPLio,
-                giaBanTextLio,
-                giaBanTextHomeLio,
-                giaBanTextHeaderLio,
-                giaMuaGP,
-                giaMuaText,
                 hoaHongGP: hoaHongGP || 0,
                 hoaHongText: hoaHongText || 0,
-                KeGP: roundIfNumber(row[24]),
-                KeText: roundIfNumber(row[25]),
+                KeGP: roundIfNumber(row[22]),
+                KeText: roundIfNumber(row[23]),
+                giaBanGP,
+                giaBanText,
+                giaBanTextHome,
+                giaBanTextHeader,
+                giaMuaGP,
+                giaMuaText,
                 giaMuaTextHome,
                 giaMuaTextHeader,
-                NCC: row[26],
-                MaNCC: maNCC,
-                FileNCC: fileNCC,
-                GroupNCC: groupNCC,
-                IdGroup: idGroup,
-                GhiChuNCC: row[28],
-                // Add sheet metadata - use index parameter from formatter
-                sheetName: (row as any)._sheetName || undefined,
-                rowIndex: index,
                 giaCuoiGP: giaCuoiGP || 0,
                 giaCuoiText: giaCuoiText || 0,
                 giaCuoiTextHome: giaCuoiTextHome || 0,
                 giaCuoiTextHeader: giaCuoiTextHeader || 0,
-                giaCuoiGPLio: giaCuoiGP || 0,
-                giaCuoiTextLio: giaCuoiText || 0,
-                giaCuoiTextHomeLio: giaCuoiTextHome || 0,
-                giaCuoiTextHeaderLio: giaCuoiTextHeader || 0,
                 loiNhuanGP: safeSubtract(giaBanGPNum, giaCuoiGPNum),
                 loiNhuanText: safeSubtract(giaBanTextNum, giaCuoiTextNum),
                 loiNhuanTextHome: safeSubtract(giaBanTextHomeNum, giaCuoiTextHomeNum),
                 loiNhuanTextHeader: safeSubtract(giaBanTextHeaderNum, giaCuoiTextHeaderNum),
-                loiNhuanGPLio: safeSubtract(giaBanGPLioNum, giaCuoiGPNum),
-                loiNhuanTextLio: safeSubtract(giaBanTextLioNum, giaCuoiTextNum),
-                loiNhuanTextHomeLio: safeSubtract(giaBanTextHomeLioNum, giaCuoiTextHomeNum),
-                loiNhuanTextHeaderLio: safeSubtract(giaBanTextHeaderLioNum, giaCuoiTextHeaderNum),
+                NCC: row[24],
+                MaNCC: maNCC,
+                FileNCC: fileNCC,
+                GroupNCC: groupNCC,
+                IdGroup: idGroup,
+                sheetName: (row as any)._sheetName || undefined,
+                rowIndex: index,
             }
         },
     },
@@ -208,9 +192,9 @@ const sheetConfigs: Record<string, SheetConfig> = {
         range: "NCC!A3:K,NCC!AU3:BE",
         formatter: (row, allData, index) => ({
             MaNCC: row[0],
-            FileNCC: row[8] || "",
-            GroupNCC: row[9] || "",
-            IdGroup: row[10] || "",
+            FileNCC: row[7] || "",
+            GroupNCC: row[8] || "",
+            IdGroup: row[9] || "",
         }),
     },
 }
@@ -233,7 +217,10 @@ async function getAuthClient() {
     const client = new google.auth.JWT({
         email: clientEmail,
         key: privateKey.replace(/\\n/g, "\n"),
-        scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+        scopes: [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive.readonly",
+        ],
     })
 
     await client.authorize()
@@ -243,6 +230,21 @@ async function getAuthClient() {
     authClientExpiry = now + AUTH_CLIENT_TTL
 
     return client
+}
+
+async function getSpreadsheetModifiedTime(authClient: any): Promise<string | null> {
+    try {
+        const drive = google.drive({ version: "v3", auth: authClient })
+        const resp = await drive.files.get({
+            fileId: SPREADSHEET_ID,
+            fields: "modifiedTime",
+            supportsAllDrives: true,
+        })
+        return resp.data.modifiedTime || null
+    } catch (error) {
+        console.warn("[sheet/get] Unable to read modifiedTime, skipping cache reset", error)
+        return null
+    }
 }
 
 async function getAllSheetData(gsapi: any) {
@@ -291,9 +293,15 @@ async function getAllSheetData(gsapi: any) {
                 const startRowMatch = requestedRange.match(/![A-Z]+(\d+)/)
                 const startRow = startRowMatch ? parseInt(startRowMatch[1], 10) : 1
                 
-                // Add sheet name and startRow metadata to each row (for later use in formatter)
+                // Normalize rows to ensure they have enough columns (AQ = 43 columns, 0-indexed = 42)
+                // Google Sheets API may return shorter arrays if rows have fewer columns
                 const rowsWithSheetName = range.values.map((row: any[]) => {
-                    const rowWithMeta = row as any
+                    // Ensure row has at least 43 columns (0-42 index) by padding with empty strings
+                    const normalizedRow = [...row]
+                    while (normalizedRow.length < 43) {
+                        normalizedRow.push("")
+                    }
+                    const rowWithMeta = normalizedRow as any
                     rowWithMeta._sheetName = sheetName
                     rowWithMeta._startRow = startRow
                     return rowWithMeta
@@ -307,216 +315,6 @@ async function getAllSheetData(gsapi: any) {
     return allData
 }
 
-// Helper function to normalize URL for search
-function normalizeUrl(url: string): string {
-    if (!url || typeof url !== "string") return ""
-    let normalized = url.replace(/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//, "")
-    normalized = normalized.replace(/^www\./, "")
-    normalized = normalized.replace(/\/.*$/, "")
-    normalized = normalized.replace(/:\d+$/, "")
-    normalized = normalized.toLowerCase().trim()
-    return normalized
-}
-
-// Helper function to filter data based on filter parameters
-function filterDataByFilters(data: any[], filters: Record<string, string>): any[] {
-    if (!filters || Object.keys(filters).length === 0) {
-        return data
-    }
-
-    return data.filter((item) => {
-        // Đi Bóng filter
-        if (filters.diBong) {
-            const itemBong = (item.bong || "").toLowerCase().trim()
-            if (filters.diBong === "có" && itemBong !== "có" && itemBong !== "yes" && itemBong !== "1") {
-                return false
-            }
-            if (filters.diBong === "ko" && (itemBong === "có" || itemBong === "yes" || itemBong === "1")) {
-                return false
-            }
-        }
-
-        // Đi BET filter
-        if (filters.diBET) {
-            const itemBet = (item.bet || "").toLowerCase().trim()
-            if (filters.diBET === "có" && itemBet !== "có" && itemBet !== "yes" && itemBet !== "1") {
-                return false
-            }
-            if (filters.diBET === "ko" && (itemBet === "có" || itemBet === "yes" || itemBet === "1")) {
-                return false
-            }
-        }
-
-        // Site .vn filter
-        if (filters.siteVN) {
-            const itemSite = (item.site || "").toLowerCase()
-            const isVnSite = itemSite.endsWith(".vn")
-            if (filters.siteVN === "yes" && !isVnSite) {
-                return false
-            }
-            if (filters.siteVN === "no" && isVnSite) {
-                return false
-            }
-        }
-
-        // Traffic Tool filter
-        if (filters.trafficTool) {
-            const itemTraffic = parseFloat(item.trafficTool || "0") || 0
-            const filterTraffic = parseFloat(filters.trafficTool) || 0
-            if (itemTraffic <= filterTraffic) {
-                return false
-            }
-        }
-
-        // Giá GP filter (using giaMuaGP)
-        if (filters.giaGP) {
-            const itemPrice = parseFloat(item.giaMuaGP || "0") || 0
-            if (filters.giaGP === "1" && itemPrice <= 1) return false
-            if (filters.giaGP === "20" && itemPrice >= 20) return false
-            if (filters.giaGP === "40" && itemPrice >= 40) return false
-            if (filters.giaGP === "80" && itemPrice >= 80) return false
-            if (filters.giaGP === "160" && itemPrice >= 160) return false
-        }
-
-        // DR filter
-        if (filters.DR) {
-            const itemDR = parseFloat(item.DR || "0") || 0
-            if (filters.DR === "5" && itemDR >= 5) return false
-            if (filters.DR === "10" && itemDR >= 10) return false
-            if (filters.DR === "20" && itemDR >= 20) return false
-            if (filters.DR === "40" && itemDR >= 40) return false
-            if (filters.DR === "60" && itemDR >= 60) return false
-            if (filters.DR === "gt20" && itemDR <= 20) return false
-            if (filters.DR === "gt40" && itemDR <= 40) return false
-            if (filters.DR === "gt60" && itemDR <= 60) return false
-            if (filters.DR === "gt80" && itemDR <= 80) return false
-        }
-
-        // Giá Text filter (using giaMuaText)
-        if (filters.giaText) {
-            const itemPrice = parseFloat(item.giaMuaText || "0") || 0
-            if (filters.giaText === "1" && itemPrice <= 1) return false
-            if (filters.giaText === "20" && itemPrice >= 20) return false
-            if (filters.giaText === "40" && itemPrice >= 40) return false
-            if (filters.giaText === "80" && itemPrice >= 80) return false
-            if (filters.giaText === "160" && itemPrice >= 160) return false
-        }
-
-        // Ngày cập nhật filter
-        if (filters.ngayCapNhat) {
-            const itemTimeText = item.timeText || ""
-            const itemDate = new Date(itemTimeText)
-            
-            if (filters.ngayCapNhat === "today") {
-                const today = new Date()
-                today.setHours(0, 0, 0, 0)
-                if (isNaN(itemDate.getTime()) || itemDate < today) {
-                    return false
-                }
-            } else if (filters.ngayCapNhat === "week") {
-                const weekAgo = new Date()
-                weekAgo.setDate(weekAgo.getDate() - 7)
-                weekAgo.setHours(0, 0, 0, 0)
-                if (isNaN(itemDate.getTime()) || itemDate < weekAgo) {
-                    return false
-                }
-            } else if (filters.ngayCapNhat === "month") {
-                const monthAgo = new Date()
-                monthAgo.setMonth(monthAgo.getMonth() - 1)
-                monthAgo.setHours(0, 0, 0, 0)
-                if (isNaN(itemDate.getTime()) || itemDate < monthAgo) {
-                    return false
-                }
-            } else if (filters.ngayCapNhat === "older") {
-                const monthAgo = new Date()
-                monthAgo.setMonth(monthAgo.getMonth() - 1)
-                monthAgo.setHours(0, 0, 0, 0)
-                if (!isNaN(itemDate.getTime()) && itemDate >= monthAgo) {
-                    return false
-                }
-            }
-        }
-
-        // Chủ đề filter
-        if (filters.chuDe) {
-            const topics = filters.chuDe.split(",").map(t => t.trim())
-            const itemChuDe = (item.chuDe || "").trim()
-            if (!topics.includes(itemChuDe)) {
-                return false
-            }
-        }
-
-        return true
-    })
-}
-
-// Helper function to filter data based on search terms
-// Giữ thứ tự tìm kiếm: kết quả hiển thị theo đúng thứ tự các search terms
-function filterDataBySearch(
-    data: any[],
-    searchTerms: string[],
-    searchType: "Site" | "NCC"
-): any[] {
-    if (!searchTerms || searchTerms.length === 0) {
-        return data
-    }
-
-    const matchingItems: any[] = []
-    // Track items đã thêm để tránh duplicate, nhưng giữ thứ tự của term đầu tiên
-    const seen = new Set<string>()
-    
-    // Duyệt qua từng search term theo thứ tự
-    searchTerms.forEach((term) => {
-        const filtered = data.filter((item) => {
-            if (searchType === "Site") {
-                const normalizedSite = normalizeUrl(item.site || "")
-                const normalizedTerm = normalizeUrl(term)
-                return normalizedSite === normalizedTerm
-            } else {
-                // Tìm kiếm theo NCC: tìm trong cả MaNCC (mã NCC) và NCC (tên NCC)
-                const normalizedTerm = term.toLowerCase().trim()
-                if (!normalizedTerm) return false // Không tìm nếu term rỗng
-                
-                // Convert MaNCC và NCC thành string và normalize (xử lý cả null, undefined, number)
-                // Loại bỏ khoảng trắng và chuyển thành lowercase để so sánh
-                const maNCCValue = item.MaNCC
-                const nccValue = item.NCC
-                
-                // Normalize: convert to string, trim, lowercase, và loại bỏ khoảng trắng thừa
-                const normalizeValue = (value: any): string => {
-                    if (value == null) return ""
-                    return String(value).trim().toLowerCase().replace(/\s+/g, "")
-                }
-                
-                const normalizedMaNCC = normalizeValue(maNCCValue)
-                const normalizedNCC = normalizeValue(nccValue)
-                // Chỉ match chính xác hoặc bắt đầu với từ khóa (không dùng includes để tránh match quá rộng)
-                // Ví dụ: "0A" chỉ match với "0A" hoặc "0A123", không match với "10A" hay "20A"
-                const matchMaNCC = normalizedMaNCC && (
-                    normalizedMaNCC === normalizedTerm || 
-                    normalizedMaNCC.startsWith(normalizedTerm)
-                )
-                const matchNCC = normalizedNCC && (
-                    normalizedNCC === normalizedTerm || 
-                    normalizedNCC.startsWith(normalizedTerm)
-                )
-                
-                return matchMaNCC || matchNCC
-            }
-        })
-        
-        // Thêm các items match vào kết quả theo thứ tự, bỏ qua items đã thêm trước đó
-        filtered.forEach((item) => {
-            const key = `${item.sheetName}-${item.rowIndex}`
-            if (!seen.has(key)) {
-                seen.add(key)
-                matchingItems.push(item)
-            }
-        })
-    })
-
-    return matchingItems
-}
 
 export async function GET(req: Request) {
     const startTime = Date.now()
@@ -532,39 +330,22 @@ export async function GET(req: Request) {
 
         const url = new URL(req.url)
         const forceRefresh = url.searchParams.get("revalidate") === "1"
-        const searchParam = url.searchParams.get("search") || ""
-        const searchTypeParam = (url.searchParams.get("searchType") || "Site") as "Site" | "NCC"
         
-        // Parse filter parameters
-        const filterParams: Record<string, string> = {}
-        const filterKeys = ["diBong", "diBET", "siteVN", "trafficTool", "giaGP", "DR", "giaText", "ngayCapNhat", "chuDe"]
-        filterKeys.forEach(key => {
-            const value = url.searchParams.get(key)
-            if (value) {
-                filterParams[key] = value
-            }
-        })
-        const hasFilters = Object.keys(filterParams).length > 0
-        
-        // Parse search terms (comma, newline, or space separated)
-        const searchTerms = searchParam
-            ? searchParam.split(/[,\n\s]+/).filter((term) => term.trim() !== "")
-            : []
-        
-        const hasSearch = searchTerms.length > 0
-        
-        // Cache key includes search params and filters
-        const cacheKeyParts = []
-        if (hasSearch) {
-            cacheKeyParts.push(`search-${searchParam}-${searchTypeParam}`)
+        const client = await getAuthClient()
+
+        // Nếu sheet thay đổi (modifiedTime khác), reset toàn bộ cache
+        const modifiedTime = await getSpreadsheetModifiedTime(client)
+        if (modifiedTime && lastModifiedTime && modifiedTime !== lastModifiedTime) {
+            invalidateAllCache()
+            console.log("[sheet/get] Sheet modifiedTime changed, cache invalidated")
         }
-        if (hasFilters) {
-            const filterStr = Object.entries(filterParams).sort().map(([k, v]) => `${k}:${v}`).join(",")
-            cacheKeyParts.push(`filters-${filterStr}`)
+        if (modifiedTime) {
+            lastModifiedTime = modifiedTime
         }
-        const cacheKey = cacheKeyParts.length > 0
-            ? getCacheKey(SPREADSHEET_ID, `get-${cacheKeyParts.join("-")}`)
-            : getCacheKey(SPREADSHEET_ID, "get")
+
+        // Cache key gắn kèm modifiedTime để tự động thay đổi khi sheet thay đổi
+        const cacheKeySuffix = modifiedTime ? `get-${modifiedTime}` : "get"
+        const cacheKey = getCacheKey(SPREADSHEET_ID, cacheKeySuffix)
         
         if (!forceRefresh) {
             const cached = getCachedData(cacheKey)
@@ -573,14 +354,13 @@ export async function GET(req: Request) {
                 return NextResponse.json(cached, {
                     status: 200,
                     headers: {
-                        "Cache-Control": hasSearch ? "private, max-age=300" : "private, max-age=600, stale-while-revalidate=1200",
-                        "CDN-Cache-Control": hasSearch ? "private, max-age=300" : "public, max-age=600",
+                        "Cache-Control": "private, max-age=600, stale-while-revalidate=1200",
+                        "CDN-Cache-Control": "public, max-age=600",
                     },
                 })
             }
         }
 
-        const client = await getAuthClient()
         const gsapi = google.sheets({ version: "v4", auth: client })
 
         const fetchStart = Date.now()
@@ -654,37 +434,7 @@ export async function GET(req: Request) {
         }
         console.log(`[sheet/get] Total format time: ${Date.now() - formatStart}ms`)
 
-        // Apply search filter if search terms are provided
-        if (hasSearch) {
-            const filterStart = Date.now()
-            
-            // Filter gpTextVN data
-            if (formattedData.gpTextVN) {
-                const originalCount = formattedData.gpTextVN.length
-                formattedData.gpTextVN = filterDataBySearch(formattedData.gpTextVN, searchTerms, searchTypeParam)
-                console.log(`[sheet/get] Filtered gpTextVN by search: ${originalCount} rows to ${formattedData.gpTextVN.length} rows (${Date.now() - filterStart}ms)`)
-            }
-            
-            // Filter NCC data if searching by NCC
-            if (searchTypeParam === "NCC" && formattedData.ncc) {
-                const originalNccCount = formattedData.ncc.length
-                formattedData.ncc = filterDataBySearch(formattedData.ncc, searchTerms, searchTypeParam)
-                console.log(`[sheet/get] Filtered ncc by search: ${originalNccCount} rows to ${formattedData.ncc.length} rows`)
-            }
-        }
-
-        // Apply filter parameters if provided
-        if (hasFilters) {
-            const filterStart = Date.now()
-            
-            // Filter gpTextVN data by filters
-            if (formattedData.gpTextVN) {
-                const originalCount = formattedData.gpTextVN.length
-                formattedData.gpTextVN = filterDataByFilters(formattedData.gpTextVN, filterParams)
-                console.log(`[sheet/get] Filtered gpTextVN by filters: ${originalCount} rows to ${formattedData.gpTextVN.length} rows (${Date.now() - filterStart}ms)`)
-            }
-        }
-
+        // API luôn trả về tất cả dữ liệu, không filter theo site đơn lẻ
         setCachedData(cacheKey, formattedData, CACHE_DURATION)
 
         const totalTime = Date.now() - startTime
@@ -693,8 +443,8 @@ export async function GET(req: Request) {
         return NextResponse.json(formattedData, {
             status: 200,
             headers: {
-                "Cache-Control": hasSearch ? "private, max-age=300" : "private, max-age=600, stale-while-revalidate=1200",
-                "CDN-Cache-Control": hasSearch ? "private, max-age=300" : "public, max-age=600",
+                "Cache-Control": "private, max-age=600, stale-while-revalidate=1200",
+                "CDN-Cache-Control": "public, max-age=600",
             },
         })
     } catch (e: any) {

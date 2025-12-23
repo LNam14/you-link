@@ -46,14 +46,12 @@ interface SiteData {
     DR: string
     trafficTool: string
     ghiChu: string
+    noteKH: string
+    noteNB: string
     giaBanGP: string
     giaBanText: string
     giaBanTextHome: string
     giaBanTextHeader: string
-    giaBanGPLio: string
-    giaBanTextLio: string
-    giaBanTextHomeLio: string
-    giaBanTextHeaderLio: string
     giaMuaGP: string
     giaMuaText: string
     giaMuaTextHome: string
@@ -64,18 +62,10 @@ interface SiteData {
     giaCuoiText: string
     giaCuoiTextHome: string
     giaCuoiTextHeader: string
-    giaCuoiGPLio: string
-    giaCuoiTextLio: string
-    giaCuoiTextHomeLio: string
-    giaCuoiTextHeaderLio: string
     loiNhuanGP: string
     loiNhuanText: string
     loiNhuanTextHome: string
     loiNhuanTextHeader: string
-    loiNhuanGPLio: string
-    loiNhuanTextLio: string
-    loiNhuanTextHomeLio: string
-    loiNhuanTextHeaderLio: string
     NCC: string
     MaNCC: string
     FileNCC: string[] | string
@@ -86,7 +76,6 @@ interface SiteData {
 }
 
 type PriceType = "GP" | "Text" | "TextHome" | "TextHeader"
-type BrandType = "F" | "X"
 type CurrencyType = "USDT" | "VND"
 type SearchType = "Site" | "NCC"
 
@@ -120,7 +109,6 @@ export default function PageBody() {
     const [isSearching, setIsSearching] = useState(false) // State để track khi đang tìm kiếm
     const [searchCompleted, setSearchCompleted] = useState(false) // State để track khi search đã hoàn thành
     const [selectedPriceType, setSelectedPriceType] = useState<PriceType>("GP")
-    const [selectedBrand, setSelectedBrand] = useState<BrandType>("F")
     const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>("USDT")
     const [exchangeRate, setExchangeRate] = useState<string>("28")
     const [selectedSearchType, setSelectedSearchType] = useState<SearchType>("Site")
@@ -182,6 +170,13 @@ export default function PageBody() {
             isLoadingDataRef.current = false // Reset flag nếu có lỗi
         }
     }, [refetch, selectedSearchType])
+    
+    // Tự động load dữ liệu khi vào trang
+    useEffect(() => {
+        if (!dataLoaded && !loading && !refreshing && allData.length === 0 && !isLoadingDataRef.current) {
+            handleLoadData()
+        }
+    }, [dataLoaded, loading, refreshing, allData.length, handleLoadData])
 
     // Track khi đang tải dữ liệu từ nút "Tải dữ liệu"
     const isLoadingDataRef = useRef(false)
@@ -217,14 +212,10 @@ export default function PageBody() {
                     onCurrencyChange: (currency) => setSelectedCurrency(currency),
                     onExchangeRateChange: (rate) => setExchangeRate(rate),
                 },
-                brand: {
-                    value: selectedBrand,
-                    onBrandChange: (brand) => setSelectedBrand(brand),
-                },
             },
             refreshButton: true,
         })
-    }, [selectedSearchType, selectedCurrency, selectedBrand, exchangeRate, loading, refreshing, isStale, setHeaderData, fetchData])
+    }, [selectedSearchType, selectedCurrency, exchangeRate, loading, refreshing, isStale, setHeaderData, fetchData])
 
     // Sync selectedExtensions with filters["Site"] when filter is cleared externally
     useEffect(() => {
@@ -677,7 +668,7 @@ export default function PageBody() {
         if (selectedSearchType === "Site" && !hasSearchTerm) {
             const getPriceColumnFn = getPriceColumnDataRef.current
             if (getPriceColumnFn) {
-                const priceField = getPriceColumnFn(selectedPriceType, selectedBrand, "giaMua")
+                const priceField = getPriceColumnFn(selectedPriceType, "giaMua")
                 // Pre-calculate price values to avoid repeated function calls during sort
                 const itemsWithPrice = dataToProcess.map(item => ({
                     item,
@@ -713,7 +704,7 @@ export default function PageBody() {
                     "loiNhuan",
                 ]
                 fieldsToConvert.forEach((fieldKey) => {
-                    const fieldName = getPriceColumnFn(selectedPriceType, selectedBrand, fieldKey)
+                    const fieldName = getPriceColumnFn(selectedPriceType, fieldKey)
                     const raw = newItem[fieldName as keyof SiteData]?.toString() || ""
                     const numericValue = Number.parseFloat(raw)
                     if (!isNaN(numericValue) && numericValue !== 0) {
@@ -749,7 +740,7 @@ export default function PageBody() {
                     } else {
                         // Có nhiều item trùng, tìm item có giá thấp nhất
                         if (getPriceColumnFn) {
-                            const priceField = getPriceColumnFn(selectedPriceType, selectedBrand, "giaMua")
+                            const priceField = getPriceColumnFn(selectedPriceType, "giaMua")
                             
                             // Tìm item có giá thấp nhất (khác 0 và hợp lệ)
                             let minPriceItem = items[0]
@@ -841,7 +832,7 @@ export default function PageBody() {
         setSearchCompleted(true)
         setIsSearching(false)
         setCurrentPage(1) // Reset to first page when new data arrives
-    }, [dataLoaded, localData, searchableData, filters, selectedSearchType, selectedCurrency, selectedBrand, selectedPriceType, exchangeRate])
+    }, [dataLoaded, localData, searchableData, filters, selectedSearchType, selectedCurrency, selectedPriceType, exchangeRate])
 
     // Update ref when applySearchAndFilters changes
     useEffect(() => {
@@ -1001,20 +992,20 @@ export default function PageBody() {
     const itemMatchesFiltersRef = useRef<((item: SiteData) => boolean) | null>(null)
     
     // Use ref to store latest getPriceColumnData function to avoid dependency issues
-    const getPriceColumnDataRef = useRef<((priceType: PriceType, brand: BrandType, field: "giaBan" | "giaMua" | "giaCuoi" | "loiNhuan" | "hoaHong") => string) | null>(null)
+    const getPriceColumnDataRef = useRef<((priceType: PriceType, field: "giaBan" | "giaMua" | "giaCuoi" | "loiNhuan" | "hoaHong") => string) | null>(null)
 
     // Track when we're waiting for data after a search
     const pendingSearchRef = useRef<string | null>(null)
     const lastProcessedDataRef = useRef<any[]>([])
 
-    // Update data immediately when currency, brand, price type, rate changes
+    // Update data immediately when currency, price type, rate changes
     useEffect(() => {
         if (hasSearched && searchTerm && searchCompleted) {
-            // Only run search when currency/brand/price type changes, not when allData changes
+            // Only run search when currency/price type changes, not when allData changes
             runSearchRef.current(searchTerm)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedCurrency, selectedBrand, selectedPriceType, exchangeRate])
+    }, [selectedCurrency, selectedPriceType, exchangeRate])
 
     // Handle data update after fetch - separate effect to avoid infinite loop
     useEffect(() => {
@@ -1061,22 +1052,8 @@ export default function PageBody() {
 
     const getPriceColumnData = useCallback((
         priceType: PriceType,
-        brand: BrandType,
         field: "giaBan" | "giaMua" | "giaCuoi" | "loiNhuan" | "hoaHong",
     ) => {
-        // For Giá Mua, always use F-ALL price (no Lio suffix)
-        if (field === "giaMua") {
-            const typeMap = {
-                GP: "GP",
-                Text: "Text",
-                TextHome: "TextHome",
-                TextHeader: "TextHeader",
-            }
-            return `giaMua${typeMap[priceType]}`
-        }
-
-        // For other fields, apply normal logic
-        const suffix = brand === "X" ? "Lio" : ""
         const typeMap = {
             GP: "GP",
             Text: "Text",
@@ -1089,7 +1066,7 @@ export default function PageBody() {
             return priceType === "GP" ? "hoaHongGP" : "hoaHongText"
         }
 
-        return `${field}${typeMap[priceType]}${suffix}`
+        return `${field}${typeMap[priceType]}`
     }, [])
 
     // Helper function to check if item matches filters
@@ -1151,7 +1128,7 @@ export default function PageBody() {
         // Giá GP filter
         if (filters["Giá GP"]) {
             const giaGPValue = filters["Giá GP"]
-            const priceField = getPriceColumnData(selectedPriceType, selectedBrand, "giaMua")
+            const priceField = getPriceColumnData(selectedPriceType, "giaMua")
             const itemPrice = Number.parseFloat((item as any)[priceField] || "0") || 0
             
             if (giaGPValue === "1") {
@@ -1186,7 +1163,7 @@ export default function PageBody() {
         // Giá Text filter
         if (filters["Giá Text"]) {
             const giaTextValue = filters["Giá Text"]
-            const priceField = getPriceColumnData(selectedPriceType, selectedBrand, "giaMua")
+            const priceField = getPriceColumnData(selectedPriceType, "giaMua")
             const itemPrice = Number.parseFloat((item as any)[priceField] || "0") || 0
             
             if (giaTextValue === "1") {
@@ -1250,7 +1227,7 @@ export default function PageBody() {
         }
 
         return true
-    }, [filters, selectedTopics, selectedPriceType, selectedBrand, getPriceColumnData])
+    }, [filters, selectedTopics, selectedPriceType, getPriceColumnData])
 
     // Update ref when itemMatchesFilters changes
     useEffect(() => {
@@ -1324,9 +1301,11 @@ export default function PageBody() {
             let groupLabel = ""
             if (colData.includes("giaBan") || colData.includes("giaMua") || colData.includes("hoaHong") || colData.includes("giaCuoi") || colData.includes("loiNhuan")) {
                 groupLabel = "Giá cả"
-            } else if (["NCC", "MaNCC", "FileNCC", "GroupNCC", "GhiChuNCC"].includes(colData)) {
+            } else if (["NCC", "MaNCC", "FileNCC", "GroupNCC"].includes(colData)) {
                 groupLabel = "Thông tin NCC"
-            } else {
+            } else if(["noteKH", "noteNB"].includes(colData)) {
+                groupLabel = "Note"
+            }else {
                 groupLabel = ""
             }
             
@@ -1599,9 +1578,9 @@ export default function PageBody() {
                 }) as RendererFunction,
             },
             {
-                title: "Ghi Chú",
-                data: "ghiChu",
-                width: 100,
+                title: "Khách hàng",
+                data: "noteKH",
+                width: 60,
                 className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
@@ -1629,8 +1608,8 @@ export default function PageBody() {
             },
         ]
 
-        // Add single price column based on selected type and brand
-        const sellPriceColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaBan")
+        // Add single price column based on selected type
+        const sellPriceColumn = getPriceColumnData(selectedPriceType, "giaBan")
         baseColumns.push({
             title: `Bán`,
             data: sellPriceColumn,
@@ -1661,10 +1640,10 @@ export default function PageBody() {
         }
 
         // Add remaining columns with the same configuration for Admin and Nhân viên
-        const buyPriceColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaMua")
-        const finalPriceColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaCuoi")
-        const profitColumn = getPriceColumnData(selectedPriceType, selectedBrand, "loiNhuan")
-        const commissionColumn = getPriceColumnData(selectedPriceType, selectedBrand, "hoaHong")
+        const buyPriceColumn = getPriceColumnData(selectedPriceType, "giaMua")
+        const finalPriceColumn = getPriceColumnData(selectedPriceType, "giaCuoi")
+        const profitColumn = getPriceColumnData(selectedPriceType, "loiNhuan")
+        const commissionColumn = getPriceColumnData(selectedPriceType, "hoaHong")
 
         const additionalColumns = [
             {
@@ -1916,11 +1895,21 @@ export default function PageBody() {
                     return td
                 }) as RendererFunction,
             },
-            {
-                title: "Note",
-                data: "GhiChuNCC",
-                width: 60,
-                className: "htMiddle",
+        ]
+
+        // Add note columns
+        const noteColumns = []
+        
+        // Khách hàng chỉ hiện note KH
+        const isRestrictedUserForNotes = !userInfo || (userInfo.role !== "Admin" && userInfo.role !== "Nhân viên")
+        
+        if (isRestrictedUserForNotes) {
+            // Chỉ hiện note KH cho khách hàng
+            noteColumns.push({
+                title: "Khách Hàng",
+                data: "noteKH",
+                width: 100,
+                className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
                     td: HTMLTableCellElement,
@@ -1933,60 +1922,54 @@ export default function PageBody() {
                     td.style.whiteSpace = "nowrap"
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
                     td.title = value || ""
                     td.textContent = value || ""
-                    td.style.textAlign = "center"
                     return td
                 }) as RendererFunction,
-            },
-        ]
+            })
+        } else {
+            // Admin và Nhân viên hiện cả 3 cột note
+            noteColumns.push(
+                {
+                    title: "Nội Bộ",
+                    data: "noteNB",
+                    width: 60,
+                    className: "htMiddle text-center",
+                    renderer: ((
+                        instance: Handsontable,
+                        td: HTMLTableCellElement,
+                        row: number,
+                        col: number,
+                        prop: string | number,
+                        value: any,
+                    ): HTMLTableCellElement => {
+                        td.innerHTML = ""
+                        td.style.whiteSpace = "nowrap"
+                        td.style.overflow = "hidden"
+                        td.style.textOverflow = "ellipsis"
+                        td.style.textAlign = "center"
+                        td.title = value || ""
+                        td.textContent = value || ""
+                        return td
+                    }) as RendererFunction,
+                }
+            )
+        }
 
-        return [...baseColumns, ...additionalColumns]
-    }, [selectedPriceType, selectedBrand, userInfo?.role, getPriceColumnData, createPriceRenderer])
+        return [...baseColumns, ...additionalColumns, ...noteColumns]
+    }, [selectedPriceType, userInfo?.role, getPriceColumnData, createPriceRenderer])
 
     // Add a function to calculate summary data - memoized
     const calculateSummary = useCallback((data: SiteData[]) => {
         if (!data || data.length === 0) return null
 
-        // Get the correct price column based on selected type and brand
-        const getPriceColumn = (
-            type: PriceType,
-            brand: BrandType,
-            field: "giaBan" | "giaMua" | "hoaHong" | "giaCuoi" | "loiNhuan",
-        ) => {
-            const suffix = brand === "X" ? "Lio" : ""
-
-            // Map field to its base name
-            const fieldMap = {
-                giaBan: "giaBan",
-                giaMua: "giaMua",
-                hoaHong: "hoaHong",
-                giaCuoi: "giaCuoi",
-                loiNhuan: "loiNhuan",
-            }
-
-            // Map price type to its suffix
-            const typeSuffix = {
-                GP: "GP",
-                Text: "Text",
-                TextHome: "TextHome",
-                TextHeader: "TextHeader",
-            }
-
-            // For hoaHong, we only have GP and Text variants
-            if (field === "hoaHong") {
-                return type === "GP" ? "hoaHongGP" : "hoaHongText"
-            }
-
-            return `${fieldMap[field]}${typeSuffix[type]}${suffix}`
-        }
-
-        // Get the current price columns based on selected type and brand
-        const giaBanColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaBan")
-        const giaMuaColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaMua")
+        // Get the current price columns based on selected type
+        const giaBanColumn = getPriceColumnData(selectedPriceType, "giaBan")
+        const giaMuaColumn = getPriceColumnData(selectedPriceType, "giaMua")
         const hoaHongColumn = selectedPriceType === "GP" ? "hoaHongGP" : "hoaHongText"
-        const giaCuoiColumn = getPriceColumnData(selectedPriceType, selectedBrand, "giaCuoi")
-        const loiNhuanColumn = getPriceColumnData(selectedPriceType, selectedBrand, "loiNhuan")
+        const giaCuoiColumn = getPriceColumnData(selectedPriceType, "giaCuoi")
+        const loiNhuanColumn = getPriceColumnData(selectedPriceType, "loiNhuan")
 
         // Initialize summary with the correct columns
         const summary: any = {
@@ -2071,7 +2054,7 @@ export default function PageBody() {
         summary.GroupNCC = totalGroups > 0 ? `Group (${totalGroups})` : "No Group"
 
         return summary as SiteData & { _fileUrls?: string[]; _groupUrls?: string[] }
-    }, [selectedPriceType, selectedBrand])
+    }, [selectedPriceType])
 
     // Count NCCs with usable IdGroup (handles non-string values safely)
     const getValidNCCsCount = useCallback((data: SiteData[]) => {
@@ -2308,7 +2291,6 @@ export default function PageBody() {
     // Memoize generateColumns để tránh tạo lại mỗi lần render
     const generatedColumns = useMemo(() => generateColumns(), [
         selectedPriceType,
-        selectedBrand,
         userInfo?.role,
     ])
 
@@ -2512,36 +2494,6 @@ export default function PageBody() {
                                 className="w-full px-3 sm:px-4 py-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-20 sm:pr-24 text-sm sm:text-base text-gray-700 placeholder-gray-400 bg-white shadow-sm resize-none overflow-y-auto"
                             />
                             <div className="absolute right-2 sm:right-3 top-2 sm:top-3 flex items-center gap-1 sm:gap-2">
-                                {/* Nút Tải dữ liệu */}
-                                <button
-                                    onClick={handleLoadData}
-                                    disabled={isSearching || (dataLoaded && localData.length > 0)}
-                                    className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md font-medium text-xs sm:text-sm ${
-                                        dataLoaded && localData.length > 0
-                                            ? "bg-green-100 text-green-700 cursor-not-allowed"
-                                            : isSearching
-                                            ? "bg-blue-100 text-blue-700 cursor-not-allowed"
-                                            : "bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 cursor-pointer"
-                                    }`}
-                                >
-                                    {isSearching ? (
-                                        <>
-                                            <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-                                            <span className="hidden sm:inline">Đang tải...</span>
-                                        </>
-                                    ) : dataLoaded && localData.length > 0 ? (
-                                        <>
-                                            <Check className="h-3 w-3 sm:h-4 sm:w-4" />
-                                            <span className="hidden sm:inline">Đã tải</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4" />
-                                            <span className="hidden sm:inline">Tải dữ liệu</span>
-                                        </>
-                                    )}
-                                </button>
-                                
                                 {/* Nút Bộ lọc - disabled khi chưa tải dữ liệu */}
                                 <button
                                     onClick={() => setShowFilters(true)}
@@ -2770,7 +2722,7 @@ export default function PageBody() {
                             {/* Main Results Table - Only render paginated data */}
                             {renderHotTable(
                                 paginatedData,
-                                `main-${selectedPriceType}-${selectedBrand}-${selectedSearchType}-page-${currentPage}`,
+                                `main-${selectedPriceType}-${selectedSearchType}-page-${currentPage}`,
                                 mainTableRef,
                                 onMainTableCellMouseDown,
                                 // Summary will be calculated from paginatedData only (currently displayed data)
@@ -2797,7 +2749,7 @@ export default function PageBody() {
                                     </div>
                                     {renderHotTable(
                                         Object.values(duplicateSites).flat(),
-                                        `duplicates-${selectedPriceType}-${selectedBrand}-${selectedSearchType}`,
+                                        `duplicates-${selectedPriceType}-${selectedSearchType}`,
                                         duplicatesTableRef,
                                         onDuplicatesTableCellMouseDown,
                                         Object.values(duplicateSites).flat(), // All duplicates for summary

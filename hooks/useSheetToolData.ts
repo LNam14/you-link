@@ -16,15 +16,13 @@ interface SiteData {
   DR: string;
   keywords: string;
   trafficTool: string;
-  ghiChu: string;
+  noteKH: string;
+  noteNB: string;
+  noteNCC: string;
   giaBanGP: string;
   giaBanText: string;
   giaBanTextHome: string;
   giaBanTextHeader: string;
-  giaBanGPLio: string;
-  giaBanTextLio: string;
-  giaBanTextHomeLio: string;
-  giaBanTextHeaderLio: string;
   giaMuaGP: string;
   giaMuaText: string;
   giaMuaTextHome: string;
@@ -37,23 +35,14 @@ interface SiteData {
   giaCuoiText: string;
   giaCuoiTextHome: string;
   giaCuoiTextHeader: string;
-  giaCuoiGPLio: string;
-  giaCuoiTextLio: string;
-  giaCuoiTextHomeLio: string;
-  giaCuoiTextHeaderLio: string;
   loiNhuanGP: string;
   loiNhuanText: string;
   loiNhuanTextHome: string;
   loiNhuanTextHeader: string;
-  loiNhuanGPLio: string;
-  loiNhuanTextLio: string;
-  loiNhuanTextHomeLio: string;
-  loiNhuanTextHeaderLio: string;
   NCC: string;
   MaNCC: string;
   FileNCC: string[] | string;
   GroupNCC: string[] | string;
-  GhiChuNCC: string;
   timeText: string;
   IdGroup?: string | number | null;
 }
@@ -122,15 +111,13 @@ function convertToSiteData(row: FormattedRow): SiteData {
     DR: convertValue(row.DR),
     keywords: convertValue(row.keywords),
     trafficTool: convertValue(row.trafficTool),
-    ghiChu: convertValue(row.ghiChu),
+    noteKH: convertValue((row as any).noteKH),
+    noteNB: convertValue((row as any).noteNB),
+    noteNCC: convertValue((row as any).noteNCC),
     giaBanGP: convertValue(row.giaBanGP),
     giaBanText: convertValue(row.giaBanText),
     giaBanTextHome: convertValue(row.giaBanTextHome),
     giaBanTextHeader: convertValue(row.giaBanTextHeader),
-    giaBanGPLio: convertValue(row.giaBanGPLio),
-    giaBanTextLio: convertValue(row.giaBanTextLio),
-    giaBanTextHomeLio: convertValue(row.giaBanTextHomeLio),
-    giaBanTextHeaderLio: convertValue(row.giaBanTextHeaderLio),
     giaMuaGP: convertValue(row.giaMuaGP),
     giaMuaText: convertValue(row.giaMuaText),
     giaMuaTextHome: convertValue(row.giaMuaTextHome),
@@ -143,23 +130,14 @@ function convertToSiteData(row: FormattedRow): SiteData {
     giaCuoiText: convertValue(row.giaCuoiText),
     giaCuoiTextHome: convertValue(row.giaCuoiTextHome),
     giaCuoiTextHeader: convertValue(row.giaCuoiTextHeader),
-    giaCuoiGPLio: convertValue(row.giaCuoiGPLio),
-    giaCuoiTextLio: convertValue(row.giaCuoiTextLio),
-    giaCuoiTextHomeLio: convertValue(row.giaCuoiTextHomeLio),
-    giaCuoiTextHeaderLio: convertValue(row.giaCuoiTextHeaderLio),
     loiNhuanGP: convertValue(row.loiNhuanGP),
     loiNhuanText: convertValue(row.loiNhuanText),
     loiNhuanTextHome: convertValue(row.loiNhuanTextHome),
     loiNhuanTextHeader: convertValue(row.loiNhuanTextHeader),
-    loiNhuanGPLio: convertValue(row.loiNhuanGPLio),
-    loiNhuanTextLio: convertValue(row.loiNhuanTextLio),
-    loiNhuanTextHomeLio: convertValue(row.loiNhuanTextHomeLio),
-    loiNhuanTextHeaderLio: convertValue(row.loiNhuanTextHeaderLio),
     NCC: convertValue(row.NCC),
     MaNCC: convertValue(row.MaNCC),
     FileNCC: convertFileNCC(row.FileNCC),
     GroupNCC: convertFileNCC(row.GroupNCC),
-    GhiChuNCC: convertValue(row.GhiChuNCC),
     timeText: convertValue(row.timeText),
     IdGroup: row.IdGroup,
   };
@@ -238,10 +216,8 @@ export function useSheetToolData(
 
       // Call the API endpoint - sử dụng sheet API with search params
       const searchParams = new URLSearchParams();
-      // Only force revalidate if explicitly refreshing AND not forceLoadAll (to use cache when loading all data)
-      if (isRefresh && !forceLoadAll) {
-        searchParams.set("revalidate", "1");
-      }
+      // Luôn yêu cầu backend bỏ qua cache
+      searchParams.set("revalidate", "1");
       if (hasSearchTerm && !forceLoadAll) {
         searchParams.set("search", searchTerm);
         searchParams.set("searchType", searchTypeValue);
@@ -266,8 +242,9 @@ export function useSheetToolData(
         method: "GET",
         headers,
         credentials: "include",
-        // Use cache when forceLoadAll to speed up loading
-        cache: (isRefresh && !forceLoadAll) ? "no-store" : "default",
+        // Luôn bỏ qua cache trình duyệt để đảm bảo bắt kịp thay đổi sheet.
+        // Máy chủ đã tự quản lý cache và tự reset khi sheet đổi.
+        cache: "no-store",
       });
 
       // Handle 304 Not Modified

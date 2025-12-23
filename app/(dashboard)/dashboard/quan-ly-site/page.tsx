@@ -16,7 +16,9 @@ import {
     RefreshCw,
     Plus,
     X,
+    Save,
 } from "lucide-react"
+import { toast } from "sonner"
 
 type SearchType = "Site" | "NCC"
 type CurrencyType = "USDT" | "VND"
@@ -35,7 +37,8 @@ interface SiteData {
     DR: string
     keywords?: string
     trafficTool: string
-    ghiChu: string
+    noteKH: string
+    noteNB: string
     giaMuaGP: string
     giaMuaText: string
     giaMuaTextHome: string
@@ -48,7 +51,6 @@ interface SiteData {
     loiNhuanText: string
     NCC: string
     MaNCC: string
-    GhiChuNCC: string
 }
 
 type RendererFunction = (
@@ -61,16 +63,38 @@ type RendererFunction = (
     cellProperties?: Handsontable.CellMeta,
 ) => HTMLTableCellElement
 
+type PendingChange =
+    | {
+        type: "update"
+        key: string
+        site: string
+        sheetName: string
+        rowIndex: number
+        maNCC?: string
+        updates: Partial<SiteData>
+    }
+    | {
+        type: "add"
+        key: string
+        sheetName: string
+        rowIndex: number
+        rowData: SiteData
+    }
+
 export default function PageBody() {
     const [filteredData, setFilteredData] = useState<SiteData[]>([])
     const [newRows, setNewRows] = useState<SiteData[]>([]) // Các site mới thêm, luôn hiển thị
+    const [localAddedRows, setLocalAddedRows] = useState<SiteData[]>([]) // Các site đã lưu thành công nhưng chưa refetch
+    const [localUpdatedRows, setLocalUpdatedRows] = useState<Map<string, SiteData>>(new Map()) // Cache các dòng đã update để không cần refetch
     const [searchTerm, setSearchTerm] = useState("")
     const [hasSearched, setHasSearched] = useState(false)
     const [isSearching, setIsSearching] = useState(false) // State để track khi đang tìm kiếm
+    const [isSaving, setIsSaving] = useState(false)
     const [selectedSearchType, setSelectedSearchType] = useState<SearchType>("Site")
     const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>("USDT")
     const [exchangeRate, setExchangeRate] = useState<string>("28")
     const [isUpdating, setIsUpdating] = useState(false)
+    const [pendingChanges, setPendingChanges] = useState<Map<string, PendingChange>>(new Map())
     
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -81,7 +105,7 @@ export default function PageBody() {
     const mainTableRef = useRef<HotTableRef>(null)
     const selectionAnchorRef = useRef<{ row: number; col: number } | null>(null)
 
-    // Sử dụng hook tối ưu để fetch và cache dữ liệu - chỉ fetch khi có search
+    // Sử dụng hook tối ưu để fetch và cache dữ liệu
     const { data: toolData, loading, refreshing, refetch, isStale } = useSheetToolData(false)
     const allData = toolData?.gpTextVN || []
     
@@ -183,6 +207,32 @@ export default function PageBody() {
         return normalized
     }, [])
 
+    const getRowKey = useCallback(
+        (sheetName?: string, rowIndex?: number, site?: string): string => {
+            if (sheetName && typeof rowIndex === "number") {
+                return `${sheetName}-${rowIndex}`
+            }
+            const normalizedSite = normalizeUrl(site || "")
+            return normalizedSite ? `site-${normalizedSite}` : ""
+        },
+        [normalizeUrl],
+    )
+
+    const applyLocalUpdates = useCallback(
+        (data: SiteData[], overrides?: Map<string, SiteData>): SiteData[] => {
+            const updateMap = overrides ?? localUpdatedRows
+            if (!updateMap || updateMap.size === 0) return data
+
+            return data.map((item) => {
+                const key = getRowKey(item.sheetName, item.rowIndex, item.site)
+                if (!key) return item
+                const override = updateMap.get(key)
+                return override ? { ...item, ...override } : item
+            })
+        },
+        [getRowKey, localUpdatedRows],
+    )
+
     // Apply currency conversion helper
     const applyCurrencyConversion = useCallback((dataToConvert: SiteData[]): SiteData[] => {
         return dataToConvert.map((item) => {
@@ -214,9 +264,75 @@ export default function PageBody() {
         })
     }, [selectedCurrency, exchangeRate])
 
-    // Core search logic - fetch từ API với search params
+    // Flag tránh refetch lặp khi auto load
+    const isLoadingDataRef = useRef(false)
+
+    // Auto load toàn bộ dữ liệu khi vào trang (tham khảo tool-check-site)
+    useEffect(() => {
+        if (isLoadingDataRef.current) return
+        if (!loading && !refreshing && allData.length === 0) {
+            isLoadingDataRef.current = true
+            // forceLoadAll = true để lấy toàn bộ dữ liệu gốc
+            refetch("", selectedSearchType, undefined, true)
+                .finally(() => {
+                    isLoadingDataRef.current = false
+                })
+        }
+    }, [allData.length, loading, refreshing, refetch, selectedSearchType])
+
+    // Lọc dữ liệu theo từ khóa trên dữ liệu đã tải sẵn
+    const filterDataBySearch = useCallback(
+        (value: string, overrideUpdatedRows?: Map<string, SiteData>): SiteData[] => {
+            const searchValue = value.trim()
+            if (!searchValue) return []
+
+            const sourceData = applyLocalUpdates([...allData, ...localAddedRows], overrideUpdatedRows)
+            if (!sourceData || sourceData.length === 0) return []
+
+            const rawTerms = searchValue
+                .split(/[,\n\s]+/)
+                .map((term) => term.trim())
+                .filter((term) => term !== "")
+
+            if (rawTerms.length === 0) return []
+
+            let filtered: SiteData[] = []
+
+            if (selectedSearchType === "Site") {
+                // Chuẩn hóa domain để so sánh
+                const normalizedTerms = rawTerms.map((t) => normalizeUrl(t))
+                filtered = sourceData.filter((item: SiteData) => {
+                    const itemSite = normalizeUrl(item.site || "")
+                    if (!itemSite) return false
+                    // Khớp chính xác domain đã chuẩn hóa
+                    return normalizedTerms.some((term) => term && itemSite === term)
+                })
+            } else {
+                // Tìm theo NCC: theo mã NCC hoặc tên NCC (không phân biệt hoa thường)
+                const lowerTerms = rawTerms.map((t) => t.toLowerCase())
+                filtered = sourceData.filter((item: SiteData) => {
+                    const nccName = (item.NCC || "").toLowerCase()
+                    const nccCode = (item.MaNCC || "").toLowerCase()
+                    return lowerTerms.some(
+                        (term) =>
+                            (term && nccName.includes(term)) ||
+                            (term && nccCode.includes(term)),
+                    )
+                })
+            }
+
+            // Áp dụng chuyển đổi tiền tệ trên dữ liệu đã lọc
+            return applyCurrencyConversion(filtered)
+        },
+        [allData, localAddedRows, selectedSearchType, normalizeUrl, applyCurrencyConversion, applyLocalUpdates],
+    )
+
+    // Core search logic - tìm kiếm trên dữ liệu đã fetch sẵn (client-side)
     const runSearch = useCallback(
         async (value: string, skipFetch: boolean = false) => {
+            // Reset pending changes khi bắt đầu tìm kiếm mới để tránh lưu nhầm dữ liệu cũ
+            setPendingChanges(new Map())
+
             if (!value.trim()) {
                 setFilteredData([])
                 setHasSearched(false)
@@ -236,40 +352,50 @@ export default function PageBody() {
                 return
             }
 
-            // Fetch data from API with search params (only if not skipping)
-            if (!skipFetch) {
-                await refetch(value, selectedSearchType)
-                // Khi tìm kiếm mới, xóa newRows (chỉ giữ lại khi đang edit)
-                setNewRows([])
-                setNewRowsSheetMap(new Map())
-            }
-            
-            // Apply currency conversion to current data
-            if (allData.length > 0) {
-                const convertedItems = applyCurrencyConversion(allData)
-                setFilteredData(convertedItems)
-                setHasSearched(true)
-            } else {
-                setFilteredData([])
-                setHasSearched(true)
-            }
+            // Tìm kiếm trên dữ liệu đã tải sẵn (không gọi API)
+            const filteredItems = filterDataBySearch(value)
+            setFilteredData(filteredItems)
+            setHasSearched(true)
         },
-        [refetch, selectedSearchType, allData, applyCurrencyConversion],
+        [filterDataBySearch],
     )
 
     // Apply currency conversion when data or currency changes
     useEffect(() => {
         if (searchTerm.trim() && hasSearched) {
-            // Nếu allData rỗng (không tìm thấy), set filteredData rỗng
-            if (allData.length === 0) {
-                setFilteredData([])
-            } else {
-                // Nếu có dữ liệu, apply currency conversion
-                const convertedItems = applyCurrencyConversion(allData)
-                setFilteredData(convertedItems)
-            }
+            // Khi dữ liệu gốc hoặc tỷ giá thay đổi, áp dụng lại lọc và chuyển đổi tiền tệ
+            const filteredItems = filterDataBySearch(searchTerm)
+            setFilteredData((prev) => {
+                // Nếu kết quả không thay đổi (so sánh tham chiếu phần tử), tránh setState để ngăn loop
+                if (
+                    prev.length === filteredItems.length &&
+                    prev.every((item, idx) => item === filteredItems[idx])
+                ) {
+                    return prev
+                }
+                return filteredItems
+            })
         }
-    }, [allData, applyCurrencyConversion, searchTerm, hasSearched])
+    }, [allData, filterDataBySearch, searchTerm, hasSearched])
+
+    // Loại bỏ các dòng thêm mới khỏi cache tạm khi dữ liệu gốc đã chứa chúng (sau refetch)
+    useEffect(() => {
+        if (!localAddedRows.length) return
+
+        const normalizedExisting = new Set(
+            allData.map((item) => normalizeUrl(item.site || "")),
+        )
+
+        const remaining = localAddedRows.filter((row) => {
+            const key = normalizeUrl(row.site || "")
+            if (!key) return true
+            return !normalizedExisting.has(key)
+        })
+
+        if (remaining.length !== localAddedRows.length) {
+            setLocalAddedRows(remaining)
+        }
+    }, [allData, localAddedRows, normalizeUrl])
 
     // Use refs to store latest values to avoid dependency issues
     const searchTermRef = useRef(searchTerm)
@@ -284,12 +410,10 @@ export default function PageBody() {
         runSearchRef.current = runSearch
     }, [runSearch])
 
-    // Fetch dữ liệu mới khi user click refresh
+    // Fetch dữ liệu mới khi user click refresh (luôn fetch toàn bộ)
     const fetchData = useCallback(async () => {
-        if (searchTermRef.current) {
-            await refetch(searchTermRef.current, selectedSearchType)
-        }
-    }, [refetch, selectedSearchType])
+        await refetch()
+    }, [refetch])
 
     // Set header với title và custom controls
     useEffect(() => {
@@ -337,7 +461,7 @@ export default function PageBody() {
                 })
                 
                 if (invalidDomains.length > 0) {
-                    alert(`Các domain sau không đúng định dạng:\n${invalidDomains.join("\n")}\n\nVui lòng nhập đúng định dạng domain (ví dụ: example.com, www.example.com, https://example.com)`)
+                    toast.success(`Các domain sau không đúng định dạng:\n${invalidDomains.join("\n")}\n\nVui lòng nhập đúng định dạng domain (ví dụ: example.com, www.example.com, https://example.com)`)
                     return
                 }
             }
@@ -567,13 +691,6 @@ export default function PageBody() {
                 renderer: createCellRenderer(),
             },
             {
-                title: "Ghi chú",
-                data: "ghiChu",
-                width: 100,
-                className: "htMiddle text-center",
-                renderer: createCellRenderer(),
-            },
-            {
                 title: "Tình trạng",
                 data: "tinhTrang",
                 width: 70,
@@ -581,6 +698,20 @@ export default function PageBody() {
                 renderer: createTinhTrangRenderer(),
                 editor: "select",
                 selectOptions: ["Bình thường", "Ngưng"],
+            },
+            {
+                title: "Khách hàng",
+                data: "noteKH",
+                width: 100,
+                className: "htMiddle text-center",
+                renderer: createCellRenderer(),
+            },
+            {
+                title: "Nội bộ",
+                data: "noteNB",
+                width: 60,
+                className: "htMiddle text-center",
+                renderer: createCellRenderer(),
             },
             // Giá group
             {
@@ -656,13 +787,6 @@ export default function PageBody() {
                 className: "htMiddle",
                 renderer: createCellRenderer(),
             },
-            {
-                title: "Note NB",
-                data: "GhiChuNCC",
-                width: 60,
-                className: "htMiddle",
-                renderer: createCellRenderer(),
-            },
         ]
 
         return columns
@@ -673,35 +797,30 @@ export default function PageBody() {
         const firstRow: Array<{ label: string; colspan: number }> = []
         const secondRow: string[] = []
 
-        // INFO group: 11 columns
-        firstRow.push({ label: "INFO", colspan: 11 })
-        for (let i = 0; i < 11; i++) {
-            secondRow.push(columns[i].title)
-        }
+        const infoCols = columns.slice(0, 10)
+        const noteCols = columns.slice(10, 12)
+        const giaCols = columns.slice(12, 16)
+        const hoaHongCols = columns.slice(16, 18)
+        const keThemCols = columns.slice(18, 20)
+        const nccCols = columns.slice(20, 22)
 
-        // Giá group: 4 columns
-        firstRow.push({ label: "Giá", colspan: 4 })
-        for (let i = 11; i < 15; i++) {
-            secondRow.push(columns[i].title)
-        }
+        firstRow.push({ label: "INFO", colspan: infoCols.length })
+        infoCols.forEach((col) => secondRow.push(col.title))
 
-        // Hoa hồng group: 2 columns
-        firstRow.push({ label: "Hoa hồng", colspan: 2 })
-        for (let i = 15; i < 17; i++) {
-            secondRow.push(columns[i].title)
-        }
+        firstRow.push({ label: "Note", colspan: noteCols.length })
+        noteCols.forEach((col) => secondRow.push(col.title))
 
-        // Kê thêm group: 2 columns
-        firstRow.push({ label: "Kê thêm", colspan: 2 })
-        for (let i = 17; i < 19; i++) {
-            secondRow.push(columns[i].title)
-        }
+        firstRow.push({ label: "Giá", colspan: giaCols.length })
+        giaCols.forEach((col) => secondRow.push(col.title))
 
-        // NCC group: 3 columns
-        firstRow.push({ label: "NCC", colspan: 3 })
-        for (let i = 19; i < 22; i++) {
-            secondRow.push(columns[i].title)
-        }
+        firstRow.push({ label: "Hoa hồng", colspan: hoaHongCols.length })
+        hoaHongCols.forEach((col) => secondRow.push(col.title))
+
+        firstRow.push({ label: "Kê thêm", colspan: keThemCols.length })
+        keThemCols.forEach((col) => secondRow.push(col.title))
+
+        firstRow.push({ label: "NCC", colspan: nccCols.length })
+        nccCols.forEach((col) => secondRow.push(col.title))
 
         return [firstRow, secondRow]
     }, [])
@@ -731,13 +850,13 @@ export default function PageBody() {
     const handleMobileCopySelection = useCallback(async () => {
         const mainTableInstance = mainTableRef.current?.hotInstance
         if (!mainTableInstance) {
-            alert("Không tìm thấy bảng để copy")
+            toast.warning("Không tìm thấy bảng để copy")
             return
         }
 
         const selected = mainTableInstance.getSelected()
         if (!selected || selected.length === 0) {
-            alert("Vui lòng chọn ô cần copy")
+            toast.warning("Vui lòng chọn ô cần copy")
             return
         }
 
@@ -814,6 +933,7 @@ export default function PageBody() {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
+                            "x-skip-telegram": "true", // Telegram sẽ gửi dạng batch sau
                         },
                         body: JSON.stringify({
                             sheetName, // Chỉ cần sheetName và rowIndex
@@ -827,20 +947,13 @@ export default function PageBody() {
                     const result = await response.json()
 
                     if (response.ok) {
-                        // Refresh data after successful update
-                        if (searchTermRef.current) {
-                            await refetch(searchTermRef.current, selectedSearchType)
-                        } else {
-                            await refetch()
-                        }
-
                         return result
                     } else {
                         throw new Error(result.message || "Failed to update")
                     }
                 } catch (error: any) {
                     console.error("Update error:", error)
-                    alert(`Lỗi cập nhật: ${error.message || "Không thể cập nhật dữ liệu"}`)
+                    toast.error(`Lỗi cập nhật: ${error.message || "Không thể cập nhật dữ liệu"}`)
                     throw error
                 }
             } else {
@@ -857,6 +970,7 @@ export default function PageBody() {
                             method: "POST",
                             headers: {
                                 "Content-Type": "application/json",
+                                "x-skip-telegram": "true", // Telegram sẽ gửi dạng batch sau
                             },
                             body: JSON.stringify({
                                 site,
@@ -871,13 +985,6 @@ export default function PageBody() {
 
                         if (response.ok) {
                             updateSuccess = true
-                            // Refresh data after successful update
-                            if (searchTermRef.current) {
-                                await refetch(searchTermRef.current, selectedSearchType)
-                            } else {
-                                await refetch()
-                            }
-
                             return result
                         } else if (result.message?.includes("not found")) {
                             // Site không có trong sheet này, thử sheet tiếp theo
@@ -897,238 +1004,422 @@ export default function PageBody() {
             }
         } catch (error: any) {
             console.error("Update error:", error)
-            alert(`Lỗi cập nhật: ${error.message || "Không thể cập nhật dữ liệu"}`)
+            toast.error(`Lỗi cập nhật: ${error.message || "Không thể cập nhật dữ liệu"}`)
             throw error
         } finally {
             setIsUpdating(false)
         }
-    }, [refetch])
+    }, [])
 
-    // Handle cell changes in table - gọi API ngay lập tức giống users/page.tsx
+    // Handle cell changes in table - chỉ lưu vào danh sách chờ, cần bấm "Lưu dữ liệu" để đẩy lên server
     const handleAfterChange = useCallback((changes: any[] | null, source: string) => {
-        // Only skip loadData source, allow all other sources (edit, CopyPaste.paste, etc.)
-        if (source === "loadData") {
-            return;
-        }
-        
-        // Ensure changes is an array
-        if (!Array.isArray(changes) || changes.length === 0) {
-            return;
-        }
+        if (source === "loadData") return
+        if (!Array.isArray(changes) || changes.length === 0) return
 
-        const mainTableInstance = mainTableRef.current?.hotInstance
-        if (!mainTableInstance) {
-            return
-        }
+        const mergedData = [...filteredData, ...newRows]
+        let newRowsChanged = false
+        const updatedNewRows = [...newRows]
 
-        // Process changes immediately - gọi API ngay lập tức
-        for (const [row, col, oldValue, newValue] of changes) {
-            // Skip if values are the same (normalize for comparison)
-            const normalizedOld = oldValue === null || oldValue === undefined ? "" : String(oldValue).trim()
-            const normalizedNew = newValue === null || newValue === undefined ? "" : String(newValue).trim()
-            
-            if (normalizedOld === normalizedNew) {
-                continue
-            }
+        setPendingChanges((prev) => {
+            const updated = new Map(prev)
 
-            // Handle both column index (number) and property name (string)
-            // When using object data, Handsontable passes property name as col
-            let columnProp: string | undefined
-            if (typeof col === "string") {
-                // col is already the property name
-                columnProp = col
-            } else if (typeof col === "number") {
-                // col is column index, need to map to property name
-                columnProp = mappedColumns[col]?.data as string
-            }
+            for (const [row, col, oldValue, newValue] of changes) {
+                const normalizedOld = oldValue === null || oldValue === undefined ? "" : String(oldValue).trim()
+                const normalizedNew = newValue === null || newValue === undefined ? "" : String(newValue).trim()
+                if (normalizedOld === normalizedNew) continue
 
-            if (!columnProp) {
-                continue
-            }
+                // Determine property name
+                let columnProp: string | undefined
+                if (typeof col === "string") {
+                    columnProp = col
+                } else if (typeof col === "number") {
+                    columnProp = mappedColumns[col]?.data as string
+                }
+                if (!columnProp) continue
 
-            // Merge filteredData và newRows để lấy rowData
-            const mergedData = [...filteredData, ...newRows]
-            const rowData = mergedData[row]
-            if (!rowData) {
-                continue
-            }
+                const rowData = mergedData[row]
+                if (!rowData) continue
 
-            // Check if this is a new row (not yet saved to sheet)
-            // New rows are at the end, so check if row index is in newRows range
-            const newRowIndex = row - filteredData.length
-            const isNewRow = newRowIndex >= 0 && newRowIndex < newRows.length
-            const sheetName = isNewRow ? newRowsSheetMap.get(newRowIndex) : undefined
+                const newRowIndex = row - filteredData.length
+                const isNewRow = newRowIndex >= 0 && newRowIndex < newRows.length
+                const sheetNameForNewRow = isNewRow ? newRowsSheetMap.get(newRowIndex) : undefined
 
-            // Prepare update data
-            const updates: Partial<SiteData> = {
-                [columnProp]: newValue,
-            }
+                const updates: Partial<SiteData> = {
+                    [columnProp]: newValue,
+                }
 
-            // Convert giá nhập về USDT để lưu vào sheet
-            // Nếu đang chọn VND: giá nhập là VND, cần chia cho tỷ giá để lưu USDT
-            // Nếu đang chọn USDT: giá nhập là USDT, lưu trực tiếp
-            let processedUpdates = { ...updates }
-            if (selectedCurrency === "VND") {
-                const rate = Number.parseFloat(exchangeRate)
-                if (!isNaN(rate) && rate > 0) {
-                    const priceFields: Array<keyof SiteData> = [
-                        "giaMuaGP",
-                        "giaMuaText",
-                        "giaMuaTextHome",
-                        "giaMuaTextHeader",
-                        "hoaHongGP",
-                        "hoaHongText",
-                        "loiNhuanGP",
-                        "loiNhuanText",
-                    ]
-                    priceFields.forEach((field) => {
-                        if (processedUpdates[field] !== undefined) {
-                            const inputValue = String(processedUpdates[field]).trim()
-                            if (inputValue !== "") {
-                                const vndValue = Number.parseFloat(inputValue)
-                                if (!isNaN(vndValue) && vndValue !== 0) {
-                                    // Chia cho tỷ giá để chuyển từ VND sang USDT
-                                    const usdtValue = vndValue / rate
-                                    ; (processedUpdates as any)[field] = usdtValue.toString()
+                let processedUpdates = { ...updates }
+                if (selectedCurrency === "VND") {
+                    const rate = Number.parseFloat(exchangeRate)
+                    if (!isNaN(rate) && rate > 0) {
+                        const priceFields: Array<keyof SiteData> = [
+                            "giaMuaGP",
+                            "giaMuaText",
+                            "giaMuaTextHome",
+                            "giaMuaTextHeader",
+                            "hoaHongGP",
+                            "hoaHongText",
+                            "loiNhuanGP",
+                            "loiNhuanText",
+                        ]
+                        priceFields.forEach((field) => {
+                            if (processedUpdates[field] !== undefined) {
+                                const inputValue = String(processedUpdates[field]).trim()
+                                if (inputValue !== "") {
+                                    const vndValue = Number.parseFloat(inputValue)
+                                    if (!isNaN(vndValue) && vndValue !== 0) {
+                                        const usdtValue = vndValue / rate
+                                        ; (processedUpdates as any)[field] = usdtValue.toString()
+                                    }
                                 }
                             }
-                        }
-                    })
-                }
-            }
-            // Nếu chọn USDT, giá nhập đã là USDT rồi, lưu trực tiếp không cần convert
-
-            // If this is a new row, use add API instead of update
-            if (isNewRow && sheetName) {
-                // Prepare full row data with the update
-                const fullRowData = { ...rowData, ...processedUpdates }
-                
-                // Yêu cầu cả site và trafficTool phải có giá trị mới tính là thêm
-                const site = fullRowData.site ? String(fullRowData.site).trim() : ""
-                const trafficTool = fullRowData.trafficTool ? String(fullRowData.trafficTool).trim() : ""
-                
-                // Chỉ gọi API add khi cả site và trafficTool đều có giá trị
-                if (!site || !trafficTool) {
-                    // Chưa đủ điều kiện, không gọi API, chỉ cập nhật local state
-                    continue
-                }
-
-                // Use add API for new rows
-                fetch("/api/sheet/add", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        sheetName,
-                        rowData: fullRowData,
-                    }),
-                })
-                    .then(async (response) => {
-                        const result = await response.json()
-                        if (response.ok) {
-                            // Refresh data - site mới sẽ xuất hiện trong filteredData nếu match searchTerm
-                            // Giữ lại newRows cho đến khi user tìm kiếm mới hoặc load lại trang
-                            if (searchTermRef.current) {
-                                await refetch(searchTermRef.current, selectedSearchType)
-                            } else {
-                                await refetch()
-                            }
-                            // Note: Không xóa newRows ngay, để nó luôn hiển thị cho đến khi tìm kiếm mới
-                            // newRows sẽ được xóa trong runSearch khi tìm kiếm mới
-                        } else {
-                            throw new Error(result.message || "Failed to add row")
-                        }
-                    })
-                    .catch((error) => {
-                        const errorMessage = error instanceof Error ? error.message : String(error)
-                        // Revert change on error
-                        // Use setDataAtRowProp if col is string (property name), otherwise use setDataAtCell
-                        if (typeof col === "string") {
-                            mainTableInstance.setDataAtRowProp(row, col, oldValue)
-                        } else {
-                            mainTableInstance.setDataAtCell(row, col, oldValue)
-                        }
-                        alert(`Lỗi khi lưu dữ liệu: ${errorMessage}`)
-                    })
-                // Continue to next change, don't process update API
-                continue
-            } else {
-                // Existing row - use update API
-                // Determine which site to use for finding the row
-                // If updating site field, use oldValue (old site) to find the row
-                // Otherwise, use current site from rowData
-                const siteToFind = columnProp === "site" ? (oldValue || rowData.site) : rowData.site
-
-                // If site is empty, skip update (this shouldn't happen for existing rows, but just in case)
-                if (!siteToFind || siteToFind.trim() === "") {
-                    // If site is empty, this might be a new row that wasn't tracked properly
-                    // Skip update for now
-                    continue
-                }
-
-                // Use rowIndex if available (faster), otherwise fallback to site + MaNCC search
-                let rowIndex = rowData.rowIndex
-                let sheetName = rowData.sheetName
-                const maNCC = rowData.MaNCC || undefined
-
-                // Nếu không có rowIndex hoặc sheetName, thử lấy từ allData (dữ liệu gốc)
-                if ((!rowIndex || !sheetName) && allData && allData.length > 0) {
-                    // Tìm trong allData dựa vào site
-                    const normalizedSiteToFind = normalizeUrl(siteToFind)
-                    const originalRow = allData.find((item: SiteData) => {
-                        const normalizedSite = normalizeUrl(item.site)
-                        return normalizedSite === normalizedSiteToFind
-                    })
-                    if (originalRow) {
-                        rowIndex = (originalRow as any).rowIndex || rowIndex
-                        sheetName = (originalRow as any).sheetName || sheetName
+                        })
                     }
                 }
 
-                // Kiểm tra nếu rowIndex không hợp lệ (phải >= 3) hoặc không có sheetName
-                // Đây có thể là dòng mới chưa được lưu, không nên gọi updateSiteData với tìm kiếm theo site
-                if ((!rowIndex || rowIndex < 3) && !sheetName) {
-                    console.warn(`[handleAfterChange] Invalid rowIndex (${rowIndex}) or missing sheetName for site "${siteToFind}". This might be a new row. Skipping update.`)
-                    // Skip update for new rows that aren't tracked properly
-                    continue
-                }
+                if (isNewRow) {
+                    if (!sheetNameForNewRow) {
+                        console.warn(`[handleAfterChange] Missing sheetName for new row index ${newRowIndex}, skip save queue`)
+                        continue
+                    }
 
-                // Bắt buộc phải có rowIndex hợp lệ (>= 3) và sheetName để update theo index
-                // Nếu không có, không gọi updateSiteData (tránh tìm kiếm theo site cho dòng mới)
-                if (!rowIndex || rowIndex < 3 || !sheetName) {
-                    console.warn(`[handleAfterChange] Missing valid rowIndex (>= 3) or sheetName for site "${siteToFind}". Skipping update to avoid searching by site for new rows.`)
-                    // Skip update - không tìm kiếm theo site cho dòng mới
-                    continue
-                }
+                    const fullRowData = { ...rowData, ...processedUpdates }
+                    updatedNewRows[newRowIndex] = fullRowData
+                    newRowsChanged = true
 
-                // Gọi API ngay lập tức (không debounce)
-                // Ưu tiên rowIndex và sheetName nếu có (nhanh hơn)
-                updateSiteData(siteToFind, processedUpdates, rowIndex, maNCC, sheetName)
-                    .then((result) => {
-                        // Success - data will be refreshed automatically by updateSiteData
-                        // Only show success message if there were actual updates
-                        if (result && result.updatedCells > 0) {
-                            // Silent success, no alert needed
-                        }
+                    const key = `add-${sheetNameForNewRow}-${newRowIndex}`
+                    updated.set(key, {
+                        type: "add",
+                        key,
+                        sheetName: sheetNameForNewRow,
+                        rowIndex: fullRowData.rowIndex,
+                        rowData: fullRowData,
                     })
-                    .catch((error) => {
-                        // Only show error if it's not a "no valid fields" error (which is handled as success)
-                        const errorMessage = error instanceof Error ? error.message : String(error)
-                        if (!errorMessage.includes("No valid fields") && !errorMessage.includes("No valid fields to update")) {
-                            // Revert change on error
-                            // Use setDataAtRowProp if col is string (property name), otherwise use setDataAtCell
-                            if (typeof col === "string") {
-                                mainTableInstance.setDataAtRowProp(row, col, oldValue)
-                            } else {
-                                mainTableInstance.setDataAtCell(row, col, oldValue)
-                            }
-                            alert(`Lỗi khi lưu dữ liệu: ${errorMessage}`)
+                } else {
+                    const siteToFind = columnProp === "site" ? (oldValue || rowData.site) : rowData.site
+                    if (!siteToFind || siteToFind.trim() === "") continue
+
+                    let rowIndex = rowData.rowIndex
+                    let sheetName = rowData.sheetName
+                    const maNCC = rowData.MaNCC || undefined
+
+                    if ((!rowIndex || !sheetName) && allData && allData.length > 0) {
+                        const normalizedSiteToFind = normalizeUrl(siteToFind)
+                        const originalRow = allData.find((item: SiteData) => {
+                            const normalizedSite = normalizeUrl(item.site)
+                            return normalizedSite === normalizedSiteToFind
+                        })
+                        if (originalRow) {
+                            rowIndex = (originalRow as any).rowIndex || rowIndex
+                            sheetName = (originalRow as any).sheetName || sheetName
                         }
+                    }
+
+                    if (!rowIndex || rowIndex < 3 || !sheetName) {
+                        console.warn(`[handleAfterChange] Missing valid rowIndex or sheetName for site "${siteToFind}". Skipping queueing update.`)
+                        continue
+                    }
+
+                    const key = `update-${sheetName}-${rowIndex}`
+                    const existingChange = updated.get(key)
+                    const mergedUpdates = existingChange && existingChange.type === "update"
+                        ? { ...existingChange.updates, ...processedUpdates }
+                        : processedUpdates
+
+                    updated.set(key, {
+                        type: "update",
+                        key,
+                        site: siteToFind as string,
+                        sheetName,
+                        rowIndex,
+                        maNCC,
+                        updates: mergedUpdates,
                     })
+                }
             }
+
+            return updated
+        })
+
+        if (newRowsChanged) {
+            setNewRows(updatedNewRows)
         }
-    }, [filteredData, newRows, mappedColumns, updateSiteData, selectedCurrency, exchangeRate, newRowsSheetMap, refetch, allData])
+    }, [filteredData, newRows, mappedColumns, selectedCurrency, exchangeRate, newRowsSheetMap, allData, normalizeUrl])
+
+    // Save all queued changes to server
+    const handleSaveChanges = useCallback(async () => {
+        if (pendingChanges.size === 0) {
+            toast.warning("Không có thay đổi nào cần lưu")
+            return
+        }
+
+        setIsSaving(true)
+        try {
+            const addedRowsRaw: SiteData[] = []
+            const updatedRowsRaw: SiteData[] = []
+            const newRowIndicesToRemove: number[] = []
+            const updateDetailLines: string[] = []
+
+            const findExistingRow = (
+                sheetName?: string,
+                rowIndex?: number,
+                site?: string,
+            ): SiteData | null => {
+                const key = getRowKey(sheetName, rowIndex, site)
+                if (key) {
+                    const localOverride = localUpdatedRows.get(key)
+                    if (localOverride) return localOverride
+                }
+
+                const normalizedSite = normalizeUrl(site || "")
+
+                const matchLocalAdded = localAddedRows.find((item) => {
+                    const itemKey = getRowKey(item.sheetName, item.rowIndex, item.site)
+                    if (key && itemKey === key) return true
+                    return normalizedSite && normalizeUrl(item.site || "") === normalizedSite
+                })
+                if (matchLocalAdded) return matchLocalAdded
+
+                const matchFiltered = filteredData.find((item) => {
+                    const itemKey = getRowKey(item.sheetName, item.rowIndex, item.site)
+                    if (key && itemKey === key) return true
+                    return normalizedSite && normalizeUrl(item.site || "") === normalizedSite
+                })
+                if (matchFiltered) return matchFiltered
+
+                const matchAll = allData.find((item) => {
+                    const itemKey = getRowKey(item.sheetName, item.rowIndex, item.site)
+                    if (key && itemKey === key) return true
+                    return normalizedSite && normalizeUrl(item.site || "") === normalizedSite
+                })
+                return matchAll || null
+            }
+
+            for (const change of pendingChanges.values()) {
+                if (change.type === "add") {
+                    const { rowData, sheetName } = change
+                    const site = rowData.site ? String(rowData.site).trim() : ""
+                    const trafficTool = rowData.trafficTool ? String(rowData.trafficTool).trim() : ""
+
+                    if (!sheetName) {
+                        console.warn(`[handleSaveChanges] Thiếu sheetName cho dòng mới, bỏ qua`)
+                        continue
+                    }
+                    if (!site || !trafficTool) {
+                        toast.warning("Dòng mới cần có Site và Traffic Tool trước khi lưu")
+                        continue
+                    }
+
+                    const response = await fetch("/api/sheet/add", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "x-skip-telegram": "true", // Gửi gộp sau qua summary
+                        },
+                        body: JSON.stringify({
+                            sheetName,
+                            rowData,
+                        }),
+                    })
+                    const result = await response.json()
+                    if (!response.ok) {
+                        throw new Error(result.message || "Failed to add row")
+                    }
+
+                    const parsedIndex = Number.parseInt(change.key.split("-").pop() || "", 10)
+                    if (!Number.isNaN(parsedIndex)) {
+                        newRowIndicesToRemove.push(parsedIndex)
+                    }
+
+                    const savedRow: SiteData = {
+                        ...rowData,
+                        sheetName,
+                        rowIndex: result?.rowIndex ?? rowData.rowIndex ?? 0,
+                    }
+                    addedRowsRaw.push(savedRow)
+                } else if (change.type === "update") {
+                    const { site, updates, rowIndex, maNCC, sheetName } = change
+                    const result = await updateSiteData(site, updates, rowIndex, maNCC, sheetName)
+
+                    if (result?.site && Array.isArray(result?.changes) && result.changes.length > 0) {
+                        updateDetailLines.push(`🌐 ${result.site}`)
+                        for (const c of result.changes) {
+                            const oldVal = c.oldValue === "" ? "(trống)" : String(c.oldValue)
+                            const newVal = c.newValue === "" ? "(trống)" : String(c.newValue)
+                            updateDetailLines.push(`  • ${c.displayName || c.field}: ${oldVal} → ${newVal}`)
+                        }
+                    } else if (site) {
+                        updateDetailLines.push(`🌐 ${site}`)
+                    }
+
+                    const baseRow =
+                        findExistingRow(sheetName, rowIndex, site) ||
+                        ({
+                            sheetName: sheetName || "",
+                            rowIndex: rowIndex ?? 0,
+                            cs: "",
+                            tinhTrang: "",
+                            site: site || "",
+                            bong: "",
+                            bet: "",
+                            chuDe: "",
+                            linkOut: "",
+                            DR: "",
+                            keywords: "",
+                            trafficTool: "",
+                            noteKH: "",
+                            noteNB: "",
+                            giaMuaGP: "",
+                            giaMuaText: "",
+                            giaMuaTextHome: "",
+                            giaMuaTextHeader: "",
+                            hoaHongGP: "",
+                            hoaHongText: "",
+                            KeGP: "",
+                            KeText: "",
+                            loiNhuanGP: "",
+                            loiNhuanText: "",
+                            NCC: "",
+                            MaNCC: maNCC || ""
+                        } as SiteData)
+
+                    const mergedRow: SiteData = {
+                        ...baseRow,
+                        ...updates,
+                        sheetName: sheetName || baseRow.sheetName,
+                        rowIndex: rowIndex ?? baseRow.rowIndex,
+                        MaNCC: (updates as any)?.MaNCC ?? baseRow.MaNCC ?? maNCC,
+                    }
+
+                    const updateKey = getRowKey(mergedRow.sheetName, mergedRow.rowIndex, mergedRow.site)
+                    if (updateKey) {
+                        const existingIndex = updatedRowsRaw.findIndex(
+                            (row) => getRowKey(row.sheetName, row.rowIndex, row.site) === updateKey,
+                        )
+                        if (existingIndex >= 0) {
+                            updatedRowsRaw[existingIndex] = mergedRow
+                        } else {
+                            updatedRowsRaw.push(mergedRow)
+                        }
+                    }
+                }
+            }
+
+            if (addedRowsRaw.length > 0) {
+                // Lưu cache tạm để không cần refetch và vẫn hiển thị ngay
+                setLocalAddedRows((prev) => {
+                    const existing = new Set(prev.map((item) => normalizeUrl(item.site || "")))
+                    const rowsToStore = addedRowsRaw.filter((row) => {
+                        const key = normalizeUrl(row.site || "")
+                        if (!key) return true
+                        if (existing.has(key)) return false
+                        existing.add(key)
+                        return true
+                    })
+                    if (!rowsToStore.length) return prev
+                    return [...prev, ...rowsToStore]
+                })
+
+                const convertedRows = applyCurrencyConversion(addedRowsRaw)
+                setFilteredData((prev) => {
+                    const existing = new Set(prev.map((item) => normalizeUrl(item.site || "")))
+                    const rowsToAdd = convertedRows.filter((row) => {
+                        const key = normalizeUrl(row.site || "")
+                        if (!key) return true
+                        if (existing.has(key)) return false
+                        existing.add(key)
+                        return true
+                    })
+                    if (!rowsToAdd.length) return prev
+                    return [...prev, ...rowsToAdd]
+                })
+
+                if (newRowIndicesToRemove.length) {
+                    const indicesSet = new Set(newRowIndicesToRemove)
+                    setNewRows((prev) => prev.filter((_, idx) => !indicesSet.has(idx)))
+                    setNewRowsSheetMap((prev) => {
+                        const remaining = Array.from(prev.entries())
+                            .filter(([idx]) => !indicesSet.has(idx))
+                            .sort((a, b) => a[0] - b[0])
+                        const remapped = new Map<number, string>()
+                        remaining.forEach(([, sheet], idx) => {
+                            remapped.set(idx, sheet)
+                        })
+                        return remapped
+                    })
+                }
+            } else {
+                // Không có dòng thêm mới -> vẫn xoá dòng trống tạm nếu có
+                setNewRows((prev) => prev)
+                setNewRowsSheetMap((prev) => prev)
+            }
+
+            if (updatedRowsRaw.length > 0) {
+                const updatedMap = new Map(localUpdatedRows)
+                updatedRowsRaw.forEach((row) => {
+                    const key = getRowKey(row.sheetName, row.rowIndex, row.site)
+                    if (key) {
+                        updatedMap.set(key, row)
+                    }
+                })
+                setLocalUpdatedRows(updatedMap)
+
+                if (hasSearched && searchTermRef.current) {
+                    const filteredItems = filterDataBySearch(searchTermRef.current, updatedMap)
+                    setFilteredData(filteredItems)
+                    setHasSearched(true)
+                }
+            }
+
+            setPendingChanges(new Map())
+
+            // Gửi Telegram summary một lần cho cả thêm và cập nhật
+            try {
+                const addLines =
+                    addedRowsRaw.length > 0
+                        ? addedRowsRaw.map((row) => {
+                            const site = row.site?.toString().trim() || "(trống)"
+                            const traffic = row.trafficTool?.toString().trim()
+                            return traffic ? `${site} - Traffic ${traffic}` : site
+                        })
+                        : []
+
+                const updateLines = updateDetailLines
+
+                if (addLines.length > 0 || updateLines.length > 0) {
+                    await fetch("/api/telegram/summary", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            addLines,
+                            updateLines,
+                        }),
+                    })
+                }
+            } catch (telegramError) {
+                console.error("Telegram summary error:", telegramError)
+            }
+
+            toast.success("Đã lưu dữ liệu thành công")
+        } catch (error: any) {
+            console.error("Save changes error:", error)
+            toast.error(`Lưu dữ liệu thất bại: ${error?.message || "Không thể lưu"}`)
+        } finally {
+            setIsSaving(false)
+        }
+    }, [
+        pendingChanges,
+        updateSiteData,
+        applyCurrencyConversion,
+        normalizeUrl,
+        getRowKey,
+        localUpdatedRows,
+        localAddedRows,
+        filteredData,
+        allData,
+        filterDataBySearch,
+        hasSearched,
+    ])
 
     // Modal handlers
     const handleOpenModal = useCallback(() => {
@@ -1145,7 +1436,7 @@ export default function PageBody() {
 
     const handleAddRows = useCallback(() => {
         if (numberOfRows < 1 || numberOfRows > 100) {
-            alert("Số lượng dòng phải từ 1 đến 100")
+            toast.warning("Số lượng dòng phải từ 1 đến 100")
             return
         }
         
@@ -1156,7 +1447,7 @@ export default function PageBody() {
             rowIndex: 0,
             sheetName: "",
             cs: "",
-            tinhTrang: "Bình thường", // Mặc định là "Bình thường"
+            tinhTrang: "Bình thường",
             site: "",
             bong: "",
             bet: "",
@@ -1165,7 +1456,8 @@ export default function PageBody() {
             DR: "",
             keywords: "",
             trafficTool: "",
-            ghiChu: "",
+            noteKH: "",
+            noteNB: "",
             giaMuaGP: "",
             giaMuaText: "",
             giaMuaTextHome: "",
@@ -1178,7 +1470,6 @@ export default function PageBody() {
             loiNhuanText: "",
             NCC: "",
             MaNCC: "",
-            GhiChuNCC: "",
         }))
         
         // Thêm vào newRows (riêng biệt, luôn hiển thị) và track new rows
@@ -1337,6 +1628,23 @@ export default function PageBody() {
                                 >
                                     <Plus className="h-4 w-4" />
                                     <span>Thêm dữ liệu</span>
+                                </button>
+                                <button
+                                    onClick={handleSaveChanges}
+                                    disabled={isSaving || pendingChanges.size === 0 || loading || refreshing}
+                                    className="cursor-pointer flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm font-medium text-sm"
+                                >
+                                    {isSaving ? (
+                                        <>
+                                            <RefreshCw className="h-4 w-4 animate-spin" />
+                                            Đang lưu...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save className="h-4 w-4" />
+                                            Lưu dữ liệu {pendingChanges.size > 0 ? `(${pendingChanges.size})` : ""}
+                                        </>
+                                    )}
                                 </button>
                                 <button
                                     onClick={handleSearchClick}

@@ -46,32 +46,32 @@ async function getAuthClient() {
 
 // Map field names to column indices (0-based, matching the formatter)
 const FIELD_TO_COLUMN: Record<string, number> = {
-    cs: 0,              // A
-    site: 1,            // B
-    bong: 2,            // C
-    bet: 3,             // D
-    chuDe: 4,           // E
-    linkOut: 7,         // H
-    DR: 8,              // I
-    keywords: 9,        // J
-    trafficTool: 10,    // K
-    ghiChu: 11,         // L
-    tinhTrang: 12,      // M
-    giaBanGP: 13,       // N
-    giaBanText: 14,     // O
-    giaBanTextHome: 15, // P
-    giaBanTextHeader: 16, // Q
-    giaMuaGP: 18,       // S
-    giaMuaText: 19,     // T
-    giaMuaTextHome: 20, // U
-    giaMuaTextHeader: 21, // V
-    hoaHongGP: 22,      // W
-    hoaHongText: 23,    // X
-    KeGP: 24,           // Y
-    KeText: 25,         // Z
-    NCC: 26,            // AA
-    MaNCC: 27,          // AB
-    GhiChuNCC: 28,      // AC
+    cs: 0,             
+    site: 1,           
+    bong: 2,           
+    bet: 3,            
+    chuDe: 4,          
+    linkOut: 7,        
+    DR: 8,             
+    keywords: 9,       
+    trafficTool: 10,   
+    noteKH: 11,        
+    noteNB:12,
+    tinhTrang: 14,     
+    giaBanGP: 31,      
+    giaBanText: 32,    
+    giaBanTextHome: 33,
+    giaBanTextHeader: 34,
+    giaMuaGP: 16,      
+    giaMuaText: 17,    
+    giaMuaTextHome: 18,
+    giaMuaTextHeader: 19,
+    hoaHongGP: 20,     
+    hoaHongText: 21,   
+    KeGP: 22,          
+    KeText: 23,        
+    NCC: 24,            
+    MaNCC: 25,  
 }
 
 // Map field names to display names
@@ -85,7 +85,8 @@ const FIELD_DISPLAY_NAMES: Record<string, string> = {
     DR: "DR",
     keywords: "Keywords",
     trafficTool: "Traffic Tool",
-    ghiChu: "Ghi chú",
+    noteKH: "Khách hàng",
+    noteNB: "Nội bộ",
     tinhTrang: "Tình trạng",
     giaBanGP: "Giá bán GP",
     giaBanText: "Giá bán Text",
@@ -101,7 +102,6 @@ const FIELD_DISPLAY_NAMES: Record<string, string> = {
     KeText: "Kê Text",
     NCC: "NCC",
     MaNCC: "Mã NCC",
-    GhiChuNCC: "Ghi chú NCC",
 }
 
 // Convert column index to A1 notation (0 -> A, 1 -> B, ..., 25 -> Z, 26 -> AA)
@@ -185,7 +185,7 @@ async function findRowBySite(gsapi: any, sheetName: string, siteUrl: string, maN
                 if (normalizedCell === normalizedSearch) {
                     // If MaNCC is provided, also check if it matches
                     if (normalizedMaNCC) {
-                        const cellMaNCC = row[26] // Column AB (index 26, which is MaNCC column - B is 0, so AB is 26)
+                        const cellMaNCC = row[25] // Column AB (index 26, which is MaNCC column - B is 0, so AB is 26)
                         const normalizedCellMaNCC = cellMaNCC ? String(cellMaNCC).toUpperCase().trim() : ""
                         
                         // Only return if both site and MaNCC match
@@ -337,79 +337,86 @@ export async function POST(req: NextRequest) {
         invalidateAllCache()
         console.log("[sheet/update] Cache invalidated after update")
 
+        const skipTelegram = req.headers.get("x-skip-telegram") === "true"
+
+        // Find actual changes (comparing old vs new values) - always compute for response
+        const changes: Array<{ field: string; oldValue: any; newValue: any }> = []
+        
+        for (const [field, newValue] of Object.entries(updates)) {
+            const oldValue = oldData[field]
+            const normalizedOld = oldValue === null || oldValue === undefined ? "" : String(oldValue).trim()
+            const normalizedNew = newValue === null || newValue === undefined ? "" : String(newValue).trim()
+            
+            if (normalizedOld !== normalizedNew) {
+                changes.push({
+                    field,
+                    oldValue: oldValue ?? "",
+                    newValue: newValue ?? "",
+                })
+            }
+        }
+
+        let changesSummary: Array<{ field: string; oldValue: any; newValue: any; displayName: string }> = []
+        if (changes.length > 0) {
+            changesSummary = changes.map((c) => ({
+                ...c,
+                displayName: FIELD_DISPLAY_NAMES[c.field] || c.field,
+            }))
+        }
+
         // Process Telegram notification and reward (only if username is available and there are actual changes)
-        if (username && Object.keys(updates).length > 0) {
+        if (!skipTelegram && username && changes.length > 0) {
             try {
-                // Find actual changes (comparing old vs new values)
-                const changes: Array<{ field: string; oldValue: any; newValue: any }> = []
-                
-                for (const [field, newValue] of Object.entries(updates)) {
-                    const oldValue = oldData[field]
-                    const normalizedOld = oldValue === null || oldValue === undefined ? "" : String(oldValue).trim()
-                    const normalizedNew = newValue === null || newValue === undefined ? "" : String(newValue).trim()
+                // Group changes by site (in case multiple sites are updated in one request)
+                const siteChanges = new Map<string, typeof changes>()
+                siteChanges.set(siteName, changes)
+
+                // Send Telegram notification for each site
+                for (const [currentSite, siteChangeList] of siteChanges) {
+                    // Build Telegram message
+                    let message = `🔄 CẬP NHẬT SITE 🔄\n\n`
+                    message += `👤 Người thực hiện: ${username}\n\n`
+                    message += `📝 Chi tiết cập nhật:\n\n`
+                    message += `🌐 ${currentSite}\n`
                     
-                    if (normalizedOld !== normalizedNew) {
-                        changes.push({
-                            field,
-                            oldValue: oldValue ?? "",
-                            newValue: newValue ?? "",
-                        })
+                    for (const change of siteChangeList) {
+                        const displayName = FIELD_DISPLAY_NAMES[change.field] || change.field
+                        const oldVal = change.oldValue === "" ? "(trống)" : String(change.oldValue)
+                        const newVal = change.newValue === "" ? "(trống)" : String(change.newValue)
+                        message += `  • ${displayName}: ${oldVal} → ${newVal}\n`
                     }
-                }
 
-                // Only send notification and create reward if there are actual changes
-                if (changes.length > 0) {
-                    // Group changes by site (in case multiple sites are updated in one request)
-                    const siteChanges = new Map<string, typeof changes>()
-                    siteChanges.set(siteName, changes)
+                    // Send Telegram message
+                    const telegramService = new TelegramService()
+                    try {
+                        await telegramService.sendMessage({
+                            chatId: "-1003124919874_1033",
+                            message: message,
+                        })
+                    } catch (telegramError) {
+                        console.error("Error sending Telegram notification:", telegramError)
+                        // Don't fail the update if Telegram fails
+                    }
 
-                    // Send Telegram notification for each site
-                    for (const [currentSite, siteChangeList] of siteChanges) {
-                        // Build Telegram message
-                        let message = `🔄 CẬP NHẬT SITE 🔄\n\n`
-                        message += `👤 Người thực hiện: ${username}\n\n`
-                        message += `📝 Chi tiết cập nhật:\n\n`
-                        message += `🌐 ${currentSite}\n`
-                        
-                        for (const change of siteChangeList) {
-                            const displayName = FIELD_DISPLAY_NAMES[change.field] || change.field
-                            const oldVal = change.oldValue === "" ? "(trống)" : String(change.oldValue)
-                            const newVal = change.newValue === "" ? "(trống)" : String(change.newValue)
-                            message += `  • ${displayName}: ${oldVal} → ${newVal}\n`
-                        }
-
-                        // Send Telegram message
-                        const telegramService = new TelegramService()
-                        try {
-                            await telegramService.sendMessage({
-                                chatId: "-1003124919874_1033",
-                                message: message,
-                            })
-                        } catch (telegramError) {
-                            console.error("Error sending Telegram notification:", telegramError)
-                            // Don't fail the update if Telegram fails
-                        }
-
-                        // Create reward (1.000 VND per site updated)
-                        const rewardRepository = new RewardRepository()
-                        const now = new Date()
-                        const year = now.getFullYear()
-                        const month = now.getMonth() + 1
-                        
-                        try {
-                            await rewardRepository.create({
-                                username,
-                                year,
-                                month,
-                                amount: 1000, // 1.000 VND
-                                site: currentSite,
-                                reason: "Cập nhật site",
-                                createdAt: now.toISOString(),
-                            })
-                        } catch (rewardError) {
-                            console.error("Error creating reward:", rewardError)
-                            // Don't fail the update if reward creation fails
-                        }
+                    // Create reward (1.000 VND per site updated)
+                    const rewardRepository = new RewardRepository()
+                    const now = new Date()
+                    const year = now.getFullYear()
+                    const month = now.getMonth() + 1
+                    
+                    try {
+                        await rewardRepository.create({
+                            username,
+                            year,
+                            month,
+                            amount: 1000, // 1.000 VND
+                            site: currentSite,
+                            reason: "Cập nhật site",
+                            createdAt: now.toISOString(),
+                        })
+                    } catch (rewardError) {
+                        console.error("Error creating reward:", rewardError)
+                        // Don't fail the update if reward creation fails
                     }
                 }
             } catch (notificationError) {
@@ -425,6 +432,8 @@ export async function POST(req: NextRequest) {
             updatedRows: data.totalUpdatedRows,
             updatedColumns: data.totalUpdatedColumns,
             updatedSheets: data.totalUpdatedSheets,
+            site: siteName,
+            changes: changesSummary,
         })
     } catch (error: any) {
         console.error("Error updating Google Sheets:", error)

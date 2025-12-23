@@ -44,32 +44,32 @@ async function getAuthClient() {
 
 // Map field names to column indices (0-based, matching the formatter)
 const FIELD_TO_COLUMN: Record<string, number> = {
-    cs: 0,              // A
-    site: 1,            // B
-    bong: 2,            // C
-    bet: 3,             // D
-    chuDe: 4,           // E
-    linkOut: 7,         // H
-    DR: 8,              // I
-    keywords: 9,        // J
-    trafficTool: 10,    // K
-    ghiChu: 11,         // L
-    tinhTrang: 12,      // M
-    giaBanGP: 13,       // N
-    giaBanText: 14,     // O
-    giaBanTextHome: 15, // P
-    giaBanTextHeader: 16, // Q
-    giaMuaGP: 18,       // S
-    giaMuaText: 19,     // T
-    giaMuaTextHome: 20, // U
-    giaMuaTextHeader: 21, // V
-    hoaHongGP: 22,      // W
-    hoaHongText: 23,    // X
-    KeGP: 24,           // Y
-    KeText: 25,         // Z
-    NCC: 26,            // AA
-    MaNCC: 27,          // AB
-    GhiChuNCC: 28,      // AC
+    cs: 0,             
+    site: 1,           
+    bong: 2,           
+    bet: 3,            
+    chuDe: 4,          
+    linkOut: 7,        
+    DR: 8,             
+    keywords: 9,       
+    trafficTool: 10,   
+    noteKH: 11,        
+    noteNB:12,
+    tinhTrang: 14,     
+    giaBanGP: 31,      
+    giaBanText: 32,    
+    giaBanTextHome: 33,
+    giaBanTextHeader: 34,
+    giaMuaGP: 16,      
+    giaMuaText: 17,    
+    giaMuaTextHome: 18,
+    giaMuaTextHeader: 19,
+    hoaHongGP: 20,     
+    hoaHongText: 21,   
+    KeGP: 22,          
+    KeText: 23,        
+    NCC: 24,            
+    MaNCC: 25,          
 }
 
 // Convert column index to A1 notation (0 -> A, 1 -> B, ..., 25 -> Z, 26 -> AA)
@@ -129,6 +129,7 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json()
         const { sheetName, rowData } = body
+        const skipTelegram = req.headers.get("x-skip-telegram") === "true"
 
         // Validate required fields
         if (!sheetName || !["4", "5"].includes(String(sheetName))) {
@@ -214,34 +215,36 @@ export async function POST(req: NextRequest) {
         invalidateAllCache()
         console.log("[sheet/add] Cache invalidated after add")
 
-        // Send Telegram notification for new site
-        try {
-            const site = rowData.site || ""
-            const trafficTool = rowData.trafficTool || ""
-            
-            // Only send notification if site is provided
-            if (site && String(site).trim() !== "") {
-                const telegramService = new TelegramService()
+        // Telegram notification handled in batch on client to avoid spam
+        if (!skipTelegram) {
+            try {
+                const site = rowData.site || ""
+                const trafficTool = rowData.trafficTool || ""
                 
-                // Build message: "Site mới nè\nsite.com - Traffic 123"
-                let message = "Site mới nè\n"
-                const siteName = String(site).trim()
-                const traffic = trafficTool ? String(trafficTool).trim() : ""
-                
-                if (traffic) {
-                    message += `${siteName} - Traffic ${traffic}`
-                } else {
-                    message += `${siteName}`
+                // Only send notification if site is provided
+                if (site && String(site).trim() !== "") {
+                    const telegramService = new TelegramService()
+                    
+                    // Build message: "Site mới nè\nsite.com - Traffic 123"
+                    let message = "Site mới nè\n"
+                    const siteName = String(site).trim()
+                    const traffic = trafficTool ? String(trafficTool).trim() : ""
+                    
+                    if (traffic) {
+                        message += `${siteName} - Traffic ${traffic}`
+                    } else {
+                        message += `${siteName}`
+                    }
+                    
+                    await telegramService.sendMessage({
+                        chatId: "-1002137432608",
+                        message: message,
+                    })
                 }
-                
-                await telegramService.sendMessage({
-                    chatId: "-1002137432608",
-                    message: message,
-                })
+            } catch (telegramError) {
+                console.error("Error sending Telegram notification for new site:", telegramError)
+                // Don't fail the add operation if Telegram fails
             }
-        } catch (telegramError) {
-            console.error("Error sending Telegram notification for new site:", telegramError)
-            // Don't fail the add operation if Telegram fails
         }
 
         return NextResponse.json({
