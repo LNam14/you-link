@@ -1630,7 +1630,7 @@ export default function PageBody() {
             rowIndex: 0,
             sheetName: "",
             cs: "",
-            tinhTrang: "Bình thường",
+            tinhTrang: "",
             site: "",
             bong: "",
             bet: "",
