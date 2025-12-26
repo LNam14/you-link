@@ -350,25 +350,31 @@ export default function PageBody() {
             if (selectedSearchType === "Site") {
                 // Chuẩn hóa domain để so sánh
                 const normalizedTerms = rawTerms.map((t) => normalizeUrl(t))
-                const siteMap = new Map<string, SiteData>()
+                const siteMap = new Map<string, SiteData[]>() // Đổi thành array để lưu tất cả các site cùng domain
 
-                // Map nhanh để lấy đúng site đã có dữ liệu
+                // Map nhanh để lấy tất cả các site có cùng domain
                 sourceData.forEach((item) => {
                     const key = normalizeUrl(item.site || "")
-                    if (key && !siteMap.has(key)) {
-                        siteMap.set(key, item)
+                    if (key) {
+                        if (!siteMap.has(key)) {
+                            siteMap.set(key, [])
+                        }
+                        siteMap.get(key)!.push(item)
                     }
                 })
 
                 // Duyệt theo thứ tự người dùng nhập để giữ nguyên thứ tự hiển thị
-                filtered = rawTerms.map((term, idx) => {
+                // Flatten để hiển thị tất cả các site có cùng domain
+                filtered = rawTerms.flatMap((term, idx) => {
                     const normalizedTerm = normalizedTerms[idx]
                     if (normalizedTerm) {
                         const matched = siteMap.get(normalizedTerm)
-                        if (matched) return matched
+                        if (matched && matched.length > 0) {
+                            return matched // Trả về tất cả các site có cùng domain
+                        }
                     }
                     // Không tìm thấy -> tạo dòng rỗng chỉ với site
-                    return createPlaceholderRow(term)
+                    return [createPlaceholderRow(term)]
                 })
             } else {
                 // Tìm theo NCC: theo mã NCC hoặc tên NCC (không phân biệt hoa thường)
