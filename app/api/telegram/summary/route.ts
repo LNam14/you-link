@@ -8,6 +8,7 @@ export const maxDuration = 15
 type RequestBody = {
     addLines?: string[]
     updateLines?: string[]
+    username?: string
 }
 
 const ADD_CHAT_ID = "-1002137432608"
@@ -30,7 +31,10 @@ export async function POST(req: NextRequest) {
 
         // Send add summary (site mới)
         if (addLines && addLines.length > 0) {
-            const message = ["Site mới nè", ...addLines].join("\n")
+            const message = [
+                "Site mới nè",
+                ...addLines,
+            ].join("\n")
             await telegramService.sendMessage({
                 chatId: ADD_CHAT_ID,
                 message,
@@ -39,7 +43,13 @@ export async function POST(req: NextRequest) {
 
         // Send update summary
         if (updateLines && updateLines.length > 0) {
-            const message = ["🔄 CẬP NHẬT SITE 🔄", ...updateLines].join("\n")
+            const username = body.username || "Unknown"
+            const message = [
+                "🔄 CẬP NHẬT SITE 🔄",
+                `👤 Người cập nhật: ${username}`,
+                `📝 Chi tiết cập nhật:\n\n`,
+               ...updateLines.map((line) => `  • ${line}`),
+            ].join("\n")
             await telegramService.sendMessage({
                 chatId: UPDATE_CHAT_ID,
                 message,
