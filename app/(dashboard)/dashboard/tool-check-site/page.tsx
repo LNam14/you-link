@@ -51,6 +51,10 @@ interface SiteData {
     giaBanText: string
     giaBanTextHome: string
     giaBanTextHeader: string
+    giaBanGPX?: string
+    giaBanTextX?: string
+    giaBanTextHomeX?: string
+    giaBanTextHeaderX?: string
     giaMuaGP: string
     giaMuaText: string
     giaMuaTextHome: string
@@ -76,6 +80,7 @@ interface SiteData {
 type PriceType = "GP" | "Text" | "TextHome" | "TextHeader"
 type CurrencyType = "USDT" | "VND"
 type SearchType = "Site" | "NCC"
+type AllType = "F" | "X"
 
 // Add type definition for renderer function
 type RendererFunction = (
@@ -110,6 +115,7 @@ export default function PageBody() {
     const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>("USDT")
     const [exchangeRate, setExchangeRate] = useState<string>("28")
     const [selectedSearchType, setSelectedSearchType] = useState<SearchType>("Site")
+    const [selectedAllType, setSelectedAllType] = useState<AllType>("F")
     const [duplicateSites, setDuplicateSites] = useState<{ [key: string]: SiteData[] }>({})
     const [showDirectMessageModal, setShowDirectMessageModal] = useState(false)
     const [showNccSelectionModal, setShowNccSelectionModal] = useState(false)
@@ -210,10 +216,17 @@ export default function PageBody() {
                     onCurrencyChange: (currency) => setSelectedCurrency(currency),
                     onExchangeRateChange: (rate) => setExchangeRate(rate),
                 },
+                brand: {
+                    value: selectedAllType,
+                    onBrandChange: (brand) => {
+                        const newValue = brand === "F" ? "F" : "X"
+                        setSelectedAllType(newValue)
+                    },
+                },
             },
             refreshButton: true,
         })
-    }, [selectedSearchType, selectedCurrency, exchangeRate, loading, refreshing, isStale, setHeaderData, fetchData])
+    }, [selectedSearchType, selectedCurrency, exchangeRate, selectedAllType, loading, refreshing, isStale, setHeaderData, fetchData])
 
     // Sync selectedExtensions with filters["Site"] when filter is cleared externally
     useEffect(() => {
@@ -759,6 +772,54 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
             })
             : dataToProcess
 
+        // Tính lại lợi nhuận khi chọn X-ALL: loiNhuan = giaBanX - giaCuoi
+        const itemsWithRecalculatedProfit = convertedItems.map((item) => {
+            if (selectedAllType === "X" && getPriceColumnFn) {
+                const newItem = { ...item }
+                const giaBanColumn = getPriceColumnFn(selectedPriceType, "giaBan")
+                const giaCuoiColumn = getPriceColumnFn(selectedPriceType, "giaCuoi")
+                const loiNhuanColumn = getPriceColumnFn(selectedPriceType, "loiNhuan")
+                
+                // Helper function to check if value is a pure number
+                const isPureNumber = (value: any): boolean => {
+                    if (value === null || value === undefined || value === "") return false
+                    const strValue = value.toString().trim()
+                    if (strValue === "" || strValue === "ngưng" || strValue === "No") return false
+                    return /^-?\d*\.?\d+$/.test(strValue)
+                }
+                
+                // Helper function to safely parse numeric value
+                const getNumericValue = (value: any): number | null => {
+                    if (!isPureNumber(value)) return null
+                    const parsed = Number.parseFloat(value.toString().trim())
+                    return isNaN(parsed) ? null : parsed
+                }
+                
+                const giaBanRaw = newItem[giaBanColumn as keyof SiteData]
+                const giaCuoiRaw = newItem[giaCuoiColumn as keyof SiteData]
+                
+                // Chỉ tính lại nếu cả giaBan và giaCuoi đều là số hợp lệ
+                const giaBanValue = getNumericValue(giaBanRaw)
+                const giaCuoiValue = getNumericValue(giaCuoiRaw)
+                
+                if (giaBanValue !== null && giaCuoiValue !== null) {
+                    // Cả hai đều là số, tính lại lợi nhuận
+                    const loiNhuanValue = giaBanValue - giaCuoiValue
+                    // Format số: nếu là số nguyên thì hiển thị số nguyên, nếu có phần thập phân thì giữ lại
+                    const formattedValue = loiNhuanValue % 1 === 0 
+                        ? Math.floor(loiNhuanValue).toString()
+                        : Math.round(loiNhuanValue * 100) / 100
+                    ; (newItem as any)[loiNhuanColumn] = formattedValue.toString()
+                } else if (giaBanValue === null && isPureNumber(giaBanRaw) === false) {
+                    // Nếu giaBan là chữ (như "ngưng"), giữ nguyên lợi nhuận từ API hoặc để trống
+                    // Không cần làm gì, giữ nguyên giá trị hiện tại
+                }
+                
+                return newItem
+            }
+            return item
+        })
+
         // Handle duplicates for Site search type - optimize grouping
         let mainItems: SiteData[] = []
         let newDuplicateSites: { [key: string]: SiteData[] } = {}
@@ -767,7 +828,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
         if (selectedSearchType === "Site" && hasSearchTermForDuplicates) {
             // Group by normalized site để tách duplicates
             const siteGroups = new Map<string, SiteData[]>()
-            convertedItems.forEach((item) => {
+            itemsWithRecalculatedProfit.forEach((item) => {
                 const normalizedSite = normalizeUrl(item.site)
                 const group = siteGroups.get(normalizedSite) || []
                 group.push(item)
@@ -867,7 +928,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
             }
         } else {
             // For filter-only or NCC search, show all items
-            mainItems = convertedItems
+            mainItems = itemsWithRecalculatedProfit
         }
 
         setFilteredData(mainItems)
@@ -876,7 +937,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
         setSearchCompleted(true)
         setIsSearching(false)
         setCurrentPage(1) // Reset to first page when new data arrives
-    }, [dataLoaded, localData, searchableData, filters, selectedSearchType, selectedCurrency, selectedPriceType, exchangeRate])
+    }, [dataLoaded, localData, searchableData, filters, selectedSearchType, selectedCurrency, selectedPriceType, exchangeRate, selectedAllType])
 
     // Update ref when applySearchAndFilters changes
     useEffect(() => {
@@ -1042,14 +1103,19 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
     const pendingSearchRef = useRef<string | null>(null)
     const lastProcessedDataRef = useRef<any[]>([])
 
-    // Update data immediately when currency, price type, rate changes
+    // Update data immediately when currency, price type, rate, or all type changes
     useEffect(() => {
-        if (hasSearched && searchTerm && searchCompleted) {
-            // Only run search when currency/price type changes, not when allData changes
-            runSearchRef.current(searchTerm)
+        // Re-apply search and filters to recalculate values when:
+        // 1. User has searched (hasSearched && searchCompleted)
+        // 2. Or data has been loaded (dataLoaded && localData.length > 0)
+        if ((hasSearched && searchCompleted) || (dataLoaded && localData.length > 0)) {
+            // Re-apply search and filters to recalculate values (especially for X-ALL)
+            if (applySearchAndFiltersRef.current) {
+                applySearchAndFiltersRef.current(searchTerm || "")
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedCurrency, selectedPriceType, exchangeRate])
+    }, [selectedCurrency, selectedPriceType, exchangeRate, selectedAllType])
 
     // Handle data update after fetch - separate effect to avoid infinite loop
     useEffect(() => {
@@ -1110,8 +1176,22 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
             return priceType === "GP" ? "hoaHongGP" : "hoaHongText"
         }
 
+        // For giaBan field, check if X is selected and use X variant for Text types
+        if (field === "giaBan" && selectedAllType === "X") {
+            if (priceType === "GP") {
+                return "giaBanGPX"
+            } else if (priceType === "Text") {
+                return "giaBanTextX"
+            } else if (priceType === "TextHome") {
+                return "giaBanTextHomeX"
+            } else if (priceType === "TextHeader") {
+                return "giaBanTextHeaderX"
+            }
+            // For GP, keep using giaBanGP (no X variant for GP)
+        }
+
         return `${field}${typeMap[priceType]}`
-    }, [])
+    }, [selectedAllType])
 
     // Helper function to check if item matches filters
     const itemMatchesFilters = useCallback((item: SiteData): boolean => {
@@ -2037,7 +2117,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
         }
 
         return [...baseColumns, ...additionalColumns, ...noteColumns]
-    }, [selectedPriceType, userInfo?.role, getPriceColumnData, createPriceRenderer])
+    }, [selectedPriceType, selectedAllType, userInfo?.role, getPriceColumnData, createPriceRenderer])
 
     // Add a function to calculate summary data - memoized
     const calculateSummary = useCallback((data: SiteData[]) => {
@@ -2082,11 +2162,21 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
 
         data.forEach((item) => {
             // Get values using the correct columns for the selected type
-            const giaBanValue = getNumericValue(item[giaBanColumn as keyof SiteData])
+            const giaBanRaw = item[giaBanColumn as keyof SiteData]
             const giaMuaValue = getNumericValue(item[giaMuaColumn as keyof SiteData])
             const hoaHongValue = getNumericValue(item[hoaHongColumn as keyof SiteData])
-            const giaCuoiValue = getNumericValue(item[giaCuoiColumn as keyof SiteData])
-            const loiNhuanValue = getNumericValue(item[loiNhuanColumn as keyof SiteData])
+            const giaCuoiRaw = item[giaCuoiColumn as keyof SiteData]
+            const giaBanValue = getNumericValue(giaBanRaw)
+            const giaCuoiValue = getNumericValue(giaCuoiRaw)
+            
+            // Tính lại lợi nhuận khi chọn X-ALL: loiNhuan = giaBanX - giaCuoi
+            // Chỉ tính lại nếu cả giaBan và giaCuoi đều là số hợp lệ (không phải chữ)
+            let loiNhuanValue: number
+            if (selectedAllType === "X" && isPureNumber(giaBanRaw) && isPureNumber(giaCuoiRaw)) {
+                loiNhuanValue = giaBanValue - giaCuoiValue
+            } else {
+                loiNhuanValue = getNumericValue(item[loiNhuanColumn as keyof SiteData])
+            }
 
             // Update summary using the correct columns for the selected type
             summary[giaBanColumn as keyof SiteData] = (
@@ -2140,7 +2230,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
         summary.GroupNCC = totalGroups > 0 ? `Group (${totalGroups})` : "No Group"
 
         return summary as SiteData & { _fileUrls?: string[]; _groupUrls?: string[] }
-    }, [selectedPriceType])
+    }, [selectedPriceType, selectedAllType, getPriceColumnData])
 
     // Count NCCs with usable IdGroup (handles non-string values safely)
     const getValidNCCsCount = useCallback((data: SiteData[]) => {
@@ -2377,6 +2467,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
     // Memoize generateColumns để tránh tạo lại mỗi lần render
     const generatedColumns = useMemo(() => generateColumns(), [
         selectedPriceType,
+        selectedAllType,
         userInfo?.role,
     ])
 
@@ -2461,7 +2552,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
             <div className="overflow-x-auto w-full">
                 <HotTableComponent
                     ref={tableRef}
-                    key={`${tableKey}-${selectedCurrency}`}
+                    key={`${tableKey}-${selectedCurrency}-${selectedAllType}`}
                     data={dataWithSummary}
                     columns={mappedColumns}
                     nestedHeaders={nestedHeaders}
@@ -2492,7 +2583,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 />
             </div>
         )
-    }, [mappedColumns, nestedHeaders, selectedCurrency, handleBeforeCopy, calculateSummary])
+    }, [mappedColumns, nestedHeaders, selectedCurrency, selectedAllType, handleBeforeCopy, calculateSummary])
 
     const hasDuplicates = Object.keys(duplicateSites).length > 0
     const duplicatesCount = Object.values(duplicateSites).flat().length
@@ -2663,6 +2754,31 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                                                 ))}
                                                 </div>
                                             </div>
+
+                                            {/* F / X Selection - Only show for Text types */}
+                                            {(selectedPriceType === "Text" || selectedPriceType === "TextHome" || selectedPriceType === "TextHeader") && (
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
+                                                    <span className="text-xs text-gray-600 whitespace-nowrap">Loại ALL:</span>
+                                                    <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+                                                        {[
+                                                            { id: "F", label: "F", icon: "📊" },
+                                                            { id: "X", label: "X", icon: "📈" },
+                                                        ].map((type) => (
+                                                            <button
+                                                                key={type.id}
+                                                                onClick={() => setSelectedAllType(type.id as AllType)}
+                                                                className={`flex items-center px-2 py-1 rounded text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer ${selectedAllType === type.id
+                                                                    ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-sm"
+                                                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                                                    }`}
+                                                            >
+                                                                <span className="mr-1 text-xs">{type.icon}</span>
+                                                                {type.label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="flex flex-col gap-2 w-full md:w-auto md:min-w-[200px]">
@@ -2808,7 +2924,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                             {/* Main Results Table - Only render paginated data */}
                             {renderHotTable(
                                 paginatedData,
-                                `main-${selectedPriceType}-${selectedSearchType}-page-${currentPage}`,
+                                `main-${selectedPriceType}-${selectedSearchType}-${selectedAllType}-page-${currentPage}`,
                                 mainTableRef,
                                 onMainTableCellMouseDown,
                                 // Summary will be calculated from paginatedData only (currently displayed data)
@@ -2835,7 +2951,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                                     </div>
                                     {renderHotTable(
                                         Object.values(duplicateSites).flat(),
-                                        `duplicates-${selectedPriceType}-${selectedSearchType}`,
+                                        `duplicates-${selectedPriceType}-${selectedSearchType}-${selectedAllType}`,
                                         duplicatesTableRef,
                                         onDuplicatesTableCellMouseDown,
                                         Object.values(duplicateSites).flat(), // All duplicates for summary

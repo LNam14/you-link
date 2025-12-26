@@ -125,6 +125,29 @@ const sheetConfigs: Record<string, SheetConfig> = {
             const giaCuoiTextHome = formatNumberOrKeepText(row[29], giaCuoiTextHomeNum)
             const giaCuoiTextHeader = formatNumberOrKeepText(row[30], giaCuoiTextHeaderNum)
 
+            // Parse multipliers from row[36] to row[39]
+            const multiplierGP = parseNumber(row[36]) || 0
+            const multiplierText = parseNumber(row[37]) || 0
+            const multiplierTextHome = parseNumber(row[38]) || 0
+            const multiplierTextHeader = parseNumber(row[39]) || 0
+
+            // Calculate giaBanX values: giaBan * (100 + multiplier) / 100
+            // If giaBan is text (not a number), keep the original text value
+            // Round down to integer (remove decimal part) for X values
+            const giaBanGPX = giaBanGPNum !== null 
+                ? formatNumber(Math.floor(giaBanGPNum * (100 + multiplierGP) / 100)) 
+                : formatNumberOrKeepText(row[31], null)
+            const giaBanTextX = giaBanTextNum !== null 
+                ? formatNumber(Math.floor(giaBanTextNum * (100 + multiplierText) / 100)) 
+                : formatNumberOrKeepText(row[32], null)
+            const giaBanTextHomeX = giaBanTextHomeNum !== null 
+                ? formatNumber(Math.floor(giaBanTextHomeNum * (100 + multiplierTextHome) / 100)) 
+                : formatNumberOrKeepText(row[33], null)
+            const giaBanTextHeaderX = giaBanTextHeaderNum !== null 
+                ? formatNumber(Math.floor(giaBanTextHeaderNum * (100 + multiplierTextHeader) / 100)) 
+                : formatNumberOrKeepText(row[34], null)
+            
+     
             const maNCC = row[25]
             let fileNCC = ""
             let groupNCC = ""
@@ -166,6 +189,10 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 giaBanText,
                 giaBanTextHome,
                 giaBanTextHeader,
+                giaBanGPX,
+                giaBanTextX,
+                giaBanTextHomeX,
+                giaBanTextHeaderX,
                 giaMuaGP,
                 giaMuaText,
                 giaMuaTextHome,
@@ -183,6 +210,10 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 FileNCC: fileNCC,
                 GroupNCC: groupNCC,
                 IdGroup: idGroup,
+                tiGiaXGP: formatNumberOrKeepText(row[36], parseNumber(row[36])),
+                tiGiaXFooter: formatNumberOrKeepText(row[37], parseNumber(row[37])),
+                tiGiaHome: formatNumberOrKeepText(row[38], parseNumber(row[38])),
+                tiGiaHeader: formatNumberOrKeepText(row[39], parseNumber(row[39])),
                 sheetName: (row as any)._sheetName || undefined,
                 rowIndex: index,
             }

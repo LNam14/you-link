@@ -30,6 +30,10 @@ export interface FormattedRow {
   timeText: number;
   giaBanTextHome: any;
   giaBanTextHeader: any;
+  giaBanGPX: any;
+  giaBanTextX: any;
+  giaBanTextHomeX: any;
+  giaBanTextHeaderX: any;
   giaMuaGP: any;
   giaMuaText: any;
   hoaHongGP: number;
@@ -51,6 +55,10 @@ export interface FormattedRow {
   loiNhuanText: string | null;
   loiNhuanTextHome: string | null;
   loiNhuanTextHeader: string | null;
+  tiGiaXGP?: any;
+  tiGiaXFooter?: any;
+  tiGiaHome?: any;
+  tiGiaHeader?: any;
 }
 
 export interface NCCData {
@@ -343,6 +351,10 @@ export class GoogleSheetsService {
     const giaBanText = roundIfNumber(row[14]);
     const giaBanTextHome = roundIfNumber(row[15]);
     const giaBanTextHeader = roundIfNumber(row[16]);
+    const giaBanGPX = roundIfNumber(row[17]);
+    const giaBanTextX = roundIfNumber(row[18]);
+    const giaBanTextHomeX = roundIfNumber(row[19]);
+    const giaBanTextHeaderX = roundIfNumber(row[20]);
     const giaMuaGP = roundIfNumber(row[18]);
     const giaMuaText = roundIfNumber(row[19]);
     const giaMuaTextHome = roundIfNumber(row[20]);
@@ -409,6 +421,10 @@ export class GoogleSheetsService {
       giaMuaText,
       giaMuaTextHome,
       giaMuaTextHeader,
+      giaBanGPX,
+      giaBanTextX,
+      giaBanTextHomeX,
+      giaBanTextHeaderX,
       giaCuoiGP: giaCuoiGP || 0,
       giaCuoiText: giaCuoiText || 0,
       giaCuoiTextHome: giaCuoiTextHome || 0,

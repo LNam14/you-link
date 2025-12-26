@@ -17,6 +17,8 @@ import {
     Plus,
     X,
     Save,
+    Eye,
+    EyeOff,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -51,6 +53,10 @@ interface SiteData {
     loiNhuanText: string
     NCC: string
     MaNCC: string
+    tiGiaXGP?: string
+    tiGiaXFooter?: string
+    tiGiaHome?: string
+    tiGiaHeader?: string
 }
 
 type RendererFunction = (
@@ -104,6 +110,7 @@ export default function PageBody() {
     const [regionType, setRegionType] = useState<"VN" | "NN">("VN")
     // Track new rows and their sheet (row index in newRows array -> sheet name)
     const [newRowsSheetMap, setNewRowsSheetMap] = useState<Map<number, string>>(new Map())
+    const [showTiGiaColumns, setShowTiGiaColumns] = useState<boolean>(false) // State để ẩn/hiện cột tiGia
     const mainTableRef = useRef<HotTableRef>(null)
     const selectionAnchorRef = useRef<{ row: number; col: number } | null>(null)
 
@@ -264,6 +271,10 @@ export default function PageBody() {
             loiNhuanText: "",
             NCC: "",
             MaNCC: "",
+            tiGiaXGP: "",
+            tiGiaXFooter: "",
+            tiGiaHome: "",
+            tiGiaHeader: "",
         }
     }, [])
 
@@ -849,6 +860,35 @@ export default function PageBody() {
                 className: "htMiddle",
                 renderer: createCellRenderer(),
             },
+            // Chênh lệch giá group
+            {
+                title: "GP",
+                data: "tiGiaXGP",
+                width: 60,
+                className: "htMiddle",
+                renderer: createPriceRenderer("tiGiaXGP"),
+            },
+            {
+                title: "Footer",
+                data: "tiGiaXFooter",
+                width: 70,
+                className: "htMiddle",
+                renderer: createPriceRenderer("tiGiaXFooter"),
+            },
+            {
+                title: "Home",
+                data: "tiGiaHome",
+                width: 60,
+                className: "htMiddle",
+                renderer: createPriceRenderer("tiGiaHome"),
+            },
+            {
+                title: "Header",
+                data: "tiGiaHeader",
+                width: 60,
+                className: "htMiddle",
+                renderer: createPriceRenderer("tiGiaHeader"),
+            },
         ]
 
         return columns
@@ -865,6 +905,7 @@ export default function PageBody() {
         const hoaHongCols = columns.slice(16, 18)
         const keThemCols = columns.slice(18, 20)
         const nccCols = columns.slice(20, 22)
+        const tiGiaCols = columns.slice(22, 26)
 
         firstRow.push({ label: "INFO", colspan: infoCols.length })
         infoCols.forEach((col) => secondRow.push(col.title))
@@ -883,6 +924,9 @@ export default function PageBody() {
 
         firstRow.push({ label: "NCC", colspan: nccCols.length })
         nccCols.forEach((col) => secondRow.push(col.title))
+
+        firstRow.push({ label: "Giá chênh lệch", colspan: tiGiaCols.length })
+        tiGiaCols.forEach((col) => secondRow.push(col.title))
 
         return [firstRow, secondRow]
     }, [])
@@ -1373,7 +1417,11 @@ export default function PageBody() {
                             loiNhuanGP: "",
                             loiNhuanText: "",
                             NCC: "",
-                            MaNCC: maNCC || ""
+                            MaNCC: maNCC || "",
+                            tiGiaXGP: "",
+                            tiGiaXFooter: "",
+                            tiGiaHome: "",
+                            tiGiaHeader: "",
                         } as SiteData)
 
                     const mergedRow: SiteData = {
@@ -1676,6 +1724,10 @@ export default function PageBody() {
             loiNhuanText: "",
             NCC: "",
             MaNCC: "",
+            tiGiaXGP: "",
+            tiGiaXFooter: "",
+            tiGiaHome: "",
+            tiGiaHeader: "",
         }))
         
         // Thêm vào newRows (riêng biệt, luôn hiển thị) và track new rows
@@ -1857,7 +1909,7 @@ export default function PageBody() {
                     rowHeaders={false}
                     colHeaders={true}
                     copyPaste={true}
-                    hiddenColumns={[9]}
+                    hiddenColumns={showTiGiaColumns ? [9] : [9, 22, 23, 24, 25]}
                     columnSorting={false}
                     autoColumnSize={false}
                     preventOverflow="horizontal"
@@ -1933,6 +1985,23 @@ export default function PageBody() {
                                         <>
                                             <Save className="h-4 w-4" />
                                             Lưu dữ liệu {pendingChanges.size > 0 ? `(${pendingChanges.size})` : ""}
+                                        </>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => setShowTiGiaColumns(!showTiGiaColumns)}
+                                    className="cursor-pointer flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-sm font-medium text-sm"
+                                    title={showTiGiaColumns ? "Ẩn cột chênh lệch giá" : "Hiện cột chênh lệch giá"}
+                                >
+                                    {showTiGiaColumns ? (
+                                        <>
+                                            <EyeOff className="h-4 w-4" />
+                                            <span>Ẩn chênh lệch</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Eye className="h-4 w-4" />
+                                            <span>Hiện chênh lệch</span>
                                         </>
                                     )}
                                 </button>

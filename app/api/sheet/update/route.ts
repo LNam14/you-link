@@ -71,7 +71,11 @@ const FIELD_TO_COLUMN: Record<string, number> = {
     KeGP: 22,          
     KeText: 23,        
     NCC: 24,            
-    MaNCC: 25,  
+    MaNCC: 25,
+    tiGiaXGP: 36,
+    tiGiaXFooter: 37,
+    tiGiaHome: 38,
+    tiGiaHeader: 39,
 }
 
 // Map field names to display names
@@ -102,6 +106,10 @@ const FIELD_DISPLAY_NAMES: Record<string, string> = {
     KeText: "Kê Text",
     NCC: "NCC",
     MaNCC: "Mã NCC",
+    tiGiaXGP: "Chênh lệch giá GP",
+    tiGiaXFooter: "Chênh lệch giá Footer",
+    tiGiaHome: "Chênh lệch giá Home",
+    tiGiaHeader: "Chênh lệch giá Header",
 }
 
 // Convert column index to A1 notation (0 -> A, 1 -> B, ..., 25 -> Z, 26 -> AA)
@@ -128,8 +136,8 @@ function normalizeUrl(url: string): string {
 // Read row data from sheet
 async function readRowData(gsapi: any, sheetName: string, rowIndex: number): Promise<Record<string, any>> {
     try {
-        // Read all columns from the row (A to AC)
-        const range = `${sheetName}!A${rowIndex}:AC${rowIndex}`
+        // Read all columns from the row (A to AN)
+        const range = `${sheetName}!A${rowIndex}:AN${rowIndex}`
         const { data } = await gsapi.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
             range: range,

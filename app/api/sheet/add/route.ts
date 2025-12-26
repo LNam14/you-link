@@ -69,7 +69,11 @@ const FIELD_TO_COLUMN: Record<string, number> = {
     KeGP: 22,          
     KeText: 23,        
     NCC: 24,            
-    MaNCC: 25,          
+    MaNCC: 25,
+    tiGiaXGP: 36,
+    tiGiaXFooter: 37,
+    tiGiaHome: 38,
+    tiGiaHeader: 39,
 }
 
 // Convert column index to A1 notation (0 -> A, 1 -> B, ..., 25 -> Z, 26 -> AA)

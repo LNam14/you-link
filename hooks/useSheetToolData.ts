@@ -23,6 +23,10 @@ interface SiteData {
   giaBanText: string;
   giaBanTextHome: string;
   giaBanTextHeader: string;
+  giaBanGPX: string;
+  giaBanTextX: string;
+  giaBanTextHomeX: string;
+  giaBanTextHeaderX: string;
   giaMuaGP: string;
   giaMuaText: string;
   giaMuaTextHome: string;
@@ -45,6 +49,10 @@ interface SiteData {
   GroupNCC: string[] | string;
   timeText: string;
   IdGroup?: string | number | null;
+  tiGiaXGP?: string;
+  tiGiaXFooter?: string;
+  tiGiaHome?: string;
+  tiGiaHeader?: string;
 }
 
 interface FilterParams {
@@ -118,6 +126,10 @@ function convertToSiteData(row: FormattedRow): SiteData {
     giaBanText: convertValue(row.giaBanText),
     giaBanTextHome: convertValue(row.giaBanTextHome),
     giaBanTextHeader: convertValue(row.giaBanTextHeader),
+    giaBanGPX: convertValue(row.giaBanGPX),
+    giaBanTextX: convertValue(row.giaBanTextX),
+    giaBanTextHomeX: convertValue(row.giaBanTextHomeX),
+    giaBanTextHeaderX: convertValue(row.giaBanTextHeaderX),
     giaMuaGP: convertValue(row.giaMuaGP),
     giaMuaText: convertValue(row.giaMuaText),
     giaMuaTextHome: convertValue(row.giaMuaTextHome),
@@ -140,6 +152,10 @@ function convertToSiteData(row: FormattedRow): SiteData {
     GroupNCC: convertFileNCC(row.GroupNCC),
     timeText: convertValue(row.timeText),
     IdGroup: row.IdGroup,
+    tiGiaXGP: (row as any).tiGiaXGP ? convertValue((row as any).tiGiaXGP) : undefined,
+    tiGiaXFooter: (row as any).tiGiaXFooter ? convertValue((row as any).tiGiaXFooter) : undefined,
+    tiGiaHome: (row as any).tiGiaHome ? convertValue((row as any).tiGiaHome) : undefined,
+    tiGiaHeader: (row as any).tiGiaHeader ? convertValue((row as any).tiGiaHeader) : undefined,
   };
 }
 
