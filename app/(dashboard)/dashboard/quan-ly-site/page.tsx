@@ -922,43 +922,64 @@ export default function PageBody() {
             return
         }
 
+        // Tính toán bounding box của tất cả các selection
         let minRow = Number.POSITIVE_INFINITY,
             minCol = Number.POSITIVE_INFINITY,
             maxRow = Number.NEGATIVE_INFINITY,
             maxCol = Number.NEGATIVE_INFINITY
-        selected.forEach((range: any) => {
-            const [startRow, startCol, endRow, endCol] = range
-            minRow = Math.min(minRow, startRow, endRow)
-            minCol = Math.min(minCol, startCol, endCol)
-            maxRow = Math.max(maxRow, startRow, endRow)
-            maxCol = Math.max(maxCol, startCol, endCol)
-        })
-
-        const numRows = maxRow - minRow + 1
-        const numCols = maxCol - minCol + 1
-        const copiedDataArray: string[][] = Array.from({ length: numRows }, () => Array(numCols).fill(""))
-
+        
+        // Normalize selection ranges
+        const normalizedRanges: Array<[number, number, number, number]> = []
         selected.forEach((range: any) => {
             const [startRow, startCol, endRow, endCol] = range
             const rowStart = Math.min(startRow, endRow)
             const rowEnd = Math.max(startRow, endRow)
             const colStart = Math.min(startCol, endCol)
             const colEnd = Math.max(startCol, endCol)
+            
+            normalizedRanges.push([rowStart, colStart, rowEnd, colEnd])
+            
+            minRow = Math.min(minRow, rowStart)
+            minCol = Math.min(minCol, colStart)
+            maxRow = Math.max(maxRow, rowEnd)
+            maxCol = Math.max(maxCol, colEnd)
+        })
 
+        const numRows = maxRow - minRow + 1
+        const numCols = maxCol - minCol + 1
+        const copiedDataArray: string[][] = Array.from({ length: numRows }, () => Array(numCols).fill(""))
+
+        // Lấy dữ liệu từ tất cả các range đã chọn
+        normalizedRanges.forEach(([rowStart, colStart, rowEnd, colEnd]) => {
             for (let r = rowStart; r <= rowEnd; r++) {
                 for (let c = colStart; c <= colEnd; c++) {
-                    const cellElement = mainTableInstance.getCell(r, c)
-                    const cellValue = cellElement ? cellElement.textContent || "" : ""
-                    copiedDataArray[r - minRow][c - minCol] = cellValue
+                    // Sử dụng getDataAtCell để lấy giá trị thực tế từ data source
+                    const cellValue = mainTableInstance.getDataAtCell(r, c)
+                    const displayValue = cellValue !== null && cellValue !== undefined 
+                        ? String(cellValue).trim() 
+                        : ""
+                    
+                    // Tính toán vị trí trong mảng kết quả (relative to bounding box)
+                    const relativeRow = r - minRow
+                    const relativeCol = c - minCol
+                    
+                    // Đảm bảo vị trí hợp lệ
+                    if (relativeRow >= 0 && relativeRow < numRows && 
+                        relativeCol >= 0 && relativeCol < numCols) {
+                        // Luôn ghi đè để đảm bảo tất cả các selection được copy
+                        copiedDataArray[relativeRow][relativeCol] = displayValue
+                    }
                 }
             }
         })
 
+        // Tạo chuỗi dữ liệu với tab separator
         const finalData = copiedDataArray.map((row) => row.join("\t")).join("\n")
 
         try {
             if (navigator.clipboard && window.isSecureContext) {
                 await navigator.clipboard.writeText(finalData)
+                toast.success(`Đã copy ${numRows} dòng, ${numCols} cột`)
             } else {
                 const textArea = document.createElement("textarea")
                 textArea.value = finalData
@@ -968,9 +989,11 @@ export default function PageBody() {
                 textArea.select()
                 document.execCommand("copy")
                 document.body.removeChild(textArea)
+                toast.success(`Đã copy ${numRows} dòng, ${numCols} cột`)
             }
         } catch (err) {
             console.error("Copy failed:", err)
+            toast.error("Không thể copy dữ liệu")
         }
     }, [])
 
@@ -1710,6 +1733,70 @@ export default function PageBody() {
         }
     }, [filteredData, newRows])
 
+    // Handle before copy - đảm bảo copy đúng tất cả các cột đã chọn
+    const handleBeforeCopy = useCallback((data: string[][], coords: any[]) => {
+        const mainTableInstance = mainTableRef.current?.hotInstance
+        if (!mainTableInstance) return
+
+        const selected = mainTableInstance.getSelected()
+        if (!selected || selected.length === 0) return
+
+        // Nếu chỉ có 1 selection, để Handsontable xử lý bình thường
+        if (selected.length === 1) return
+
+        // Tính toán bounding box của tất cả các selection
+        let minRow = Number.POSITIVE_INFINITY,
+            minCol = Number.POSITIVE_INFINITY,
+            maxRow = Number.NEGATIVE_INFINITY,
+            maxCol = Number.NEGATIVE_INFINITY
+        
+        const normalizedRanges: Array<[number, number, number, number]> = []
+        selected.forEach((range: any) => {
+            const [startRow, startCol, endRow, endCol] = range
+            const rowStart = Math.min(startRow, endRow)
+            const rowEnd = Math.max(startRow, endRow)
+            const colStart = Math.min(startCol, endCol)
+            const colEnd = Math.max(startCol, endCol)
+            
+            normalizedRanges.push([rowStart, colStart, rowEnd, colEnd])
+            
+            minRow = Math.min(minRow, rowStart)
+            minCol = Math.min(minCol, colStart)
+            maxRow = Math.max(maxRow, rowEnd)
+            maxCol = Math.max(maxCol, colEnd)
+        })
+
+        const numRows = maxRow - minRow + 1
+        const numCols = maxCol - minCol + 1
+        const copiedDataArray: string[][] = Array.from({ length: numRows }, () => Array(numCols).fill(""))
+
+        // Lấy dữ liệu từ tất cả các range đã chọn
+        normalizedRanges.forEach(([rowStart, colStart, rowEnd, colEnd]) => {
+            for (let r = rowStart; r <= rowEnd; r++) {
+                for (let c = colStart; c <= colEnd; c++) {
+                    const cellValue = mainTableInstance.getDataAtCell(r, c)
+                    const displayValue = cellValue !== null && cellValue !== undefined 
+                        ? String(cellValue).trim() 
+                        : ""
+                    
+                    const relativeRow = r - minRow
+                    const relativeCol = c - minCol
+                    
+                    if (relativeRow >= 0 && relativeRow < numRows && 
+                        relativeCol >= 0 && relativeCol < numCols) {
+                        copiedDataArray[relativeRow][relativeCol] = displayValue
+                    }
+                }
+            }
+        })
+
+        // Cập nhật data array để Handsontable copy đúng
+        data.length = 0
+        copiedDataArray.forEach((row) => {
+            data.push([...row])
+        })
+    }, [])
+
     // Handle before paste - giới hạn số hàng paste theo số hàng hiện có
     const handleBeforePaste = useCallback((data: string[][], coords: any[]) => {
         if (!data || data.length === 0) return
@@ -1787,6 +1874,7 @@ export default function PageBody() {
                     allowInvalid={true}
                     skipRowOnPaste={false}
                     onAfterChange={handleAfterChange}
+                    beforeCopy={handleBeforeCopy}
                     beforePaste={handleBeforePaste}
                     afterOnCellMouseDown={(event, coords) => {
                         // Prevent scroll when clicking on cell
@@ -1797,7 +1885,7 @@ export default function PageBody() {
                 />
             </div>
         )
-    }, [mappedColumns, nestedHeaders, handleAfterChange, handleBeforePaste, contextMenuCustomItems])
+    }, [mappedColumns, nestedHeaders, handleAfterChange, handleBeforeCopy, handleBeforePaste, contextMenuCustomItems])
 
     // Show loading spinner when searching, loading, or refreshing
     const showLoading = isSearching || loading || refreshing

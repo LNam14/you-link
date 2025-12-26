@@ -750,7 +750,9 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                     const raw = newItem[fieldName as keyof SiteData]?.toString() || ""
                     const numericValue = Number.parseFloat(raw)
                     if (!isNaN(numericValue) && numericValue !== 0) {
-                        ; (newItem as any)[fieldName] = (numericValue * rate).toString()
+                        // Khi đổi sang VND, làm tròn xuống số nguyên (Math.floor)
+                        const convertedValue = numericValue * rate
+                        ; (newItem as any)[fieldName] = Math.floor(convertedValue).toString()
                     }
                 })
                 return newItem
@@ -1297,15 +1299,50 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
             td.style.textOverflow = "ellipsis"
             td.style.textAlign = "center"
 
-            let displayValue = value || ""
+            let displayValue = ""
 
-            // Nếu là cột hoa hồng, ép về 0 nếu không phải số hoặc khác 0
-            if (field === "hoaHongGP" || field === "hoaHongText") {
+            // Kiểm tra nếu giá trị là chữ (không phải số) thì giữ nguyên
+            if (value && typeof value === "string") {
+                const trimmedValue = value.trim()
+                // Kiểm tra xem có phải là số thuần túy không (bao gồm số âm và số thập phân)
+                const isPureNumber = /^-?\d*\.?\d+$/.test(trimmedValue)
+                if (!isPureNumber && trimmedValue !== "") {
+                    // Nếu không phải số, giữ nguyên giá trị chữ
+                    displayValue = trimmedValue
+                } else if (isPureNumber) {
+                    // Nếu là số, xử lý làm tròn
+                    const numericValue = Number.parseFloat(trimmedValue)
+                    if (numericValue === 0) {
+                        displayValue = "0"
+                    } else {
+                        // Làm tròn đến 2 chữ số thập phân
+                        const rounded = Math.round(numericValue * 100) / 100
+                        // Nếu phần thập phân là .00 thì chỉ hiển thị số nguyên
+                        if (rounded % 1 === 0) {
+                            displayValue = Math.floor(rounded).toString()
+                        } else {
+                            // Có phần thập phân, hiển thị nhưng bỏ .00 nếu có
+                            displayValue = rounded.toString().replace(/\.?0+$/, "")
+                        }
+                    }
+                }
+            } else if (value !== null && value !== undefined) {
+                // Nếu không phải string, thử parse thành số
                 const numericValue = Number.parseFloat(value)
-                if (isNaN(numericValue) || numericValue === 0) {
-                    displayValue = "0"
+                if (!isNaN(numericValue)) {
+                    if (numericValue === 0) {
+                        displayValue = "0"
+                    } else {
+                        const rounded = Math.round(numericValue * 100) / 100
+                        if (rounded % 1 === 0) {
+                            displayValue = Math.floor(rounded).toString()
+                        } else {
+                            displayValue = rounded.toString().replace(/\.?0+$/, "")
+                        }
+                    }
                 } else {
-                    displayValue = numericValue.toString()
+                    // Không phải số, giữ nguyên giá trị
+                    displayValue = String(value)
                 }
             }
 
@@ -2086,6 +2123,13 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 groupUrls.push(item.GroupNCC as string)
             }
         })
+
+        // Làm tròn tất cả các giá trị tổng xuống số nguyên (Math.floor)
+        summary[giaBanColumn as keyof SiteData] = Math.floor(Number.parseFloat(summary[giaBanColumn as keyof SiteData]?.toString() || "0")).toString()
+        summary[giaMuaColumn as keyof SiteData] = Math.floor(Number.parseFloat(summary[giaMuaColumn as keyof SiteData]?.toString() || "0")).toString()
+        summary[hoaHongColumn as keyof SiteData] = Math.floor(Number.parseFloat(summary[hoaHongColumn as keyof SiteData]?.toString() || "0")).toString()
+        summary[giaCuoiColumn as keyof SiteData] = Math.floor(Number.parseFloat(summary[giaCuoiColumn as keyof SiteData]?.toString() || "0")).toString()
+        summary[loiNhuanColumn as keyof SiteData] = Math.floor(Number.parseFloat(summary[loiNhuanColumn as keyof SiteData]?.toString() || "0")).toString()
 
         // Store the actual URLs for later use
         summary._fileUrls = fileUrls

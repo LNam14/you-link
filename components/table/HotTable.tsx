@@ -154,8 +154,9 @@ const HotTableComponent = forwardRef<HotTableRef, HotTableProps>(({
     return inputData as any[][];
   }, []);
   
-  const [hotData, setHotData] = useState<any[][]>(() => {
-    // Initial state - try to convert if columns are available
+  // Use useMemo to compute hotData - only recomputes when data or columns actually change
+  const hotData = useMemo(() => {
+    // Only convert if we have columns
     if (columns && columns.length > 0) {
       return convertData(data, columns);
     }
@@ -164,9 +165,7 @@ const HotTableComponent = forwardRef<HotTableRef, HotTableProps>(({
       return data as any[][];
     }
     return [];
-  });
-  const prevDataRef = useRef<any[][] | any[]>(data);
-  const prevColumnsRef = useRef<Column[]>(columns);
+  }, [data, columns, convertData]);
   
   // Expose ref methods
   useImperativeHandle(ref, () => hotTableRef.current as HotTableRef);
@@ -183,28 +182,6 @@ const HotTableComponent = forwardRef<HotTableRef, HotTableProps>(({
       }
     }
   }, [afterOnCellMouseDown]);
-
-  // Update hotData when data or columns change
-  useEffect(() => {
-    // Check if data or columns changed
-    const dataChanged = data !== prevDataRef.current;
-    const columnsChanged = columns !== prevColumnsRef.current;
-    
-    if (dataChanged || columnsChanged) {
-      prevDataRef.current = data;
-      prevColumnsRef.current = columns;
-      
-      // Only convert if we have columns
-      if (columns && columns.length > 0) {
-        setHotData(convertData(data, columns));
-      } else if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0])) {
-        // Data is already 2D array
-        setHotData(data as any[][]);
-      } else {
-        setHotData([]);
-      }
-    }
-  }, [data, columns, convertData]);
 
   // Style all headers with fontSize 11px, fontWeight 600, and center alignment if applyCommonStyles is true
   useEffect(() => {

@@ -138,7 +138,17 @@ export default function DashboardHeader({
                         <input
                           type="text"
                           value={customControls.currency.exchangeRate}
-                          onChange={(e) => customControls.currency!.onExchangeRateChange?.(e.target.value || "")}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            // Cho phép nhập số, dấu chấm và dấu phẩy (chuyển phẩy thành chấm)
+                            const sanitized = value.replace(/[^0-9.,]/g, '').replace(',', '.')
+                            // Chỉ cho phép một dấu chấm
+                            const parts = sanitized.split('.')
+                            const finalValue = parts.length > 2 
+                              ? parts[0] + '.' + parts.slice(1).join('')
+                              : sanitized
+                            customControls.currency!.onExchangeRateChange?.(finalValue || "")
+                          }}
                           className="w-8 sm:w-10 px-1 sm:px-2 py-1.5 sm:py-2 text-center text-xs bg-white text-blue-600 font-medium focus:outline-none focus:ring-2 focus:ring-blue-400"
                           placeholder="28"
                         />
