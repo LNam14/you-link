@@ -137,20 +137,46 @@ export default function DashboardHeader({
                       <div className="flex items-center">
                         <input
                           type="text"
+                          inputMode="decimal"
                           value={customControls.currency.exchangeRate}
                           onChange={(e) => {
-                            const value = e.target.value
-                            // Cho phép nhập số, dấu chấm và dấu phẩy (chuyển phẩy thành chấm)
-                            const sanitized = value.replace(/[^0-9.,]/g, '').replace(',', '.')
+                            let value = e.target.value
+                            
+                            // Loại bỏ tất cả ký tự không phải số, dấu chấm, dấu phẩy
+                            value = value.replace(/[^0-9.,]/g, '')
+                            
+                            // Chuyển tất cả dấu phẩy thành dấu chấm (hỗ trợ Vietkey)
+                            value = value.replace(/,/g, '.')
+                            
                             // Chỉ cho phép một dấu chấm
-                            const parts = sanitized.split('.')
-                            const finalValue = parts.length > 2 
-                              ? parts[0] + '.' + parts.slice(1).join('')
-                              : sanitized
-                            customControls.currency!.onExchangeRateChange?.(finalValue || "")
+                            const parts = value.split('.')
+                            if (parts.length > 2) {
+                              // Nếu có nhiều dấu chấm, chỉ giữ lại dấu chấm đầu tiên
+                              value = parts[0] + '.' + parts.slice(1).join('')
+                            }
+                            
+                            // Giới hạn số chữ số sau dấu chấm (tối đa 2 chữ số)
+                            if (parts.length === 2 && parts[1].length > 2) {
+                              value = parts[0] + '.' + parts[1].substring(0, 2)
+                            }
+                            
+                            customControls.currency!.onExchangeRateChange?.(value)
                           }}
-                          className="w-8 sm:w-10 px-1 sm:px-2 py-1.5 sm:py-2 text-center text-xs bg-white text-blue-600 font-medium focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          onBlur={(e) => {
+                            // Khi mất focus, đảm bảo giá trị hợp lệ
+                            const value = e.target.value.trim()
+                            if (value && !isNaN(Number.parseFloat(value))) {
+                              const numValue = Number.parseFloat(value)
+                              if (numValue > 0) {
+                                // Giữ nguyên giá trị nếu hợp lệ
+                                return
+                              }
+                            }
+                            // Nếu không hợp lệ, giữ giá trị cũ hoặc để trống
+                          }}
+                          className="w-10 sm:w-14 px-1 sm:px-2 py-1.5 sm:py-2 text-center text-xs sm:text-sm bg-white text-blue-600 font-medium focus:outline-none focus:ring-2 focus:ring-blue-400 border border-transparent hover:border-blue-300 transition-colors"
                           placeholder="28"
+                          title="Nhập tỉ giá (ví dụ: 28 hoặc 28.5)"
                         />
                       </div>
                     )}
