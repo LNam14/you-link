@@ -49,6 +49,7 @@ const FIELD_TO_COLUMN: Record<string, number> = {
     bong: 2,           
     bet: 3,            
     chuDe: 4,          
+    nuoc: 5,
     linkOut: 7,        
     DR: 8,             
     keywords: 9,       

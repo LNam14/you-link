@@ -35,6 +35,7 @@ interface SiteData {
     bong: string
     bet: string
     chuDe: string
+    nuoc?: string
     linkOut: string
     DR: string
     keywords?: string
@@ -253,6 +254,7 @@ export default function PageBody() {
             bong: "",
             bet: "",
             chuDe: "",
+            nuoc: "",
             linkOut: "",
             DR: "",
             keywords: "",
@@ -708,6 +710,13 @@ export default function PageBody() {
                 renderer: createCellRenderer(),
             },
             {
+                title: "Nước",
+                data: "nuoc",
+                width: 60,
+                className: "htMiddle text-center",
+                renderer: createCellRenderer(),
+            },
+            {
                 title: "Link out",
                 data: "linkOut",
                 width: 50,
@@ -905,9 +914,9 @@ export default function PageBody() {
         const firstRow: Array<{ label: string; colspan: number }> = []
         const secondRow: string[] = []
 
-        const infoCols = columns.slice(0, 10)
-        const noteCols = columns.slice(10, 12)
-        const giaCols = columns.slice(12, 16)
+        const infoCols = columns.slice(0, 11)
+        const noteCols = columns.slice(11, 13)
+        const giaCols = columns.slice(13, 17)
         const hoaHongCols = columns.slice(16, 18)
         const keThemCols = columns.slice(18, 20)
         const nccCols = columns.slice(20, 22)
@@ -1406,6 +1415,7 @@ export default function PageBody() {
                             bong: "",
                             bet: "",
                             chuDe: "",
+                            nuoc: "",
                             linkOut: "",
                             DR: "",
                             keywords: "",
@@ -1712,6 +1722,7 @@ export default function PageBody() {
             bong: "",
             bet: "",
             chuDe: "",
+            nuoc: "",
             linkOut: "",
             DR: "",
             keywords: "",
@@ -1915,7 +1926,7 @@ export default function PageBody() {
                     rowHeaders={false}
                     colHeaders={true}
                     copyPaste={true}
-                    hiddenColumns={showTiGiaColumns ? [9] : [9, 22, 23, 24, 25]}
+                    hiddenColumns={showTiGiaColumns ? [10] : [10, 23, 24, 25, 26]}
                     columnSorting={false}
                     autoColumnSize={false}
                     preventOverflow="horizontal"

@@ -172,6 +172,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 bong: row[2],
                 bet: row[3],
                 chuDe: row[4],
+                nuoc: row[5],
                 linkOut:row[7],
                 DR: row[8],
                 keywords: row[9],

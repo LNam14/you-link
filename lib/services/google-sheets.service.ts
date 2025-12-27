@@ -17,6 +17,7 @@ export interface FormattedRow {
   bong: any;
   bet: any;
   chuDe: any;
+  nuoc: any;
   linkOut: any;
   DR: any;
   keywords: any;
@@ -395,6 +396,7 @@ export class GoogleSheetsService {
       bong: row[2],
       bet: row[3],
       chuDe: row[4],
+      nuoc: row[5],
       linkOut: row[7],
       DR: row[8],
       keywords: row[9],
