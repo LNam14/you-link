@@ -631,45 +631,6 @@ export default function PageBody() {
         }) as RendererFunction
     }, [])
 
-    // Tình trạng renderer với styling
-    const createTinhTrangRenderer = useCallback(() => {
-        return ((
-            instance: Handsontable,
-            td: HTMLTableCellElement,
-            row: number,
-            col: number,
-            prop: string | number,
-            value: any,
-        ): HTMLTableCellElement => {
-            td.innerHTML = ""
-            td.style.whiteSpace = "nowrap"
-            td.style.overflow = "hidden"
-            td.style.textOverflow = "ellipsis"
-            
-            const displayValue = value || ""
-            td.textContent = displayValue
-            td.title = displayValue
-
-            // Apply styling based on value
-            if (displayValue === "Bình thường") {
-                td.style.background = "#16a34a"
-                td.style.color = "#ffffff"
-                td.style.fontWeight = "500"
-                td.style.textAlign = "center"
-            } else if (displayValue === "Ngưng") {
-                td.style.background = "#dc2626"
-                td.style.color = "#ffffff"
-                td.style.fontWeight = "500"
-                td.style.textAlign = "center"
-            } else {
-                // Default styling for other values
-                td.style.textAlign = "center"
-            }
-
-            return td
-        }) as RendererFunction
-    }, [])
-
     // Generate columns
     const generateColumns = useCallback(() => {
         const columns = [
@@ -783,9 +744,7 @@ export default function PageBody() {
                 data: "tinhTrang",
                 width: 70,
                 className: "htMiddle text-center",
-                renderer: createTinhTrangRenderer(),
                 editor: "select",
-                selectOptions: ["Bình thường", "Ngưng"],
             },
             {
                 title: "Khách hàng",
