@@ -105,6 +105,49 @@ const normalizeIdGroup = (value: SiteData["IdGroup"]): string => {
     }
 }
 
+// Helper function to parse number with comma or dot as decimal separator
+const parseNumberWithComma = (str: string | number | string[] | null | undefined): number | null => {
+    if (str === null || str === undefined) return null
+    if (typeof str === "number") return isNaN(str) ? null : str
+    if (Array.isArray(str)) {
+        // If array, take first element
+        if (str.length === 0) return null
+        str = str[0]
+    }
+    
+    const trimmed = String(str).trim()
+    if (trimmed === "" || trimmed === "ngưng" || trimmed === "No") return null
+    
+    // Replace comma with dot for decimal separator
+    // In Vietnamese/European context, comma is typically decimal separator for prices
+    // Handle both cases: comma as decimal (13,5) or dot as decimal (13.5)
+    let cleaned = trimmed.replace(/\s/g, "") // Remove spaces
+    
+    // Count dots and commas to determine format
+    const dotCount = (cleaned.match(/\./g) || []).length
+    const commaCount = (cleaned.match(/,/g) || []).length
+    
+    if (dotCount > 0 && commaCount > 0) {
+        // Both present: assume dot is thousands separator, comma is decimal
+        // Example: "1.234,56" -> "1234.56"
+        cleaned = cleaned.replace(/\./g, "").replace(",", ".")
+    } else if (commaCount > 0) {
+        // Only comma: for prices, always treat as decimal separator
+        // Examples: "13,5" -> "13.5", "5,945" -> "5.945", "19,445" -> "19.445"
+        // Unless there are multiple commas (thousands separator pattern like "1,234,567")
+        if (commaCount > 1) {
+            // Multiple commas = thousands separator: "1,234,567" -> "1234567"
+            cleaned = cleaned.replace(/,/g, "")
+        } else {
+            // Single comma = decimal separator: convert to dot
+            cleaned = cleaned.replace(",", ".")
+        }
+    }
+    
+    const parsed = Number.parseFloat(cleaned)
+    return isNaN(parsed) ? null : parsed
+}
+
 export default function PageBody() {
     const [filteredData, setFilteredData] = useState<SiteData[]>([])
     const [searchTerm, setSearchTerm] = useState("")
@@ -761,11 +804,11 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 fieldsToConvert.forEach((fieldKey) => {
                     const fieldName = getPriceColumnFn(selectedPriceType, fieldKey)
                     const raw = newItem[fieldName as keyof SiteData]?.toString() || ""
-                    const numericValue = Number.parseFloat(raw)
-                    if (!isNaN(numericValue) && numericValue !== 0) {
-                        // Khi đổi sang VND, làm tròn xuống số nguyên (Math.floor)
+                    const numericValue = parseNumberWithComma(raw)
+                    if (numericValue !== null && numericValue !== 0) {
+                        // Khi đổi sang VND, làm tròn thành số nguyên
                         const convertedValue = numericValue * rate
-                        ; (newItem as any)[fieldName] = Math.floor(convertedValue).toString()
+                        ; (newItem as any)[fieldName] = Math.round(convertedValue).toString()
                     }
                 })
                 return newItem
@@ -780,19 +823,14 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 const giaCuoiColumn = getPriceColumnFn(selectedPriceType, "giaCuoi")
                 const loiNhuanColumn = getPriceColumnFn(selectedPriceType, "loiNhuan")
                 
-                // Helper function to check if value is a pure number
+                // Helper function to check if value is a pure number (including comma as decimal)
                 const isPureNumber = (value: any): boolean => {
-                    if (value === null || value === undefined || value === "") return false
-                    const strValue = value.toString().trim()
-                    if (strValue === "" || strValue === "ngưng" || strValue === "No") return false
-                    return /^-?\d*\.?\d+$/.test(strValue)
+                    return parseNumberWithComma(value) !== null
                 }
                 
                 // Helper function to safely parse numeric value
                 const getNumericValue = (value: any): number | null => {
-                    if (!isPureNumber(value)) return null
-                    const parsed = Number.parseFloat(value.toString().trim())
-                    return isNaN(parsed) ? null : parsed
+                    return parseNumberWithComma(value)
                 }
                 
                 const giaBanRaw = newItem[giaBanColumn as keyof SiteData]
@@ -803,13 +841,9 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 const giaCuoiValue = getNumericValue(giaCuoiRaw)
                 
                 if (giaBanValue !== null && giaCuoiValue !== null) {
-                    // Cả hai đều là số, tính lại lợi nhuận
+                    // Cả hai đều là số, tính lại lợi nhuận và làm tròn thành số nguyên
                     const loiNhuanValue = giaBanValue - giaCuoiValue
-                    // Format số: nếu là số nguyên thì hiển thị số nguyên, nếu có phần thập phân thì giữ lại
-                    const formattedValue = loiNhuanValue % 1 === 0 
-                        ? Math.floor(loiNhuanValue).toString()
-                        : Math.round(loiNhuanValue * 100) / 100
-                    ; (newItem as any)[loiNhuanColumn] = formattedValue.toString()
+                    ; (newItem as any)[loiNhuanColumn] = Math.round(loiNhuanValue).toString()
                 } else if (giaBanValue === null && isPureNumber(giaBanRaw) === false) {
                     // Nếu giaBan là chữ (như "ngưng"), giữ nguyên lợi nhuận từ API hoặc để trống
                     // Không cần làm gì, giữ nguyên giá trị hiện tại
@@ -1381,49 +1415,15 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
 
             let displayValue = ""
 
+
             // Kiểm tra nếu giá trị là chữ (không phải số) thì giữ nguyên
-            if (value && typeof value === "string") {
-                const trimmedValue = value.trim()
-                // Kiểm tra xem có phải là số thuần túy không (bao gồm số âm và số thập phân)
-                const isPureNumber = /^-?\d*\.?\d+$/.test(trimmedValue)
-                if (!isPureNumber && trimmedValue !== "") {
-                    // Nếu không phải số, giữ nguyên giá trị chữ
-                    displayValue = trimmedValue
-                } else if (isPureNumber) {
-                    // Nếu là số, xử lý làm tròn
-                    const numericValue = Number.parseFloat(trimmedValue)
-                    if (numericValue === 0) {
-                        displayValue = "0"
-                    } else {
-                        // Làm tròn đến 2 chữ số thập phân
-                        const rounded = Math.round(numericValue * 100) / 100
-                        // Nếu phần thập phân là .00 thì chỉ hiển thị số nguyên
-                        if (rounded % 1 === 0) {
-                            displayValue = Math.floor(rounded).toString()
-                        } else {
-                            // Có phần thập phân, hiển thị nhưng bỏ .00 nếu có
-                            displayValue = rounded.toString().replace(/\.?0+$/, "")
-                        }
-                    }
-                }
-            } else if (value !== null && value !== undefined) {
-                // Nếu không phải string, thử parse thành số
-                const numericValue = Number.parseFloat(value)
-                if (!isNaN(numericValue)) {
-                    if (numericValue === 0) {
-                        displayValue = "0"
-                    } else {
-                        const rounded = Math.round(numericValue * 100) / 100
-                        if (rounded % 1 === 0) {
-                            displayValue = Math.floor(rounded).toString()
-                        } else {
-                            displayValue = rounded.toString().replace(/\.?0+$/, "")
-                        }
-                    }
-                } else {
-                    // Không phải số, giữ nguyên giá trị
-                    displayValue = String(value)
-                }
+            const numericValue = parseNumberWithComma(value)
+            if (numericValue === null) {
+                // Không phải số, giữ nguyên giá trị chữ
+                displayValue = value ? String(value).trim() : ""
+            } else {
+                // Nếu là số, làm tròn thành số nguyên
+                displayValue = Math.round(numericValue).toString()
             }
 
             // Make summary row values red with bold font
@@ -2146,18 +2146,10 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
         let fileUrls: string[] = []
         let groupUrls: string[] = []
 
-        // Helper function to check if a value is a pure number
-        const isPureNumber = (value: any): boolean => {
-            if (value === null || value === undefined) return false
-            const strValue = value.toString().trim()
-            // Check if the string is a valid number (integer or decimal)
-            return /^-?\d*\.?\d+$/.test(strValue)
-        }
-
-        // Helper function to safely parse numeric value
+        // Helper function to safely parse numeric value (handles comma as decimal separator)
         const getNumericValue = (value: any): number => {
-            if (!isPureNumber(value)) return 0
-            return Number.parseFloat(value.toString().trim())
+            const parsed = parseNumberWithComma(value)
+            return parsed !== null ? parsed : 0
         }
 
         data.forEach((item) => {
@@ -2172,7 +2164,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
             // Tính lại lợi nhuận khi chọn X-ALL: loiNhuan = giaBanX - giaCuoi
             // Chỉ tính lại nếu cả giaBan và giaCuoi đều là số hợp lệ (không phải chữ)
             let loiNhuanValue: number
-            if (selectedAllType === "X" && isPureNumber(giaBanRaw) && isPureNumber(giaCuoiRaw)) {
+            if (selectedAllType === "X" && parseNumberWithComma(giaBanRaw) !== null && parseNumberWithComma(giaCuoiRaw) !== null) {
                 loiNhuanValue = giaBanValue - giaCuoiValue
             } else {
                 loiNhuanValue = getNumericValue(item[loiNhuanColumn as keyof SiteData])
@@ -2180,19 +2172,19 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
 
             // Update summary using the correct columns for the selected type
             summary[giaBanColumn as keyof SiteData] = (
-                Number.parseFloat(summary[giaBanColumn as keyof SiteData]?.toString() || "0") + giaBanValue
+                (parseNumberWithComma(summary[giaBanColumn as keyof SiteData]) || 0) + giaBanValue
             ).toString()
             summary[giaMuaColumn as keyof SiteData] = (
-                Number.parseFloat(summary[giaMuaColumn as keyof SiteData]?.toString() || "0") + giaMuaValue
+                (parseNumberWithComma(summary[giaMuaColumn as keyof SiteData]) || 0) + giaMuaValue
             ).toString()
             summary[hoaHongColumn as keyof SiteData] = (
-                Number.parseFloat(summary[hoaHongColumn as keyof SiteData]?.toString() || "0") + hoaHongValue
+                (parseNumberWithComma(summary[hoaHongColumn as keyof SiteData]) || 0) + hoaHongValue
             ).toString()
             summary[giaCuoiColumn as keyof SiteData] = (
-                Number.parseFloat(summary[giaCuoiColumn as keyof SiteData]?.toString() || "0") + giaCuoiValue
+                (parseNumberWithComma(summary[giaCuoiColumn as keyof SiteData]) || 0) + giaCuoiValue
             ).toString()
             summary[loiNhuanColumn as keyof SiteData] = (
-                Number.parseFloat(summary[loiNhuanColumn as keyof SiteData]?.toString() || "0") + loiNhuanValue
+                (parseNumberWithComma(summary[loiNhuanColumn as keyof SiteData]) || 0) + loiNhuanValue
             ).toString()
 
             // Collect file URLs
@@ -2214,12 +2206,12 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
             }
         })
 
-        // Làm tròn tất cả các giá trị tổng xuống số nguyên (Math.floor)
-        summary[giaBanColumn as keyof SiteData] = Math.floor(Number.parseFloat(summary[giaBanColumn as keyof SiteData]?.toString() || "0")).toString()
-        summary[giaMuaColumn as keyof SiteData] = Math.floor(Number.parseFloat(summary[giaMuaColumn as keyof SiteData]?.toString() || "0")).toString()
-        summary[hoaHongColumn as keyof SiteData] = Math.floor(Number.parseFloat(summary[hoaHongColumn as keyof SiteData]?.toString() || "0")).toString()
-        summary[giaCuoiColumn as keyof SiteData] = Math.floor(Number.parseFloat(summary[giaCuoiColumn as keyof SiteData]?.toString() || "0")).toString()
-        summary[loiNhuanColumn as keyof SiteData] = Math.floor(Number.parseFloat(summary[loiNhuanColumn as keyof SiteData]?.toString() || "0")).toString()
+        // Làm tròn tất cả các giá trị tổng thành số nguyên
+        summary[giaBanColumn as keyof SiteData] = Math.round(parseNumberWithComma(summary[giaBanColumn as keyof SiteData]) || 0).toString()
+        summary[giaMuaColumn as keyof SiteData] = Math.round(parseNumberWithComma(summary[giaMuaColumn as keyof SiteData]) || 0).toString()
+        summary[hoaHongColumn as keyof SiteData] = Math.round(parseNumberWithComma(summary[hoaHongColumn as keyof SiteData]) || 0).toString()
+        summary[giaCuoiColumn as keyof SiteData] = Math.round(parseNumberWithComma(summary[giaCuoiColumn as keyof SiteData]) || 0).toString()
+        summary[loiNhuanColumn as keyof SiteData] = Math.round(parseNumberWithComma(summary[loiNhuanColumn as keyof SiteData]) || 0).toString()
 
         // Store the actual URLs for later use
         summary._fileUrls = fileUrls

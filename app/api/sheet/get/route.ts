@@ -292,11 +292,12 @@ async function getAllSheetData(gsapi: any) {
         })
     }
 
-    // Use FORMATTED_VALUE to get displayed values from sheet (e.g., 74.4 displayed as 74 will return "74")
+    // Use UNFORMATTED_VALUE to get original values from sheet (not rounded/formatted)
+    // This ensures we get the actual price values before any rounding for display
     const { data } = await gsapi.spreadsheets.values.batchGet({
         spreadsheetId: SPREADSHEET_ID,
         ranges: allRanges,
-        valueRenderOption: "FORMATTED_VALUE", // Get formatted values as displayed in sheet
+        valueRenderOption: "UNFORMATTED_VALUE", // Get original unformatted values (not rounded)
         dateTimeRenderOption: "SERIAL_NUMBER",
     })
 
