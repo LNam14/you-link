@@ -995,8 +995,8 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
         if (filters["Đi Bóng"]) {
             result.diBong = filters["Đi Bóng"]
         }
-        if (filters["Đi BET"]) {
-            result.diBET = filters["Đi BET"]
+        if (filters["Đi Game"]) {
+            result.diBET = filters["Đi Game"]
         }
         if (filters["Site"]) {
             result.siteVN = filters["Site"]
@@ -1241,9 +1241,9 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
             }
         }
 
-        // Đi BET filter
-        if (filters["Đi BET"]) {
-            const diBETValue = filters["Đi BET"]
+        // Đi Game filter
+        if (filters["Đi Game"]) {
+            const diBETValue = filters["Đi Game"]
             const itemBet = (item.bet || "").toLowerCase().trim()
             if (diBETValue === "có" && itemBet !== "có" && itemBet !== "yes" && itemBet !== "1") {
                 return false
@@ -1580,7 +1580,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 }) as RendererFunction,
             },
             {
-                title: "BET",
+                title: "Game",
                 data: "bet",
                 width: 40,
                 className: "htMiddle text-center",
@@ -3028,7 +3028,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                         {/* Filter Content */}
                         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                             <div className="space-y-6">
-                                {/* Row 1: Đi Bóng, Đi BET, Site .vn, Traffic Tool */}
+                                {/* Row 1: Đi Bóng, Đi Game, Site .vn, Traffic Tool */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                     {/* Đi Bóng */}
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
@@ -3066,11 +3066,11 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                                         </div>
                                     </div>
 
-                                    {/* Đi BET */}
+                                    {/* Đi Game */}
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
                                         <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
                                             <span className="text-purple-500">🎲</span>
-                                            Đi BET
+                                            Đi Game
                                         </h3>
                                         <div className="flex gap-3">
                                             <label className="flex items-center cursor-pointer group">
@@ -3079,8 +3079,8 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                                                     className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                                                     name="diBET"
                                                     value="có"
-                                                    checked={filters["Đi BET"] === "có"}
-                                                    onChange={(e) => handleFilterChange("Đi BET", e.target.value)}
+                                                    checked={filters["Đi Game"] === "có"}
+                                                    onChange={(e) => handleFilterChange("Đi Game", e.target.value)}
                                                 />
                                                 <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
                                                     Có
@@ -3092,8 +3092,8 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                                                     className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                                                     name="diBET"
                                                     value="ko"
-                                                    checked={filters["Đi BET"] === "ko"}
-                                                    onChange={(e) => handleFilterChange("Đi BET", e.target.value)}
+                                                    checked={filters["Đi Game"] === "ko"}
+                                                    onChange={(e) => handleFilterChange("Đi Game", e.target.value)}
                                                 />
                                                 <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
                                                     Không

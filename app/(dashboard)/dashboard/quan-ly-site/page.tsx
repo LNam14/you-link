@@ -19,6 +19,7 @@ import {
     Save,
     Eye,
     EyeOff,
+    Globe,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -90,6 +91,7 @@ type PendingChange =
 
 export default function PageBody() {
     const [filteredData, setFilteredData] = useState<SiteData[]>([])
+    const [duplicateSites, setDuplicateSites] = useState<{ [key: string]: SiteData[] }>({}) // Site trùng lặp theo domain
     const [newRows, setNewRows] = useState<SiteData[]>([]) // Các site mới thêm, luôn hiển thị
     const [localAddedRows, setLocalAddedRows] = useState<SiteData[]>([]) // Các site đã lưu thành công nhưng chưa refetch
     const [localUpdatedRows, setLocalUpdatedRows] = useState<Map<string, SiteData>>(new Map()) // Cache các dòng đã update để không cần refetch
@@ -293,8 +295,6 @@ export default function PageBody() {
                         "giaMuaText",
                         "giaMuaTextHome",
                         "giaMuaTextHeader",
-                        "hoaHongGP",
-                        "hoaHongText",
                         "loiNhuanGP",
                         "loiNhuanText",
                     ]
@@ -366,18 +366,63 @@ export default function PageBody() {
                 })
 
                 // Duyệt theo thứ tự người dùng nhập để giữ nguyên thứ tự hiển thị
-                // Flatten để hiển thị tất cả các site có cùng domain
-                filtered = rawTerms.flatMap((term, idx) => {
+                let mainItems: SiteData[] = []
+                let newDuplicateSites: { [key: string]: SiteData[] } = {}
+
+                rawTerms.forEach((term, idx) => {
                     const normalizedTerm = normalizedTerms[idx]
                     if (normalizedTerm) {
                         const matched = siteMap.get(normalizedTerm)
                         if (matched && matched.length > 0) {
-                            return matched // Trả về tất cả các site có cùng domain
+                            if (matched.length === 1) {
+                                // Chỉ có 1 site, thêm vào mainItems
+                                mainItems.push(matched[0])
+                            } else {
+                                // Có nhiều site trùng, tìm site có giá thấp nhất
+                                const priceField = "giaMuaGP" // Sử dụng GP làm tiêu chí so sánh giá
+
+                                // Tìm tất cả giá hợp lệ (không phải 0 và không phải NaN)
+                                const validPriceItems = matched.filter(item => {
+                                    const price = Number.parseFloat((item as any)[priceField] || "0") || 0
+                                    return price > 0 && !isNaN(price)
+                                })
+
+                                let minPriceItem: SiteData
+
+                                if (validPriceItems.length > 0) {
+                                    // Nếu có giá hợp lệ, chọn site có giá thấp nhất
+                                    minPriceItem = validPriceItems.reduce((minItem, currentItem) => {
+                                        const minPrice = Number.parseFloat((minItem as any)[priceField] || "0") || 0
+                                        const currentPrice = Number.parseFloat((currentItem as any)[priceField] || "0") || 0
+                                        return currentPrice < minPrice ? currentItem : minItem
+                                    })
+                                } else {
+                                    // Nếu tất cả giá đều không hợp lệ, chọn site đầu tiên
+                                    minPriceItem = matched[0]
+                                }
+
+                                // Thêm site có giá thấp nhất vào mainItems
+                                mainItems.push(minPriceItem)
+
+                                // Các site còn lại vào duplicateSites
+                                const duplicates = matched.filter(item => item !== minPriceItem)
+                                if (duplicates.length > 0) {
+                                    newDuplicateSites[normalizedTerm] = duplicates
+                                }
+                            }
+                        } else {
+                            // Không tìm thấy -> tạo dòng rỗng chỉ với site
+                            mainItems.push(createPlaceholderRow(term))
                         }
+                    } else {
+                        // Term không hợp lệ
+                        mainItems.push(createPlaceholderRow(term))
                     }
-                    // Không tìm thấy -> tạo dòng rỗng chỉ với site
-                    return [createPlaceholderRow(term)]
                 })
+
+                filtered = mainItems
+                // Lưu duplicateSites để hiển thị ở table dưới
+                setDuplicateSites(newDuplicateSites)
             } else {
                 // Tìm theo NCC: theo mã NCC hoặc tên NCC (không phân biệt hoa thường)
                 const lowerTerms = rawTerms.map((t) => t.toLowerCase())
@@ -416,6 +461,7 @@ export default function PageBody() {
 
             if (!value.trim()) {
                 setFilteredData([])
+                setDuplicateSites({})
                 setHasSearched(false)
                 // Xóa newRows khi search rỗng (reset)
                 setNewRows([])
@@ -426,6 +472,7 @@ export default function PageBody() {
             const searchTerms = value.split(/[,\n\s]+/).filter((term) => term.trim() !== "")
             if (searchTerms.length === 0) {
                 setFilteredData([])
+                setDuplicateSites({})
                 setHasSearched(false)
                 // Xóa newRows khi search rỗng (reset)
                 setNewRows([])
@@ -555,6 +602,7 @@ export default function PageBody() {
             }
         } else {
             setFilteredData([])
+            setDuplicateSites({})
             setHasSearched(false)
         }
     }, [searchTerm, runSearch, selectedSearchType, validateDomain])
@@ -657,7 +705,7 @@ export default function PageBody() {
                 renderer: createCellRenderer(),
             },
             {
-                title: "Bet",
+                title: "Game",
                 data: "bet",
                 width: 40,
                 className: "htMiddle text-center",
@@ -1158,6 +1206,33 @@ export default function PageBody() {
 
                 const newRowIndex = row - filteredData.length
                 const isNewRow = newRowIndex >= 0 && newRowIndex < newRows.length
+
+                // Kiểm tra xem dòng này có nằm trong duplicateSites hay không
+                let isInDuplicates = false
+                let duplicateDomain = ""
+                if (!isNewRow && row >= filteredData.length) {
+                    // Có thể là dòng trong duplicateSites
+                    // Tìm xem dòng này thuộc domain nào trong duplicateSites
+                    for (const [domain, sites] of Object.entries(duplicateSites)) {
+                        const siteIndex = sites.findIndex(site =>
+                            site.sheetName === rowData.sheetName &&
+                            site.rowIndex === rowData.rowIndex &&
+                            normalizeUrl(site.site) === normalizeUrl(rowData.site)
+                        )
+                        if (siteIndex !== -1) {
+                            isInDuplicates = true
+                            duplicateDomain = domain
+                            break
+                        }
+                    }
+                }
+
+                // Chỉ cho phép chỉnh sửa trong phạm vi kết quả tìm kiếm (filteredData), newRows, hoặc duplicateSites
+                if (!isNewRow && !isInDuplicates && row >= filteredData.length) {
+                    console.warn(`[handleAfterChange] Chỉnh sửa ngoài phạm vi kết quả tìm kiếm bị bỏ qua (row ${row})`)
+                    continue
+                }
+
                 const sheetNameForNewRow = isNewRow ? newRowsSheetMap.get(newRowIndex) : undefined
 
                 const updates: Partial<SiteData> = {
@@ -1173,8 +1248,6 @@ export default function PageBody() {
                             "giaMuaText",
                             "giaMuaTextHome",
                             "giaMuaTextHeader",
-                            "hoaHongGP",
-                            "hoaHongText",
                             "loiNhuanGP",
                             "loiNhuanText",
                         ]
@@ -1211,7 +1284,64 @@ export default function PageBody() {
                         rowIndex: fullRowData.rowIndex,
                         rowData: fullRowData,
                     })
+                } else if (isInDuplicates) {
+                    // Xử lý cập nhật cho các dòng trong duplicateSites
+                    const siteToFind = columnProp === "site" ? (oldValue || rowData.site) : rowData.site
+                    if (!siteToFind || siteToFind.trim() === "") continue
+
+                    let rowIndex = rowData.rowIndex
+                    let sheetName = rowData.sheetName
+                    const maNCC = rowData.MaNCC || undefined
+
+                    if ((!rowIndex || !sheetName) && allData && allData.length > 0) {
+                        const normalizedSiteToFind = normalizeUrl(siteToFind)
+                        const originalRow = allData.find((item: SiteData) => {
+                            const normalizedSite = normalizeUrl(item.site)
+                            return normalizedSite === normalizedSiteToFind
+                        })
+                        if (originalRow) {
+                            rowIndex = (originalRow as any).rowIndex || rowIndex
+                            sheetName = (originalRow as any).sheetName || sheetName
+                        }
+                    }
+
+                    if (!rowIndex || rowIndex < 3 || !sheetName) {
+                        console.warn(`[handleAfterChange] Missing valid rowIndex or sheetName for duplicate site "${siteToFind}". Skipping queueing update.`)
+                        continue
+                    }
+
+                    const key = `update-${sheetName}-${rowIndex}`
+                    const existingChange = updated.get(key)
+                    const mergedUpdates = existingChange && existingChange.type === "update"
+                        ? { ...existingChange.updates, ...processedUpdates }
+                        : processedUpdates
+
+                    updated.set(key, {
+                        type: "update",
+                        key,
+                        site: siteToFind as string,
+                        sheetName,
+                        rowIndex,
+                        maNCC,
+                        updates: mergedUpdates,
+                    })
+
+                    // Cập nhật duplicateSites với dữ liệu mới
+                    setDuplicateSites((prev) => {
+                        const updated = { ...prev }
+                        if (updated[duplicateDomain]) {
+                            updated[duplicateDomain] = updated[duplicateDomain].map(site =>
+                                site.sheetName === rowData.sheetName &&
+                                site.rowIndex === rowData.rowIndex &&
+                                normalizeUrl(site.site) === normalizeUrl(rowData.site)
+                                    ? { ...site, ...processedUpdates }
+                                    : site
+                            )
+                        }
+                        return updated
+                    })
                 } else {
+                    // Xử lý cập nhật cho các dòng trong filteredData
                     const siteToFind = columnProp === "site" ? (oldValue || rowData.site) : rowData.site
                     if (!siteToFind || siteToFind.trim() === "") continue
 
@@ -1266,6 +1396,21 @@ export default function PageBody() {
     const handleSaveChanges = useCallback(async () => {
         if (pendingChanges.size === 0) {
             toast.warning("Không có thay đổi nào cần lưu")
+            return
+        }
+
+        // Hỏi xác nhận trước khi cập nhật
+        const updateCount = Array.from(pendingChanges.values()).filter(change => change.type === "update").length
+        const addCount = Array.from(pendingChanges.values()).filter(change => change.type === "add").length
+
+        const confirmMessage = `Bạn có chắc chắn muốn lưu ${pendingChanges.size} thay đổi?` +
+            (addCount > 0 ? `\n- Thêm ${addCount} dòng mới` : '') +
+            (updateCount > 0 ? `\n- Cập nhật ${updateCount} dòng hiện có` : '') +
+            `\n\nHành động này không thể hoàn tác!`
+
+        const confirmed = window.confirm(confirmMessage)
+        if (!confirmed) {
+            toast.info("Đã hủy lưu dữ liệu")
             return
         }
 
@@ -1542,23 +1687,37 @@ export default function PageBody() {
 
         const existingRows: SiteData[] = []
         const newRowIndexes: number[] = []
+        const invalidRows: number[] = []
 
         rowsToDelete.forEach((rowIdx) => {
             if (rowIdx < filteredData.length) {
+                // Chỉ xóa các dòng trong kết quả tìm kiếm (filteredData)
                 const rowData = filteredData[rowIdx]
                 if (rowData?.sheetName && rowData?.rowIndex && rowData.rowIndex >= 3) {
                     existingRows.push(rowData)
                 }
-            } else {
+            } else if (rowIdx < mergedData.length) {
+                // Nếu dòng nằm ngoài filteredData nhưng vẫn trong mergedData (có thể là newRows)
+                // thì chỉ cho phép xóa newRows, không cho phép xóa dữ liệu gốc ngoài kết quả tìm kiếm
                 const newRowIdx = rowIdx - filteredData.length
                 if (newRowIdx >= 0 && newRowIdx < newRows.length) {
                     newRowIndexes.push(newRowIdx)
+                } else {
+                    // Dòng này nằm ngoài phạm vi cho phép xóa
+                    invalidRows.push(rowIdx)
                 }
+            } else {
+                // Dòng này nằm ngoài phạm vi dữ liệu
+                invalidRows.push(rowIdx)
             }
         })
 
+        if (invalidRows.length > 0) {
+            console.warn(`[delete] Bỏ qua ${invalidRows.length} dòng nằm ngoài phạm vi kết quả tìm kiếm:`, invalidRows)
+        }
+
         if (!existingRows.length && !newRowIndexes.length) {
-            toast.warning("Không có dòng hợp lệ để xóa")
+            toast.warning("Không có dòng hợp lệ để xóa. Chỉ có thể xóa các dòng trong kết quả tìm kiếm hiện tại.")
             return
         }
 
@@ -1619,6 +1778,26 @@ export default function PageBody() {
                     })
                     return updated
                 })
+
+                // Gửi thông báo Telegram về việc xóa site
+                try {
+                    const deleteLines = existingRows.map((row) => {
+                        const site = row.site?.toString().trim() || "(trống)"
+                        const traffic = row.trafficTool?.toString().trim()
+                        const sheetInfo = row.sheetName ? ` (Sheet ${row.sheetName})` : ""
+                        return traffic ? `${site} - Traffic ${traffic}${sheetInfo}` : `${site}${sheetInfo}`
+                    })
+
+                    await fetch("/api/telegram/summary", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            deleteLines,
+                        }),
+                    })
+                } catch (telegramError) {
+                    console.error("Telegram delete notification error:", telegramError)
+                }
             }
 
             const removedKeys = new Set<string>()
@@ -1638,6 +1817,22 @@ export default function PageBody() {
                     if (!key) return true
                     return !removedKeys.has(key)
                 }))
+
+                // Cập nhật duplicateSites: loại bỏ các site đã xóa
+                setDuplicateSites((prev) => {
+                    const updated = { ...prev }
+                    Object.keys(updated).forEach((domain) => {
+                        updated[domain] = updated[domain].filter((item) => {
+                            const key = getRowKey(item.sheetName, item.rowIndex, item.site)
+                            return key && !removedKeys.has(key)
+                        })
+                        // Nếu không còn site trùng nào, xóa domain khỏi duplicateSites
+                        if (updated[domain].length === 0) {
+                            delete updated[domain]
+                        }
+                    })
+                    return updated
+                })
             }
 
             toast.success("Đã xóa dòng thành công")
@@ -1854,12 +2049,51 @@ export default function PageBody() {
                 name(this: any, selection: any[]) {
                     const mergedData = [...filteredData, ...newRows]
                     const rows = getRowsFromSelection(selection || this?.getSelected?.(), mergedData.length)
-                    const count = rows.size || 0
-                    return `Xóa ${count} dòng`
+
+                    // Đếm số dòng hợp lệ để xóa (chỉ trong filteredData hoặc newRows)
+                    let validCount = 0
+                    rows.forEach((rowIdx) => {
+                        if (rowIdx < filteredData.length) {
+                            // Dòng trong filteredData - hợp lệ
+                            validCount++
+                        } else if (rowIdx < mergedData.length) {
+                            // Dòng trong newRows - hợp lệ
+                            const newRowIdx = rowIdx - filteredData.length
+                            if (newRowIdx >= 0 && newRowIdx < newRows.length) {
+                                validCount++
+                            }
+                        }
+                        // Dòng ngoài phạm vi - không hợp lệ
+                    })
+
+                    if (validCount === 0) {
+                        return "Không thể xóa (ngoài phạm vi tìm kiếm)"
+                    }
+
+                    return `Xóa ${validCount} dòng`
                 },
                 callback: (_key: string, selection: any[]) => {
                     handleDeleteRows(selection)
                 },
+                disabled: function(this: any, selection: any[]) {
+                    const mergedData = [...filteredData, ...newRows]
+                    const rows = getRowsFromSelection(selection || this?.getSelected?.(), mergedData.length)
+
+                    // Kiểm tra xem có ít nhất một dòng hợp lệ để xóa không
+                    for (const rowIdx of rows) {
+                        if (rowIdx < filteredData.length) {
+                            // Dòng trong filteredData - hợp lệ
+                            return false
+                        } else if (rowIdx < mergedData.length) {
+                            // Dòng trong newRows - hợp lệ
+                            const newRowIdx = rowIdx - filteredData.length
+                            if (newRowIdx >= 0 && newRowIdx < newRows.length) {
+                                return false
+                            }
+                        }
+                    }
+                    return true // Tất cả dòng đều không hợp lệ
+                }
             },
         }
     }, [filteredData, newRows, getRowsFromSelection, handleDeleteRows])
@@ -2009,11 +2243,41 @@ export default function PageBody() {
                 // Merge filteredData và newRows để hiển thị
                 const mergedData = [...filteredData, ...newRows]
                 const hasData = mergedData.length > 0
-                
+                const hasDuplicates = Object.keys(duplicateSites).length > 0
+                const duplicatesCount = Object.values(duplicateSites).flat().length
+
                 if (hasSearched && hasData) {
                     return (
-                        <div className="w-full bg-white mt-4">
-                            {renderHotTable(mergedData)}
+                        <div className="w-full">
+                            {/* Main Results Table */}
+                            <div className="bg-white mt-4">
+                                {renderHotTable(mergedData)}
+                            </div>
+
+                            {/* Enhanced Duplicates Table */}
+                            {hasDuplicates && (
+                                <div className="mt-8 border-t-2 border-gray-200 pt-6">
+                                    <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-xl p-4 mb-4 shadow-sm">
+                                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                            <div className="flex-shrink-0 mr-0 sm:mr-3 p-2 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg shadow-md self-start">
+                                                <Globe className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="text-base sm:text-lg font-500 text-gray-800 mb-1">Site trùng lặp</h3>
+                                                <p className="text-xs sm:text-sm text-gray-600 break-words">
+                                                    Hiển thị {duplicatesCount} site có cùng domain nhưng giá khác nhau.
+                                                    <span className="text-orange-600 font-medium ml-1 block sm:inline">
+                                                        Site có giá thấp nhất đã được hiển thị ở bảng chính.
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-white">
+                                        {renderHotTable(Object.values(duplicateSites).flat())}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )
                 } else if (hasSearched) {
