@@ -31,7 +31,6 @@ interface SiteData {
     rowIndex: number
     sheetName: string
     cs: string
-    tinhTrang: string
     site: string
     bong: string
     bet: string
@@ -251,7 +250,6 @@ export default function PageBody() {
             rowIndex: 0,
             sheetName: "",
             cs: "",
-            tinhTrang: "",
             site: siteValue,
             bong: "",
             bet: "",
@@ -786,13 +784,6 @@ export default function PageBody() {
                 width: 70,
                 className: "htMiddle text-center",
                 renderer: createCellRenderer(),
-            },
-            {
-                title: "Tình trạng",
-                data: "tinhTrang",
-                width: 70,
-                className: "htMiddle text-center",
-                editor: "select",
             },
             {
                 title: "Khách hàng",
@@ -1514,7 +1505,6 @@ export default function PageBody() {
                             sheetName: sheetName || "",
                             rowIndex: rowIndex ?? 0,
                             cs: "",
-                            tinhTrang: "",
                             site: site || "",
                             bong: "",
                             bet: "",
@@ -1871,7 +1861,6 @@ export default function PageBody() {
             rowIndex: 0,
             sheetName: "",
             cs: "",
-            tinhTrang: "",
             site: "",
             bong: "",
             bet: "",
@@ -2118,7 +2107,7 @@ export default function PageBody() {
                     rowHeaders={false}
                     colHeaders={true}
                     copyPaste={true}
-                    hiddenColumns={showTiGiaColumns ? [10] : [10, 23, 24, 25, 26]}
+                    hiddenColumns={showTiGiaColumns ? [] : [ 22, 23, 24, 25]}
                     columnSorting={false}
                     autoColumnSize={false}
                     preventOverflow="horizontal"
