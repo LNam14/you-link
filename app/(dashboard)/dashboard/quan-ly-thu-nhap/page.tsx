@@ -90,41 +90,36 @@ export default function QuanLyThuNhapPage() {
   
   // Tính tổng
   const totalAttendanceIncome = incomeData.reduce((sum, item) => sum + item.attendanceIncome, 0);
-  const totalBeHuIncome = incomeData.reduce((sum, item) => sum + item.beHuIncome, 0);
+  const totalBeHuIncome = incomeData.reduce((sum, item) => sum + (item.beHuIncome * 1000), 0);
   const totalRewardIncome = incomeData.reduce((sum, item) => sum + item.rewardIncome, 0);
   const grandTotal = incomeData.reduce((sum, item) => sum + item.totalIncome, 0);
-
-  // Format số tiền với .000
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount).replace(/,/g, ".");
-  };
 
   // Chuyển đổi data thành 2D array cho HotTable
   const tableData = useMemo(() => {
     const rows = incomeData.map((item, index) => [
       index + 1, // STT
       `${item.username} - ${item.fullname}`, // Nhân viên
-      Number(item.attendanceIncome.toFixed(3)), // Chấm công
-      Number(item.beHuIncome.toFixed(3)), // Bé hư
-      Number(item.rewardIncome.toFixed(3)), // Phần thưởng
-      Number(item.totalIncome.toFixed(3)), // Tổng tiền
+      Number(item.attendanceIncome) === 0 ? 0 + " VND" : Number(item.attendanceIncome).toFixed(3) + " VND", // Chấm công
+      Number(item.beHuIncome) === 0 ? 0 + " VND" : Number(item.beHuIncome).toFixed(3) + " VND", // Bé hư
+      Number(item.rewardIncome) === 0 ? 0 + " VND" : Number(item.rewardIncome).toFixed(3) + " VND", // Phần thưởng
+      Number(item.totalIncome) === 0 ? 0 + " VND" : Number(item.totalIncome).toFixed(3) + " VND", // Tổng tiền
       item.attendanceDays, // Số ngày (để hiển thị trong renderer)
     ]);
-
+    const normalizeNumber = (value: string | number): number => {
+      if (typeof value === 'string') {
+        return Number(value.replace(/\./g, ''));
+      }
+      return value;
+    };
     // Thêm hàng tổng cộng
     if (rows.length > 0) {
       rows.push([
         "",
         "TỔNG CỘNG",
-        Number(totalAttendanceIncome.toFixed(3)),
-        Number(totalBeHuIncome.toFixed(3)),
-        Number(totalRewardIncome.toFixed(3)),
-        Number(grandTotal.toFixed(3)),
+        Number((totalAttendanceIncome )) === 0 ? 0 + " VND" : Number((totalAttendanceIncome ).toFixed(3)) + " VND",
+        Number((totalBeHuIncome)) === 0 ? 0 + " VND" : normalizeNumber(Number((totalBeHuIncome))) + " VND",
+        Number((totalRewardIncome)) === 0 ? 0 + " VND" : Number((totalRewardIncome).toFixed(3)) + " VND",
+        Number((grandTotal)) === 0 ? 0 + " VND" : Number((grandTotal).toFixed(3)) + " VND",
         0, // Không có số ngày cho tổng
       ]);
     }
@@ -185,7 +180,7 @@ export default function QuanLyThuNhapPage() {
       width: 180,
       renderer: function(instance: any, td: HTMLElement, row: number, col: number, prop: string | number, value: any) {
         const isTotalRow = row === totalRowIndex;
-        td.textContent = formatCurrency(Number((value || 0).toFixed(3)));
+        td.textContent = value || 0;
         td.style.textAlign = "right";
         td.style.fontWeight = isTotalRow ? "bold" : "600";
         // Hàng tổng cộng - chữ màu đỏ
@@ -205,7 +200,7 @@ export default function QuanLyThuNhapPage() {
       width: 150,
       renderer: function(instance: any, td: HTMLElement, row: number, col: number, prop: string | number, value: any) {
         const isTotalRow = row === totalRowIndex;
-        td.textContent = formatCurrency(Number((value || 0).toFixed(3)));
+        td.textContent = value || 0;
         td.style.textAlign = "right";
         td.style.fontWeight = isTotalRow ? "bold" : "600";
         // Chữ màu đỏ cho cột Bé hư
@@ -223,7 +218,7 @@ export default function QuanLyThuNhapPage() {
       width: 150,
       renderer: function(instance: any, td: HTMLElement, row: number, col: number, prop: string | number, value: any) {
         const isTotalRow = row === totalRowIndex;
-        td.textContent = formatCurrency(Number((value || 0).toFixed(3)));
+        td.textContent = value || 0;
         td.style.textAlign = "right";
         td.style.fontWeight = isTotalRow ? "bold" : "600";
         // Chữ màu xanh lá cho cột Phần thưởng
@@ -241,7 +236,7 @@ export default function QuanLyThuNhapPage() {
       width: 180,
       renderer: function(instance: any, td: HTMLElement, row: number, col: number, prop: string | number, value: any) {
         const isTotalRow = row === totalRowIndex;
-        td.textContent = formatCurrency(Number((value || 0).toFixed(3)));
+        td.textContent = value || 0;
         td.style.textAlign = "right";
         td.style.fontWeight = "bold";
         // Chữ xanh lá cho cột Tổng tiền (trừ hàng tổng cộng)

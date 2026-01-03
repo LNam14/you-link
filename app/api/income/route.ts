@@ -58,7 +58,6 @@ export async function GET(request: NextRequest) {
       const maxDays = 26.5;
       const actualDays = Math.min(attendanceDays, maxDays);
       const attendanceIncome = actualDays * 301.886792453;
-      
       // Bé hư - lấy từ phạt
       const beHuIncome = await penaltyRepository.getTotalPenaltyByUserAndMonth(
         user.username,
@@ -74,22 +73,23 @@ export async function GET(request: NextRequest) {
       );
       
       // Tổng tiền
-      const totalIncome = attendanceIncome + beHuIncome + rewardIncome;
+      const totalIncome = attendanceIncome + (beHuIncome/1000) + (rewardIncome/1000);
 
+      
       incomeData.push({
         username: user.username,
         fullname: user.fullname,
         attendanceDays: actualDays,
-        attendanceIncome: Math.round(attendanceIncome * 100) / 100, // Làm tròn 2 chữ số
-        beHuIncome,
-        rewardIncome,
-        totalIncome: Math.round(totalIncome * 100) / 100,
+        attendanceIncome: Number(attendanceIncome), // Làm tròn 2 chữ số
+        beHuIncome: Number((beHuIncome / 1000)),
+        rewardIncome: Number((rewardIncome / 1000)),
+        totalIncome: Number(totalIncome),
       });
     }
 
     // Sắp xếp theo username
     incomeData.sort((a, b) => a.username.localeCompare(b.username));
-
+ console.log(incomeData);
     return successResponse(incomeData);
   } catch (error) {
     console.error("Error fetching income data:", error);

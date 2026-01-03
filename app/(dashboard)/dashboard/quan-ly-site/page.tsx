@@ -1866,7 +1866,7 @@ export default function PageBody() {
         
         const sheetName = regionType === "VN" ? "4" : "5"
         
-        // Tạo mảng dữ liệu trống với số lượng dòng, mặc định tinhTrang = "Bình thường"
+       
         const newRows: SiteData[] = Array.from({ length: numberOfRows }, () => ({
             rowIndex: 0,
             sheetName: "",
@@ -1964,7 +1964,6 @@ export default function PageBody() {
         const selected = mainTableInstance.getSelected()
         if (!selected || selected.length === 0) return
 
-        // Nếu chỉ có 1 selection, để Handsontable xử lý bình thường
         if (selected.length === 1) return
 
         // Tính toán bounding box của tất cả các selection
