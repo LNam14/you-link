@@ -10,6 +10,7 @@ export const maxDuration = 15
 type RequestBody = {
     addLines?: string[]
     updateLines?: string[]
+    deleteLines?: string[]
     username?: string
 }
 
@@ -21,8 +22,9 @@ export async function POST(req: NextRequest) {
         const body = (await req.json()) as RequestBody
         const addLines = body.addLines?.filter((l) => l && l.trim() !== "")
         const updateLines = body.updateLines?.filter((l) => l && l.trim() !== "")
+        const deleteLines = body.deleteLines?.filter((l) => l && l.trim() !== "")
 
-        if ((!addLines || addLines.length === 0) && (!updateLines || updateLines.length === 0)) {
+        if ((!addLines || addLines.length === 0) && (!updateLines || updateLines.length === 0) && (!deleteLines || deleteLines.length === 0)) {
             return NextResponse.json(
                 { error: true, message: "No content to send" },
                 { status: 400 },
@@ -31,9 +33,9 @@ export async function POST(req: NextRequest) {
 
         const telegramService = new TelegramService()
 
-        // Get current user info for update summary
+        // Get current user info for update/delete summary
         let userDisplayName = "Unknown"
-        if (updateLines && updateLines.length > 0) {
+        if ((updateLines && updateLines.length > 0) || (deleteLines && deleteLines.length > 0)) {
             try {
                 const authInfo = verifyAuthToken(req)
                 const authService = new AuthService()
@@ -65,6 +67,20 @@ export async function POST(req: NextRequest) {
                 `👤 Người cập nhật: ${userDisplayName}`,
                 `📝 Chi tiết cập nhật:\n\n`,
                ...updateLines.map((line) => `  • ${line}`),
+            ].join("\n")
+            await telegramService.sendMessage({
+                chatId: UPDATE_CHAT_ID,
+                message,
+            })
+        }
+
+        // Send delete summary
+        if (deleteLines && deleteLines.length > 0) {
+            const message = [
+                "🗑️ XÓA SITE 🗑️",
+                `👤 Người xóa: ${userDisplayName}`,
+                `📝 Danh sách site đã xóa:\n\n`,
+               ...deleteLines.map((line) => `  • ${line}`),
             ].join("\n")
             await telegramService.sendMessage({
                 chatId: UPDATE_CHAT_ID,

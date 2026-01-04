@@ -114,6 +114,7 @@ export default function PageBody() {
     const [newRowsSheetMap, setNewRowsSheetMap] = useState<Map<number, string>>(new Map())
     const [showTiGiaColumns, setShowTiGiaColumns] = useState<boolean>(false) // State để ẩn/hiện cột tiGia
     const mainTableRef = useRef<HotTableRef>(null)
+    const duplicateTableRef = useRef<HotTableRef>(null) // Ref riêng cho duplicate table
     const selectionAnchorRef = useRef<{ row: number; col: number } | null>(null)
 
     // Sử dụng hook tối ưu để fetch và cache dữ liệu
@@ -366,9 +367,13 @@ export default function PageBody() {
                 // Duyệt theo thứ tự người dùng nhập để giữ nguyên thứ tự hiển thị
                 let mainItems: SiteData[] = []
                 let newDuplicateSites: { [key: string]: SiteData[] } = {}
+                const seenDomains = new Set<string>()
 
                 rawTerms.forEach((term, idx) => {
                     const normalizedTerm = normalizedTerms[idx]
+                    if (normalizedTerm && seenDomains.has(normalizedTerm)) {
+                        return
+                    }
                     if (normalizedTerm) {
                         const matched = siteMap.get(normalizedTerm)
                         if (matched && matched.length > 0) {
@@ -408,6 +413,7 @@ export default function PageBody() {
                                     newDuplicateSites[normalizedTerm] = duplicates
                                 }
                             }
+                            seenDomains.add(normalizedTerm)
                         } else {
                             // Không tìm thấy -> tạo dòng rỗng chỉ với site
                             mainItems.push(createPlaceholderRow(term))
@@ -912,13 +918,13 @@ export default function PageBody() {
         const firstRow: Array<{ label: string; colspan: number }> = []
         const secondRow: string[] = []
 
-        const infoCols = columns.slice(0, 11)
-        const noteCols = columns.slice(11, 13)
-        const giaCols = columns.slice(13, 17)
-        const hoaHongCols = columns.slice(17, 19)
-        const keThemCols = columns.slice(19, 21)
-        const nccCols = columns.slice(21, 23)
-        const tiGiaCols = columns.slice(23, 27)
+        const infoCols = columns.slice(0, 10)
+        const noteCols = columns.slice(10, 12)
+        const giaCols = columns.slice(12, 16)
+        const hoaHongCols = columns.slice(16, 18)
+        const keThemCols = columns.slice(18, 20)
+        const nccCols = columns.slice(20, 22)
+        const tiGiaCols = columns.slice(22, 26)
 
         firstRow.push({ label: "INFO", colspan: infoCols.length })
         infoCols.forEach((col) => secondRow.push(col.title))
@@ -1198,28 +1204,9 @@ export default function PageBody() {
                 const newRowIndex = row - filteredData.length
                 const isNewRow = newRowIndex >= 0 && newRowIndex < newRows.length
 
-                // Kiểm tra xem dòng này có nằm trong duplicateSites hay không
-                let isInDuplicates = false
-                let duplicateDomain = ""
-                if (!isNewRow && row >= filteredData.length) {
-                    // Có thể là dòng trong duplicateSites
-                    // Tìm xem dòng này thuộc domain nào trong duplicateSites
-                    for (const [domain, sites] of Object.entries(duplicateSites)) {
-                        const siteIndex = sites.findIndex(site =>
-                            site.sheetName === rowData.sheetName &&
-                            site.rowIndex === rowData.rowIndex &&
-                            normalizeUrl(site.site) === normalizeUrl(rowData.site)
-                        )
-                        if (siteIndex !== -1) {
-                            isInDuplicates = true
-                            duplicateDomain = domain
-                            break
-                        }
-                    }
-                }
-
-                // Chỉ cho phép chỉnh sửa trong phạm vi kết quả tìm kiếm (filteredData), newRows, hoặc duplicateSites
-                if (!isNewRow && !isInDuplicates && row >= filteredData.length) {
+                // Chỉ cho phép chỉnh sửa trong phạm vi kết quả tìm kiếm (filteredData) hoặc newRows
+                // Duplicate sites được xử lý bởi handleDuplicateAfterChange riêng
+                if (!isNewRow && row >= mergedData.length) {
                     console.warn(`[handleAfterChange] Chỉnh sửa ngoài phạm vi kết quả tìm kiếm bị bỏ qua (row ${row})`)
                     continue
                 }
@@ -1275,62 +1262,6 @@ export default function PageBody() {
                         rowIndex: fullRowData.rowIndex,
                         rowData: fullRowData,
                     })
-                } else if (isInDuplicates) {
-                    // Xử lý cập nhật cho các dòng trong duplicateSites
-                    const siteToFind = columnProp === "site" ? (oldValue || rowData.site) : rowData.site
-                    if (!siteToFind || siteToFind.trim() === "") continue
-
-                    let rowIndex = rowData.rowIndex
-                    let sheetName = rowData.sheetName
-                    const maNCC = rowData.MaNCC || undefined
-
-                    if ((!rowIndex || !sheetName) && allData && allData.length > 0) {
-                        const normalizedSiteToFind = normalizeUrl(siteToFind)
-                        const originalRow = allData.find((item: SiteData) => {
-                            const normalizedSite = normalizeUrl(item.site)
-                            return normalizedSite === normalizedSiteToFind
-                        })
-                        if (originalRow) {
-                            rowIndex = (originalRow as any).rowIndex || rowIndex
-                            sheetName = (originalRow as any).sheetName || sheetName
-                        }
-                    }
-
-                    if (!rowIndex || rowIndex < 3 || !sheetName) {
-                        console.warn(`[handleAfterChange] Missing valid rowIndex or sheetName for duplicate site "${siteToFind}". Skipping queueing update.`)
-                        continue
-                    }
-
-                    const key = `update-${sheetName}-${rowIndex}`
-                    const existingChange = updated.get(key)
-                    const mergedUpdates = existingChange && existingChange.type === "update"
-                        ? { ...existingChange.updates, ...processedUpdates }
-                        : processedUpdates
-
-                    updated.set(key, {
-                        type: "update",
-                        key,
-                        site: siteToFind as string,
-                        sheetName,
-                        rowIndex,
-                        maNCC,
-                        updates: mergedUpdates,
-                    })
-
-                    // Cập nhật duplicateSites với dữ liệu mới
-                    setDuplicateSites((prev) => {
-                        const updated = { ...prev }
-                        if (updated[duplicateDomain]) {
-                            updated[duplicateDomain] = updated[duplicateDomain].map(site =>
-                                site.sheetName === rowData.sheetName &&
-                                site.rowIndex === rowData.rowIndex &&
-                                normalizeUrl(site.site) === normalizeUrl(rowData.site)
-                                    ? { ...site, ...processedUpdates }
-                                    : site
-                            )
-                        }
-                        return updated
-                    })
                 } else {
                     // Xử lý cập nhật cho các dòng trong filteredData
                     const siteToFind = columnProp === "site" ? (oldValue || rowData.site) : rowData.site
@@ -1375,13 +1306,127 @@ export default function PageBody() {
                 }
             }
 
-            return updated
-        })
+                        return updated
+                    })
 
         if (newRowsChanged) {
             setNewRows(updatedNewRows)
         }
     }, [filteredData, newRows, mappedColumns, selectedCurrency, exchangeRate, newRowsSheetMap, allData, normalizeUrl])
+
+    // Handler riêng cho duplicate table - chỉ xử lý các dòng trong duplicateSites
+    const handleDuplicateAfterChange = useCallback((changes: any[] | null, source: string) => {
+        if (source === "loadData") return
+        if (!Array.isArray(changes) || changes.length === 0) return
+
+        const allDuplicates = Object.values(duplicateSites).flat()
+        
+        setPendingChanges((prev) => {
+            const updated = new Map(prev)
+
+            for (const [row, col, oldValue, newValue] of changes) {
+                const normalizedOld = oldValue === null || oldValue === undefined ? "" : String(oldValue).trim()
+                const normalizedNew = newValue === null || newValue === undefined ? "" : String(newValue).trim()
+                if (normalizedOld === normalizedNew) continue
+
+                // Determine property name
+                let columnProp: string | undefined
+                if (typeof col === "string") {
+                    columnProp = col
+                } else if (typeof col === "number") {
+                    columnProp = mappedColumns[col]?.data as string
+                }
+                if (!columnProp) continue
+
+                // Lấy dữ liệu từ duplicateSites theo row index
+                if (row < 0 || row >= allDuplicates.length) {
+                    console.warn(`[handleDuplicateAfterChange] Row ${row} out of bounds for duplicate table`)
+                    continue
+                }
+
+                const rowData = allDuplicates[row]
+                if (!rowData) continue
+
+                    const siteToFind = columnProp === "site" ? (oldValue || rowData.site) : rowData.site
+                    if (!siteToFind || siteToFind.trim() === "") continue
+
+                // Sử dụng rowIndex và sheetName trực tiếp từ duplicateSites
+                const rowIndex = rowData.rowIndex
+                const sheetName = rowData.sheetName
+                    const maNCC = rowData.MaNCC || undefined
+
+                // Validation: đảm bảo có đủ thông tin để cập nhật
+                if (!rowIndex || rowIndex < 3 || !sheetName) {
+                    console.warn(`[handleDuplicateAfterChange] Missing valid rowIndex or sheetName for duplicate site "${siteToFind}". Skipping queueing update.`)
+                    continue
+                }
+
+                const updates: Partial<SiteData> = {
+                    [columnProp]: newValue,
+                }
+
+                let processedUpdates = { ...updates }
+                if (selectedCurrency === "VND") {
+                    const rate = Number.parseFloat(exchangeRate)
+                    if (!isNaN(rate) && rate > 0) {
+                        const priceFields: Array<keyof SiteData> = [
+                            "giaMuaGP",
+                            "giaMuaText",
+                            "giaMuaTextHome",
+                            "giaMuaTextHeader",
+                            "loiNhuanGP",
+                            "loiNhuanText",
+                        ]
+                        priceFields.forEach((field) => {
+                            if (processedUpdates[field] !== undefined) {
+                                const inputValue = String(processedUpdates[field]).trim()
+                                if (inputValue !== "") {
+                                    const vndValue = Number.parseFloat(inputValue)
+                                    if (!isNaN(vndValue) && vndValue !== 0) {
+                                        const usdtValue = vndValue / rate
+                                        ; (processedUpdates as any)[field] = usdtValue.toString()
+                                    }
+                                }
+                            }
+                        })
+                    }
+                    }
+
+                    const key = `update-${sheetName}-${rowIndex}`
+                    const existingChange = updated.get(key)
+                    const mergedUpdates = existingChange && existingChange.type === "update"
+                        ? { ...existingChange.updates, ...processedUpdates }
+                        : processedUpdates
+
+                    updated.set(key, {
+                        type: "update",
+                        key,
+                        site: siteToFind as string,
+                        sheetName,
+                        rowIndex,
+                        maNCC,
+                        updates: mergedUpdates,
+                    })
+
+                // Cập nhật duplicateSites với dữ liệu mới
+                setDuplicateSites((prev) => {
+                    const updated = { ...prev }
+                    for (const [domain, sites] of Object.entries(updated)) {
+                        updated[domain] = sites.map(site =>
+                            site.sheetName === rowData.sheetName &&
+                            site.rowIndex === rowData.rowIndex &&
+                            normalizeUrl(site.site) === normalizeUrl(rowData.site)
+                                ? { ...site, ...processedUpdates }
+                                : site
+                        )
+                    }
+                    return updated
+                })
+            }
+
+            return updated
+        })
+    }, [duplicateSites, mappedColumns, selectedCurrency, exchangeRate, normalizeUrl])
 
     // Save all queued changes to server
     const handleSaveChanges = useCallback(async () => {
@@ -1559,8 +1604,31 @@ export default function PageBody() {
             // Dọn dẹp dòng tạm sau khi lưu (sẽ tải lại dữ liệu thay vì trộn local)
             setNewRows([])
             setNewRowsSheetMap(new Map())
-            setLocalAddedRows([])
-            setLocalUpdatedRows(new Map())
+            
+            // Cập nhật state local với dữ liệu mới đã lưu thành công để hiển thị ngay
+            if (addedRowsRaw.length > 0) {
+                setLocalAddedRows(prev => [...prev, ...addedRowsRaw])
+                // Thêm vào filteredData để hiển thị ngay lập tức
+                setFilteredData(prev => {
+                    // Tránh duplicate nếu đã có
+                    const existingKeys = new Set(prev.map(r => getRowKey(r.sheetName, r.rowIndex, r.site)))
+                    const uniqueNew = addedRowsRaw.filter(r => !existingKeys.has(getRowKey(r.sheetName, r.rowIndex, r.site)))
+                    return [...prev, ...uniqueNew]
+                })
+                setHasSearched(true)
+            }
+            
+            if (updatedRowsRaw.length > 0) {
+                setLocalUpdatedRows(prev => {
+                    const next = new Map(prev)
+                    updatedRowsRaw.forEach(row => {
+                        const key = getRowKey(row.sheetName, row.rowIndex, row.site)
+                        if (key) next.set(key, row)
+                    })
+                    return next
+                })
+            }
+            
             setPendingChanges(new Map())
 
             // Gửi Telegram summary một lần cho cả thêm và cập nhật
@@ -1590,14 +1658,12 @@ export default function PageBody() {
                 console.error("Telegram summary error:", telegramError)
             }
 
-            // Luôn tải lại dữ liệu mới nhất thay vì trộn dữ liệu cục bộ
-            try {
-                await refetch("", selectedSearchType, undefined, true)
-            } catch (refreshError: any) {
-                console.error("Refresh after save failed:", refreshError)
-                toast.error("Đã lưu nhưng tải lại dữ liệu thất bại, vui lòng thử lại")
-                return
-            }
+            // Tải lại dữ liệu ở background thay vì chờ đợi
+            // Sử dụng catch để không crash nếu lỗi, và không await để không block UI
+            refetch("", selectedSearchType, undefined, true)
+                .catch((refreshError: any) => {
+                    console.error("Background refresh after save failed:", refreshError)
+                })
 
             toast.success("Đã lưu dữ liệu thành công")
         } catch (error: any) {
@@ -1681,23 +1747,21 @@ export default function PageBody() {
 
         rowsToDelete.forEach((rowIdx) => {
             if (rowIdx < filteredData.length) {
-                // Chỉ xóa các dòng trong kết quả tìm kiếm (filteredData)
+                // Xóa các dòng trong kết quả tìm kiếm (filteredData)
                 const rowData = filteredData[rowIdx]
                 if (rowData?.sheetName && rowData?.rowIndex && rowData.rowIndex >= 3) {
                     existingRows.push(rowData)
                 }
             } else if (rowIdx < mergedData.length) {
-                // Nếu dòng nằm ngoài filteredData nhưng vẫn trong mergedData (có thể là newRows)
-                // thì chỉ cho phép xóa newRows, không cho phép xóa dữ liệu gốc ngoài kết quả tìm kiếm
+                // Xóa newRows (chưa lưu)
                 const newRowIdx = rowIdx - filteredData.length
                 if (newRowIdx >= 0 && newRowIdx < newRows.length) {
                     newRowIndexes.push(newRowIdx)
                 } else {
-                    // Dòng này nằm ngoài phạm vi cho phép xóa
                     invalidRows.push(rowIdx)
                 }
             } else {
-                // Dòng này nằm ngoài phạm vi dữ liệu
+                // Dòng này nằm ngoài phạm vi dữ liệu (duplicate sites được xử lý bởi handleDeleteDuplicateRows)
                 invalidRows.push(rowIdx)
             }
         })
@@ -1707,7 +1771,7 @@ export default function PageBody() {
         }
 
         if (!existingRows.length && !newRowIndexes.length) {
-            toast.warning("Không có dòng hợp lệ để xóa. Chỉ có thể xóa các dòng trong kết quả tìm kiếm hiện tại.")
+            toast.warning("Không có dòng hợp lệ để xóa. Chỉ có thể xóa các dòng trong kết quả tìm kiếm và site trùng lặp.")
             return
         }
 
@@ -1769,7 +1833,7 @@ export default function PageBody() {
                     return updated
                 })
 
-                // Gửi thông báo Telegram về việc xóa site
+                // Gửi thông báo Telegram về việc xóa site (tương tự như khi chỉnh sửa)
                 try {
                     const deleteLines = existingRows.map((row) => {
                         const site = row.site?.toString().trim() || "(trống)"
@@ -1778,15 +1842,18 @@ export default function PageBody() {
                         return traffic ? `${site} - Traffic ${traffic}${sheetInfo}` : `${site}${sheetInfo}`
                     })
 
-                    await fetch("/api/telegram/summary", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            deleteLines,
-                        }),
-                    })
+                    if (deleteLines.length > 0) {
+                        await fetch("/api/telegram/summary", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                deleteLines,
+                            }),
+                        })
+                    }
                 } catch (telegramError) {
                     console.error("Telegram delete notification error:", telegramError)
+                    // Không throw error để không ảnh hưởng đến quá trình xóa
                 }
             }
 
@@ -1825,6 +1892,19 @@ export default function PageBody() {
                 })
             }
 
+            // Reload lại dữ liệu ở background (không await)
+            if (hasSearched && searchTerm.trim() !== "") {
+                refetch("", selectedSearchType, undefined, true)
+                    .catch((refreshError: any) => {
+                        console.error("Background refresh after delete failed:", refreshError)
+                    })
+            } else {
+                refetch()
+                    .catch((refreshError: any) => {
+                        console.error("Background refresh after delete failed:", refreshError)
+                    })
+            }
+
             toast.success("Đã xóa dòng thành công")
         } catch (error: any) {
             console.error("Delete rows error:", error)
@@ -1833,7 +1913,158 @@ export default function PageBody() {
             setIsDeleting(false)
             setIsSearching(false)
         }
-    }, [filteredData, newRows, newRowsSheetMap, selectedSearchType, getRowsFromSelection, getRowKey])
+    }, [filteredData, newRows, newRowsSheetMap, selectedSearchType, getRowsFromSelection, getRowKey, hasSearched, searchTerm, refetch])
+
+    // Handler xóa riêng cho duplicate table
+    const handleDeleteDuplicateRows = useCallback(async (selectionOverride?: any[]) => {
+        const hotInstance = duplicateTableRef.current?.hotInstance
+        const allDuplicates = Object.values(duplicateSites).flat()
+
+        if (!hotInstance || allDuplicates.length === 0) {
+            toast.warning("Không có dữ liệu để xóa")
+            return
+        }
+
+        const selection = selectionOverride || hotInstance.getSelected()
+        if (!selection || selection.length === 0) {
+            toast.warning("Vui lòng chọn ít nhất một dòng để xóa")
+            return
+        }
+
+        const rowsToDelete = getRowsFromSelection(selection, allDuplicates.length)
+        console.log("[delete duplicate] raw selection:", selection)
+        console.log("[delete duplicate] rowsToDelete:", Array.from(rowsToDelete))
+
+        if (!rowsToDelete.size) {
+            toast.warning("Không tìm thấy dòng hợp lệ để xóa")
+            return
+        }
+
+        const existingRows: SiteData[] = []
+        const invalidRows: number[] = []
+
+        rowsToDelete.forEach((rowIdx) => {
+            if (rowIdx >= 0 && rowIdx < allDuplicates.length) {
+                const rowData = allDuplicates[rowIdx]
+                if (rowData?.sheetName && rowData?.rowIndex && rowData.rowIndex >= 3) {
+                    existingRows.push(rowData)
+                } else {
+                    invalidRows.push(rowIdx)
+                }
+            } else {
+                invalidRows.push(rowIdx)
+            }
+        })
+
+        if (invalidRows.length > 0) {
+            console.warn(`[delete duplicate] Bỏ qua ${invalidRows.length} dòng không hợp lệ:`, invalidRows)
+        }
+
+        if (!existingRows.length) {
+            toast.warning("Không có dòng hợp lệ để xóa")
+            return
+        }
+
+        setIsDeleting(true)
+        setIsSearching(true)
+        try {
+            console.log("[delete duplicate] deleting duplicate rows:", existingRows.map((r) => ({ sheetName: r.sheetName, rowIndex: r.rowIndex, site: r.site })))
+            await Promise.all(
+                existingRows.map(async (row) => {
+                    const response = await fetch("/api/sheet/delete", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            sheetName: row.sheetName,
+                            rowIndex: row.rowIndex,
+                        }),
+                    })
+
+                    const result = await response.json().catch(() => ({}))
+                    console.log("[delete duplicate] api response:", { sheetName: row.sheetName, rowIndex: row.rowIndex, ok: response.ok, result })
+                    if (!response.ok) {
+                        throw new Error(result.message || "Xóa thất bại")
+                    }
+                }),
+            )
+
+            setPendingChanges((prev) => {
+                const updated = new Map(prev)
+                existingRows.forEach((row) => {
+                    updated.delete(`update-${row.sheetName}-${row.rowIndex}`)
+                })
+                return updated
+            })
+
+            // Gửi thông báo Telegram về việc xóa site (tương tự như khi chỉnh sửa)
+            try {
+                const deleteLines = existingRows.map((row) => {
+                    const site = row.site?.toString().trim() || "(trống)"
+                    const traffic = row.trafficTool?.toString().trim()
+                    const sheetInfo = row.sheetName ? ` (Sheet ${row.sheetName})` : ""
+                    return traffic ? `${site} - Traffic ${traffic}${sheetInfo}` : `${site}${sheetInfo}`
+                })
+
+                if (deleteLines.length > 0) {
+                    await fetch("/api/telegram/summary", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            deleteLines,
+                        }),
+                    })
+                }
+            } catch (telegramError) {
+                console.error("Telegram delete notification error:", telegramError)
+                // Không throw error để không ảnh hưởng đến quá trình xóa
+            }
+
+            const removedKeys = new Set<string>()
+            existingRows.forEach((row) => {
+                const key = getRowKey(row.sheetName, row.rowIndex, row.site)
+                if (key) removedKeys.add(key)
+            })
+
+            if (removedKeys.size) {
+                // Cập nhật duplicateSites: loại bỏ các site đã xóa
+                setDuplicateSites((prev) => {
+                    const updated = { ...prev }
+                    Object.keys(updated).forEach((domain) => {
+                        updated[domain] = updated[domain].filter((item) => {
+                            const key = getRowKey(item.sheetName, item.rowIndex, item.site)
+                            return key && !removedKeys.has(key)
+                        })
+                        // Nếu không còn site trùng nào, xóa domain khỏi duplicateSites
+                        if (updated[domain].length === 0) {
+                            delete updated[domain]
+                        }
+                    })
+                    return updated
+                })
+            }
+
+            // Reload lại dữ liệu ở background (không await)
+            if (hasSearched && searchTerm.trim() !== "") {
+                refetch("", selectedSearchType, undefined, true)
+                    .catch((refreshError: any) => {
+                        console.error("Background refresh after delete duplicate failed:", refreshError)
+                    })
+            } else {
+                refetch()
+                    .catch((refreshError: any) => {
+                        console.error("Background refresh after delete duplicate failed:", refreshError)
+                    })
+            }
+
+            toast.success("Đã xóa dòng thành công")
+        } catch (error: any) {
+            console.error("Delete duplicate rows error:", error)
+            toast.error(`Xóa dữ liệu thất bại: ${error?.message || "Không thể xóa"}`)
+        } finally {
+            setIsDeleting(false)
+            setIsSearching(false)
+        }
+    }, [duplicateSites, getRowsFromSelection, getRowKey, hasSearched, searchTerm, refetch, selectedSearchType])
 
     // Modal handlers
     const handleOpenModal = useCallback(() => {
@@ -2086,19 +2317,70 @@ export default function PageBody() {
         }
     }, [filteredData, newRows, getRowsFromSelection, handleDeleteRows])
 
-    const renderHotTable = useCallback((data: SiteData[]) => {
+    // Context menu riêng cho duplicate table
+    const duplicateContextMenuCustomItems = useMemo(() => {
+        return {
+            delete_selected_rows: {
+                name(this: any, selection: any[]) {
+                    const allDuplicates = Object.values(duplicateSites).flat()
+                    const rows = getRowsFromSelection(selection || this?.getSelected?.(), allDuplicates.length)
+
+                    // Đếm số dòng hợp lệ để xóa
+                    let validCount = 0
+                    rows.forEach((rowIdx) => {
+                        if (rowIdx >= 0 && rowIdx < allDuplicates.length) {
+                            validCount++
+                        }
+                    })
+
+                    if (validCount === 0) {
+                        return "Không thể xóa"
+                    }
+
+                    return `Xóa ${validCount} dòng`
+                },
+                callback: (_key: string, selection: any[]) => {
+                    handleDeleteDuplicateRows(selection)
+                },
+                disabled: function(this: any, selection: any[]) {
+                    const allDuplicates = Object.values(duplicateSites).flat()
+                    const rows = getRowsFromSelection(selection || this?.getSelected?.(), allDuplicates.length)
+
+                    // Kiểm tra xem có ít nhất một dòng hợp lệ để xóa không
+                    for (const rowIdx of rows) {
+                        if (rowIdx >= 0 && rowIdx < allDuplicates.length) {
+                            return false
+                        }
+                    }
+                    return true // Tất cả dòng đều không hợp lệ
+                }
+            },
+        }
+    }, [duplicateSites, getRowsFromSelection, handleDeleteDuplicateRows])
+
+    const renderHotTable = useCallback((data: SiteData[], options?: { 
+        ref?: React.RefObject<HotTableRef | null>, 
+        onAfterChange?: (changes: any[] | null, source: string) => void,
+        key?: string,
+        contextMenuCustomItems?: Record<string, any>
+    }) => {
         if (!data || data.length === 0) return null
+
+        const tableRef = options?.ref || mainTableRef
+        const onAfterChangeHandler = options?.onAfterChange || handleAfterChange
+        const tableKey = options?.key || "quan-ly-site"
+        const customContextMenu = options?.contextMenuCustomItems || contextMenuCustomItems
 
         return (
             <div className="w-full">
                 <HotTableComponent
-                    ref={mainTableRef}
-                    key="quan-ly-site"
+                    ref={tableRef}
+                    key={tableKey}
                     data={data}
                     columns={mappedColumns}
                     nestedHeaders={nestedHeaders}
                     contextMenuOptions={{ showAddRow: false, showRemoveRow: false }}
-                    contextMenuCustomItems={contextMenuCustomItems}
+                    contextMenuCustomItems={customContextMenu}
                     height="auto"
                     width="100%"
                     licenseKey="non-commercial-and-evaluation"
@@ -2123,7 +2405,7 @@ export default function PageBody() {
                     readOnly={false}
                     allowInvalid={true}
                     skipRowOnPaste={false}
-                    onAfterChange={handleAfterChange}
+                    onAfterChange={onAfterChangeHandler}
                     beforeCopy={handleBeforeCopy}
                     beforePaste={handleBeforePaste}
                     afterOnCellMouseDown={(event, coords) => {
@@ -2135,7 +2417,7 @@ export default function PageBody() {
                 />
             </div>
         )
-    }, [mappedColumns, nestedHeaders, handleAfterChange, handleBeforeCopy, handleBeforePaste, contextMenuCustomItems])
+    }, [mappedColumns, nestedHeaders, handleAfterChange, handleBeforeCopy, handleBeforePaste, contextMenuCustomItems, showTiGiaColumns])
 
     // Show loading spinner when searching, loading, or refreshing
     const showLoading = isSearching || loading || refreshing
@@ -2234,7 +2516,7 @@ export default function PageBody() {
                 const hasDuplicates = Object.keys(duplicateSites).length > 0
                 const duplicatesCount = Object.values(duplicateSites).flat().length
 
-                if (hasSearched && hasData) {
+                if ((hasSearched || newRows.length > 0) && hasData) {
                     return (
                         <div className="w-full">
                             {/* Main Results Table */}
@@ -2262,7 +2544,12 @@ export default function PageBody() {
                                         </div>
                                     </div>
                                     <div className="bg-white">
-                                        {renderHotTable(Object.values(duplicateSites).flat())}
+                                        {renderHotTable(Object.values(duplicateSites).flat(), {
+                                            ref: duplicateTableRef,
+                                            onAfterChange: handleDuplicateAfterChange,
+                                            key: "duplicate-sites-table",
+                                            contextMenuCustomItems: duplicateContextMenuCustomItems
+                                        })}
                                     </div>
                                 </div>
                             )}
@@ -2386,4 +2673,3 @@ export default function PageBody() {
         </div>
     )
 }
-
