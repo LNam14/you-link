@@ -133,20 +133,26 @@ const sheetConfigs: Record<string, SheetConfig> = {
 
             // Calculate giaBanX values: giaBan * (100 + multiplier) / 100
             // If giaBan is text (not a number), keep the original text value
-            // Round down to integer (remove decimal part) for X values
             const giaBanGPX = giaBanGPNum !== null 
-                ? formatNumber(Math.floor(giaBanGPNum * (100 + multiplierGP) / 100)) 
+                ? formatNumber(giaBanGPNum * (100 + multiplierGP) / 100) 
                 : formatNumberOrKeepText(row[31], null)
             const giaBanTextX = giaBanTextNum !== null 
-                ? formatNumber(Math.floor(giaBanTextNum * (100 + multiplierText) / 100)) 
+                ? formatNumber(giaBanTextNum * (100 + multiplierText) / 100) 
                 : formatNumberOrKeepText(row[32], null)
             const giaBanTextHomeX = giaBanTextHomeNum !== null 
-                ? formatNumber(Math.floor(giaBanTextHomeNum * (100 + multiplierTextHome) / 100)) 
+                ? formatNumber(giaBanTextHomeNum * (100 + multiplierTextHome) / 100) 
                 : formatNumberOrKeepText(row[33], null)
             const giaBanTextHeaderX = giaBanTextHeaderNum !== null 
-                ? formatNumber(Math.floor(giaBanTextHeaderNum * (100 + multiplierTextHeader) / 100)) 
+                ? formatNumber(giaBanTextHeaderNum * (100 + multiplierTextHeader) / 100) 
                 : formatNumberOrKeepText(row[34], null)
             
+ 
+            if (row[1] === "Soicau24.net") {
+                console.log("--- DEBUG Soicau24.net ---")
+                console.log("Multiplier:", { multiplierGP, multiplierText, multiplierTextHome, multiplierTextHeader })
+                console.log("Giá Bán:", { giaBanGP, giaBanText, giaBanTextHome, giaBanTextHeader })
+                console.log("Giá Bán X:", { giaBanGPX, giaBanTextX, giaBanTextHomeX, giaBanTextHeaderX })
+            }
      
             const maNCC = row[25]
             let fileNCC = ""
