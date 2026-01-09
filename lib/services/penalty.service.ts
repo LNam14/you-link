@@ -56,6 +56,19 @@ export class PenaltyService {
   }
 
   /**
+   * Kiểm tra có công việc được giao không
+   */
+  private hasAssignedTasks(dailyTask: any): boolean {
+    if (!dailyTask) return false;
+    
+    const keys = Object.keys(dailyTask).filter(
+      (key) => key !== "date" && key !== "day" && key !== "chamCong"
+    );
+    
+    return keys.length > 0;
+  }
+
+  /**
    * Kiểm tra công việc hàng ngày đã hoàn thành chưa
    */
   private isDailyTaskCompleted(dailyTask: any): boolean {
@@ -144,73 +157,46 @@ export class PenaltyService {
           const yesterdayTask = weekData.dailyTasks?.find((task: any) => task.date === yesterday);
 
           console.log(`[Penalty Daily] ${employee.username}: Tìm thấy weekKey ${weekKey}, yesterdayTask:`, yesterdayTask ? "Có" : "Không");
+          
           if (yesterdayTask) {
-            console.log(`[Penalty Daily] ${employee.username}: yesterdayTask.date = ${yesterdayTask.date}, yesterday = ${yesterday}`);
-            console.log(`[Penalty Daily] ${employee.username}: isDailyTaskCompleted = ${this.isDailyTaskCompleted(yesterdayTask)}`);
-          }
+            const hasTasks = this.hasAssignedTasks(yesterdayTask);
+            console.log(`[Penalty Daily] ${employee.username}: hasAssignedTasks = ${hasTasks}`);
+            
+            if (hasTasks) {
+              if (!this.isDailyTaskCompleted(yesterdayTask)) {
+                console.log(`[Penalty Daily] ${employee.username}: Có task nhưng chưa hoàn thành, tạo phạt`);
+                
+                const penalty: Penalty = {
+                  username: employee.username,
+                  year,
+                  month,
+                  penaltyType: "daily",
+                  date: yesterday,
+                  amount: PENALTY_AMOUNT,
+                  reason: `Chưa hoàn thành công việc hàng ngày ngày ${yesterday}`,
+                  createdAt: getCurrentDateTime(),
+                };
 
-          if (!this.isDailyTaskCompleted(yesterdayTask)) {
-            console.log(`[Penalty Daily] ${employee.username}: Chưa hoàn thành, tạo phạt`);
-            // Chưa hoàn thành, tạo phạt
-            const penalty: Penalty = {
-              username: employee.username,
-              year,
-              month,
-              penaltyType: "daily",
-              date: yesterday,
-              amount: PENALTY_AMOUNT,
-              reason: `Chưa hoàn thành công việc hàng ngày ngày ${yesterday}`,
-              createdAt: getCurrentDateTime(),
-            };
-
-            await this.penaltyRepository.create(penalty);
-            penalized.push({
-              username: employee.username,
-              fullname: employee.fullname || employee.username,
-              amount: PENALTY_AMOUNT,
-            });
+                await this.penaltyRepository.create(penalty);
+                penalized.push({
+                  username: employee.username,
+                  fullname: employee.fullname || employee.username,
+                  amount: PENALTY_AMOUNT,
+                });
+              } else {
+                console.log(`[Penalty Daily] ${employee.username}: Đã hoàn thành`);
+              }
+            } else {
+              console.log(`[Penalty Daily] ${employee.username}: Không có công việc được giao, bỏ qua`);
+            }
+          } else {
+            console.log(`[Penalty Daily] ${employee.username}: Không có dữ liệu ngày hôm qua, bỏ qua`);
           }
         } else {
-          // Chưa có dữ liệu tuần này, coi như chưa hoàn thành
-          console.log(`[Penalty] ${employee.username}: Không có dữ liệu tuần ${weekKey}, tạo phạt`);
-          const penalty: Penalty = {
-            username: employee.username,
-            year,
-            month,
-            penaltyType: "daily",
-            date: yesterday,
-            amount: PENALTY_AMOUNT,
-            reason: `Chưa hoàn thành công việc hàng ngày ngày ${yesterday}`,
-            createdAt: getCurrentDateTime(),
-          };
-
-          await this.penaltyRepository.create(penalty);
-          penalized.push({
-            username: employee.username,
-            fullname: employee.fullname || employee.username,
-            amount: PENALTY_AMOUNT,
-          });
+          console.log(`[Penalty Daily] ${employee.username}: Không có dữ liệu tuần ${weekKey}, bỏ qua`);
         }
       } else {
-        // Chưa có dữ liệu, coi như chưa hoàn thành
-        console.log(`[Penalty] ${employee.username}: Không có dữ liệu workTask, tạo phạt`);
-        const penalty: Penalty = {
-          username: employee.username,
-          year,
-          month,
-          penaltyType: "daily",
-          date: yesterday,
-          amount: PENALTY_AMOUNT,
-          reason: `Chưa hoàn thành công việc hàng ngày ngày ${yesterday}`,
-          createdAt: getCurrentDateTime(),
-        };
-
-        await this.penaltyRepository.create(penalty);
-        penalized.push({
-          username: employee.username,
-          fullname: employee.fullname || employee.username,
-          amount: PENALTY_AMOUNT,
-        });
+        console.log(`[Penalty Daily] ${employee.username}: Không có dữ liệu workTask, bỏ qua`);
       }
     }
 

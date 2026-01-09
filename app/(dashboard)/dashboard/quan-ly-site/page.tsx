@@ -1235,7 +1235,7 @@ export default function PageBody() {
                                 if (inputValue !== "") {
                                     const vndValue = Number.parseFloat(inputValue)
                                     if (!isNaN(vndValue) && vndValue !== 0) {
-                                        const usdtValue = vndValue / rate
+                                        const usdtValue = Math.round(vndValue / rate)
                                         ; (processedUpdates as any)[field] = usdtValue.toString()
                                     }
                                 }
@@ -1383,7 +1383,7 @@ export default function PageBody() {
                                 if (inputValue !== "") {
                                     const vndValue = Number.parseFloat(inputValue)
                                     if (!isNaN(vndValue) && vndValue !== 0) {
-                                        const usdtValue = vndValue / rate
+                                        const usdtValue = Math.round(vndValue / rate)
                                         ; (processedUpdates as any)[field] = usdtValue.toString()
                                     }
                                 }

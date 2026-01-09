@@ -146,14 +146,6 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 ? formatNumber(giaBanTextHeaderNum * (100 + multiplierTextHeader) / 100) 
                 : formatNumberOrKeepText(row[34], null)
             
- 
-            if (row[1] === "Soicau24.net") {
-                console.log("--- DEBUG Soicau24.net ---")
-                console.log("Multiplier:", { multiplierGP, multiplierText, multiplierTextHome, multiplierTextHeader })
-                console.log("Giá Bán:", { giaBanGP, giaBanText, giaBanTextHome, giaBanTextHeader })
-                console.log("Giá Bán X:", { giaBanGPX, giaBanTextX, giaBanTextHomeX, giaBanTextHeaderX })
-            }
-     
             const maNCC = row[25]
             let fileNCC = ""
             let groupNCC = ""
