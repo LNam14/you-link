@@ -175,7 +175,7 @@ export default function DashboardHeader({
                             // Nếu không hợp lệ, giữ giá trị cũ hoặc để trống
                           }}
                           className="w-10 sm:w-14 px-1 sm:px-2 py-1.5 sm:py-2 text-center text-xs sm:text-sm bg-white text-blue-600 font-medium focus:outline-none focus:ring-2 focus:ring-blue-400 border border-transparent hover:border-blue-300 transition-colors"
-                          placeholder="28"
+                          placeholder="27"
                           title="Nhập tỉ giá (ví dụ: 28 hoặc 28.5)"
                         />
                       </div>

@@ -157,7 +157,7 @@ export default function PageBody() {
     const [searchCompleted, setSearchCompleted] = useState(false) // State để track khi search đã hoàn thành
     const [selectedPriceType, setSelectedPriceType] = useState<PriceType>("GP")
     const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>("USDT")
-    const [exchangeRate, setExchangeRate] = useState<string>("28")
+    const [exchangeRate, setExchangeRate] = useState<string>("27")
     const [selectedSearchType, setSelectedSearchType] = useState<SearchType>("Site")
     const [selectedAllType, setSelectedAllType] = useState<AllType>("F")
     const [duplicateSites, setDuplicateSites] = useState<{ [key: string]: SiteData[] }>({})

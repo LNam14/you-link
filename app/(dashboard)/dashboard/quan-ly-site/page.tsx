@@ -102,7 +102,7 @@ export default function PageBody() {
     const [isDeleting, setIsDeleting] = useState(false)
     const [selectedSearchType, setSelectedSearchType] = useState<SearchType>("Site")
     const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>("USDT")
-    const [exchangeRate, setExchangeRate] = useState<string>("28")
+    const [exchangeRate, setExchangeRate] = useState<string>("27")
     const [isUpdating, setIsUpdating] = useState(false)
     const [pendingChanges, setPendingChanges] = useState<Map<string, PendingChange>>(new Map())
     
