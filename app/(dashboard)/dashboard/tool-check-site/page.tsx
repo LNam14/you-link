@@ -47,6 +47,7 @@ interface SiteData {
     trafficTool: string
     noteKH: string
     noteNB: string
+    noteNCC: string
     giaBanGP: string
     giaBanText: string
     giaBanTextHome: string
@@ -486,6 +487,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
     trafficTool: "",
     noteKH: "",
     noteNB: "",
+    noteNCC: "",
     giaBanGP: "",
     giaBanText: "",
     giaBanTextHome: "",
@@ -1462,7 +1464,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 groupLabel = "Giá cả"
             } else if (["NCC", "MaNCC", "FileNCC", "GroupNCC"].includes(colData)) {
                 groupLabel = "Thông tin NCC"
-            } else if(["noteKH", "noteNB"].includes(colData)) {
+            } else if(["noteKH", "noteNB", "noteNCC"].includes(colData)) {
                 groupLabel = "Note"
             }else {
                 groupLabel = ""
@@ -2093,6 +2095,29 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 {
                     title: "Nội Bộ",
                     data: "noteNB",
+                    width: 60,
+                    className: "htMiddle text-center",
+                    renderer: ((
+                        instance: Handsontable,
+                        td: HTMLTableCellElement,
+                        row: number,
+                        col: number,
+                        prop: string | number,
+                        value: any,
+                    ): HTMLTableCellElement => {
+                        td.innerHTML = ""
+                        td.style.whiteSpace = "nowrap"
+                        td.style.overflow = "hidden"
+                        td.style.textOverflow = "ellipsis"
+                        td.style.textAlign = "center"
+                        td.title = value || ""
+                        td.textContent = value || ""
+                        return td
+                    }) as RendererFunction,
+                },
+                {
+                    title: "NCC",
+                    data: "noteNCC",
                     width: 60,
                     className: "htMiddle text-center",
                     renderer: ((

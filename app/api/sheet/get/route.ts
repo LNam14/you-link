@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
 const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
+const NOTE_NCC_SPREADSHEET_ID = "17NHocRR7il4ra2XRqNVc53p_5iQgUY4WMhFbud0TblY"
 
 import { sheetCache, getCacheKey, getCachedData, setCachedData, CACHE_DURATION, invalidateAllCache } from "@/lib/cache/sheetCache"
 
@@ -28,7 +29,7 @@ if (typeof setInterval !== "undefined") {
 
 interface SheetConfig {
     range: string
-    formatter: (row: any[], allData: Record<string, any> & { nccMap?: Map<string, any> }, index: number) => Record<string, any>
+    formatter: (row: any[], allData: Record<string, any> & { nccMap?: Map<string, any>; noteNCCMap?: Map<string, string> }, index: number) => Record<string, any>
 }
 
 const sheetConfigs: Record<string, SheetConfig> = {
@@ -150,6 +151,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
             let fileNCC = ""
             let groupNCC = ""
             let idGroup = ""
+            let noteNCC = row[13] || "" // Default to existing noteNCC from row
 
             if (maNCC) {
                 const matchingNCC = allData.nccMap?.get(maNCC) || 
@@ -158,6 +160,14 @@ const sheetConfigs: Record<string, SheetConfig> = {
                     fileNCC = matchingNCC.FileNCC
                     groupNCC = matchingNCC.GroupNCC
                     idGroup = matchingNCC.IdGroup
+                }
+                
+                // Get NoteNCC from external sheet if available
+                if (allData.noteNCCMap?.has(maNCC)) {
+                    const noteFromSheet = allData.noteNCCMap.get(maNCC)
+                    if (noteFromSheet) {
+                        noteNCC = noteFromSheet
+                    }
                 }
             }
 
@@ -177,7 +187,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 trafficTool: row[10],
                 noteKH: row[11],
                 noteNB:row[12],
-                noteNCC:row[13],
+                noteNCC: noteNCC,
                 tinhTrang: row[14],             
                 timeText: 1,
                 hoaHongGP: hoaHongGP || 0,
@@ -274,6 +284,53 @@ async function getSpreadsheetModifiedTime(authClient: any): Promise<string | nul
     } catch (error) {
         console.warn("[sheet/get] Unable to read modifiedTime, skipping cache reset", error)
         return null
+    }
+}
+
+async function getNoteNCCData(gsapi: any): Promise<Map<string, string>> {
+    try {
+        const { data } = await gsapi.spreadsheets.values.get({
+            spreadsheetId: NOTE_NCC_SPREADSHEET_ID,
+            range: "A5!K3:O", // Column K, L (MaNCC, NoteNCC) and Column N, O (MaNCC, NoteNCC)
+            valueRenderOption: "UNFORMATTED_VALUE",
+        })
+
+        const noteNCCMap = new Map<string, string>()
+        
+        if (data.values && data.values.length > 0) {
+            // Check if first row is a header (contains "MaNCC" or "NoteNCC")
+            const startIndex = (data.values[0] && data.values[0][0] && 
+                (String(data.values[0][0]).toLowerCase().includes("mancc") || 
+                 String(data.values[0][1]).toLowerCase().includes("notencc"))) ? 1 : 0
+            
+            for (let i = startIndex; i < data.values.length; i++) {
+                const row = data.values[i]
+                
+                // Process first pair: Column K (index 0 in range) = MaNCC, Column L (index 1 in range) = NoteNCC
+                if (row && row.length > 1 && row[0]) {
+                    const maNCC = String(row[0]).trim()
+                    const noteNCC = row[1] ? String(row[1]).trim() : ""
+                    if (maNCC) {
+                        noteNCCMap.set(maNCC, noteNCC)
+                    }
+                }
+                
+                // Process second pair: Column N (index 3 in range) = MaNCC, Column O (index 4 in range) = NoteNCC
+                if (row && row.length > 4 && row[3]) {
+                    const maNCC = String(row[3]).trim()
+                    const noteNCC = row[4] ? String(row[4]).trim() : ""
+                    if (maNCC) {
+                        noteNCCMap.set(maNCC, noteNCC)
+                    }
+                }
+            }
+        }
+        
+        console.log(`[sheet/get] Loaded ${noteNCCMap.size} NoteNCC entries from external sheet`)
+        return noteNCCMap
+    } catch (error) {
+        console.warn("[sheet/get] Failed to fetch NoteNCC data from external sheet:", error)
+        return new Map<string, string>()
     }
 }
 
@@ -398,6 +455,11 @@ export async function GET(req: Request) {
         const rawData = await getAllSheetData(gsapi)
         console.log(`[sheet/get] Fetch data time: ${Date.now() - fetchStart}ms`)
 
+        // Fetch NoteNCC data from external sheet
+        const noteNCCStart = Date.now()
+        const noteNCCMap = await getNoteNCCData(gsapi)
+        console.log(`[sheet/get] Fetch NoteNCC time: ${Date.now() - noteNCCStart}ms`)
+
         const nccStart = Date.now()
         const nccData = rawData.ncc ? rawData.ncc.map((row, index) => {
             // Calculate rowIndex: index + 3 (data starts at row 3)
@@ -418,7 +480,7 @@ export async function GET(req: Request) {
 
         // Process formatting - optimize by preparing dependency data once
         const formatStart = Date.now()
-        const dependencyData = { ...rawData, ncc: nccData, nccMap: nccMap }
+        const dependencyData = { ...rawData, ncc: nccData, nccMap: nccMap, noteNCCMap: noteNCCMap }
         
         // Process formatting in chunks to avoid blocking (chunk size: 5000 rows)
         const CHUNK_SIZE = 5000
