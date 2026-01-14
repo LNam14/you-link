@@ -2,6 +2,8 @@ import { google } from "googleapis"
 import { NextResponse, NextRequest } from "next/server"
 import { invalidateAllCache } from "@/lib/cache/sheetCache"
 import { TelegramService } from "@/lib/services/telegram.service"
+import { verifyAuthToken } from "@/lib/utils/auth"
+import { UserService } from "@/lib/services/user.service"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -229,8 +231,27 @@ export async function POST(req: NextRequest) {
                 if (site && String(site).trim() !== "") {
                     const telegramService = new TelegramService()
                     
-                    // Build message: "Site mới nè\nsite.com - Traffic 123"
-                    let message = "Site mới nè\n"
+                    // Get user fullname from auth token
+                    let fullname = ""
+                    try {
+                        const userInfo = verifyAuthToken(req)
+                        const userService = new UserService()
+                        const user = await userService.getUserByUsername(userInfo.username)
+                        if (user && user.fullname) {
+                            fullname = user.fullname.trim()
+                        }
+                    } catch (error) {
+                        // If auth fails, continue without fullname
+                        console.warn("[sheet/add] Could not get user fullname for Telegram notification:", error)
+                    }
+                    
+                    // Build message: "Site mới nè - fullname\nsite.com - Traffic 123"
+                    let message = "Site mới nè"
+                    if (fullname) {
+                        message += ` - ${fullname}`
+                    }
+                    message += "\n"
+                    
                     const siteName = String(site).trim()
                     const traffic = trafficTool ? String(trafficTool).trim() : ""
                     

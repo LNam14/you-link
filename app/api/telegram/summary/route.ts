@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { TelegramService } from "@/lib/services/telegram.service"
 import { verifyAuthToken } from "@/lib/utils/auth"
 import { AuthService } from "@/lib/services/auth.service"
+import { UserService } from "@/lib/services/user.service"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -50,8 +51,27 @@ export async function POST(req: NextRequest) {
 
         // Send add summary (site mới)
         if (addLines && addLines.length > 0) {
+            // Get user fullname for add summary
+            let fullname = ""
+            try {
+                const authInfo = verifyAuthToken(req)
+                const userService = new UserService()
+                const user = await userService.getUserByUsername(authInfo.username)
+                if (user && user.fullname) {
+                    fullname = user.fullname.trim()
+                }
+            } catch (error) {
+                // If auth fails, continue without fullname
+                console.warn("[telegram/summary] Could not get user fullname for add summary:", error)
+            }
+            
+            let headerMessage = "Site mới nè"
+            if (fullname) {
+                headerMessage += ` - ${fullname}`
+            }
+            
             const message = [
-                "Site mới nè",
+                headerMessage,
                 ...addLines,
             ].join("\n")
             await telegramService.sendMessage({
