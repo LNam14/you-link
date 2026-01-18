@@ -2326,54 +2326,81 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 }
 
                 // Fallback method for mobile devices and older browsers
-                try {
-                    // Create a temporary textarea element
-                    const textArea = document.createElement("textarea")
-                    textArea.value = text
-                    textArea.style.position = "fixed"
-                    textArea.style.left = "-999999px"
-                    textArea.style.top = "-999999px"
-                    textArea.setAttribute("readonly", "")
-                    textArea.style.opacity = "0"
+                return new Promise<boolean>((resolve) => {
+                    try {
+                        // Create a temporary textarea element
+                        const textArea = document.createElement("textarea")
+                        textArea.value = text
+                        textArea.style.position = "fixed"
+                        textArea.style.left = "-999999px"
+                        textArea.style.top = "-999999px"
+                        textArea.setAttribute("readonly", "")
+                        textArea.style.opacity = "0"
 
-                    document.body.appendChild(textArea)
+                        document.body.appendChild(textArea)
 
-                    // For mobile devices, we need to make the textarea visible and focusable
-                    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-                        textArea.style.position = "absolute"
-                        textArea.style.left = "0px"
-                        textArea.style.top = "0px"
-                        textArea.style.opacity = "1"
-                        textArea.style.zIndex = "9999"
-                        textArea.style.fontSize = "16px" // Prevent zoom on iOS
+                        // For mobile devices, we need to make the textarea visible and focusable
+                        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                            textArea.style.position = "absolute"
+                            textArea.style.left = "0px"
+                            textArea.style.top = "0px"
+                            textArea.style.opacity = "1"
+                            textArea.style.zIndex = "9999"
+                            textArea.style.fontSize = "16px" // Prevent zoom on iOS
+                        }
+
+                        // Use requestAnimationFrame to ensure DOM is ready, then focus and select
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                try {
+                                    textArea.focus()
+                                    textArea.select()
+                                    textArea.setSelectionRange(0, text.length)
+
+                                    // Use setTimeout to ensure selection is ready before copying
+                                    setTimeout(() => {
+                                        try {
+                                            const successful = document.execCommand("copy")
+                                            
+                                            // Small delay before removing to ensure copy completes
+                                            setTimeout(() => {
+                                                document.body.removeChild(textArea)
+                                                if (successful) {
+                                                    resolve(true)
+                                                } else {
+                                                    throw new Error("execCommand copy failed")
+                                                }
+                                            }, 10)
+                                        } catch (execErr) {
+                                            document.body.removeChild(textArea)
+                                            console.error("execCommand copy failed:", execErr)
+                                            resolve(false)
+                                        }
+                                    }, 20) // Increased delay for better reliability
+                                } catch (selectErr) {
+                                    document.body.removeChild(textArea)
+                                    console.error("Selection failed:", selectErr)
+                                    resolve(false)
+                                }
+                            })
+                        })
+                    } catch (fallbackErr) {
+                        console.error("All copy methods failed:", fallbackErr)
+
+                        // Final fallback: show the data in an alert for manual copy
+                        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                            const shortData = text.length > 200 ? text.substring(0, 200) + "..." : text
+                            alert(`Copy failed. Data to copy:\n${shortData}`)
+                        }
+                        resolve(false)
                     }
-
-                    textArea.focus()
-                    textArea.select()
-                    textArea.setSelectionRange(0, text.length)
-
-                    const successful = document.execCommand("copy")
-                    document.body.removeChild(textArea)
-
-                    if (successful) {
-                        return true
-                    } else {
-                        throw new Error("execCommand copy failed")
-                    }
-                } catch (fallbackErr) {
-                    console.error("All copy methods failed:", fallbackErr)
-
-                    // Final fallback: show the data in an alert for manual copy
-                    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-                        const shortData = text.length > 200 ? text.substring(0, 200) + "..." : text
-                        alert(`Copy failed. Data to copy:\n${shortData}`)
-                    }
-                    return false
-                }
+                })
             }
 
-            // Use the enhanced copy function
-            copyToClipboard(finalData)
+            // Start the copy operation (fire and forget, but with proper error handling)
+            copyToClipboard(finalData).catch((err) => {
+                console.error("Copy operation failed:", err)
+            })
 
             // Prevent Handsontable's default copy behavior since we handled it
             return false
@@ -2461,12 +2488,20 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                     textArea.style.fontSize = "16px"
                 }
 
+                // Focus and select with proper timing
                 textArea.focus()
                 textArea.select()
                 textArea.setSelectionRange(0, text.length)
 
+                // Add a small delay to ensure the selection is ready before copying
+                await new Promise((resolve) => setTimeout(resolve, 10))
+
                 const successful = document.execCommand("copy")
+                
+                // Small delay before removing to ensure copy completes
+                await new Promise((resolve) => setTimeout(resolve, 10))
                 document.body.removeChild(textArea)
+                
                 if (successful) return true
                 throw new Error("execCommand copy failed")
             } catch (fallbackErr) {
