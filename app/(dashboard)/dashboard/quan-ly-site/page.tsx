@@ -2516,6 +2516,12 @@ export default function PageBody() {
                 const hasDuplicates = Object.keys(duplicateSites).length > 0
                 const duplicatesCount = Object.values(duplicateSites).flat().length
 
+                // Danh sách các site không có trong dữ liệu (không được API trả về)
+                const missingSites = filteredData.filter(
+                    (item) => !item.sheetName && !!item.site,
+                )
+                const hasMissingSites = missingSites.length > 0
+
                 if ((hasSearched || newRows.length > 0) && hasData) {
                     return (
                         <div className="w-full">
@@ -2523,6 +2529,41 @@ export default function PageBody() {
                             <div className="bg-white mt-4">
                                 {renderHotTable(mergedData)}
                             </div>
+
+                            {/* Danh sách site không có trong dữ liệu / không được API trả về */}
+                            {hasMissingSites && (
+                                <div className="mt-6 border-t border-gray-200 pt-4">
+                                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 shadow-sm">
+                                        <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                                            <div className="flex-shrink-0 mr-0 sm:mr-3 p-2 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg shadow-md self-start">
+                                                <Search className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="text-base sm:text-lg font-500 text-gray-800 mb-1">
+                                                    Site không có trong dữ liệu 
+                                                </h3>
+                                                <p className="text-xs sm:text-sm text-gray-600 break-words">
+                                                    Các domain dưới đây không tồn tại trong dữ liệu hiện tại, bạn có
+                                                    thể dùng thông tin này để kiểm tra hoặc thêm mới vào sheet nếu cần.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-3 pt-3 border-t border-blue-200/60 max-h-40 overflow-auto">
+                                            <div className="flex flex-wrap gap-2">
+                                                {missingSites.map((item, index) => (
+                                                    <span
+                                                        key={`${item.site}-${index}`}
+                                                        className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-xs sm:text-sm font-medium"
+                                                    >
+                                                        {item.site}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Enhanced Duplicates Table */}
                             {hasDuplicates && (
