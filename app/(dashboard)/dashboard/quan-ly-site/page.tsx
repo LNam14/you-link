@@ -1060,6 +1060,41 @@ export default function PageBody() {
         }
     }, [])
 
+    // Copy danh sách site không có trong dữ liệu (mỗi site một dòng)
+    const handleCopyMissingSites = useCallback(async () => {
+        const missingSites = filteredData.filter(
+            (item) => !item.sheetName && !!item.site,
+        )
+        
+        if (missingSites.length === 0) {
+            toast.warning("Không có site nào để copy")
+            return
+        }
+
+        // Mỗi site trên một dòng để paste vào Google Sheets
+        const sitesText = missingSites.map((item) => item.site).join("\n")
+
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(sitesText)
+                toast.success(`Đã copy ${missingSites.length} site (mỗi site một dòng)`)
+            } else {
+                const textArea = document.createElement("textarea")
+                textArea.value = sitesText
+                textArea.style.position = "fixed"
+                textArea.style.left = "-999999px"
+                document.body.appendChild(textArea)
+                textArea.select()
+                document.execCommand("copy")
+                document.body.removeChild(textArea)
+                toast.success(`Đã copy ${missingSites.length} site (mỗi site một dòng)`)
+            }
+        } catch (err) {
+            console.error("Copy failed:", err)
+            toast.error("Không thể copy dữ liệu")
+        }
+    }, [filteredData])
+
     /**
      * Cập nhật dữ liệu site trong Google Sheets
      * Tự động tìm sheet chứa site này trong các sheet 1, 2, 4, 5
@@ -2539,9 +2574,19 @@ export default function PageBody() {
                                                 <Search className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h3 className="text-base sm:text-lg font-500 text-gray-800 mb-1">
-                                                    Site không có trong dữ liệu 
-                                                </h3>
+                                                <div className="flex items-start justify-between gap-3 mb-1">
+                                                    <h3 className="text-base sm:text-lg font-500 text-gray-800">
+                                                        Site không có trong dữ liệu 
+                                                    </h3>
+                                                    <button
+                                                        onClick={handleCopyMissingSites}
+                                                        className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium text-xs sm:text-sm flex-shrink-0"
+                                                        title="Copy danh sách site (mỗi site một dòng)"
+                                                    >
+                                                        <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                                        <span className="hidden sm:inline">Copy</span>
+                                                    </button>
+                                                </div>
                                                 <p className="text-xs sm:text-sm text-gray-600 break-words">
                                                     Các domain dưới đây không tồn tại trong dữ liệu hiện tại, bạn có
                                                     thể dùng thông tin này để kiểm tra hoặc thêm mới vào sheet nếu cần.
