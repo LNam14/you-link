@@ -1797,7 +1797,34 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 sellPriceColumn,
             ]
             const filteredColumns = baseColumns.filter((col) => allowedColumns.includes(col.data as string))
-            return filteredColumns
+            
+            // Add note columns for restricted users (only noteKH)
+            const noteColumns = []
+            noteColumns.push({
+                title: "Khách Hàng",
+                data: "noteKH",
+                width: 100,
+                className: "htMiddle text-center",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            })
+            
+            return [...filteredColumns, ...noteColumns]
         }
 
         // Add remaining columns with the same configuration for Admin and Nhân viên
