@@ -229,7 +229,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
         },
     },
     ncc: {
-        range: "NCC!A3:K,NCC!AM3:AV",
+        range: "NCC!A3:K,NCC!AN3:AW",
         formatter: (row, allData, index) => ({
             MaNCC: row[0],
             FileNCC: row[7] || "",
