@@ -490,11 +490,11 @@ export default function DashboardPage() {
                   </svg>
                 </a>
               </div>
-              <div className="rounded-xl border-2 border-amber-300/80 bg-gradient-to-br from-amber-400/25 via-orange-400/20 to-yellow-400/15 p-3 shadow-lg shadow-amber-200/40">
+              {/* <div className="rounded-xl border-2 border-amber-300/80 bg-gradient-to-br from-amber-400/25 via-orange-400/20 to-yellow-400/15 p-3 shadow-lg shadow-amber-200/40">
                 <p className="text-xs font-bold text-amber-900">
                   🎁 <span className="block mt-1">Tặng kèm Bộ 12 Google Stacking & Schema doanh nghiệp khi đặt gói Entity.</span>
                 </p>
-              </div>
+              </div> */}
             </div>
           </div>
         </section>
