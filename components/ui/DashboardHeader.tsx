@@ -1,8 +1,11 @@
 "use client";
 
-import { Menu, X, RefreshCw, Globe, DollarSign, Coins, CreditCard, User } from "lucide-react";
+import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { Menu, X, RefreshCw, Globe, DollarSign, Coins, CreditCard, User, LogIn, Wrench, Home } from "lucide-react";
 import Link from "next/link";
 import { useHeader } from "@/app/(dashboard)/contexts/HeaderContext";
+import LoginModal from "@/components/auth/LoginModal";
 
 interface DashboardHeaderProps {
   user?: any;
@@ -15,14 +18,18 @@ export default function DashboardHeader({
   isSidebarOpen,
   onToggleSidebar,
 }: DashboardHeaderProps) {
+  const pathname = usePathname();
   const { title, subTitle, tabs, activeTab, onTabChange, refreshButton, onRefresh, customControls } = useHeader();
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const isToolCheckSite = pathname?.startsWith("/dashboard/tool-check-site") ?? false;
 
-  // Don't render if no title, tabs, or customControls
-  if (!title && !tabs && !customControls) {
+  // Ẩn header chỉ khi đã đăng nhập và không có title/tabs/customControls
+  if (!title && !tabs && !customControls && user) {
     return null;
   }
 
   return (
+    <>
     <header className="z-30 bg-gradient-to-r from-blue-500 to-blue-900 shadow-lg">
       <div className="p-4">
         {/* Row 1: Title + SubTitle (left) | User Info + Menu (right) */}
@@ -64,30 +71,60 @@ export default function DashboardHeader({
             )}
           </div>
 
-          {/* Right side - User Info + Menu Button */}
+          {/* Right side - User Info + Menu Button (đã đăng nhập) hoặc Đăng nhập + Tool check site (chưa đăng nhập) */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* User Info */}
-            {user && (
-              <div className="flex items-center gap-2 text-white">
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm sm:text-md font-semibold truncate max-w-[120px] sm:max-w-none">{user.fullname}</p>
-                  <p className="text-xs text-blue-200 truncate">{user.role || 'User'}</p>
+            {user ? (
+              <>
+                {/* User Info */}
+                <div className="flex items-center gap-2 text-white">
+                  <div className="text-right hidden sm:block">
+                    <p className="text-sm sm:text-md font-semibold truncate max-w-[120px] sm:max-w-none">{user.fullname}</p>
+                    <p className="text-xs text-blue-200 truncate">{user.role || 'User'}</p>
+                  </div>
                 </div>
-              </div>
-            )}
-            {/* Hamburger Menu Button - chỉ hiển thị khi đã đăng nhập */}
-            {user && (
-              <button
-                onClick={onToggleSidebar}
-                className="cursor-pointer p-2.5 sm:p-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-white/30 hover:scale-105 transition-all text-white flex-shrink-0 shadow-lg"
-                aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
-              >
-                {isSidebarOpen ? (
-                  <X className="h-5 w-5 sm:h-6 sm:w-6" />
+                {/* Hamburger Menu Button */}
+                <button
+                  onClick={onToggleSidebar}
+                  className="cursor-pointer p-2.5 sm:p-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-white/30 hover:scale-105 transition-all text-white flex-shrink-0 shadow-lg"
+                  aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
+                >
+                  {isSidebarOpen ? (
+                    <X className="h-5 w-5 sm:h-6 sm:w-6" />
+                  ) : (
+                    <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
+                  )}
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Chưa đăng nhập: ở /dashboard hiện Tool check site, ở /dashboard/tool-check-site hiện Về Trang chủ */}
+                {isToolCheckSite ? (
+                  <Link
+                    href="/dashboard"
+                    className="cursor-pointer flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-white/30 text-white text-sm font-medium transition-all shadow-lg"
+                  >
+                    <Home className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                    <span>Về Trang chủ</span>
+                  </Link>
                 ) : (
-                  <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
+                  <Link
+                    href="/dashboard/tool-check-site"
+                    className="cursor-pointer flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-white/30 text-white text-sm font-medium transition-all shadow-lg"
+                  >
+                    <Wrench className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                    <span className="hidden sm:inline">Tool check site</span>
+                    <span className="sm:hidden">Check site</span>
+                  </Link>
                 )}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setShowLoginModal(true)}
+                  className="cursor-pointer flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 bg-white text-blue-600 rounded-xl hover:bg-blue-50 font-medium text-sm transition-all shadow-lg"
+                >
+                  <LogIn className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                  <span>Đăng nhập</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -263,6 +300,12 @@ export default function DashboardHeader({
         )}
       </div>
     </header>
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onSuccess={() => setShowLoginModal(false)}
+      />
+    </>
   );
 }
 
