@@ -3074,11 +3074,11 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                         </div>
                     )}
 
-            {/* Mobile-only floating copy button */}
+            {/* Floating copy button for both mobile and desktop */}
             <button
                 id="mobile-copy-btn"
                 onClick={handleMobileCopySelection}
-                className="md:hidden fixed bottom-4 right-4 z-[2000] bg-blue-600 text-white rounded-full shadow-lg p-3 active:scale-95 cursor-pointer"
+                className="fixed bottom-4 right-4 z-[2000] bg-blue-600 text-white rounded-full shadow-lg p-3 active:scale-95 cursor-pointer"
                 aria-label="Copy selection"
                 title="Copy vùng đã chọn"
             >
