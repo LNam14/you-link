@@ -1718,12 +1718,18 @@ export default function PageBody() {
                 const updateLines = updateDetailLines
 
                 if (addLines.length > 0 || updateLines.length > 0) {
+                    const token = localStorage.getItem("auth-token")
+                    const headers: Record<string, string> = { "Content-Type": "application/json" }
+                    if (token) headers.Authorization = `Bearer ${token}`
+
                     await fetch("/api/telegram/summary", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers,
+                        credentials: "include",
                         body: JSON.stringify({
                             addLines,
                             updateLines,
+                            username: userInfo ? `${userInfo.username}-${userInfo.fullname}` : undefined,
                         }),
                     })
                 }
@@ -1919,11 +1925,17 @@ export default function PageBody() {
                     })
 
                     if (deleteLines.length > 0) {
+                        const token = localStorage.getItem("auth-token")
+                        const headers: Record<string, string> = { "Content-Type": "application/json" }
+                        if (token) headers.Authorization = `Bearer ${token}`
+
                         await fetch("/api/telegram/summary", {
                             method: "POST",
-                            headers: { "Content-Type": "application/json" },
+                            headers,
+                            credentials: "include",
                             body: JSON.stringify({
                                 deleteLines,
+                                username: userInfo ? `${userInfo.username}-${userInfo.fullname}` : undefined,
                             }),
                         })
                     }
@@ -2082,11 +2094,17 @@ export default function PageBody() {
                 })
 
                 if (deleteLines.length > 0) {
+                    const token = localStorage.getItem("auth-token")
+                    const headers: Record<string, string> = { "Content-Type": "application/json" }
+                    if (token) headers.Authorization = `Bearer ${token}`
+
                     await fetch("/api/telegram/summary", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers,
+                        credentials: "include",
                         body: JSON.stringify({
                             deleteLines,
+                            username: userInfo ? `${userInfo.username}-${userInfo.fullname}` : undefined,
                         }),
                     })
                 }
