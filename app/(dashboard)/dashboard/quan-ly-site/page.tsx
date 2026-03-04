@@ -116,6 +116,18 @@ export default function PageBody() {
     const mainTableRef = useRef<HotTableRef>(null)
     const duplicateTableRef = useRef<HotTableRef>(null) // Ref riêng cho duplicate table
     const selectionAnchorRef = useRef<{ row: number; col: number } | null>(null)
+    const currencyConvertibleFields = useMemo(() => {
+        return new Set<keyof SiteData>([
+            "giaMuaGP",
+            "giaMuaText",
+            "giaMuaTextHome",
+            "giaMuaTextHeader",
+            "hoaHongGP",
+            "hoaHongText",
+            "loiNhuanGP",
+            "loiNhuanText",
+        ])
+    }, [])
 
     // Sử dụng hook tối ưu để fetch và cache dữ liệu
     const { data: toolData, loading, refreshing, refetch, isStale } = useSheetToolData(false)
@@ -288,12 +300,15 @@ export default function PageBody() {
             if (selectedCurrency === "VND") {
                 const rate = Number.parseFloat(exchangeRate)
                 if (!isNaN(rate)) {
-                    // Convert price fields
+                    // Convert money fields (đơn vị gốc trong sheet là USDT).
+                    // Lưu ý: các cột "Giá chênh lệch" (tiGia*) không convert theo tỉ giá.
                     const priceFields: Array<keyof SiteData> = [
                         "giaMuaGP",
                         "giaMuaText",
                         "giaMuaTextHome",
                         "giaMuaTextHeader",
+                        "hoaHongGP",
+                        "hoaHongText",
                         "loiNhuanGP",
                         "loiNhuanText",
                     ]
@@ -425,9 +440,17 @@ export default function PageBody() {
                 })
 
                 filtered = mainItems
-                // Lưu duplicateSites để hiển thị ở table dưới
-                setDuplicateSites(newDuplicateSites)
+                // Lưu duplicateSites để hiển thị ở table dưới (áp dụng chuyển đổi tiền tệ giống table chính)
+                const convertedDuplicateSites = Object.fromEntries(
+                    Object.entries(newDuplicateSites).map(([domain, sites]) => [
+                        domain,
+                        applyCurrencyConversion(sites),
+                    ]),
+                ) as { [key: string]: SiteData[] }
+                setDuplicateSites(convertedDuplicateSites)
             } else {
+                // Khi tìm theo NCC không dùng duplicate table -> clear để tránh giữ dữ liệu cũ
+                setDuplicateSites({})
                 // Tìm theo NCC: theo mã NCC hoặc tên NCC (không phân biệt hoa thường)
                 const lowerTerms = rawTerms.map((t) => t.toLowerCase())
                 if (!sourceData || sourceData.length === 0) return []
@@ -1255,27 +1278,16 @@ export default function PageBody() {
                 let processedUpdates = { ...updates }
                 if (selectedCurrency === "VND") {
                     const rate = Number.parseFloat(exchangeRate)
-                    if (!isNaN(rate) && rate > 0) {
-                        const priceFields: Array<keyof SiteData> = [
-                            "giaMuaGP",
-                            "giaMuaText",
-                            "giaMuaTextHome",
-                            "giaMuaTextHeader",
-                            "loiNhuanGP",
-                            "loiNhuanText",
-                        ]
-                        priceFields.forEach((field) => {
-                            if (processedUpdates[field] !== undefined) {
-                                const inputValue = String(processedUpdates[field]).trim()
-                                if (inputValue !== "") {
-                                    const vndValue = Number.parseFloat(inputValue)
-                                    if (!isNaN(vndValue) && vndValue !== 0) {
-                                        const usdtValue = Math.round(vndValue / rate)
-                                        ; (processedUpdates as any)[field] = usdtValue.toString()
-                                    }
-                                }
+                    const field = columnProp as keyof SiteData
+                    if (!isNaN(rate) && rate > 0 && currencyConvertibleFields.has(field)) {
+                        const inputValue = String(newValue ?? "").trim()
+                        if (inputValue !== "") {
+                            const vndValue = Number.parseFloat(inputValue)
+                            if (!isNaN(vndValue) && vndValue !== 0) {
+                                const usdtValue = Math.round(vndValue / rate)
+                                ; (processedUpdates as any)[field] = usdtValue.toString()
                             }
-                        })
+                        }
                     }
                 }
 
@@ -1285,8 +1297,10 @@ export default function PageBody() {
                         continue
                     }
 
-                    const fullRowData = { ...rowData, ...processedUpdates }
-                    updatedNewRows[newRowIndex] = fullRowData
+                    // UI: giữ đúng giá người dùng nhập (VND). Lưu: dùng giá đã quy đổi (USDT).
+                    const uiRowData = { ...rowData, ...updates }
+                    const savedRowData = { ...rowData, ...processedUpdates }
+                    updatedNewRows[newRowIndex] = uiRowData
                     newRowsChanged = true
 
                     const key = `add-${sheetNameForNewRow}-${newRowIndex}`
@@ -1294,8 +1308,8 @@ export default function PageBody() {
                         type: "add",
                         key,
                         sheetName: sheetNameForNewRow,
-                        rowIndex: fullRowData.rowIndex,
-                        rowData: fullRowData,
+                        rowIndex: savedRowData.rowIndex,
+                        rowData: savedRowData,
                     })
                 } else {
                     // Xử lý cập nhật cho các dòng trong filteredData
@@ -1403,29 +1417,18 @@ export default function PageBody() {
                 let processedUpdates = { ...updates }
                 if (selectedCurrency === "VND") {
                     const rate = Number.parseFloat(exchangeRate)
-                    if (!isNaN(rate) && rate > 0) {
-                        const priceFields: Array<keyof SiteData> = [
-                            "giaMuaGP",
-                            "giaMuaText",
-                            "giaMuaTextHome",
-                            "giaMuaTextHeader",
-                            "loiNhuanGP",
-                            "loiNhuanText",
-                        ]
-                        priceFields.forEach((field) => {
-                            if (processedUpdates[field] !== undefined) {
-                                const inputValue = String(processedUpdates[field]).trim()
-                                if (inputValue !== "") {
-                                    const vndValue = Number.parseFloat(inputValue)
-                                    if (!isNaN(vndValue) && vndValue !== 0) {
-                                        const usdtValue = Math.round(vndValue / rate)
-                                        ; (processedUpdates as any)[field] = usdtValue.toString()
-                                    }
-                                }
+                    const field = columnProp as keyof SiteData
+                    if (!isNaN(rate) && rate > 0 && currencyConvertibleFields.has(field)) {
+                        const inputValue = String(newValue ?? "").trim()
+                        if (inputValue !== "") {
+                            const vndValue = Number.parseFloat(inputValue)
+                            if (!isNaN(vndValue) && vndValue !== 0) {
+                                const usdtValue = Math.round(vndValue / rate)
+                                ; (processedUpdates as any)[field] = usdtValue.toString()
                             }
-                        })
+                        }
                     }
-                    }
+                }
 
                     const key = `update-${sheetName}-${rowIndex}`
                     const existingChange = updated.get(key)
@@ -1446,12 +1449,15 @@ export default function PageBody() {
                 // Cập nhật duplicateSites với dữ liệu mới
                 setDuplicateSites((prev) => {
                     const updated = { ...prev }
+                    // UI: khi đang ở VND, giữ nguyên giá người dùng nhập (VND).
+                    // Lưu: đã được queue trong pendingChanges bằng processedUpdates (USDT).
+                    const uiUpdates = selectedCurrency === "VND" ? updates : processedUpdates
                     for (const [domain, sites] of Object.entries(updated)) {
                         updated[domain] = sites.map(site =>
                             site.sheetName === rowData.sheetName &&
                             site.rowIndex === rowData.rowIndex &&
                             normalizeUrl(site.site) === normalizeUrl(rowData.site)
-                                ? { ...site, ...processedUpdates }
+                                ? { ...site, ...uiUpdates }
                                 : site
                         )
                     }
@@ -1492,6 +1498,23 @@ export default function PageBody() {
             const newRowIndicesToRemove: number[] = []
             const updateDetailLines: string[] = []
 
+            const toRawMoneyFieldsIfVnd = (row: SiteData): SiteData => {
+                if (selectedCurrency !== "VND") return row
+                const rate = Number.parseFloat(exchangeRate)
+                if (!Number.isFinite(rate) || rate <= 0) return row
+
+                const next = { ...row }
+                for (const field of currencyConvertibleFields) {
+                    const raw = (row as any)?.[field]
+                    const s = raw === null || raw === undefined ? "" : String(raw).trim()
+                    if (s === "") continue
+                    const n = Number.parseFloat(s)
+                    if (!Number.isFinite(n)) continue
+                    ;(next as any)[field] = Math.round(n / rate).toString()
+                }
+                return next
+            }
+
             const findExistingRow = (
                 sheetName?: string,
                 rowIndex?: number,
@@ -1512,12 +1535,26 @@ export default function PageBody() {
                 })
                 if (matchLocalAdded) return matchLocalAdded
 
+                // Khi đang hiển thị VND, `filteredData` đã bị convert để hiển thị.
+                // Ưu tiên lấy dữ liệu gốc (USDT) từ `allData` để tránh nhân tỉ giá lại khi merge/cache.
+                if (selectedCurrency === "VND") {
+                    const matchAll = allData.find((item) => {
+                        const itemKey = getRowKey(item.sheetName, item.rowIndex, item.site)
+                        if (key && itemKey === key) return true
+                        return normalizedSite && normalizeUrl(item.site || "") === normalizedSite
+                    })
+                    if (matchAll) return matchAll
+                }
+
                 const matchFiltered = filteredData.find((item) => {
                     const itemKey = getRowKey(item.sheetName, item.rowIndex, item.site)
                     if (key && itemKey === key) return true
                     return normalizedSite && normalizeUrl(item.site || "") === normalizedSite
                 })
-                if (matchFiltered) return matchFiltered
+                if (matchFiltered) {
+                    // `filteredData` là dữ liệu UI (có thể đã convert sang VND). Trước khi merge, đảm bảo dùng giá gốc USDT.
+                    return toRawMoneyFieldsIfVnd(matchFiltered)
+                }
 
                 const matchAll = allData.find((item) => {
                     const itemKey = getRowKey(item.sheetName, item.rowIndex, item.site)
@@ -1647,8 +1684,9 @@ export default function PageBody() {
                 setFilteredData(prev => {
                     // Tránh duplicate nếu đã có
                     const existingKeys = new Set(prev.map(r => getRowKey(r.sheetName, r.rowIndex, r.site)))
-                    const uniqueNew = addedRowsRaw.filter(r => !existingKeys.has(getRowKey(r.sheetName, r.rowIndex, r.site)))
-                    return [...prev, ...uniqueNew]
+                    const uniqueNewRaw = addedRowsRaw.filter(r => !existingKeys.has(getRowKey(r.sheetName, r.rowIndex, r.site)))
+                    const uniqueNewUi = applyCurrencyConversion(uniqueNewRaw)
+                    return [...prev, ...uniqueNewUi]
                 })
                 setHasSearched(true)
             }
@@ -1719,6 +1757,9 @@ export default function PageBody() {
         refetch,
         selectedSearchType,
         allData,
+        selectedCurrency,
+        exchangeRate,
+        currencyConvertibleFields,
     ])
 
     const getRowsFromSelection = useCallback((selection: any, totalRows: number): Set<number> => {
