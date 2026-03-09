@@ -83,14 +83,6 @@ class UserService {
     // Return void even if user not found (already deleted)
     return;
   }
-
-  async deleteUserByUsername(username: string): Promise<void> {
-    const encodedUsername = encodeURIComponent(String(username || "").trim());
-    await this.request<void>(`/by-username/${encodedUsername}`, {
-      method: "DELETE",
-    });
-    return;
-  }
 }
 
 export const userService = new UserService();

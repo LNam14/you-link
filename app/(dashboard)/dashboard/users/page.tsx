@@ -88,7 +88,7 @@ export default function UsersPage() {
     }
   }, []);
 
-  // Filter users by role based on active tab, group by Team, and sort
+  // Filter users by role based on active tab, then sort by ID
   const filteredUsers = users
     .filter((u) => {
       if (activeTab === "Teams") return false; // Teams tab not implemented yet
@@ -100,16 +100,7 @@ export default function UsersPage() {
       return true;
     })
     .sort((a, b) => {
-      // First sort by Team name (null/empty teams go to end)
-      const teamA = String(a.team || "").trim();
-      const teamB = String(b.team || "").trim();
-      if (teamA !== teamB) {
-        if (!teamA) return 1; // a has no team, put it last
-        if (!teamB) return -1; // b has no team, put it last
-        // Both have teams, sort by team name directly
-        return teamA.localeCompare(teamB);
-      }
-      // If same team, sort by ID descending (newest first)
+      // Sort by ID descending (newest first)
       return (b.id || 0) - (a.id || 0);
     });
 
@@ -624,13 +615,14 @@ export default function UsersPage() {
         const user = currentFilteredUsers[actualIndex];
         if (!user) continue;
 
-        const username = user.username;
+        // Always use userId from user object - this is the actual user ID, not table index
+        const userId = user.id;
 
-        if (username && typeof username === "string" && username.trim()) {
-          // Delete by username
-          userService.deleteUserByUsername(username).catch((err) => {
+        if (userId && typeof userId === "number") {
+          // Delete silently in background using userId (not row index)
+          userService.deleteUser(userId).catch((err) => {
             // Silently handle errors (user might have been deleted already)
-            console.warn("Error deleting user:", username, err);
+            console.warn("Error deleting user:", userId, err);
           });
         }
       }
