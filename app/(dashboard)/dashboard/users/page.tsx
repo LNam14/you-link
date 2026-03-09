@@ -53,6 +53,9 @@ export default function UsersPage() {
   const [hasEmptyRow, setHasEmptyRow] = useState(false);
   const [invalidCells, setInvalidCells] = useState<Map<string, string>>(new Map()); // Map of "row-col" to error message
   const [searchQuery, setSearchQuery] = useState("");
+  const [pendingUpdatesById, setPendingUpdatesById] = useState<Record<number, any>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [shouldLogoutAfterSave, setShouldLogoutAfterSave] = useState(false);
   const { user: currentUser, logout, checkAuth, updateUser, isLoading: authLoading } = useAuth();
   const { setHeaderData } = useHeader();
 
@@ -103,6 +106,8 @@ export default function UsersPage() {
       // Sort by ID descending (newest first)
       return (b.id || 0) - (a.id || 0);
     });
+
+  const pendingCount = Object.keys(pendingUpdatesById).length;
 
   // Get unique team names from users for color mapping
   const uniqueTeamNames = Array.from(
@@ -423,12 +428,16 @@ export default function UsersPage() {
             } else if (field === "username") {
               // Update username - validate before saving
               const newUsername = String(newValue || "").trim();
-              updateData[field] = newUsername;
               
               // Check if username already exists (excluding current user)
-              const existingUser = users.find(
-                (u) => u.username === newUsername && u.id !== userId
-              );
+              const normalized = newUsername.toLowerCase();
+              const existingUser = users.find((u) => {
+                if (u.id === userId) return false;
+                const effectiveUsername = String(pendingUpdatesById[u.id]?.username ?? u.username ?? "")
+                  .trim()
+                  .toLowerCase();
+                return normalized !== "" && effectiveUsername === normalized;
+              });
               
               if (existingUser && newUsername) {
                 // Username already exists - mark cell as invalid and don't save
@@ -442,6 +451,7 @@ export default function UsersPage() {
                 // Don't save, but keep the value in the cell for user to fix
                 continue; // Skip this change, but continue processing other changes
               } else {
+                updateData[field] = newUsername;
                 // Username is valid - clear invalid mark
                 const cellKey = `${row}-${prop}`;
                 setInvalidCells((prev) => {
@@ -478,23 +488,7 @@ export default function UsersPage() {
 
           // Save silently in background using userId (not row index)
           if (Object.keys(updateData).length > 0) {
-            // If this is the current logged-in user, update auth state immediately
-            if (currentUser && currentUser.id === userId && !shouldLogoutCurrentUser) {
-              // Prepare updated user data for auth
-              const authUpdateData: Partial<User> = {};
-              if (updateData.fullname !== undefined) authUpdateData.fullname = String(updateData.fullname);
-              if (updateData.role !== undefined) authUpdateData.role = String(updateData.role);
-              if (updateData.position !== undefined) authUpdateData.position = String(updateData.position);
-              if (updateData.telegram !== undefined) authUpdateData.telegram = String(updateData.telegram);
-              if (updateData.team !== undefined) {
-                authUpdateData.team = updateData.team ? String(updateData.team) : "";
-              }
-              
-              // Update auth state immediately for instant header update
-              updateUser(authUpdateData);
-            }
-            
-            // Update local state immediately for instant UI update
+            // Update local state immediately for instant UI update (saving happens on "Lưu")
             setUsers((prevUsers) => {
               return prevUsers.map((user) => {
                 if (user.id === userId) {
@@ -518,43 +512,66 @@ export default function UsersPage() {
               });
             });
 
-            // Save to backend
-            userService
-              .updateUser(userId, updateData)
-              .then(() => {
-                // If username, password, or active was changed for current user, logout immediately
-                if (shouldLogoutCurrentUser) {
-                  logout();
-                }
-                // Reload data if team was changed to ensure team name is updated correctly
-                if (updateData.team !== undefined) {
-                  loadData();
-                }
-                // Note: User state is already updated above, no need to call checkAuth
-                // The updateUser call in setUsers already updates the header immediately
-                // Other users will be logged out automatically on their next /api/auth/me call
-                // because the API checks username match and active status
-              })
-              .catch((err: any) => {
-                // Check if error is about username conflict
-                const errorMessage = err.message || err.error || "Cập nhật người dùng thất bại";
-                if (errorMessage.includes("Username already exists") || errorMessage.includes("already exists") || errorMessage.includes("trùng")) {
-                  setError("Tên đăng nhập đã tồn tại. Vui lòng chọn tên đăng nhập khác.");
-                  // Reload data to revert changes
-                  loadData();
-                } else {
-                  // Silently handle other errors (user might have been deleted)
-                  console.warn("Error updating user:", userId, updateData, err);
-                  // Reload data on error to sync with server
-                  loadData();
-                }
-              });
+            // Stage for saving
+            setPendingUpdatesById((prev) => ({
+              ...prev,
+              [userId]: { ...(prev[userId] || {}), ...updateData },
+            }));
+
+            if (shouldLogoutCurrentUser) {
+              setShouldLogoutAfterSave(true);
+            }
           }
         }
       }
     },
-    [users, activeTab, dataWithNewRow, currentUser, logout, checkAuth, updateUser]
+    [users, activeTab, dataWithNewRow, currentUser, pendingUpdatesById]
   );
+
+  const handleSaveChanges = useCallback(async () => {
+    const ids = Object.keys(pendingUpdatesById)
+      .map((k) => Number(k))
+      .filter((n) => Number.isFinite(n));
+    if (ids.length === 0) return;
+
+    try {
+      setIsSaving(true);
+      setError("");
+
+      const results = await Promise.allSettled(
+        ids.map((id) => userService.updateUser(id, pendingUpdatesById[id]))
+      );
+
+      const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
+      if (rejected) {
+        setError("Lưu thay đổi thất bại. Đã tải lại dữ liệu để đồng bộ.");
+      }
+
+      setPendingUpdatesById({});
+      await loadData();
+
+      if (shouldLogoutAfterSave) {
+        logout();
+      } else {
+        // Refresh auth state so header reflects saved changes
+        checkAuth(true);
+      }
+    } catch (e: any) {
+      setError(e?.message || "Lưu thay đổi thất bại");
+      await loadData();
+    } finally {
+      setIsSaving(false);
+      setShouldLogoutAfterSave(false);
+    }
+  }, [checkAuth, loadData, logout, pendingUpdatesById, shouldLogoutAfterSave]);
+
+  const handleDiscardChanges = useCallback(async () => {
+    setPendingUpdatesById({});
+    setShouldLogoutAfterSave(false);
+    setInvalidCells(new Map());
+    setError("");
+    await loadData();
+  }, [loadData]);
 
   const handleAfterCreateRow = useCallback(
     async (index: number, amount: number) => {
@@ -597,41 +614,42 @@ export default function UsersPage() {
   );
 
   const handleAfterRemoveRow = useCallback(
-    (index: number, amount: number) => {
-      // Get current filtered users to ensure we use the latest data
-      const currentFilteredUsers = users.filter((u) => u.role === activeTab);
+    async (index: number, amount: number, physicalRows?: number[]) => {
+      // Handsontable can change visual order via columnSorting.
+      // Use physicalRows when provided to ensure we delete the exact row the user removed.
+      const rowsToDelete =
+        Array.isArray(physicalRows) && physicalRows.length > 0
+          ? physicalRows
+          : Array.from({ length: amount }, (_, i) => index + i);
 
-      // Delete silently in background using userId (not row index)
-      // Account for empty row at index 0 if hasEmptyRow is true
-      for (let i = 0; i < amount; i++) {
-        const rowIndex = index + i;
+      const deletions: Promise<any>[] = [];
+      for (const rowIndex of rowsToDelete) {
         // Skip empty row at index 0 if it exists
         if (hasEmptyRow && rowIndex === 0) continue;
         const actualIndex = hasEmptyRow ? rowIndex - 1 : rowIndex; // Adjust for empty row
-        
-        if (actualIndex >= currentFilteredUsers.length || actualIndex < 0) continue;
-        
-        // Get user from current filtered list using row index
-        const user = currentFilteredUsers[actualIndex];
-        if (!user) continue;
 
-        // Always use userId from user object - this is the actual user ID, not table index
-        const userId = user.id;
+        if (actualIndex >= filteredUsers.length || actualIndex < 0) continue;
+
+        // Ensure we delete by the username currently at that row
+        const username = String(filteredUsers[actualIndex]?.username || "").trim();
+        if (!username) continue;
+
+        const userToDelete = users.find((u) => String(u.username || "").trim() === username);
+        const userId = userToDelete?.id;
 
         if (userId && typeof userId === "number") {
-          // Delete silently in background using userId (not row index)
-          userService.deleteUser(userId).catch((err) => {
-            // Silently handle errors (user might have been deleted already)
-            console.warn("Error deleting user:", userId, err);
-          });
+          deletions.push(
+            userService.deleteUser(userId).catch((err) => {
+              console.warn("Error deleting user:", userId, err);
+            })
+          );
         }
       }
-      // Reload data after deletion (silently)
-      setTimeout(() => {
-        loadData();
-      }, 100);
+
+      await Promise.allSettled(deletions);
+      await loadData();
     },
-    [users, activeTab, hasEmptyRow]
+    [filteredUsers, hasEmptyRow, loadData, users]
   );
 
   const handleAddNew = async () => {
@@ -714,6 +732,31 @@ export default function UsersPage() {
               <Alert type="error" onClose={() => setError("")}>
                 {error}
               </Alert>
+            </div>
+          )}
+
+          {pendingCount > 0 && (
+            <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3">
+              <div className="text-sm text-yellow-900">
+                Có <span className="font-semibold">{pendingCount}</span> thay đổi chưa lưu.
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="primary"
+                  onClick={handleSaveChanges}
+                  isLoading={isSaving}
+                  disabled={isSaving}
+                >
+                  Lưu
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleDiscardChanges}
+                  disabled={isSaving}
+                >
+                  Hủy
+                </Button>
+              </div>
             </div>
           )}
 

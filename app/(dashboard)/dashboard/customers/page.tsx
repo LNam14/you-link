@@ -708,28 +708,34 @@ export default function CustomersPage() {
   );
 
   const handleAfterRemoveRow = useCallback(
-    (index: number, amount: number) => {
-      for (let i = 0; i < amount; i++) {
-        const rowIndex = index + i;
+    async (index: number, amount: number, physicalRows?: number[]) => {
+      const rowsToDelete =
+        Array.isArray(physicalRows) && physicalRows.length > 0
+          ? physicalRows
+          : Array.from({ length: amount }, (_, i) => index + i);
+
+      const deletions: Promise<any>[] = [];
+      for (const rowIndex of rowsToDelete) {
         if (hasEmptyRow && rowIndex === 0) continue;
         const actualIndex = hasEmptyRow ? rowIndex - 1 : rowIndex;
-        
+
         if (actualIndex >= filteredCustomers.length || actualIndex < 0) continue;
-        
+
         const customer = filteredCustomers[actualIndex];
         if (!customer) continue;
 
         const customerId = customer.id;
-
         if (customerId && typeof customerId === "number") {
-          customerService.deleteCustomer(customerId).catch((err) => {
-            console.warn("Error deleting customer:", customerId, err);
-          });
+          deletions.push(
+            customerService.deleteCustomer(customerId).catch((err) => {
+              console.warn("Error deleting customer:", customerId, err);
+            })
+          );
         }
       }
-      setTimeout(() => {
-        loadData();
-      }, 100);
+
+      await Promise.allSettled(deletions);
+      await loadData();
     },
     [filteredCustomers, hasEmptyRow, loadData]
   );

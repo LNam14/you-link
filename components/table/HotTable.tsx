@@ -17,7 +17,7 @@ interface HotTableProps {
   columns: Column[];
   onAfterChange?: (changes: any[], source: string) => void;
   onAfterCreateRow?: (index: number, amount: number) => void;
-  onAfterRemoveRow?: (index: number, amount: number) => void;
+  onAfterRemoveRow?: (index: number, amount: number, physicalRows?: number[], source?: string) => void;
   readOnly?: boolean;
   className?: string;
   contextMenuOptions?: {
@@ -264,9 +264,9 @@ const HotTableComponent = forwardRef<HotTableRef, HotTableProps>(({
     }
   };
 
-  const handleAfterRemoveRow = (index: number, amount: number) => {
+  const handleAfterRemoveRow = (index: number, amount: number, physicalRows?: number[], source?: string) => {
     if (onAfterRemoveRow) {
-      onAfterRemoveRow(index, amount);
+      onAfterRemoveRow(index, amount, physicalRows, source);
     }
   };
 
