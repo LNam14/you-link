@@ -104,6 +104,17 @@ export class UserService {
     await this.userRepository.delete(id);
   }
 
+  async deleteUserByUsername(username: string): Promise<void> {
+    const existingUser = await this.userRepository.findByUsername(
+      String(username || "").trim()
+    );
+    if (!existingUser) {
+      throw new NotFoundError("User");
+    }
+
+    await this.userRepository.delete(existingUser.id);
+  }
+
   private excludePassword(user: User): UserResponse {
     const { password, ...userWithoutPassword } = user;
     return userWithoutPassword;

@@ -624,14 +624,13 @@ export default function UsersPage() {
         const user = currentFilteredUsers[actualIndex];
         if (!user) continue;
 
-        // Always use userId from user object - this is the actual user ID, not table index
-        const userId = user.id;
+        const username = user.username;
 
-        if (userId && typeof userId === "number") {
-          // Delete silently in background using userId (not row index)
-          userService.deleteUser(userId).catch((err) => {
+        if (username && typeof username === "string" && username.trim()) {
+          // Delete by username
+          userService.deleteUserByUsername(username).catch((err) => {
             // Silently handle errors (user might have been deleted already)
-            console.warn("Error deleting user:", userId, err);
+            console.warn("Error deleting user:", username, err);
           });
         }
       }
