@@ -144,6 +144,12 @@ const parseNumberWithComma = (str: string | number | string[] | null | undefined
             cleaned = cleaned.replace(",", ".")
         }
     }
+
+    // Chỉ coi là số nếu toàn bộ chuỗi sau khi chuẩn hoá là số thuần
+    // Ví dụ hợp lệ: "301", "301.5". Ví dụ không hợp lệ: "301k", "301kbán", "301k bán"
+    if (!/^-?\d+(\.\d+)?$/.test(cleaned)) {
+        return null
+    }
     
     const parsed = Number.parseFloat(cleaned)
     return isNaN(parsed) ? null : parsed
@@ -2833,31 +2839,6 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                                                 ))}
                                                 </div>
                                             </div>
-
-                                            {/* F / X Selection - Only show for Text types */}
-                                            {(selectedPriceType === "Text" || selectedPriceType === "TextHome" || selectedPriceType === "TextHeader") && (
-                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
-                                                    <span className="text-xs text-gray-600 whitespace-nowrap">Loại ALL:</span>
-                                                    <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
-                                                        {[
-                                                            { id: "F", label: "F", icon: "📊" },
-                                                            { id: "X", label: "X", icon: "📈" },
-                                                        ].map((type) => (
-                                                            <button
-                                                                key={type.id}
-                                                                onClick={() => setSelectedAllType(type.id as AllType)}
-                                                                className={`flex items-center px-2 py-1 rounded text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0 cursor-pointer ${selectedAllType === type.id
-                                                                    ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-sm"
-                                                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                                                    }`}
-                                                            >
-                                                                <span className="mr-1 text-xs">{type.icon}</span>
-                                                                {type.label}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
 
                                         <div className="flex flex-col gap-2 w-full md:w-auto md:min-w-[200px]">

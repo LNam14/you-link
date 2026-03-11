@@ -57,7 +57,14 @@ const sheetConfigs: Record<string, SheetConfig> = {
                         const lastDotIndex = cleaned.lastIndexOf(".")
                         cleaned = cleaned.substring(0, lastDotIndex).replace(/\./g, "") + cleaned.substring(lastDotIndex)
                     }
-                    
+
+                    // Only treat as number if the whole cleaned string is a pure number
+                    // (e.g., "301" or "301.5"). If it contains any letters/text like "k bán"
+                    // then return null so that we keep the original text.
+                    if (!/^-?\d+(\.\d+)?$/.test(cleaned)) {
+                        return null
+                    }
+
                     const parsed = Number.parseFloat(cleaned)
                     // If parsed successfully and is a valid number, return it
                     if (!isNaN(parsed) && isFinite(parsed)) {

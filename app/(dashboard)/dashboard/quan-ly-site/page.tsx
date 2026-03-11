@@ -117,15 +117,13 @@ export default function PageBody() {
     const duplicateTableRef = useRef<HotTableRef>(null) // Ref riêng cho duplicate table
     const selectionAnchorRef = useRef<{ row: number; col: number } | null>(null)
     const currencyConvertibleFields = useMemo(() => {
+        // Chỉ convert các cột giá mua chính theo tỉ giá.
+        // Các cột hoa hồng, lợi nhuận, chênh lệch... không bị ảnh hưởng khi đổi đơn vị hiển thị.
         return new Set<keyof SiteData>([
             "giaMuaGP",
             "giaMuaText",
             "giaMuaTextHome",
             "giaMuaTextHeader",
-            "hoaHongGP",
-            "hoaHongText",
-            "loiNhuanGP",
-            "loiNhuanText",
         ])
     }, [])
 
@@ -301,22 +299,28 @@ export default function PageBody() {
                 const rate = Number.parseFloat(exchangeRate)
                 if (!isNaN(rate)) {
                     // Convert money fields (đơn vị gốc trong sheet là USDT).
-                    // Lưu ý: các cột "Giá chênh lệch" (tiGia*) không convert theo tỉ giá.
+                    // Lưu ý: chỉ convert các cột giá mua chính; hoa hồng, lợi nhuận, "Giá chênh lệch" (tiGia*) không convert theo tỉ giá.
                     const priceFields: Array<keyof SiteData> = [
                         "giaMuaGP",
                         "giaMuaText",
                         "giaMuaTextHome",
                         "giaMuaTextHeader",
-                        "hoaHongGP",
-                        "hoaHongText",
-                        "loiNhuanGP",
-                        "loiNhuanText",
                     ]
                     priceFields.forEach((field) => {
                         const raw = newItem[field]?.toString() || ""
-                        const numericValue = Number.parseFloat(raw)
+
+                        // Chỉ convert khi giá trị là số thuần (không kèm text như "k bán", "usd", ...)
+                        const cleaned = raw.replace(",", ".").trim()
+                        const isPureNumber = /^-?\d+(\.\d+)?$/.test(cleaned)
+
+                        if (!cleaned || !isPureNumber) {
+                            // Giữ nguyên giá trị gốc nếu không phải số thuần
+                            return
+                        }
+
+                        const numericValue = Number.parseFloat(cleaned)
                         if (!isNaN(numericValue)) {
-                            ; (newItem as any)[field] = (numericValue * rate).toString()
+                            ;(newItem as any)[field] = (numericValue * rate).toString()
                         }
                     })
                 }

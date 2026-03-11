@@ -378,65 +378,65 @@ export async function POST(req: NextRequest) {
         }
 
         // Process Telegram notification and reward (only if username is available and there are actual changes)
-        if (!skipTelegram && username && changes.length > 0) {
-            try {
-                // Group changes by site (in case multiple sites are updated in one request)
-                const siteChanges = new Map<string, typeof changes>()
-                siteChanges.set(siteName, changes)
+        // if (!skipTelegram && username && changes.length > 0) {
+        //     try {
+        //         // Group changes by site (in case multiple sites are updated in one request)
+        //         const siteChanges = new Map<string, typeof changes>()
+        //         siteChanges.set(siteName, changes)
 
-                // Send Telegram notification for each site
-                for (const [currentSite, siteChangeList] of siteChanges) {
-                    // Build Telegram message
-                    let message = `🔄 CẬP NHẬT SITE 🔄\n\n`
-                    message += `👤 Người thực hiện: ${username || "Unknown"}\n\n`
-                    message += `📝 Chi tiết cập nhật:\n\n`
-                    message += `🌐 ${currentSite}\n`
+        //         // Send Telegram notification for each site
+        //         for (const [currentSite, siteChangeList] of siteChanges) {
+        //             // Build Telegram message
+        //             let message = `🔄 CẬP NHẬT SITE 🔄\n\n`
+        //             message += `👤 Người thực hiện: ${username || "Unknown"}\n\n`
+        //             message += `📝 Chi tiết cập nhật:\n\n`
+        //             message += `🌐 ${currentSite}\n`
                     
-                    for (const change of siteChangeList) {
-                        const displayName = FIELD_DISPLAY_NAMES[change.field] || change.field
-                        const oldVal = change.oldValue === "" ? "(trống)" : String(change.oldValue)
-                        const newVal = change.newValue === "" ? "(trống)" : String(change.newValue)
-                        message += `  • ${displayName}: ${oldVal} → ${newVal}\n`
-                    }
+        //             for (const change of siteChangeList) {
+        //                 const displayName = FIELD_DISPLAY_NAMES[change.field] || change.field
+        //                 const oldVal = change.oldValue === "" ? "(trống)" : String(change.oldValue)
+        //                 const newVal = change.newValue === "" ? "(trống)" : String(change.newValue)
+        //                 message += `  • ${displayName}: ${oldVal} → ${newVal}\n`
+        //             }
 
-                    // Send Telegram message
-                    const telegramService = new TelegramService()
-                    try {
-                        await telegramService.sendMessage({
-                            chatId: "-1003124919874_1033",
-                            message: message,
-                        })
-                    } catch (telegramError) {
-                        console.error("Error sending Telegram notification:", telegramError)
-                        // Don't fail the update if Telegram fails
-                    }
+        //             // Send Telegram message
+        //             const telegramService = new TelegramService()
+        //             try {
+        //                 await telegramService.sendMessage({
+        //                     chatId: "-1003124919874_1033",
+        //                     message: message,
+        //                 })
+        //             } catch (telegramError) {
+        //                 console.error("Error sending Telegram notification:", telegramError)
+        //                 // Don't fail the update if Telegram fails
+        //             }
 
-                    // Create reward (1.000 VND per site updated)
-                    const rewardRepository = new RewardRepository()
-                    const now = new Date()
-                    const year = now.getFullYear()
-                    const month = now.getMonth() + 1
+        //             // Create reward (1.000 VND per site updated)
+        //             const rewardRepository = new RewardRepository()
+        //             const now = new Date()
+        //             const year = now.getFullYear()
+        //             const month = now.getMonth() + 1
                     
-                    try {
-                        await rewardRepository.create({
-                            username,
-                            year,
-                            month,
-                            amount: 1000, // 1.000 VND
-                            site: currentSite,
-                            reason: "Cập nhật site",
-                            createdAt: now.toISOString(),
-                        })
-                    } catch (rewardError) {
-                        console.error("Error creating reward:", rewardError)
-                        // Don't fail the update if reward creation fails
-                    }
-                }
-            } catch (notificationError) {
-                console.error("Error processing notification/reward:", notificationError)
-                // Don't fail the update if notification/reward processing fails
-            }
-        }
+        //             try {
+        //                 await rewardRepository.create({
+        //                     username,
+        //                     year,
+        //                     month,
+        //                     amount: 1000, // 1.000 VND
+        //                     site: currentSite,
+        //                     reason: "Cập nhật site",
+        //                     createdAt: now.toISOString(),
+        //                 })
+        //             } catch (rewardError) {
+        //                 console.error("Error creating reward:", rewardError)
+        //                 // Don't fail the update if reward creation fails
+        //             }
+        //         }
+        //     } catch (notificationError) {
+        //         console.error("Error processing notification/reward:", notificationError)
+        //         // Don't fail the update if notification/reward processing fails
+        //     }
+        // }
 
         return NextResponse.json({
             success: true,

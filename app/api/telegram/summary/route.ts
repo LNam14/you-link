@@ -81,18 +81,18 @@ export async function POST(req: NextRequest) {
         }
 
         // Send update summary
-        if (updateLines && updateLines.length > 0) {
-            const message = [
-                "🔄 CẬP NHẬT SITE 🔄",
-                `👤 Người cập nhật: ${userDisplayName}`,
-                `📝 Chi tiết cập nhật:\n\n`,
-               ...updateLines.map((line) => `  • ${line}`),
-            ].join("\n")
-            await telegramService.sendMessage({
-                chatId: UPDATE_CHAT_ID,
-                message,
-            })
-        }
+        // if (updateLines && updateLines.length > 0) {
+        //     const message = [
+        //         "🔄 CẬP NHẬT SITE 🔄",
+        //         `👤 Người cập nhật: ${userDisplayName}`,
+        //         `📝 Chi tiết cập nhật:\n\n`,
+        //        ...updateLines.map((line) => `  • ${line}`),
+        //     ].join("\n")
+        //     await telegramService.sendMessage({
+        //         chatId: UPDATE_CHAT_ID,
+        //         message,
+        //     })
+        // }
 
         // Send delete summary
         if (deleteLines && deleteLines.length > 0) {
