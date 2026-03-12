@@ -24,6 +24,7 @@ import {
     EyeOff,
     Eye,
     Copy,
+    CircleAlert,
     Filter,
     Calendar,
     TrendingUp,
@@ -183,6 +184,7 @@ export default function PageBody() {
     const [itemsPerPage, setItemsPerPage] = useState(50)
     const [localData, setLocalData] = useState<SiteData[]>([]) // Dữ liệu đã tải vào table
     const [dataLoaded, setDataLoaded] = useState(false) // Flag để biết đã tải dữ liệu chưa
+    const [selectedCellPreview, setSelectedCellPreview] = useState<string>("")
     const mainTableRef = useRef<HotTableRef>(null)
     const duplicatesTableRef = useRef<HotTableRef>(null)
     const selectionAnchorRef = useRef<{ row: number; col: number } | null>(null)
@@ -2580,6 +2582,14 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
         const hot = mainTableRef.current?.hotInstance
         if (!hot) return
 
+        // Always update the preview with the clicked cell's value (desktop + mobile)
+        try {
+            const raw = hot.getDataAtCell(row, col)
+            setSelectedCellPreview(raw == null ? "" : String(raw))
+        } catch {
+            setSelectedCellPreview("")
+        }
+
         // Only apply on touch or small screens to avoid interfering with desktop drag selection
         const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
         if (!isTouch) return
@@ -2604,6 +2614,14 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
         const anchor = selectionAnchorRef.current
         const hot = duplicatesTableRef.current?.hotInstance
         if (!hot) return
+
+        // Always update the preview with the clicked cell's value (desktop + mobile)
+        try {
+            const raw = hot.getDataAtCell(row, col)
+            setSelectedCellPreview(raw == null ? "" : String(raw))
+        } catch {
+            setSelectedCellPreview("")
+        }
 
         // Only apply on touch or small screens to avoid interfering with desktop drag selection
         const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
@@ -3055,16 +3073,34 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                         </div>
                     )}
 
-            {/* Floating copy button for both mobile and desktop */}
-            <button
-                id="mobile-copy-btn"
-                onClick={handleMobileCopySelection}
-                className="fixed bottom-4 right-4 z-[2000] bg-blue-600 text-white rounded-full shadow-lg p-3 active:scale-95 cursor-pointer"
-                aria-label="Copy selection"
-                title="Copy vùng đã chọn"
-            >
-                <Copy className="h-6 w-6" />
-            </button>
+            {/* Floating copy button + selected-cell preview */}
+            <div className="fixed bottom-4 right-4 z-[2000] flex flex-col items-end gap-2">
+                {selectedCellPreview.trim() !== "" && (
+                    <div className="max-w-[70vw] sm:max-w-[420px] bg-white/95 backdrop-blur border border-gray-200 shadow-lg rounded-xl px-3 py-2 text-xs text-gray-800">
+                        <div className="break-words leading-snug text-center">{selectedCellPreview}</div>
+                    </div>
+                )}
+
+                <div className="flex flex-col items-end gap-2">
+                    <div
+                        className="bg-amber-500 text-white rounded-full shadow-lg p-2 select-none"
+                        aria-label="Selected cell preview indicator"
+                        title={selectedCellPreview.trim() !== "" ? selectedCellPreview : "Chọn 1 ô trong bảng để xem dữ liệu"}
+                    >
+                        <CircleAlert className="h-5 w-5" />
+                    </div>
+
+                    <button
+                        id="mobile-copy-btn"
+                        onClick={handleMobileCopySelection}
+                        className="bg-blue-600 text-white rounded-full shadow-lg p-3 active:scale-95 cursor-pointer"
+                        aria-label="Copy selection"
+                        title="Copy vùng đã chọn"
+                    >
+                        <Copy className="h-6 w-6" />
+                    </button>
+                </div>
+            </div>
 
             {/* Filter Modal */}
             {showFilters && (
