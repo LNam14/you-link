@@ -625,20 +625,20 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
         }
     }, [selectedExtensions])
 
-    // Get available extensions for display (filter defaults by search)
+    // Get available extensions for display (merge defaults + selected, filter by search)
     const availableExtensions = useMemo(() => {
         const defaults = [".br", ".ph", ".edu", ".vn"]
         const searchLower = extensionSearchInput.trim().toLowerCase()
+
+        // Merge + dedupe, keep stable-ish order (defaults first, then user-selected)
+        const merged = Array.from(new Set([...defaults, ...selectedExtensions.map((e) => e.toLowerCase())]))
         
         if (!searchLower) {
-            return defaults
+            return merged
         }
         
-        // Filter defaults by search
-        return defaults.filter(ext => 
-            ext.toLowerCase().includes(searchLower)
-        )
-    }, [extensionSearchInput])
+        return merged.filter((ext) => ext.toLowerCase().includes(searchLower))
+    }, [extensionSearchInput, selectedExtensions])
 
     const resetFilters = useCallback(() => {
         setFilters({})
@@ -3219,10 +3219,27 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                                                 onClick={() => setShowExtensionDropdown(!showExtensionDropdown)}
                                                 className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm text-left flex items-center justify-between"
                                             >
-                                                <span className="text-gray-700">
-                                                    {selectedExtensions.length > 0
-                                                        ? `${selectedExtensions.length} đuôi đã chọn`
-                                                        : "Chọn đuôi site..."}
+                                                <span className="text-gray-700 flex-1 min-w-0">
+                                                    {selectedExtensions.length > 0 ? (
+                                                        <span className="flex flex-wrap gap-1 items-center">
+                                                            <span className="text-xs text-gray-500 font-medium">Đã chọn:</span>
+                                                            {selectedExtensions.slice(0, 3).map((ext) => (
+                                                                <span
+                                                                    key={ext}
+                                                                    className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium"
+                                                                >
+                                                                    {ext}
+                                                                </span>
+                                                            ))}
+                                                            {selectedExtensions.length > 3 && (
+                                                                <span className="text-xs text-gray-500 font-medium">
+                                                                    +{selectedExtensions.length - 3}
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    ) : (
+                                                        "Chọn đuôi site..."
+                                                    )}
                                                 </span>
                                                 <ChevronRight
                                                     className={`w-4 h-4 text-gray-500 transition-transform ${
@@ -3267,6 +3284,32 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                                                             onClick={(e) => e.stopPropagation()}
                                                         />
                                                     </div>
+
+                                                    {/* Selected extensions chips (show immediately after Enter) */}
+                                                    {selectedExtensions.length > 0 && (
+                                                        <div className="p-2 border-b border-gray-200 bg-gray-50">
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {selectedExtensions.map((ext) => (
+                                                                    <span
+                                                                        key={ext}
+                                                                        className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium"
+                                                                    >
+                                                                        {ext}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation()
+                                                                                handleExtensionSelection(ext)
+                                                                            }}
+                                                                            className="hover:text-blue-600"
+                                                                        >
+                                                                            <X className="w-3 h-3" />
+                                                                        </button>
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                     
                                                     {/* Options list */}
                                                     <div className="max-h-48 overflow-y-auto">
@@ -3292,32 +3335,6 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                                                             </div>
                                                         )}
                                                     </div>
-                                                    
-                                                    {/* Selected extensions tags */}
-                                                    {selectedExtensions.length > 0 && (
-                                                        <div className="p-2 border-t border-gray-200 bg-gray-50">
-                                                            <div className="flex flex-wrap gap-1">
-                                                                {selectedExtensions.map((ext) => (
-                                                                    <span
-                                                                        key={ext}
-                                                                        className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium"
-                                                                    >
-                                                                        {ext}
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation()
-                                                                                handleExtensionSelection(ext)
-                                                                            }}
-                                                                            className="hover:text-blue-600"
-                                                                        >
-                                                                            <X className="w-3 h-3" />
-                                                                        </button>
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
                                                 </div>
                                             )}
                                         </div>
