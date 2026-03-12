@@ -2539,64 +2539,81 @@ export default function PageBody() {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 onKeyDown={handleSearchKeyDown}
                                 rows={5}
-                                className="w-full px-4 py-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-48 text-gray-700 placeholder-gray-400 bg-white shadow-sm resize-none overflow-y-auto"
+                                className="text-sm sm:text-base w-full px-4 py-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-48 text-gray-700 placeholder-gray-400 bg-white shadow-sm resize-none overflow-y-auto"
                             />
                             <div className="absolute right-3 top-3 flex items-center gap-2">
                                 <button
                                     onClick={handleOpenModal}
-                                    className="cursor-pointer flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium text-sm"
+                                    className="cursor-pointer flex items-center gap-2 px-3 py-2 sm:px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium text-sm"
+                                    aria-label="Thêm dữ liệu"
+                                    title="Thêm dữ liệu"
                                 >
                                     <Plus className="h-4 w-4" />
-                                    <span>Thêm dữ liệu</span>
+                                    <span className="hidden sm:inline">Thêm dữ liệu</span>
                                 </button>
                                 <button
                                     onClick={handleSaveChanges}
                                     disabled={isSaving || pendingChanges.size === 0 || loading || refreshing}
-                                    className="cursor-pointer flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm font-medium text-sm"
+                                    className="cursor-pointer flex items-center gap-2 px-3 py-2 sm:px-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm font-medium text-sm"
+                                    aria-label={
+                                        isSaving
+                                            ? "Đang lưu dữ liệu"
+                                            : `Lưu dữ liệu${pendingChanges.size > 0 ? ` (${pendingChanges.size})` : ""}`
+                                    }
+                                    title={
+                                        isSaving
+                                            ? "Đang lưu dữ liệu"
+                                            : `Lưu dữ liệu${pendingChanges.size > 0 ? ` (${pendingChanges.size})` : ""}`
+                                    }
                                 >
                                     {isSaving ? (
                                         <>
                                             <RefreshCw className="h-4 w-4 animate-spin" />
-                                            Đang lưu...
+                                            <span className="hidden sm:inline">Đang lưu...</span>
                                         </>
                                     ) : (
                                         <>
                                             <Save className="h-4 w-4" />
-                                            Lưu dữ liệu {pendingChanges.size > 0 ? `(${pendingChanges.size})` : ""}
+                                            <span className="hidden sm:inline">
+                                                Lưu dữ liệu {pendingChanges.size > 0 ? `(${pendingChanges.size})` : ""}
+                                            </span>
                                         </>
                                     )}
                                 </button>
                                 <button
                                     onClick={() => setShowTiGiaColumns(!showTiGiaColumns)}
-                                    className="cursor-pointer flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-sm font-medium text-sm"
+                                    className="cursor-pointer flex items-center gap-2 px-3 py-2 sm:px-4 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-sm font-medium text-sm"
                                     title={showTiGiaColumns ? "Ẩn cột chênh lệch giá" : "Hiện cột chênh lệch giá"}
+                                    aria-label={showTiGiaColumns ? "Ẩn cột chênh lệch giá" : "Hiện cột chênh lệch giá"}
                                 >
                                     {showTiGiaColumns ? (
                                         <>
                                             <EyeOff className="h-4 w-4" />
-                                            <span>Ẩn chênh lệch</span>
+                                            <span className="hidden sm:inline">Ẩn chênh lệch</span>
                                         </>
                                     ) : (
                                         <>
                                             <Eye className="h-4 w-4" />
-                                            <span>Hiện chênh lệch</span>
+                                            <span className="hidden sm:inline">Hiện chênh lệch</span>
                                         </>
                                     )}
                                 </button>
                                 <button
                                     onClick={handleSearchClick}
                                     disabled={loading || refreshing || isSearching}
-                                    className="cursor-pointer flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md font-medium text-sm"
+                                    className="cursor-pointer flex items-center gap-2 px-3 py-2 sm:px-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md font-medium text-sm"
+                                    aria-label={isSearching ? "Đang tìm kiếm" : "Tìm kiếm"}
+                                    title={isSearching ? "Đang tìm kiếm" : "Tìm kiếm"}
                                 >
                                     {isSearching ? (
                                         <>
                                             <RefreshCw className="h-4 w-4 animate-spin" />
-                                            Đang tìm kiếm
+                                            <span className="hidden sm:inline">Đang tìm kiếm</span>
                                         </>
                                     ) : (
                                         <>
                                     <Search className="h-4 w-4" />
-                                    Tìm kiếm
+                                    <span className="hidden sm:inline">Tìm kiếm</span>
                                         </>
                                     )}
                                 </button>
