@@ -377,7 +377,7 @@ export async function POST(req: NextRequest) {
             }))
         }
 
-        Process Telegram notification and reward (only if username is available and there are actual changes)
+        // Process Telegram notification and reward (only if username is available and there are actual changes)
         if (!skipTelegram && username && changes.length > 0) {
             try {
                 // Group changes by site (in case multiple sites are updated in one request)
