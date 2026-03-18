@@ -2659,7 +2659,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                     data={dataWithSummary}
                     columns={mappedColumns}
                     nestedHeaders={nestedHeaders}
-                    hiddenColumns={[2,3]}
+                    hiddenColumns={userInfo ? [2, 3] : [1, 2]}
                     height="auto"
                     width="100%"
                     licenseKey="non-commercial-and-evaluation"
