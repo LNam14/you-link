@@ -2487,7 +2487,7 @@ export default function PageBody() {
                     rowHeaders={false}
                     colHeaders={true}
                     copyPaste={true}
-                    hiddenColumns={showTiGiaColumns ? [] : [ 22, 23, 24, 25]}
+                    hiddenColumns={showTiGiaColumns ? [2,3] : [2, 3, 22, 23, 24, 25]}
                     columnSorting={false}
                     autoColumnSize={false}
                     preventOverflow="horizontal"
