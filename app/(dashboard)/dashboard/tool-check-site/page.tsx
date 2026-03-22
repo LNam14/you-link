@@ -43,6 +43,7 @@ interface SiteData {
     bong: string
     bet: string
     chuDe: string
+    ngay: string
     linkOut: string
     DR: string
     trafficTool: string
@@ -490,6 +491,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
     bong: "",
     bet: "",
     chuDe: "",
+    ngay: "",
     linkOut: "",
     DR: "",
     trafficTool: "",
@@ -1659,6 +1661,29 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 }) as RendererFunction,
             },
             {
+                title: "Ngày",
+                data: "ngay",
+                width: 40,
+                className: "htMiddle text-center",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+            {
                 title: "Link Out",
                 data: "linkOut",
                 width: 50,
@@ -1798,6 +1823,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 "bet",
                 "site",
                 "chuDe",
+                "ngay",
                 "linkOut",
                 "DR",
                 "trafficTool",
