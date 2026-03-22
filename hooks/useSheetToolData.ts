@@ -13,6 +13,7 @@ interface SiteData {
   bet: string;
   chuDe: string;
   nuoc: string;
+  ngay: string;
   linkOut: string;
   DR: string;
   keywords: string;
@@ -117,6 +118,7 @@ function convertToSiteData(row: FormattedRow): SiteData {
     bet: convertValue(row.bet),
     chuDe: convertValue(row.chuDe),
     nuoc: convertValue(row.nuoc),
+    ngay: convertValue(row.ngay),
     linkOut: convertValue(row.linkOut),
     DR: convertValue(row.DR),
     keywords: convertValue(row.keywords),

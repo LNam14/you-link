@@ -36,6 +36,7 @@ interface SiteData {
     bet: string
     chuDe: string
     nuoc?: string
+    ngay?: string
     linkOut: string
     DR: string
     keywords?: string
@@ -125,6 +126,15 @@ export default function PageBody() {
             "giaMuaTextHome",
             "giaMuaTextHeader",
         ])
+    }, [])
+
+    const parsePureNumericInput = useCallback((value: unknown): number | null => {
+        const cleaned = String(value ?? "").replace(",", ".").trim()
+        if (!cleaned) return null
+        if (!/^-?\d+(\.\d+)?$/.test(cleaned)) return null
+
+        const parsed = Number.parseFloat(cleaned)
+        return Number.isFinite(parsed) ? parsed : null
     }, [])
 
     // Sử dụng hook tối ưu để fetch và cache dữ liệu
@@ -266,6 +276,7 @@ export default function PageBody() {
             bet: "",
             chuDe: "",
             nuoc: "",
+            ngay: "",
             linkOut: "",
             DR: "",
             keywords: "",
@@ -307,27 +318,15 @@ export default function PageBody() {
                         "giaMuaTextHeader",
                     ]
                     priceFields.forEach((field) => {
-                        const raw = newItem[field]?.toString() || ""
-
-                        // Chỉ convert khi giá trị là số thuần (không kèm text như "k bán", "usd", ...)
-                        const cleaned = raw.replace(",", ".").trim()
-                        const isPureNumber = /^-?\d+(\.\d+)?$/.test(cleaned)
-
-                        if (!cleaned || !isPureNumber) {
-                            // Giữ nguyên giá trị gốc nếu không phải số thuần
-                            return
-                        }
-
-                        const numericValue = Number.parseFloat(cleaned)
-                        if (!isNaN(numericValue)) {
-                            ;(newItem as any)[field] = (numericValue * rate).toString()
-                        }
+                        const numericValue = parsePureNumericInput(newItem[field])
+                        if (numericValue === null) return
+                        ;(newItem as any)[field] = (numericValue * rate).toString()
                     })
                 }
             }
             return newItem
         })
-    }, [selectedCurrency, exchangeRate])
+    }, [selectedCurrency, exchangeRate, parsePureNumericInput])
 
     // Flag tránh refetch lặp khi auto load
     const isLoadingDataRef = useRef(false)
@@ -757,6 +756,13 @@ export default function PageBody() {
                 renderer: createCellRenderer(),
             },
             {
+                title: "Ngày",
+                data: "ngay",
+                width: 60,
+                className: "htMiddle text-center",
+                renderer: createCellRenderer(),
+            },
+            {
                 title: "Link out",
                 data: "linkOut",
                 width: 50,
@@ -945,13 +951,13 @@ export default function PageBody() {
         const firstRow: Array<{ label: string; colspan: number }> = []
         const secondRow: string[] = []
 
-        const infoCols = columns.slice(0, 10)
-        const noteCols = columns.slice(10, 12)
-        const giaCols = columns.slice(12, 16)
-        const hoaHongCols = columns.slice(16, 18)
-        const keThemCols = columns.slice(18, 20)
-        const nccCols = columns.slice(20, 22)
-        const tiGiaCols = columns.slice(22, 26)
+        const infoCols = columns.slice(0, 11)
+        const noteCols = columns.slice(11, 13)
+        const giaCols = columns.slice(13, 17)
+        const hoaHongCols = columns.slice(17, 19)
+        const keThemCols = columns.slice(19, 21)
+        const nccCols = columns.slice(21, 23)
+        const tiGiaCols = columns.slice(23, 27)
 
         firstRow.push({ label: "INFO", colspan: infoCols.length })
         infoCols.forEach((col) => secondRow.push(col.title))
@@ -1286,8 +1292,8 @@ export default function PageBody() {
                     if (!isNaN(rate) && rate > 0 && currencyConvertibleFields.has(field)) {
                         const inputValue = String(newValue ?? "").trim()
                         if (inputValue !== "") {
-                            const vndValue = Number.parseFloat(inputValue)
-                            if (!isNaN(vndValue) && vndValue !== 0) {
+                            const vndValue = parsePureNumericInput(inputValue)
+                            if (vndValue !== null && vndValue !== 0) {
                                 const usdtValue = Math.round(vndValue / rate)
                                 ; (processedUpdates as any)[field] = usdtValue.toString()
                             }
@@ -1425,8 +1431,8 @@ export default function PageBody() {
                     if (!isNaN(rate) && rate > 0 && currencyConvertibleFields.has(field)) {
                         const inputValue = String(newValue ?? "").trim()
                         if (inputValue !== "") {
-                            const vndValue = Number.parseFloat(inputValue)
-                            if (!isNaN(vndValue) && vndValue !== 0) {
+                            const vndValue = parsePureNumericInput(inputValue)
+                            if (vndValue !== null && vndValue !== 0) {
                                 const usdtValue = Math.round(vndValue / rate)
                                 ; (processedUpdates as any)[field] = usdtValue.toString()
                             }
@@ -1509,11 +1515,8 @@ export default function PageBody() {
 
                 const next = { ...row }
                 for (const field of currencyConvertibleFields) {
-                    const raw = (row as any)?.[field]
-                    const s = raw === null || raw === undefined ? "" : String(raw).trim()
-                    if (s === "") continue
-                    const n = Number.parseFloat(s)
-                    if (!Number.isFinite(n)) continue
+                    const n = parsePureNumericInput((row as any)?.[field])
+                    if (n === null) continue
                     ;(next as any)[field] = Math.round(n / rate).toString()
                 }
                 return next
@@ -1631,6 +1634,7 @@ export default function PageBody() {
                             bet: "",
                             chuDe: "",
                             nuoc: "",
+                            ngay: "",
                             linkOut: "",
                             DR: "",
                             keywords: "",
@@ -1770,6 +1774,7 @@ export default function PageBody() {
         selectedCurrency,
         exchangeRate,
         currencyConvertibleFields,
+        parsePureNumericInput,
     ])
 
     const getRowsFromSelection = useCallback((selection: any, totalRows: number): Set<number> => {
@@ -2195,6 +2200,7 @@ export default function PageBody() {
             bet: "",
             chuDe: "",
             nuoc: "",
+            ngay: "",
             linkOut: "",
             DR: "",
             keywords: "",
@@ -2487,7 +2493,7 @@ export default function PageBody() {
                     rowHeaders={false}
                     colHeaders={true}
                     copyPaste={true}
-                    hiddenColumns={showTiGiaColumns ? [2,3] : [2, 3, 22, 23, 24, 25]}
+                    hiddenColumns={showTiGiaColumns ? [2,3] : [2, 3, 23, 24, 25, 26]}
                     columnSorting={false}
                     autoColumnSize={false}
                     preventOverflow="horizontal"

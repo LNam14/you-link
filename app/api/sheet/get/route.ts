@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
 const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
-const NOTE_NCC_SPREADSHEET_ID = "17NHocRR7il4ra2XRqNVc53p_5iQgUY4WMhFbud0TblY"
+const NOTE_NCC_SPREADSHEET_ID = "1lHvMKhH98XfhbmUHhsVTHM5N6bt_fzpptK7HR2gX1UI"
 
 import { sheetCache, getCacheKey, getCachedData, setCachedData, CACHE_DURATION, invalidateAllCache } from "@/lib/cache/sheetCache"
 
@@ -188,6 +188,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 bet: row[3],
                 chuDe: row[4],
                 nuoc: row[5],
+                ngay: row[6],
                 linkOut:row[7],
                 DR: row[8],
                 keywords: row[9],
@@ -296,40 +297,50 @@ async function getSpreadsheetModifiedTime(authClient: any): Promise<string | nul
 
 async function getNoteNCCData(gsapi: any): Promise<Map<string, string>> {
     try {
-        const { data } = await gsapi.spreadsheets.values.get({
+        const { data } = await gsapi.spreadsheets.values.batchGet({
             spreadsheetId: NOTE_NCC_SPREADSHEET_ID,
-            range: "A5!K3:O", // Column K, L (MaNCC, NoteNCC) and Column N, O (MaNCC, NoteNCC)
+            ranges: ["C4!A3:G", "C4!D3:F"],
             valueRenderOption: "UNFORMATTED_VALUE",
         })
 
         const noteNCCMap = new Map<string, string>()
-        
-        if (data.values && data.values.length > 0) {
-            // Check if first row is a header (contains "MaNCC" or "NoteNCC")
-            const startIndex = (data.values[0] && data.values[0][0] && 
-                (String(data.values[0][0]).toLowerCase().includes("mancc") || 
-                 String(data.values[0][1]).toLowerCase().includes("notencc"))) ? 1 : 0
-            
-            for (let i = startIndex; i < data.values.length; i++) {
-                const row = data.values[i]
-                
-                // Process first pair: Column K (index 0 in range) = MaNCC, Column L (index 1 in range) = NoteNCC
-                if (row && row.length > 1 && row[0]) {
-                    const maNCC = String(row[0]).trim()
-                    const noteNCC = row[1] ? String(row[1]).trim() : ""
-                    if (maNCC) {
-                        noteNCCMap.set(maNCC, noteNCC)
-                    }
-                }
-                
-                // Process second pair: Column N (index 3 in range) = MaNCC, Column O (index 4 in range) = NoteNCC
-                if (row && row.length > 4 && row[3]) {
-                    const maNCC = String(row[3]).trim()
-                    const noteNCC = row[4] ? String(row[4]).trim() : ""
-                    if (maNCC) {
-                        noteNCCMap.set(maNCC, noteNCC)
-                    }
-                }
+
+        const primaryRangeValues = data.valueRanges?.[0]?.values || []
+        const secondaryRangeValues = data.valueRanges?.[1]?.values || []
+
+        if (primaryRangeValues.length > 0) {
+            const startIndex =
+                primaryRangeValues[0] &&
+                primaryRangeValues[0][0] &&
+                String(primaryRangeValues[0][0]).toLowerCase().includes("mancc")
+                    ? 1
+                    : 0
+
+            for (let i = startIndex; i < primaryRangeValues.length; i++) {
+                const row = primaryRangeValues[i]
+                if (!row || !row[0]) continue
+
+                const maNCC = String(row[0]).trim() // A = MaNCC
+                const noteNCC = row[1] ? String(row[1]).trim() : "" // B = NoteNCC
+                if (maNCC) noteNCCMap.set(maNCC, noteNCC)
+            }
+        }
+
+        if (secondaryRangeValues.length > 0) {
+            const startIndex =
+                secondaryRangeValues[0] &&
+                secondaryRangeValues[0][0] &&
+                String(secondaryRangeValues[0][0]).toLowerCase().includes("mancc")
+                    ? 1
+                    : 0
+
+            for (let i = startIndex; i < secondaryRangeValues.length; i++) {
+                const row = secondaryRangeValues[i]
+                if (!row || !row[0]) continue
+
+                const maNCC = String(row[0]).trim() // D = MaNCC in D3:F range
+                const noteNCC = row[1] ? String(row[1]).trim() : "" // E = NoteNCC
+                if (maNCC) noteNCCMap.set(maNCC, noteNCC)
             }
         }
         
@@ -360,7 +371,9 @@ async function getAllSheetData(gsapi: any) {
         spreadsheetId: SPREADSHEET_ID,
         ranges: allRanges,
         valueRenderOption: "UNFORMATTED_VALUE", // Get original unformatted values (not rounded)
-        dateTimeRenderOption: "SERIAL_NUMBER",
+        // Keep numeric cells as numbers, but return date/datetime cells as formatted strings.
+        // This avoids Google Sheets serial dates like 46049 in API response.
+        dateTimeRenderOption: "FORMATTED_STRING",
     })
 
     const fetchTime = Date.now() - fetchStart

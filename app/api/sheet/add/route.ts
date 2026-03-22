@@ -52,6 +52,7 @@ const FIELD_TO_COLUMN: Record<string, number> = {
     bet: 3,            
     chuDe: 4,          
     nuoc: 5,
+    ngay: 6,
     linkOut: 7,        
     DR: 8,             
     keywords: 9,       
