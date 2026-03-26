@@ -16,222 +16,340 @@ export interface QuizQuestion {
 
 export const quizQuestions: QuizQuestion[] = [
   {
-    CâuHỏi: "Content thường giá sao?",
+    CâuHỏi: "Giỗ tổ nghề backlink ngày bao nhiêu?",
     ĐápÁn: {
-      A: "Hình như odr 1 và 7 là 60k thì phải",
-      B: "Thường thì odr nào viết giá 50-60k là content viết tay, 25-30k là viết AI",
-      C: "Hỏi ad cho nhanh"
+      A: "Ngày 20 âm lịch",
+      B: "Ngày 22 âm lịch",
+      C: "Chưa có ngày"
     },
     ĐápÁnĐúng: "B"
   },
   {
-    CâuHỏi: "Có bao nhiêu vị trí text?",
+    CâuHỏi: "Backlink thường sống ở đâu?",
     ĐápÁn: {
-      A: "Có 1 vị trí là footer",
-      B: "Text Footer và home",
-      C: "Text Footer, home và header"
+      A: "Trên website khác",
+      B: "Trong thùng rác",
+      C: "Trong lòng người làm SEO"
+    },
+    ĐápÁnĐúng: "A"
+  },
+  {
+    CâuHỏi: "Check bill khách hàng TT cho mình check ở đâu?",
+    ĐápÁn: {
+      A: "PB5",
+      B: "PB4",
+      C: "PB6"
     },
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "Cty tên gì, slogan là gì?",
+    CâuHỏi: "Phiên bản hiện tại là PB gì?",
     ĐápÁn: {
-      A: "Chang You - tự do, hòa bình, tình yêu, phẩm giá",
-      B: "Panda - tự do, hoà bình, tình yêu, phẩm giá",
-      C: "Mỗi team 1 tên slogan là tự do, hoà bình, tình yêu, phẩm giá"
-    },
-    ĐápÁnĐúng: "A"
-  },
-  {
-    CâuHỏi: "Con mèo của cty tên gì?",
-    ĐápÁn: {
-      A: "Mi",
-      B: "Si",
-      C: "Di"
+      A: "PB5",
+      B: "PB6",
+      C: "PB4"
     },
     ĐápÁnĐúng: "B"
   },
   {
-    CâuHỏi: "Hiện tại công việc của chúng ta làm gì?",
+    CâuHỏi: "Kế toán tên gì?",
     ĐápÁn: {
-      A: "Bán backlink",
-      B: "Chúng ta kinh doanh, công việc là Kinh Doanh",
-      C: "SEO mớ website để bán backlink"
-    },
-    ĐápÁnĐúng: "B"
-  },
-  {
-    CâuHỏi: "Giờ nên làm gì?",
-    ĐápÁn: {
-      A: "Toả sáng và nổi bật",
-      B: "Ngẫm về cuộc đời và tương lai",
-      C: "Ngẫm về quá khứ và sai lầm"
-    },
-    ĐápÁnĐúng: "A"
-  },
-  {
-    CâuHỏi: "Khách hỏi mình có phải chủ site không thì nói sao?",
-    ĐápÁn: {
-      A: "Em chủ site khoảng 50 site và giá tốt trên thị trường",
-      B: "Bên em ctv thôi",
-      C: "Em ctv cấp 1 giá tốt"
-    },
-    ĐápÁnĐúng: "A"
-  },
-  {
-    CâuHỏi: "Có cần check lại content khi lên GP không?",
-    ĐápÁn: {
-      A: "Lên luôn khỏi check vì bên content đã làm rồi hoặc khách đã đưa",
-      B: "Check qua xem anchor và link đã chèn đúng chưa hoặc chưa chèn",
-      C: "Đủ số lượng là được"
-    },
-    ĐápÁnĐúng: "B"
-  },
-  {
-    CâuHỏi: "Payment: KH đang check đi đơn mà site ngưng không có trong file báo giá thì xử lý sao?",
-    ĐápÁn: {
-      A: "Báo data fix lại",
-      B: "Có thể tự fix trên youlink và cập nhật phần ghi chú là 'Ngưng GP' hoặc 'Ngưng Text'",
-      C: "A, B hoặc báo AD xử lý cho nhanh"
+      A: "Chân Thế Dân",
+      B: "Xiao Min",
+      C: "Chân Như Kim"
     },
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "Payment: site gia hạn bị gỡ text do NCC miss, payment phạt tiền, bán hàng nên làm gì?",
+    CâuHỏi: "HR tên gì?",
     ĐápÁn: {
-      A: "Báo chủ site về vấn đề họ miss và đề nghị họ chịu 100% hoặc chia 50-50",
-      B: "Báo chủ site huỷ text gia hạn để không bị phạt",
-      C: "Báo khách về việc chủ site chịu bù ngày gia hạn, NCC và BH tự thương lượng"
-    },
-    ĐápÁnĐúng: "C"
-  },
-  {
-    CâuHỏi: "Payment check nghiệm thu nhưng giá GP đã thay đổi, bán hàng nên làm gì?",
-    ĐápÁn: {
-      A: "Cân nhắc thay đổi giá linh hoạt cho khách",
-      B: "Cứng nhắc không deal lại giá",
-      C: "Linh hoạt theo giá khách và xin họ chụp lại báo giá thời điểm đó"
-    },
-    ĐápÁnĐúng: "C"
-  },
-  {
-    CâuHỏi: "Chủ site báo cần thêm đuôi //3399,... thì bán hàng nên làm gì?",
-    ĐápÁn: {
-      A: "Lơ đi",
-      B: "Check khách có lên bài không và báo khách",
-      C: "Tag ad, data, Phương Tuấn vào nhận thông tin"
-    },
-    ĐápÁnĐúng: "B"
-  },
-  {
-    CâuHỏi: "Một bài GP có bao nhiêu link Dofollow?",
-    ĐápÁn: {
-      A: "Nhiều link tùy NCC",
-      B: "1–2 link Dofollow",
-      C: "Không có link dofollow"
-    },
-    ĐápÁnĐúng: "B"
-  },
-  {
-    CâuHỏi: "Link Nofollow trong bài GP có chấp nhận không?",
-    ĐápÁn: {
-      A: "Không, phải là link dofollow",
-      B: "Có, đủ anchor url là được",
-      C: "Cả 2"
-    },
-    ĐápÁnĐúng: "B"
-  },
-  {
-    CâuHỏi: "Căn nguyên mọi vấn đề do đâu?",
-    ĐápÁn: {
-      A: "Do thị trường",
-      B: "Do bản thân mình",
-      C: "Do yếu tố xung quanh"
-    },
-    ĐápÁnĐúng: "B"
-  },
-  {
-    CâuHỏi: "Đâu là mã ví thanh toán Tron (USDT)?",
-    ĐápÁn: {
-      A: "TRC20\nTVFNucFznW6sDxU2uA2c2z9wmy2Xmd3qMV",
-      B: "TRC20\nTVFNucFznW6sDxU2uA2c2z9wmy2Xmd0sRX",
-      C: "TRC20\n0x8ae92d5cd95c0bec95a352df16f40eacb83837b8"
+      A: "Uyên An",
+      B: "Xiao Min",
+      C: "Chân Như Kim"
     },
     ĐápÁnĐúng: "A"
   },
   {
-    CâuHỏi: "Khi check site phát hiện giá sai trên hệ thống thì làm gì?",
+    CâuHỏi: "Để đạt mức lương 26.5 ngày công thì LN phải ở mức?",
     ĐápÁn: {
-      A: "Báo lại data check giá và đợi phản hồi",
-      B: "Chủ động check file NCC rồi báo data fix",
-      C: "Thấy lời thì bán"
+      A: "< 18200u",
+      B: "< 1920u",
+      C: "< 2020u"
     },
     ĐápÁnĐúng: "B"
   },
   {
-    CâuHỏi: "Tại sao BH spam mãi nhưng không có đơn?",
+    CâuHỏi: "Mảng backlink của công ty có bao nhiêu team chính?",
     ĐápÁn: {
-      A: "Chưa có niềm tin và lý tưởng công việc",
-      B: "Giao tiếp kém, sợ bị nói",
-      C: "Lười online"
-    },
-    ĐápÁnĐúng: "A"
-  },
-  {
-    CâuHỏi: "Đâu là mã ví thanh toán BSC (USDT)?",
-    ĐápÁn: {
-      A: "Bep20\n0x8ae92d5cd95c0bec95a352df16f40eacb83837b8",
-      B: "Bep20\nTVFNucFznW6sDxU2uA2c2z9wmy2Xmd3qMV",
-      C: "Bep20\n0x8ae92d5cd95c0bec95a352df16f40eacb8388b37"
-    },
-    ĐápÁnĐúng: "A"
-  },
-  {
-    CâuHỏi: "Tỉ giá USD hiện nay là bao nhiêu VNĐ?",
-    ĐápÁn: {
-      A: "27.000 VNĐ",
-      B: "27.500 VNĐ",
-      C: "28.000 VNĐ"
+      A: "2",
+      B: "3",
+      C: "4"
     },
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "Khách muốn lọc site GP traffic >50k, DR >20, giá <2tr thì lọc cột nào?",
+    CâuHỏi: "Khi nào admin đòi nợ giúp bán hàng?",
     ĐápÁn: {
-      A: "DR, link out, giá GP",
-      B: "DR, traffic, giá GP",
-      C: "DR, traffic, giá text"
+      A: "Có nợ là admin tự đòi",
+      B: "Khách nợ quá 2 tháng và BH không đòi được",
+      C: "Admin không đòi nợ"
     },
     ĐápÁnĐúng: "B"
   },
   {
-    CâuHỏi: "Khách đặt text 10 ngày rồi báo huỷ, xử lý sao?",
+    CâuHỏi: "GP đã thanh toán nhưng mất index, xử lý sao?",
     ĐápÁn: {
-      A: "Đồng ý huỷ và báo NCC gỡ text",
-      B: "Xin huỷ NCC — NCC nào cho huỷ thì OK, NCC nào không thì tính tiền số ngày đã đặt",
-      C: "Không cho huỷ vì đã 10 ngày"
-    },
-    ĐápÁnĐúng: "B"
-  },
-  {
-    CâuHỏi: "GP: sau bao lâu không index thì nên huỷ bài?",
-    ĐápÁn: {
-      A: "Khoảng 2 tuần",
-      B: "Khoảng 10 ngày",
-      C: "Khoảng 20 ngày"
+      A: "Báo khách đợi + ép index/đổi URL/hoàn tiền",
+      B: "Báo NCC gỡ hoàn tiền",
+      C: "Báo khách cứ thanh toán"
     },
     ĐápÁnĐúng: "A"
   },
   {
-    CâuHỏi: "Khách mua text bị âm 5u sau CK8% thì xử lý sao?",
+    CâuHỏi: "Đơn 500u bị ép còn 450u thì làm gì?",
     ĐápÁn: {
-      A: "Báo data kê giá cao lên 1 chút",
-      B: "Kệ, đi luôn",
-      C: "Báo data kê giá để tránh âm, sau đó báo lại giá mới cho khách"
+      A: "Hủy đơn",
+      B: "Không đồng ý",
+      C: "Check còn lời thì nhận"
     },
     ĐápÁnĐúng: "C"
+  },
+  {
+    CâuHỏi: "Nếu KH vượt tín dụng thì làm gì?",
+    ĐápÁn: {
+      A: "Báo AD nâng hoặc thu hồi nợ",
+      B: "Tự nâng",
+      C: "Vẫn đi đơn"
+    },
+    ĐápÁnĐúng: "A"
+  },
+  {
+    CâuHỏi: "Đối với khách hàng mới cần làm gì?",
+    ĐápÁn: {
+      A: "Tạo mã là xong",
+      B: "Đi đơn luôn",
+      C: "Tạo mã + group + file + xin tín dụng"
+    },
+    ĐápÁnĐúng: "C"
+  },
+  {
+    CâuHỏi: "GP đã thanh toán nhưng KH đòi hủy vì không index?",
+    ĐápÁn: {
+      A: "Gỡ là xong",
+      B: "Gỡ + xin hoàn tiền hoặc fix bài",
+      C: "Hỏi AD"
+    },
+    ĐápÁnĐúng: "B"
+  },
+  {
+    CâuHỏi: "Đơn hủy sau 1 tuần cần note file nào?",
+    ĐápÁn: {
+      A: "File NCC, KT6, KH",
+      B: "File NCC",
+      C: "File NCC, KT6"
+    },
+    ĐápÁnĐúng: "A"
+  },
+  {
+    CâuHỏi: "Còn dùng 2 ví TRC20 và BEP20 không?",
+    ĐápÁn: {
+      A: "Có",
+      B: "Không",
+      C: "Bỏ TRC20"
+    },
+    ĐápÁnĐúng: "B"
+  },
+  {
+    CâuHỏi: "Cách note chi phí content đúng?",
+    ĐápÁn: {
+      A: "Thích note sao cũng được",
+      B: "Chỉ ghi chi phí",
+      C: "Note đủ: chi phí + NCC + mã + người đi"
+    },
+    ĐápÁnĐúng: "C"
+  },
+  {
+    CâuHỏi: "Cách hủy GP/Text đúng?",
+    ĐápÁn: {
+      A: "Tự hủy",
+      B: "Xin NCC + note đầy đủ + hoàn tiền nếu có",
+      C: "Chỉ note KT6"
+    },
+    ĐápÁnĐúng: "B"
+  },
+  {
+    CâuHỏi: "Gia hạn text có cần check giá?",
+    ĐápÁn: {
+      A: "Có, báo giá mới",
+      B: "Không cần",
+      C: "Gia hạn trước"
+    },
+    ĐápÁnĐúng: "A"
+  },
+  {
+    CâuHỏi: "Stress công việc nên làm gì?",
+    ĐápÁn: {
+      A: "Giải trí, nghỉ ngơi",
+      B: "Than vãn",
+      C: "Kệ vẫn làm"
+    },
+    ĐápÁnĐúng: "A"
+  },
+  {
+    CâuHỏi: "Đang dùng bao nhiêu ví nhận tiền?",
+    ĐápÁn: {
+      A: "2 ví",
+      B: "3 ví",
+      C: "5 ví"
+    },
+    ĐápÁnĐúng: "C"
+  },
+  {
+    CâuHỏi: "NCC yêu cầu thanh toán thì tag ai?",
+    ĐápÁn: {
+      A: "Chân Thế Dân",
+      B: "Chân Như Kim",
+      C: "Ad của mình"
+    },
+    ĐápÁnĐúng: "B"
+  },
+  {
+    CâuHỏi: "Slogan của F là gì?",
+    ĐápÁn: {
+      A: "Quyền riêng tư...",
+      B: "Tự Do - Hòa Bình - Tình Yêu - Phẩm Giá",
+      C: "Phẩm Giá - Tỏa Sáng"
+    },
+    ĐápÁnĐúng: "B"
+  },
+  {
+    CâuHỏi: "Note bill cần note file nào?",
+    ĐápÁn: {
+      A: "File KT",
+      B: "KT + KH",
+      C: "KT + KH + PB6"
+    },
+    ĐápÁnĐúng: "C"
+  },
+  {
+    CâuHỏi: "Site lệch giá trên choseo xử lý sao?",
+    ĐápÁn: {
+      A: "Xóa site",
+      B: "Vẫn đi",
+      C: "Báo KH + xóa + cập nhật giá"
+    },
+    ĐápÁnĐúng: "C"
+  },
+  {
+    CâuHỏi: "Thời gian bảo hành GP?",
+    ĐápÁn: {
+      A: "3 tháng",
+      B: "4 tháng",
+      C: "6 tháng"
+    },
+    ĐápÁnĐúng: "A"
+  },
+  {
+    CâuHỏi: "GP chưa index >1 tuần KH muốn đổi site?",
+    ĐápÁn: {
+      A: "Có",
+      B: "Không",
+      C: "Xem xét"
+    },
+    ĐápÁnĐúng: "A"
+  },
+  {
+    CâuHỏi: "KH muốn tăng CK 10%?",
+    ĐápÁn: {
+      A: "Có",
+      B: "Không",
+      C: "Hỏi sếp"
+    },
+    ĐápÁnĐúng: "B"
+  },
+  {
+    CâuHỏi: "NCC yêu cầu đổi content?",
+    ĐápÁn: {
+      A: "Order lại",
+      B: "Tự sửa",
+      C: "Nhờ team content fix"
+    },
+    ĐápÁnĐúng: "C"
+  },
+  {
+    CâuHỏi: "KH nói giá cao hơn bên khác?",
+    ĐápÁn: {
+      A: "Phủ nhận",
+      B: "Giải thích nguồn giá ổn định",
+      C: "Hỏi sếp"
+    },
+    ĐápÁnĐúng: "B"
+  },
+  {
+    CâuHỏi: "KH chê site cũ, traffic thấp?",
+    ĐápÁn: {
+      A: "Có site mới",
+      B: "Tìm thêm",
+      C: "Gửi list site tốt"
+    },
+    ĐápÁnĐúng: "C"
+  },
+  {
+    CâuHỏi: "LN giảm nhiều tuần, làm gì?",
+    ĐápÁn: {
+      A: "Chăm KH + tìm KH mới",
+      B: "Xin KH",
+      C: "Chờ"
+    },
+    ĐápÁnĐúng: "A"
+  },
+  {
+    CâuHỏi: "NCC báo tăng giá khi lên đơn?",
+    ĐápÁn: {
+      A: "Chấp nhận",
+      B: "Giữ giá cũ",
+      C: "Báo KH + update giá"
+    },
+    ĐápÁnĐúng: "C"
+  },
+  {
+    CâuHỏi: "Khái niệm BH của F?",
+    ĐápÁn: {
+      A: "Bán giỏi",
+      B: "Làm marketing + bán + xử lý",
+      C: "Bán hàng"
+    },
+    ĐápÁnĐúng: "B"
+  },
+  {
+    CâuHỏi: "Khái niệm kế toán của F?",
+    ĐápÁn: {
+      A: "Note thu chi",
+      B: "Tối ưu tài chính",
+      C: "Kiểm soát đầu vào + thanh toán"
+    },
+    ĐápÁnĐúng: "C"
+  },
+  {
+    CâuHỏi: "Khái niệm AD của F?",
+    ĐápÁn: {
+      A: "Quản lý + bán + tư duy",
+      B: "Bán giỏi nhất",
+      C: "Ý tưởng nhiều"
+    },
+    ĐápÁnĐúng: "A"
+  },
+  {
+    CâuHỏi: "F là gì?",
+    ĐápÁn: {
+      A: "Chưa phân loại",
+      B: "Công ty",
+      C: "Môn phái"
+    },
+    ĐápÁnĐúng: "A"
   }
 ];
+
 
 export interface WrongAnswerInfo {
   question: string;

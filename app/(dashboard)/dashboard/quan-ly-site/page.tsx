@@ -92,6 +92,9 @@ type PendingChange =
 export default function PageBody() {
     const [filteredData, setFilteredData] = useState<SiteData[]>([])
     const [duplicateSites, setDuplicateSites] = useState<{ [key: string]: SiteData[] }>({}) // Site trùng lặp theo domain
+    const [searchInputDuplicates, setSearchInputDuplicates] = useState<
+        Array<{ domain: string; count: number; examples: string[] }>
+    >([]) // Site trùng lặp ngay trong ô tìm kiếm
     const [newRows, setNewRows] = useState<SiteData[]>([]) // Các site mới thêm, luôn hiển thị
     const [localAddedRows, setLocalAddedRows] = useState<SiteData[]>([]) // Các site đã lưu thành công nhưng chưa refetch
     const [localUpdatedRows, setLocalUpdatedRows] = useState<Map<string, SiteData>>(new Map()) // Cache các dòng đã update để không cần refetch
@@ -369,6 +372,30 @@ export default function PageBody() {
             if (selectedSearchType === "Site") {
                 // Chuẩn hóa domain để so sánh
                 const normalizedTerms = rawTerms.map((t) => normalizeUrl(t))
+
+                // Tính trùng lặp ngay trong input (giữ nguyên count theo domain đã normalize)
+                const inputCountMap = new Map<string, { count: number; examples: Set<string> }>()
+                rawTerms.forEach((rawTerm, idx) => {
+                    const normalized = normalizedTerms[idx]
+                    if (!normalized) return
+                    const existing = inputCountMap.get(normalized)
+                    if (existing) {
+                        existing.count += 1
+                        existing.examples.add(rawTerm)
+                    } else {
+                        inputCountMap.set(normalized, { count: 1, examples: new Set([rawTerm]) })
+                    }
+                })
+                const inputDuplicates = Array.from(inputCountMap.entries())
+                    .filter(([, info]) => info.count > 1)
+                    .map(([domain, info]) => ({
+                        domain,
+                        count: info.count,
+                        examples: Array.from(info.examples).slice(0, 5),
+                    }))
+                    .sort((a, b) => b.count - a.count || a.domain.localeCompare(b.domain))
+                setSearchInputDuplicates(inputDuplicates)
+
                 const siteMap = new Map<string, SiteData[]>() // Đổi thành array để lưu tất cả các site cùng domain
 
                 // Map nhanh để lấy tất cả các site có cùng domain
@@ -454,6 +481,7 @@ export default function PageBody() {
             } else {
                 // Khi tìm theo NCC không dùng duplicate table -> clear để tránh giữ dữ liệu cũ
                 setDuplicateSites({})
+                setSearchInputDuplicates([])
                 // Tìm theo NCC: theo mã NCC hoặc tên NCC (không phân biệt hoa thường)
                 const lowerTerms = rawTerms.map((t) => t.toLowerCase())
                 if (!sourceData || sourceData.length === 0) return []
@@ -2625,6 +2653,33 @@ export default function PageBody() {
                                 </button>
                             </div>
                         </div>
+
+                        {/* Trùng lặp ngay trong danh sách site nhập vào ô tìm kiếm (hiển thị gọn dưới ô nhập) */}
+                        {selectedSearchType === "Site" && searchInputDuplicates.length > 0 && (
+                            <div className="mt-2">
+                                <div className="text-[11px] sm:text-xs text-amber-800/90">
+                                    Trùng trong ô tìm kiếm:
+                                </div>
+                                <div className="mt-1 flex flex-wrap gap-1.5 max-h-16 overflow-auto">
+                                    {searchInputDuplicates.map((d) => (
+                                        <span
+                                            key={d.domain}
+                                            className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-900 px-2 py-0.5 text-[11px] sm:text-xs font-medium"
+                                            title={
+                                                d.examples.length > 0
+                                                    ? `Ví dụ: ${d.examples.join(", ")}`
+                                                    : undefined
+                                            }
+                                        >
+                                            <span className="max-w-[220px] sm:max-w-[340px] truncate">
+                                                {d.domain}
+                                            </span>
+                                            <span className="text-amber-900/80">x{d.count}</span>
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

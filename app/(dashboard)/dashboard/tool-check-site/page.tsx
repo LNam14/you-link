@@ -181,6 +181,7 @@ export default function PageBody() {
     const [selectedExtensions, setSelectedExtensions] = useState<string[]>([])
     const [extensionSearchInput, setExtensionSearchInput] = useState<string>("")
     const [showExtensionDropdown, setShowExtensionDropdown] = useState(false)
+    const [showTrafficDropdown, setShowTrafficDropdown] = useState(false)
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage, setItemsPerPage] = useState(50)
     const [localData, setLocalData] = useState<SiteData[]>([]) // Dữ liệu đã tải vào table
@@ -313,6 +314,7 @@ export default function PageBody() {
             const isClickInsideTable = target.closest(".handsontable")
             const isClickOnMobileCopy = target.closest("#mobile-copy-btn")
             const isClickOnExtensionDropdown = target.closest("[data-extension-dropdown]")
+            const isClickOnTrafficDropdown = target.closest("[data-traffic-dropdown]")
 
             if (!isClickInsideTable && !isClickOnMobileCopy) {
                 // Clear selection for main table
@@ -332,13 +334,18 @@ export default function PageBody() {
             if (!isClickOnExtensionDropdown && showExtensionDropdown) {
                 setShowExtensionDropdown(false)
             }
+
+            // Close traffic dropdown if clicking outside
+            if (!isClickOnTrafficDropdown && showTrafficDropdown) {
+                setShowTrafficDropdown(false)
+            }
         }
 
         document.addEventListener("mousedown", handleClickOutside)
         return () => {
             document.removeEventListener("mousedown", handleClickOutside)
         }
-    }, [showExtensionDropdown])
+    }, [showExtensionDropdown, showTrafficDropdown])
 
 
     // Note: Removed auto-search on data load - user must click search button
@@ -1013,9 +1020,6 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
         if (filters["Site"]) {
             result.siteVN = filters["Site"]
         }
-        if (filters["Traffic Tool"]) {
-            result.trafficTool = filters["Traffic Tool"]
-        }
         if (filters["Giá GP"]) {
             result.giaGP = filters["Giá GP"]
         }
@@ -1285,14 +1289,28 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
             }
         }
 
-        // Traffic Tool filter
+        // Traffic Tool filter - preset (old logic): Traffic must be strictly greater than selected value
         if (filters["Traffic Tool"]) {
-            const trafficValue = filters["Traffic Tool"]
-            const itemTraffic = Number.parseFloat(item.trafficTool || "0") || 0
-            const filterTraffic = Number.parseFloat(trafficValue) || 0
-            if (itemTraffic <= filterTraffic) {
-                return false
-            }
+            const itemTraffic = parseNumberWithComma(item.trafficTool) ?? 0
+            const preset = parseNumberWithComma(filters["Traffic Tool"]) ?? null
+            if (preset !== null && itemTraffic <= preset) return false
+        }
+
+        // Traffic Tool filter - min/max range (separate from preset)
+        if (filters["Traffic Tool Min"] || filters["Traffic Tool Max"]) {
+            const itemTraffic = parseNumberWithComma(item.trafficTool) ?? 0
+
+            const minRaw = filters["Traffic Tool Min"]
+            const maxRaw = filters["Traffic Tool Max"]
+            const minParsed = minRaw ? (parseNumberWithComma(minRaw) ?? null) : null
+            const maxParsed = maxRaw ? (parseNumberWithComma(maxRaw) ?? null) : null
+
+            // If both provided and user typed reversed range, normalize by swapping
+            const min = minParsed !== null && maxParsed !== null ? Math.min(minParsed, maxParsed) : minParsed
+            const max = minParsed !== null && maxParsed !== null ? Math.max(minParsed, maxParsed) : maxParsed
+
+            if (min !== null && itemTraffic < min) return false
+            if (max !== null && itemTraffic > max) return false
         }
 
         // Giá GP filter
@@ -1383,6 +1401,17 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 monthAgo.setHours(0, 0, 0, 0)
                 const itemDate = new Date(itemTimeText)
                 if (!isNaN(itemDate.getTime()) && itemDate >= monthAgo) {
+                    return false
+                }
+            }
+        }
+
+        // noteKH filter (text search)
+        if (filters["noteKH"]) {
+            const noteQuery = filters["noteKH"]?.toLowerCase().trim()
+            if (noteQuery) {
+                const itemNoteKH = (item.noteKH || "").toLowerCase()
+                if (!itemNoteKH.includes(noteQuery)) {
                     return false
                 }
             }
@@ -3139,7 +3168,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                         }
                     }}
                 >
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[100vh] overflow-hidden">
                         {/* Header */}
                         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-4 text-white">
                             <div className="flex items-center justify-between">
@@ -3373,18 +3402,114 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                                             <TrendingUp className="w-4 h-4 text-red-500" />
                                             Traffic Tool
                                         </h3>
-                                        <select
-                                            className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-all duration-200 text-sm"
-                                            value={filters["Traffic Tool"] || ""}
-                                            onChange={(e) => handleFilterChange("Traffic Tool", e.target.value)}
-                                        >
-                                            <option value="">Chọn lựa chọn</option>
-                                            <option value="1000">&gt; 1,000</option>
-                                            <option value="10000">&gt; 10,000</option>
-                                            <option value="100000">&gt; 100,000</option>
-                                            <option value="50000">&gt; 50,000</option>
-                                            <option value="1000000">&gt; 1,000,000</option>
-                                        </select>
+                                        <div className="relative" data-traffic-dropdown>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowTrafficDropdown(!showTrafficDropdown)}
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm text-left flex items-center justify-between"
+                                            >
+                                                <span className="text-gray-700 flex-1 min-w-0">
+                                                    {filters["Traffic Tool"] ? (
+                                                        (() => {
+                                                            const n = Number(filters["Traffic Tool"])
+                                                            const display = Number.isFinite(n) ? n.toLocaleString("en-US") : filters["Traffic Tool"]
+                                                            return (
+                                                                <span className="inline-flex items-center px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-medium">
+                                                                    Traffic &gt; {display}
+                                                                </span>
+                                                            )
+                                                        })()
+                                                    ) : (filters["Traffic Tool Min"] || filters["Traffic Tool Max"]) ? (
+                                                        <span className="flex flex-wrap gap-1 items-center">
+                                                            <span className="text-xs text-gray-500 font-medium">Khoảng:</span>
+                                                            <span className="inline-flex items-center px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-medium">
+                                                                Min: {filters["Traffic Tool Min"] || "-"}
+                                                            </span>
+                                                            <span className="inline-flex items-center px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-medium">
+                                                                Max: {filters["Traffic Tool Max"] || "-"}
+                                                            </span>
+                                                        </span>
+                                                    ) : (
+                                                        "Chọn traffic"
+                                                    )}
+                                                </span>
+                                                <ChevronRight
+                                                    className={`w-4 h-4 text-gray-500 transition-transform ${
+                                                        showTrafficDropdown ? "rotate-90" : ""
+                                                    }`}
+                                                />
+                                            </button>
+
+                                            {showTrafficDropdown && (
+                                                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg overflow-hidden">
+                                                    <div className="p-3 border-b border-gray-200">
+                                                        <div className="text-xs font-semibold text-gray-600 mb-2">Chọn nhanh (Traffic &gt; mốc)</div>
+                                                        <select
+                                                            className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-all duration-200 text-sm"
+                                                            value={filters["Traffic Tool"] || ""}
+                                                            onChange={(e) => {
+                                                                const value = e.target.value
+                                                                handleFilterChange("Traffic Tool", value)
+                                                                // preset độc lập với min/max
+                                                                handleFilterChange("Traffic Tool Min", "")
+                                                                handleFilterChange("Traffic Tool Max", "")
+                                                            }}
+                                                        >
+                                                            <option value="">Chọn lựa chọn</option>
+                                                            <option value="1000">&gt; 1,000</option>
+                                                            <option value="10000">&gt; 10,000</option>
+                                                            <option value="50000">&gt; 50,000</option>
+                                                            <option value="100000">&gt; 100,000</option>
+                                                            <option value="1000000">&gt; 1,000,000</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <div className="p-3">
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <input
+                                                                type="number"
+                                                                inputMode="numeric"
+                                                                className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                                placeholder="Min"
+                                                                value={filters["Traffic Tool Min"] || ""}
+                                                                onChange={(e) => {
+                                                                    handleFilterChange("Traffic Tool Min", e.target.value)
+                                                                    // range độc lập với preset
+                                                                    handleFilterChange("Traffic Tool", "")
+                                                                }}
+                                                            />
+                                                            <input
+                                                                type="number"
+                                                                inputMode="numeric"
+                                                                className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                                placeholder="Max"
+                                                                value={filters["Traffic Tool Max"] || ""}
+                                                                onChange={(e) => {
+                                                                    handleFilterChange("Traffic Tool Max", e.target.value)
+                                                                    // range độc lập với preset
+                                                                    handleFilterChange("Traffic Tool", "")
+                                                                }}
+                                                            />
+                                                        </div>
+
+                                                        {(filters["Traffic Tool Min"] || filters["Traffic Tool Max"]) && (
+                                                            <div className="mt-2">
+                                                                <button
+                                                                    type="button"
+                                                                    className="text-xs font-medium text-gray-600 hover:text-gray-900 underline"
+                                                                    onClick={() => {
+                                                                        handleFilterChange("Traffic Tool Min", "")
+                                                                        handleFilterChange("Traffic Tool Max", "")
+                                                                    }}
+                                                                >
+                                                                    Xoá khoảng
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -3477,6 +3602,21 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                                 {/* Row 3: Chủ đề - Full width */}
                                 <div className="w-full">
                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-blue-300 transition-colors duration-200">
+                                        {/* noteKH search */}
+                                        <div className="mb-4">
+                                            <h3 className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
+                                                <Search className="w-4 h-4 text-blue-500" />
+                                                Tìm trong ghi chú Khách hàng
+                                            </h3>
+                                            <input
+                                                type="text"
+                                                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-all duration-200 text-sm"
+                                                placeholder="Nhập từ khoá để lọc..."
+                                                value={filters["noteKH"] || ""}
+                                                onChange={(e) => handleFilterChange("noteKH", e.target.value)}
+                                            />
+                                        </div>
+
                                         <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
                                             <Ticket className="w-4 h-4 text-pink-500" />
                                             Chủ đề ({selectedTopics.length})
