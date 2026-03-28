@@ -16,11 +16,11 @@ export interface QuizQuestion {
 
 export const quizQuestions: QuizQuestion[] = [
   {
-    CâuHỏi: "Giỗ tổ nghề backlink ngày bao nhiêu?",
+    CâuHỏi: "giổ tổ nghề backlink ngày bao nhiêu",
     ĐápÁn: {
-      A: "Ngày 20 âm lịch",
-      B: "Ngày 22 âm lịch",
-      C: "Chưa có ngày"
+      A: "ngày 20 âm lịch",
+      B: "ngày 22 âm lịch",
+      C: "chưa có ngày"
     },
     ĐápÁnĐúng: "B"
   },
@@ -43,7 +43,7 @@ export const quizQuestions: QuizQuestion[] = [
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "Phiên bản hiện tại là PB gì?",
+    CâuHỏi: "Phiên bản hiện tại là pb gì",
     ĐápÁn: {
       A: "PB5",
       B: "PB6",
@@ -52,7 +52,7 @@ export const quizQuestions: QuizQuestion[] = [
     ĐápÁnĐúng: "B"
   },
   {
-    CâuHỏi: "Kế toán tên gì?",
+    CâuHỏi: "Kế Toán tên gì",
     ĐápÁn: {
       A: "Chân Thế Dân",
       B: "Xiao Min",
@@ -61,7 +61,7 @@ export const quizQuestions: QuizQuestion[] = [
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "HR tên gì?",
+    CâuHỏi: "HR tên gì",
     ĐápÁn: {
       A: "Uyên An",
       B: "Xiao Min",
@@ -70,7 +70,7 @@ export const quizQuestions: QuizQuestion[] = [
     ĐápÁnĐúng: "A"
   },
   {
-    CâuHỏi: "Để đạt mức lương 26.5 ngày công thì LN phải ở mức?",
+    CâuHỏi: "Để đạt được mức lương 26,5 ngày công thì LN phải ở mức",
     ĐápÁn: {
       A: "< 18200u",
       B: "< 1920u",
@@ -79,7 +79,7 @@ export const quizQuestions: QuizQuestion[] = [
     ĐápÁnĐúng: "B"
   },
   {
-    CâuHỏi: "Mảng backlink của công ty có bao nhiêu team chính?",
+    CâuHỏi: "Mảng backlink của cty hiện tại có bao nhiêu team chính",
     ĐápÁn: {
       A: "2",
       B: "3",
@@ -88,160 +88,160 @@ export const quizQuestions: QuizQuestion[] = [
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "Khi nào admin đòi nợ giúp bán hàng?",
+    CâuHỏi: "Trường hợp nào thì admin đòi nợ giúp bán hàng",
     ĐápÁn: {
-      A: "Có nợ là admin tự đòi",
-      B: "Khách nợ quá 2 tháng và BH không đòi được",
-      C: "Admin không đòi nợ"
+      A: "Có nợ là admin chủ động đòi cho bán hàng.",
+      B: "Khách nợ quá 2 tháng và bán hàng không đòi được.",
+      C: "admin không có nhiệm vụ đòi nợ dùm."
     },
     ĐápÁnĐúng: "B"
   },
   {
-    CâuHỏi: "GP đã thanh toán nhưng mất index, xử lý sao?",
+    CâuHỏi: "GP đã index thanh toán tiền cho ncc rồi, nhưng khách chốt thanh toán thì lại không index nữa, thì bán hàng nên làm gì",
     ĐápÁn: {
-      A: "Báo khách đợi + ép index/đổi URL/hoàn tiền",
-      B: "Báo NCC gỡ hoàn tiền",
-      C: "Báo khách cứ thanh toán"
+      A: "Báo khách đợi thêm 1,2 ngày và nhắc ncc ép index lại nếu không index được thì đổi url cho index hoặc hoàn tiền cho mình. Báo khách chốt thanh toán.",
+      B: "Báo ncc gỡ hoàn tiền",
+      C: "Báo khách cứ tt GP chưa index sau đó cố ép index cho họ."
     },
     ĐápÁnĐúng: "A"
   },
   {
-    CâuHỏi: "Đơn 500u bị ép còn 450u thì làm gì?",
+    CâuHỏi: "Đơn của khách là 500u nhưng khi lên payment ép giá xuống 450u thì nên làm gì",
     ĐápÁn: {
-      A: "Hủy đơn",
-      B: "Không đồng ý",
-      C: "Check còn lời thì nhận"
+      A: "Báo hủy đơn",
+      B: "Không đồng ý thỏa thuận deal này",
+      C: "Check xem có lời không, nếu vẫn lời thì hỗ trợ khách giá payment đưa ra."
     },
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "Nếu KH vượt tín dụng thì làm gì?",
+    CâuHỏi: "Nếu KH vượt tín dụng thì phải làm sao?",
     ĐápÁn: {
-      A: "Báo AD nâng hoặc thu hồi nợ",
-      B: "Tự nâng",
-      C: "Vẫn đi đơn"
+      A: "Báo AD check và xin nâng tín dụng, một là nâng tín dụng lên hoặc dừng bán thu hồi nợ dưới mức tín dụng",
+      B: "BH tự nâng tín dụng",
+      C: "Vẫn đi đơn mặc kệ tín dụng bị vượt"
     },
     ĐápÁnĐúng: "A"
   },
   {
-    CâuHỏi: "Đối với khách hàng mới cần làm gì?",
+    CâuHỏi: "Đối với KH mới cần làm những gì?",
     ĐápÁn: {
-      A: "Tạo mã là xong",
-      B: "Đi đơn luôn",
-      C: "Tạo mã + group + file + xin tín dụng"
+      A: "Tạo mã KH và tạo group là xong",
+      B: "Đi đơn luôn không cần làm gì",
+      C: "BH lấy mã KH, tạo group add AD và KH, tạo file KH, xin AD cấp tín dụng để đi đơn"
     },
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "GP đã thanh toán nhưng KH đòi hủy vì không index?",
+    CâuHỏi: "GP ở file ncc index (đã thanh toán), nhưng KH check không index đòi hủy không thanh toán thì xử lý như thế nào?",
     ĐápÁn: {
-      A: "Gỡ là xong",
-      B: "Gỡ + xin hoàn tiền hoặc fix bài",
-      C: "Hỏi AD"
+      A: "Xin gỡ là được, không cần làm gì thêm",
+      B: "Xin gỡ và xin ncc hoàn tiền (nếu ncc đồng ý hoàn tiền). Còn NCC không đồng ý hoàn tiền thì báo ncc fix lại url, đổi content (content sạch dạng cầu thủ,...) và ép thêm. Nếu KH vẫn không đồng ý và đòi hủy thì BH sẽ phải chịu chi phí bài GP đó",
+      C: "Đi hỏi AD"
     },
     ĐápÁnĐúng: "B"
   },
   {
-    CâuHỏi: "Đơn hủy sau 1 tuần cần note file nào?",
+    CâuHỏi: "Đơn đi được 1 tuần khi hủy note ở những file nào?",
     ĐápÁn: {
-      A: "File NCC, KT6, KH",
+      A: "File NCC, file KT6 và file KH",
       B: "File NCC",
-      C: "File NCC, KT6"
+      C: "File NCC, file KT6"
     },
     ĐápÁnĐúng: "A"
   },
   {
-    CâuHỏi: "Còn dùng 2 ví TRC20 và BEP20 không?",
+    CâuHỏi: "Bên mình còn xài 2 ví này không: \nTrc20: TVFNucFznW6sDxU2uA2c2z9wmy2Xmd3qMV\nBep20: 0x8ae92d5cd95c0bec95a352df16f40eacb83837b8",
     ĐápÁn: {
       A: "Có",
       B: "Không",
-      C: "Bỏ TRC20"
+      C: "Bỏ địa chỉ ví Trc20, vẫn dùng địa chỉ ví Bep20"
     },
     ĐápÁnĐúng: "B"
   },
   {
-    CâuHỏi: "Cách note chi phí content đúng?",
+    CâuHỏi: "Cách note chi phí content đúng",
     ĐápÁn: {
-      A: "Thích note sao cũng được",
-      B: "Chỉ ghi chi phí",
-      C: "Note đủ: chi phí + NCC + mã + người đi"
+      A: "A. Thích note sao thì note",
+      B: "B. Chỉ note chi phí, không note gì thêm",
+      C: "C. Note chuẩn như 1 NCC bình thường gồm chi phí + tên ncc + mã NCC + tên người đi đơn"
     },
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "Cách hủy GP/Text đúng?",
+    CâuHỏi: "Cách gỡ/hủy các đơn GP/Text đúng",
     ĐápÁn: {
-      A: "Tự hủy",
-      B: "Xin NCC + note đầy đủ + hoàn tiền nếu có",
-      C: "Chỉ note KT6"
+      A: "A. Không xin NCC, tự ý note hủy/gỡ",
+      B: "B. Xin NCC, note hủy/gỡ trên file NCC và file KT6. Nếu đơn đã được thanh toán thì xin hoàn tiền và note trừ tiền để nhận lại tiền",
+      C: "C. Xin NCC rồi nhưng chỉ note hủy/gỡ trên file kt6, không note hủy /gỡ trên file ncc"
     },
     ĐápÁnĐúng: "B"
   },
   {
-    CâuHỏi: "Gia hạn text có cần check giá?",
+    CâuHỏi: "Khi gia hạn text cho khách có cần check lại giá không?",
     ĐápÁn: {
-      A: "Có, báo giá mới",
-      B: "Không cần",
-      C: "Gia hạn trước"
+      A: "A. Check lại giá mới nhất và báo khách giá mới, khách oke mới gia hạn",
+      B: "B. Không, lấy giá cũ đi đơn cho khách luôn",
+      C: "C. Gia hạn trước báo giá khách sau cũng được"
     },
     ĐápÁnĐúng: "A"
   },
   {
-    CâuHỏi: "Stress công việc nên làm gì?",
+    CâuHỏi: "Nếu công việc stress quá thì nên làm gì",
     ĐápÁn: {
-      A: "Giải trí, nghỉ ngơi",
-      B: "Than vãn",
-      C: "Kệ vẫn làm"
+      A: "A. Đọc sách, xem phim, nghe nhạc, tán gẫu, du lịch...nói chung làm gì bạn thích",
+      B: "B. Than vãn với người khác",
+      C: "C. Mặc kệ vẫn làm tiếp"
     },
     ĐápÁnĐúng: "A"
   },
   {
-    CâuHỏi: "Đang dùng bao nhiêu ví nhận tiền?",
+    CâuHỏi: "Hiện đang dùng bao nhiêu ví để nhận tiền KH bank",
     ĐápÁn: {
-      A: "2 ví",
-      B: "3 ví",
-      C: "5 ví"
+      A: "A. Chỉ dùng  2 ví (Mexc 0x0c58df0579c6e5fb7801a1d40a27e2558d9ef932, Mexc TJj39JVR8EDs4hrJH5VN5MG9JFtXp5tHqw)",
+      B: "B. Chỉ dùng 3 ví (Bina 0xc98d818f4303c9bcd9eec93bbff48680fb6172c9, Bina TEBGFEUTPEPuq4QAeeP9u6Rjagtb9ENZXS)",
+      C: "C. 5 ví (Mexc 0x0c58df0579c6e5fb7801a1d40a27e2558d9ef932, Mexc TJj39JVR8EDs4hrJH5VN5MG9JFtXp5tHqw, Bina 0xc98d818f4303c9bcd9eec93bbff48680fb6172c9, Bina TEBGFEUTPEPuq4QAeeP9u6Rjagtb9ENZXS, Mexc 0xec4983ada0acb27d3bd1c90b21b6e922c391eed3)"
     },
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "NCC yêu cầu thanh toán thì tag ai?",
+    CâuHỏi: "NCC kêu tt tag ai",
     ĐápÁn: {
-      A: "Chân Thế Dân",
-      B: "Chân Như Kim",
-      C: "Ad của mình"
+      A: "tag Chân Thế Dân",
+      B: "tag Chân Như Kim",
+      C: "tag ad của mình"
     },
     ĐápÁnĐúng: "B"
   },
   {
-    CâuHỏi: "Slogan của F là gì?",
+    CâuHỏi: "Slogan của F là gì",
     ĐápÁn: {
-      A: "Quyền riêng tư...",
+      A: "Quyền riêng tư - luôn là chính mình - tỏa sáng",
       B: "Tự Do - Hòa Bình - Tình Yêu - Phẩm Giá",
       C: "Phẩm Giá - Tỏa Sáng"
     },
     ĐápÁnĐúng: "B"
   },
   {
-    CâuHỏi: "Note bill cần note file nào?",
+    CâuHỏi: "Khi note bill thanh toán, cần note những file nào?",
     ĐápÁn: {
-      A: "File KT",
-      B: "KT + KH",
-      C: "KT + KH + PB6"
+      A: " File KT",
+      B: " File KT và file KH",
+      C: " File KT, file KH và file PB6"
     },
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "Site lệch giá trên choseo xử lý sao?",
+    CâuHỏi: "Khi đi đơn trên choseo, trường hợp gặp site khách chọn giá thấp hơn so với giá trong tool check nhiều thì nên xử lý như thế nào?",
     ĐápÁn: {
-      A: "Xóa site",
-      B: "Vẫn đi",
-      C: "Báo KH + xóa + cập nhật giá"
+      A: " Báo khách site lệch giá và xóa site trong đơn",
+      B: " Vẫn nhận đơn đi bình thường",
+      C: " Báo khách site lệch giá và xóa site trong đơn, vào phần sản phẩm và cập nhật lại giá đúng"
     },
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "Thời gian bảo hành GP?",
+    CâuHỏi: "Thời gian bảo hành đơn GP là bao lâu",
     ĐápÁn: {
       A: "3 tháng",
       B: "4 tháng",
@@ -250,105 +250,106 @@ export const quizQuestions: QuizQuestion[] = [
     ĐápÁnĐúng: "A"
   },
   {
-    CâuHỏi: "GP chưa index >1 tuần KH muốn đổi site?",
+    CâuHỏi: "Khách đi đơn GP, bài đã lên được hơn 1 tuần nhưng chưa index (hoặc đã index) mà khách muốn đổi site khác thì có hỗ trợ cho khách đổi site không?",
     ĐápÁn: {
       A: "Có",
-      B: "Không",
-      C: "Xem xét"
+      B: "Không ",
+      C: "cần suy nghĩ t hêm"
     },
     ĐápÁnĐúng: "A"
   },
   {
-    CâuHỏi: "KH muốn tăng CK 10%?",
+    CâuHỏi: "KH muốn tăng CK lên 10% vì đi đơn nhiều và đã mua lâu bên mình thì có đồng ý tăng không?",
     ĐápÁn: {
       A: "Có",
-      B: "Không",
-      C: "Hỏi sếp"
+      B: "Không ",
+      C: "Hỏi ad hoặc sếp"
     },
     ĐápÁnĐúng: "B"
   },
   {
-    CâuHỏi: "NCC yêu cầu đổi content?",
+    CâuHỏi: "Ncc yêu cầu đổi content sang bài có hợp quy theo yêu cầu của họ ",
     ĐápÁn: {
-      A: "Order lại",
-      B: "Tự sửa",
-      C: "Nhờ team content fix"
+      A: "ODR lại bài mới",
+      B: "Tự ngồi sửa",
+      C: "Nhờ bên viết bài fix lại giúp"
     },
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "KH nói giá cao hơn bên khác?",
+    CâuHỏi: "Khách nói \" giá bán bên em cao hơn vài bên anh biết\"",
     ĐápÁn: {
-      A: "Phủ nhận",
-      B: "Giải thích nguồn giá ổn định",
-      C: "Hỏi sếp"
+      A: "Bên em giá thấp k cao đâu ạ",
+      B: "80% bên em mua trực tiếp từ CS, luôn đảm bảo mức giá ổn định và cạnh tranh nhất thị trường",
+      C: "Để em hỏi sếp ạ"
     },
     ĐápÁnĐúng: "B"
   },
   {
-    CâuHỏi: "KH chê site cũ, traffic thấp?",
+    CâuHỏi: "KH: Site bên em nhiều site cũ, traffic k cao ",
     ĐápÁn: {
-      A: "Có site mới",
-      B: "Tìm thêm",
-      C: "Gửi list site tốt"
+      A: "Bên em có nhiều site mới anh xem lại nha",
+      B: "Để em tìm thêm site",
+      C: "Bên em có cập nhật site mới hàng ngày ạ, anh cần tìm site theo yêu cầu gì cần em hỗ trợ không ạ và gởi KH 1 list các site có tỷ lệ index cao, traffic ổn định nhất hiện tại"
     },
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "LN giảm nhiều tuần, làm gì?",
+    CâuHỏi: "Lợi nhuận của bạn có dấu hiệu giảm trong vài tuần liên tiếp, bạn cần làm gì",
     ĐápÁn: {
-      A: "Chăm KH + tìm KH mới",
-      B: "Xin KH",
-      C: "Chờ"
+      A: "Kết nối lại kh cũ lâu không lên đơn, tương tác thêm với kh hiện tại nhờ họ giới thiệu thêm kh, minigame khuyến khích kh lên đơn",
+      B: "Xin admin cho khách",
+      C: "Đợi thêm khi nào kh cần sẽ tăng thêm đơn"
     },
     ĐápÁnĐúng: "A"
   },
   {
-    CâuHỏi: "NCC báo tăng giá khi lên đơn?",
+    CâuHỏi: "Ncc báo site tăng giá khi lên đơn",
     ĐápÁn: {
-      A: "Chấp nhận",
-      B: "Giữ giá cũ",
-      C: "Báo KH + update giá"
+      A: "Ok với ncc báo họ lên bài",
+      B: "Yêu cầu lên bài với giá cũ sẽ fix từ những bài sau",
+      C: "Báo kh mức giá mới, khách ok rồi thì báo data fix giá ( hoặc tự fix nếu biết thao tác) rồi báo ncc lên bài"
     },
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "Khái niệm BH của F?",
+    CâuHỏi: "Khái niệm BH của F là như nào",
     ĐápÁn: {
-      A: "Bán giỏi",
-      B: "Làm marketing + bán + xử lý",
-      C: "Bán hàng"
+      A: "1 ng bán hàng tốt, bán hàng rất tốt",
+      B: "1 ng mkt, bán hàng, thu nợ, xử lý tình huống, có nhiều ý tưởng hay",
+      C: "1 ng kiếm dc khách, bán dc hàng"
     },
     ĐápÁnĐúng: "B"
   },
   {
-    CâuHỏi: "Khái niệm kế toán của F?",
+    CâuHỏi: "Khái niệm Kế Toán của F như nào",
     ĐápÁn: {
-      A: "Note thu chi",
-      B: "Tối ưu tài chính",
-      C: "Kiểm soát đầu vào + thanh toán"
+      A: "1 ng note dc thu chi, và thanh toán ncc",
+      B: "kiểm soát dc tài chính, tối ưu thu vô, và hạn chế chi ra",
+      C: "1 ng có khả năng kiểm soát đầu vô, thanh toán dc cho nhân sự"
     },
     ĐápÁnĐúng: "C"
   },
   {
-    CâuHỏi: "Khái niệm AD của F?",
+    CâuHỏi: "khái niệm AD của F như nào",
     ĐápÁn: {
-      A: "Quản lý + bán + tư duy",
-      B: "Bán giỏi nhất",
-      C: "Ý tưởng nhiều"
+      A: "bán dc hàng, tổ chức dc team, quan tâm dc team mình và có ý tưởng hay, độc lập, tự chủ",
+      B: "bán hàng giỏi nhất trong team",
+      C: "Ng nhiều ý tưởng nhất trong team, bán dc hàng giỏi nhất"
     },
     ĐápÁnĐúng: "A"
   },
   {
-    CâuHỏi: "F là gì?",
+    CâuHỏi: "F là gì",
     ĐápÁn: {
-      A: "Chưa phân loại",
-      B: "Công ty",
-      C: "Môn phái"
+      A: "F chưa phân loại vô dc cái gì",
+      B: "F là cty",
+      C: "F là môn phái"
     },
     ĐápÁnĐúng: "A"
-  }
+  }  
 ];
+
 
 
 export interface WrongAnswerInfo {
