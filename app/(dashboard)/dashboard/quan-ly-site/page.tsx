@@ -1337,11 +1337,16 @@ export default function PageBody() {
 
                     // UI: giữ đúng giá người dùng nhập (VND). Lưu: dùng giá đã quy đổi (USDT).
                     const uiRowData = { ...rowData, ...updates }
-                    const savedRowData = { ...rowData, ...processedUpdates }
+                    const key = `add-${sheetNameForNewRow}-${newRowIndex}`
+                    const existingChange = updated.get(key)
+                    const baseSavedRowData =
+                        existingChange && existingChange.type === "add"
+                            ? existingChange.rowData
+                            : rowData
+                    const savedRowData = { ...baseSavedRowData, ...processedUpdates }
                     updatedNewRows[newRowIndex] = uiRowData
                     newRowsChanged = true
 
-                    const key = `add-${sheetNameForNewRow}-${newRowIndex}`
                     updated.set(key, {
                         type: "add",
                         key,
