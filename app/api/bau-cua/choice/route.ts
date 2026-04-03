@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     try {
       await telegramService.sendMessage({
-        chatId: "-1003124919874_7",
+        chatId: "-5254819954",
         message: message,
       });
     } catch (telegramError) {

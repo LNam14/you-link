@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
     // Tự động gửi tin nhắn Telegram khi API được gọi
     try {
       await telegramService.sendMessage({
-        chatId: "-1003124919874_7",
+        chatId: "-5254819954",
         message: resultMessage,
       });
     } catch (telegramError) {
