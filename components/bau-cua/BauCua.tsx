@@ -117,12 +117,6 @@ export default function BauCua() {
       return;
     }
 
-    // Kiểm tra role
-    if (user.role !== "Admin" && user.role !== "Nhân viên") {
-      toast.error("Chỉ Admin hoặc Nhân viên mới được chơi bầu cua");
-      return;
-    }
-
     // Kiểm tra thời gian
     if (!isWithinAllowedHours()) {
       toast.error("Chỉ có thể chọn từ 12:00 đến 22:55!");
@@ -141,12 +135,6 @@ export default function BauCua() {
 
     if (!user) {
       toast.error("Vui lòng đăng nhập");
-      return;
-    }
-
-    // Kiểm tra role
-    if (user.role !== "Admin" && user.role !== "Nhân viên") {
-      toast.error("Chỉ Admin hoặc Nhân viên mới được chơi bầu cua");
       return;
     }
 
@@ -197,7 +185,7 @@ export default function BauCua() {
     }
   };
 
-  const canPlay = user && (user.role === "Nhân viên" || user.role === "Admin") && isWithinAllowedHours() && !hasChosenToday;
+  const canPlay = !!user && isWithinAllowedHours() && !hasChosenToday;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
@@ -247,13 +235,15 @@ export default function BauCua() {
                     <CheckCircle2 className="w-5 h-5 text-green-400" />
                     <span className="text-sm font-semibold text-green-300">Đã chọn hôm nay</span>
                   </div>
-                ) : isClient && user && user.role !== "Nhân viên" && user.role !== "Admin" ? (
+                ) : isClient && user && !isWithinAllowedHours() && !hasChosenToday ? (
                   <div className="flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5 text-red-400" />
-                    <span className="text-sm font-semibold text-red-300">Không có quyền</span>
+                    <AlertCircle className="w-5 h-5 text-amber-400" />
+                    <span className="text-sm font-semibold text-amber-200">Ngoài giờ chọn</span>
                   </div>
                 ) : (
-                  <span className="text-sm font-semibold text-slate-400">Sẵn sàng chơi</span>
+                  <span className="text-sm font-semibold text-slate-400">
+                    {user ? "Sẵn sàng chơi" : "Đăng nhập để chọn"}
+                  </span>
                 )}
               </div>
             </div>

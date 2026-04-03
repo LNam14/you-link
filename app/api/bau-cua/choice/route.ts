@@ -31,14 +31,6 @@ export async function POST(request: NextRequest) {
     const userId = decoded.userId;
     const username = decoded.username;
 
-    // Kiểm tra role (chỉ Admin hoặc Nhân viên)
-    if (decoded.role !== "Admin" && decoded.role !== "Nhân viên") {
-      return errorResponse(
-        new Error("Chỉ Admin hoặc Nhân viên mới được chơi bầu cua"),
-        403
-      );
-    }
-
     // Kiểm tra thời gian (chỉ cho phép từ 12:00 đến 22:55) - sử dụng múi giờ Việt Nam
     const vietnamNow = getVietnamTime();
     const hours = getVietnamHours();
