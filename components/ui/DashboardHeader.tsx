@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { Menu, X, RefreshCw, Globe, DollarSign, Coins, CreditCard, User, LogIn, Wrench, Home } from "lucide-react";
+import { Menu, X, RefreshCw, Globe, DollarSign, Coins, CreditCard, User, LogIn, Wrench, Home, Dice6 } from "lucide-react";
 import Link from "next/link";
 import { useHeader } from "@/app/(dashboard)/contexts/HeaderContext";
 import LoginModal from "@/components/auth/LoginModal";
@@ -22,6 +22,7 @@ export default function DashboardHeader({
   const { title, subTitle, tabs, activeTab, onTabChange, refreshButton, onRefresh, customControls } = useHeader();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const isToolCheckSite = pathname?.startsWith("/dashboard/tool-check-site") ?? false;
+  const isBauCua = pathname?.startsWith("/dashboard/bau-cua") ?? false;
 
   // Ẩn header chỉ khi đã đăng nhập và không có title/tabs/customControls
   if (!title && !tabs && !customControls && user) {
@@ -97,25 +98,50 @@ export default function DashboardHeader({
               </>
             ) : (
               <>
-                {/* Chưa đăng nhập: ở /dashboard hiện Tool check site, ở /dashboard/tool-check-site hiện Về Trang chủ */}
-                {isToolCheckSite ? (
-                  <Link
-                    href="/dashboard"
-                    className="cursor-pointer flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-white/30 text-white text-sm font-medium transition-all shadow-lg"
-                  >
-                    <Home className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
-                    <span>Về Trang chủ</span>
-                  </Link>
-                ) : (
-                  <Link
-                    href="/dashboard/tool-check-site"
-                    className="cursor-pointer flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-white/30 text-white text-sm font-medium transition-all shadow-lg"
-                  >
-                    <Wrench className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
-                    <span className="hidden sm:inline">Tool check site</span>
-                    <span className="sm:hidden">Check site</span>
-                  </Link>
-                )}
+                {/* Chưa đăng nhập: điều hướng Tool check site / Bầu Cua / Về Trang chủ */}
+                <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+                  {isToolCheckSite ? (
+                    <>
+                      <Link
+                        href="/dashboard"
+                        className="cursor-pointer flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-white/30 text-white text-sm font-medium transition-all shadow-lg"
+                      >
+                        <Home className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                        <span>Về Trang chủ</span>
+                      </Link>
+                    </>
+                  ) : isBauCua ? (
+                    <>
+                      <Link
+                        href="/dashboard"
+                        className="cursor-pointer flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-white/30 text-white text-sm font-medium transition-all shadow-lg"
+                      >
+                        <Home className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                        <span>Về Trang chủ</span>
+                      </Link>
+                      <Link
+                        href="/dashboard/tool-check-site"
+                        className="cursor-pointer flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-white/30 text-white text-sm font-medium transition-all shadow-lg"
+                      >
+                        <Wrench className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                        <span className="hidden sm:inline">Tool check site</span>
+                        <span className="sm:hidden">Check site</span>
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        href="/dashboard/tool-check-site"
+                        className="cursor-pointer flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl hover:bg-white/30 text-white text-sm font-medium transition-all shadow-lg"
+                      >
+                        <Wrench className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                        <span className="hidden sm:inline">Tool check site</span>
+                        <span className="sm:hidden">Check site</span>
+                      </Link>
+                     
+                    </>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowLoginModal(true)}

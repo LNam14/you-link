@@ -17,10 +17,11 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = getAuthTokenOptional(request);
 
-  // User chưa đăng nhập chỉ được vào /dashboard hoặc /dashboard/tool-check-site
+  // User chưa đăng nhập chỉ được vào /dashboard, /dashboard/tool-check-site, /dashboard/bau-cua
   const allowWithoutAuth =
     PUBLIC_UNAUTH_ROUTES.includes(pathname) ||
-    pathname.startsWith("/dashboard/tool-check-site");
+    pathname.startsWith("/dashboard/tool-check-site") ||
+    pathname.startsWith("/dashboard/bau-cua");
 
   if (!token) {
     if (allowWithoutAuth) {

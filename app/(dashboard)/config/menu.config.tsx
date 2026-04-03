@@ -37,6 +37,7 @@ export const getMenuGroups = (userRole?: string): MenuGroup[] => {
         { href: "/dashboard/tool-check-site", label: "Tool Check Site", icon: FileText },
         { href: "/dashboard/tool-check-tong-hop", label: "Tool Check Tổng Hợp", icon: Package },
         { href: "/dashboard/quan-ly-site", label: "Quản lý Site", icon: LayoutGrid },
+        { href: "/dashboard/bau-cua", label: "Bầu Cua", icon: Dice6 },
       ],
     },
   ];
