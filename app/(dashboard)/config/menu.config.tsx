@@ -12,6 +12,18 @@ export interface MenuGroup {
 }
 
 export const getMenuGroups = (userRole?: string): MenuGroup[] => {
+  if (userRole === "Khách hàng") {
+    return [
+      {
+        title: "Tools",
+        items: [
+          { href: "/dashboard/tool-check-site", label: "Tool Check Site", icon: FileText },
+          { href: "/dashboard/bau-cua", label: "Bầu Cua", icon: Dice6 },
+        ],
+      },
+    ];
+  }
+
   return [
     {
       title: "Quản lý",
