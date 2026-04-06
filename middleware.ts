@@ -17,11 +17,15 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = getAuthTokenOptional(request);
 
+  // Sự kiện đã đóng: chặn mọi truy cập /dashboard/bau-cua
+  if (pathname.startsWith("/dashboard/bau-cua")) {
+    return NextResponse.redirect(new URL(DASHBOARD_URL, request.url));
+  }
+
   // User chưa đăng nhập chỉ được vào /dashboard, /dashboard/tool-check-site, /dashboard/bau-cua
   const allowWithoutAuth =
     PUBLIC_UNAUTH_ROUTES.includes(pathname) ||
-    pathname.startsWith("/dashboard/tool-check-site") ||
-    pathname.startsWith("/dashboard/bau-cua");
+    pathname.startsWith("/dashboard/tool-check-site");
 
   if (!token) {
     if (allowWithoutAuth) {

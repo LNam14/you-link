@@ -1,4 +1,4 @@
-import { Home, Users, UserCircle, Calendar, DollarSign, ClipboardList, FileText, Package, LayoutGrid, Dice6, LucideIcon } from "lucide-react";
+import { Home, Users, UserCircle, Calendar, DollarSign, ClipboardList, FileText, Package, LayoutGrid, LucideIcon } from "lucide-react";
 
 export interface MenuItem {
   href: string;
@@ -18,7 +18,6 @@ export const getMenuGroups = (userRole?: string): MenuGroup[] => {
         title: "Tools",
         items: [
           { href: "/dashboard/tool-check-site", label: "Tool Check Site", icon: FileText },
-          { href: "/dashboard/bau-cua", label: "Bầu Cua", icon: Dice6 },
         ],
       },
     ];
@@ -49,7 +48,6 @@ export const getMenuGroups = (userRole?: string): MenuGroup[] => {
         { href: "/dashboard/tool-check-site", label: "Tool Check Site", icon: FileText },
         { href: "/dashboard/tool-check-tong-hop", label: "Tool Check Tổng Hợp", icon: Package },
         { href: "/dashboard/quan-ly-site", label: "Quản lý Site", icon: LayoutGrid },
-        { href: "/dashboard/bau-cua", label: "Bầu Cua", icon: Dice6 },
       ],
     },
   ];
