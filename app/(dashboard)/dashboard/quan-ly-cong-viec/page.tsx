@@ -1365,6 +1365,88 @@ const PageBody: React.FC = () => {
       }))
     : []
 
+  const exportCurrentWeekDeXuat = useCallback(async () => {
+    if (!isAdmin) {
+      return
+    }
+
+    try {
+      const csvEscape = (value: string) => `"${value.replace(/"/g, '""')}"`
+      const headers = ["1", "2", "3", "Người đề xuất"]
+      const weekKey = getWeekKey(weeklyTasksWeekDates.weekNumber)
+      const weekLabel = `Tuần ${weeklyTasksWeekDates.weekNumber} (${weeklyTasksWeekDates.startDateObj.getDate()}/${weeklyTasksWeekDates.startDateObj.getMonth() + 1}-${weeklyTasksWeekDates.endDateObj.getDate()}/${weeklyTasksWeekDates.endDateObj.getMonth() + 1})`
+
+      const employees = allUsers.filter((user) => {
+        if (!user?.username || user.role !== "Nhân viên") return false
+        if (userInfo?.role === "Admin") return true
+        return user.team === userInfo?.team
+      })
+
+      if (employees.length === 0) {
+        toast.error("Không có nhân viên để xuất.")
+        return
+      }
+
+      // Lấy dữ liệu đầy đủ từ API để đảm bảo có đề xuất của toàn bộ nhân viên.
+      const response: any = await workTaskApiRequest.getAllData()
+      const data = response?.data || response
+      const workTaskUsers = data?.workTask?.users || {}
+
+      const extractDeXuat = (weekData: any): string[] => {
+        if (!weekData) return ["", "", ""]
+        const result = [...(weekData.deXuat || [])]
+        if (!weekData.deXuat && weekData.weeklyTasks?.length) {
+          const converted = weekData.weeklyTasks
+            .filter(
+              (t: WeeklyTaskData) =>
+                t.title && (t.title === "Đề xuất 1" || t.title === "Đề xuất 2" || t.title === "Đề xuất 3"),
+            )
+            .sort((a: WeeklyTaskData, b: WeeklyTaskData) => {
+              const numA = Number.parseInt(a.title.replace("Đề xuất ", "")) || 0
+              const numB = Number.parseInt(b.title.replace("Đề xuất ", "")) || 0
+              return numA - numB
+            })
+            .map((t: WeeklyTaskData) => t.content || "")
+          result.splice(0, 3, converted[0] || "", converted[1] || "", converted[2] || "")
+        }
+        while (result.length < 3) result.push("")
+        if (result.length > 3) result.splice(3)
+        return result
+      }
+
+      const rows = employees.map((employee) => {
+        const employeeWeekData = workTaskUsers[employee.username]?.weeks?.[weekKey]
+        const employeeDeXuat = extractDeXuat(employeeWeekData)
+        const proposerLabel = `${employee.username}-${employee.fullname || employee.username}`
+        return [employeeDeXuat[0] || "", employeeDeXuat[1] || "", employeeDeXuat[2] || "", proposerLabel]
+      })
+
+      const weekRow = ["Đề xuất", weekLabel, "", ""]
+      const csvContent = [weekRow, headers, ...rows].map((line) => line.map(csvEscape).join(",")).join("\r\n")
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `de-xuat-tuan-${weeklyTasksWeekDates.weekNumber}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      toast.success("Đã xuất file Excel cho tuần đang chọn.")
+    } catch (error) {
+      console.error("Error exporting de xuat:", error)
+      toast.error("Xuất file thất bại, vui lòng thử lại.")
+    }
+  }, [
+    isAdmin,
+    allUsers,
+    userInfo?.role,
+    userInfo?.team,
+    weeklyTasksWeekDates.weekNumber,
+    weeklyTasksWeekDates.startDateObj,
+    weeklyTasksWeekDates.endDateObj,
+  ])
+
   // Lưu giá trị ban đầu của daily tasks cho ngày hôm nay khi dữ liệu được tải
   useEffect(() => {
     const today = getTodayLocal()
@@ -2995,27 +3077,37 @@ const PageBody: React.FC = () => {
               <div className="p-4 space-y-5 flex-1 overflow-y-auto">
                 {/* Đề xuất Section */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold uppercase tracking-wide" style={{ fontSize: '11px', letterSpacing: '0.05em', color: '#8b5cf6' }}>Đề xuất</h3>
-                    {(() => {
-                      const weekEndDate = weeklyTasksWeekDates.endDate
-                      const deXuatStatus = getDeXuatStatus(deXuat, weekEndDate)
-                      const statusBadgeColors = {
-                        success: "bg-green-500",
-                        failed: "bg-red-500",
-                        pending: "bg-yellow-500"
-                      }
-                      const statusLabels = {
-                        success: "Hoàn thành",
-                        failed: "Quá hạn",
-                        pending: "Đang làm"
-                      }
-                      return (
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium text-white ${statusBadgeColors[deXuatStatus]}`}>
-                          {statusLabels[deXuatStatus]}
-                        </span>
-                      )
-                    })()}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold uppercase tracking-wide" style={{ fontSize: '11px', letterSpacing: '0.05em', color: '#8b5cf6' }}>Đề xuất</h3>
+                      {(() => {
+                        const weekEndDate = weeklyTasksWeekDates.endDate
+                        const deXuatStatus = getDeXuatStatus(deXuat, weekEndDate)
+                        const statusBadgeColors = {
+                          success: "bg-green-500",
+                          failed: "bg-red-500",
+                          pending: "bg-yellow-500"
+                        }
+                        const statusLabels = {
+                          success: "Hoàn thành",
+                          failed: "Quá hạn",
+                          pending: "Đang làm"
+                        }
+                        return (
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium text-white ${statusBadgeColors[deXuatStatus]}`}>
+                            {statusLabels[deXuatStatus]}
+                          </span>
+                        )
+                      })()}
+                    </div>
+                    {isAdmin && (
+                      <button
+                        onClick={exportCurrentWeekDeXuat}
+                        className="cursor-pointer px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-100 hover:bg-purple-200 border border-purple-300 rounded-lg transition-colors"
+                      >
+                        Xuất Excel
+                      </button>
+                    )}
                   </div>
 
                   {deXuat.slice(0, 3).map((item, idx) => {
