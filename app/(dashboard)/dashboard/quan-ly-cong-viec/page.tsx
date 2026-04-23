@@ -1372,7 +1372,6 @@ const PageBody: React.FC = () => {
 
     try {
       const csvEscape = (value: string) => `"${value.replace(/"/g, '""')}"`
-      const headers = ["1", "2", "3", "Người đề xuất"]
       const weekKey = getWeekKey(weeklyTasksWeekDates.weekNumber)
       const weekLabel = `Tuần ${weeklyTasksWeekDates.weekNumber} (${weeklyTasksWeekDates.startDateObj.getDate()}/${weeklyTasksWeekDates.startDateObj.getMonth() + 1}-${weeklyTasksWeekDates.endDateObj.getDate()}/${weeklyTasksWeekDates.endDateObj.getMonth() + 1})`
 
@@ -1414,15 +1413,21 @@ const PageBody: React.FC = () => {
         return result
       }
 
-      const rows = employees.map((employee) => {
+      const rows = employees.flatMap((employee) => {
         const employeeWeekData = workTaskUsers[employee.username]?.weeks?.[weekKey]
         const employeeDeXuat = extractDeXuat(employeeWeekData)
         const proposerLabel = `${employee.username}-${employee.fullname || employee.username}`
-        return [employeeDeXuat[0] || "", employeeDeXuat[1] || "", employeeDeXuat[2] || "", proposerLabel]
+
+        const nonEmptyDeXuat = employeeDeXuat.map((item) => item.trim()).filter((item) => item.length > 0)
+        if (nonEmptyDeXuat.length === 0) {
+          return [["", proposerLabel]]
+        }
+
+        return nonEmptyDeXuat.map((item, index) => [item, index === 0 ? proposerLabel : ""])
       })
 
-      const weekRow = ["Đề xuất", weekLabel, "", ""]
-      const csvContent = [weekRow, headers, ...rows].map((line) => line.map(csvEscape).join(",")).join("\r\n")
+      const titleRow = ["Đề xuất", weekLabel]
+      const csvContent = [titleRow, ...rows].map((line) => line.map(csvEscape).join(",")).join("\r\n")
       const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" })
       const url = URL.createObjectURL(blob)
       const link = document.createElement("a")
