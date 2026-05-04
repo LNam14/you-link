@@ -360,7 +360,10 @@ export default function PageBody() {
 
             if (rawTerms.length === 0) return []
 
-            const sourceData = applyLocalUpdates([...allData, ...localAddedRows], overrideUpdatedRows)
+            const mergedSourceData = localAddedRows.length > 0
+                ? [...allData, ...localAddedRows]
+                : allData
+            const sourceData = applyLocalUpdates(mergedSourceData, overrideUpdatedRows)
                 .filter((item) => {
                     const key = getRowKey(item.sheetName, item.rowIndex, item.site)
                     if (!key) return true
@@ -680,12 +683,21 @@ export default function PageBody() {
         }
     }, [handleSearchClick])
 
-    // Update data immediately when currency or rate changes to avoid flicker (only convert, don't refetch)
+    // Update data immediately when currency or rate changes (only recalculate, no refetch)
     useEffect(() => {
         if (hasSearched && searchTerm && allData.length > 0) {
-            runSearch(searchTerm, true) // Skip fetch, just convert currency
+            const filteredItems = filterDataBySearch(searchTerm)
+            setFilteredData((prev) => {
+                if (
+                    prev.length === filteredItems.length &&
+                    prev.every((item, idx) => item === filteredItems[idx])
+                ) {
+                    return prev
+                }
+                return filteredItems
+            })
         }
-    }, [selectedCurrency, exchangeRate, hasSearched, searchTerm, runSearch, allData])
+    }, [selectedCurrency, exchangeRate, hasSearched, searchTerm, allData, filterDataBySearch])
 
     // Price renderer
     const createPriceRenderer = useCallback((field: string) => {

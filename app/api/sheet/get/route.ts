@@ -16,6 +16,11 @@ let cachedAuthClient: any = null
 let authClientExpiry = 0
 const AUTH_CLIENT_TTL = 50 * 60 * 1000 // 50 phút
 let lastModifiedTime: string | null = null
+let lastModifiedCheckedAt = 0
+const MODIFIED_TIME_CHECK_INTERVAL = 15 * 1000 // 15 giây
+let noteNCCCache: Map<string, string> | null = null
+let noteNCCCacheExpiry = 0
+const NOTE_NCC_CACHE_TTL = 5 * 60 * 1000 // 5 phút
 
 // Cleanup auth client định kỳ
 if (typeof setInterval !== "undefined") {
@@ -295,7 +300,37 @@ async function getSpreadsheetModifiedTime(authClient: any): Promise<string | nul
     }
 }
 
+async function getSpreadsheetModifiedTimeCached(authClient: any, forceRefresh: boolean): Promise<string | null> {
+    const now = Date.now()
+    const shouldCheck =
+        forceRefresh ||
+        !lastModifiedTime ||
+        now - lastModifiedCheckedAt > MODIFIED_TIME_CHECK_INTERVAL
+
+    if (!shouldCheck) {
+        return lastModifiedTime
+    }
+
+    const modifiedTime = await getSpreadsheetModifiedTime(authClient)
+    lastModifiedCheckedAt = now
+
+    if (modifiedTime && lastModifiedTime && modifiedTime !== lastModifiedTime) {
+        invalidateAllCache()
+        console.log("[sheet/get] Sheet modifiedTime changed, cache invalidated")
+    }
+    if (modifiedTime) {
+        lastModifiedTime = modifiedTime
+    }
+
+    return modifiedTime || lastModifiedTime
+}
+
 async function getNoteNCCData(gsapi: any): Promise<Map<string, string>> {
+    const now = Date.now()
+    if (noteNCCCache && noteNCCCacheExpiry > now) {
+        return noteNCCCache
+    }
+
     try {
         const { data } = await gsapi.spreadsheets.values.batchGet({
             spreadsheetId: NOTE_NCC_SPREADSHEET_ID,
@@ -344,11 +379,13 @@ async function getNoteNCCData(gsapi: any): Promise<Map<string, string>> {
             }
         }
         
+        noteNCCCache = noteNCCMap
+        noteNCCCacheExpiry = now + NOTE_NCC_CACHE_TTL
         console.log(`[sheet/get] Loaded ${noteNCCMap.size} NoteNCC entries from external sheet`)
         return noteNCCMap
     } catch (error) {
         console.warn("[sheet/get] Failed to fetch NoteNCC data from external sheet:", error)
-        return new Map<string, string>()
+        return noteNCCCache || new Map<string, string>()
     }
 }
 
@@ -440,28 +477,31 @@ export async function GET(req: Request) {
         const forceRefresh = url.searchParams.get("revalidate") === "1"
         
         const client = await getAuthClient()
-
-        // Nếu sheet thay đổi (modifiedTime khác), reset toàn bộ cache
-        const modifiedTime = await getSpreadsheetModifiedTime(client)
-        if (modifiedTime && lastModifiedTime && modifiedTime !== lastModifiedTime) {
-            invalidateAllCache()
-            console.log("[sheet/get] Sheet modifiedTime changed, cache invalidated")
-        }
-        if (modifiedTime) {
-            lastModifiedTime = modifiedTime
-        }
+        const modifiedTime = await getSpreadsheetModifiedTimeCached(client, forceRefresh)
+        const responseEtag = modifiedTime ? `W/"sheet-get-${modifiedTime}"` : undefined
+        const ifNoneMatch = req.headers.get("if-none-match")
 
         // Cache key gắn kèm modifiedTime để tự động thay đổi khi sheet thay đổi
         const cacheKeySuffix = modifiedTime ? `get-${modifiedTime}` : "get"
         const cacheKey = getCacheKey(SPREADSHEET_ID, cacheKeySuffix)
         
         if (!forceRefresh) {
+            if (responseEtag && ifNoneMatch && ifNoneMatch === responseEtag) {
+                return new NextResponse(null, {
+                    status: 304,
+                    headers: {
+                        ETag: responseEtag,
+                    },
+                })
+            }
+
             const cached = getCachedData(cacheKey)
             if (cached) {
                 console.log(`[sheet/get] Cache hit - ${Date.now() - startTime}ms`)
                 return NextResponse.json(cached, {
                     status: 200,
                     headers: {
+                        ...(responseEtag ? { ETag: responseEtag } : {}),
                         "Cache-Control": "private, max-age=600, stale-while-revalidate=1200",
                         "CDN-Cache-Control": "public, max-age=600",
                     },
@@ -472,13 +512,11 @@ export async function GET(req: Request) {
         const gsapi = google.sheets({ version: "v4", auth: client })
 
         const fetchStart = Date.now()
-        const rawData = await getAllSheetData(gsapi)
+        const [rawData, noteNCCMap] = await Promise.all([
+            getAllSheetData(gsapi),
+            getNoteNCCData(gsapi),
+        ])
         console.log(`[sheet/get] Fetch data time: ${Date.now() - fetchStart}ms`)
-
-        // Fetch NoteNCC data from external sheet
-        const noteNCCStart = Date.now()
-        const noteNCCMap = await getNoteNCCData(gsapi)
-        console.log(`[sheet/get] Fetch NoteNCC time: ${Date.now() - noteNCCStart}ms`)
 
         const nccStart = Date.now()
         const nccData = rawData.ncc ? rawData.ncc.map((row, index) => {
@@ -556,6 +594,7 @@ export async function GET(req: Request) {
         return NextResponse.json(formattedData, {
             status: 200,
             headers: {
+                ...(responseEtag ? { ETag: responseEtag } : {}),
                 "Cache-Control": "private, max-age=600, stale-while-revalidate=1200",
                 "CDN-Cache-Control": "public, max-age=600",
             },

@@ -246,7 +246,7 @@ export default function PageBody() {
         // Kiểm tra nếu đây là kết quả từ nút "Tải dữ liệu"
         if (isLoadingDataRef.current && allData && allData.length > 0 && !loading && !refreshing) {
             // Đây là kết quả từ nút "Tải dữ liệu"
-            setLocalData([...allData])
+            setLocalData(allData)
             setDataLoaded(true)
             setIsSearching(false)
             autoApplyAfterLoadRef.current = true // Kích hoạt auto apply để hiển thị ngay
@@ -733,39 +733,52 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
 
                 // Collect matching items - giữ thứ tự tìm kiếm
                 // Không loại bỏ site trùng ở đây, để xử lý sau khi group theo site
-                validTerms.forEach((term) => {
-                    const matchingItems = dataSource.filter((item) => {
-                        if (selectedSearchType === "Site") {
-                            const normalizedSite = normalizeUrl(item.site)
-                            return normalizedSite === term
+                if (selectedSearchType === "Site") {
+                    const siteLookup = new Map<string, SiteData[]>()
+                    dataSource.forEach((item) => {
+                        const normalizedSite = normalizeUrl(item.site)
+                        if (!normalizedSite) return
+                        const existing = siteLookup.get(normalizedSite)
+                        if (existing) {
+                            existing.push(item)
                         } else {
-                            const normalizedTerm = term.toUpperCase().trim()
-                            if (!normalizedTerm) return false
-                            
+                            siteLookup.set(normalizedSite, [item])
+                        }
+                    })
+
+                    validTerms.forEach((term) => {
+                        const matchingItems = siteLookup.get(term) || []
+                        dataToProcess.push(...matchingItems)
+
+                        // Nếu không tìm thấy site nào khớp, vẫn thêm một dòng rỗng để hiển thị đúng thứ tự nhập
+                        if (matchingItems.length === 0) {
+                            dataToProcess.push(createEmptySiteEntry(term))
+                        }
+                    })
+                } else {
+                    validTerms.forEach((term) => {
+                        const normalizedTerm = term.toUpperCase().trim()
+                        if (!normalizedTerm) return
+
+                        const matchingItems = dataSource.filter((item) => {
                             const normalizedMaNCC = String(item.MaNCC || "").toUpperCase().trim()
                             const normalizedNCC = String(item.NCC || "").toUpperCase().trim()
-                            
+
                             const matchMaNCC = normalizedMaNCC && (
-                                normalizedMaNCC === normalizedTerm || 
+                                normalizedMaNCC === normalizedTerm ||
                                 normalizedMaNCC.startsWith(normalizedTerm)
                             )
                             const matchNCC = normalizedNCC && (
-                                normalizedNCC === normalizedTerm || 
+                                normalizedNCC === normalizedTerm ||
                                 normalizedNCC.startsWith(normalizedTerm)
                             )
-                            
-                            return matchMaNCC || matchNCC
-                        }
-                    })
-                    
-                    // Thêm tất cả items match vào kết quả (không loại bỏ trùng ở đây)
-                    dataToProcess.push(...matchingItems)
 
-                    // Nếu không tìm thấy site nào khớp, vẫn thêm một dòng rỗng để hiển thị đúng thứ tự nhập
-                    if (selectedSearchType === "Site" && matchingItems.length === 0) {
-                        dataToProcess.push(createEmptySiteEntry(term))
-                    }
-                })
+                            return matchMaNCC || matchNCC
+                        })
+
+                        dataToProcess.push(...matchingItems)
+                    })
+                }
             } else {
                 // No search term, use all data
                 dataToProcess = [...dataSource]

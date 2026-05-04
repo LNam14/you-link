@@ -229,15 +229,17 @@ export function useSheetToolData(
         headers["x-api-key"] = process.env.NEXT_PUBLIC_TOOL_API_KEY;
       }
       
-      // Add ETag for cache validation (unless forcing refresh)
-      if (!isRefresh && etagRef.current) {
+      // Add ETag for cache validation.
+      if (etagRef.current) {
         headers["If-None-Match"] = etagRef.current;
       }
 
       // Call the API endpoint - sử dụng sheet API with search params
       const searchParams = new URLSearchParams();
-      // Luôn yêu cầu backend bỏ qua cache
-      searchParams.set("revalidate", "1");
+      // Chỉ buộc backend bỏ qua cache cho các request refresh chủ động.
+      if (isRefresh) {
+        searchParams.set("revalidate", "1");
+      }
       if (hasSearchTerm && !forceLoadAll) {
         searchParams.set("search", searchTerm);
         searchParams.set("searchType", searchTypeValue);
@@ -270,17 +272,18 @@ export function useSheetToolData(
       if (typeof window !== "undefined") {
         candidateUrls.push(buildUrl(window.location.origin));
       }
+      const uniqueCandidateUrls = Array.from(new Set(candidateUrls));
 
       let response: Response | null = null;
       let lastError: any = null;
 
-      for (const url of candidateUrls) {
+      for (const url of uniqueCandidateUrls) {
         try {
           response = await fetch(url, {
             method: "GET",
             headers,
             credentials: "include",
-            cache: "no-store",
+            cache: isRefresh ? "no-store" : "no-cache",
           });
 
           if (response.status !== 404) {
