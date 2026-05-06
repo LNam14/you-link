@@ -768,7 +768,7 @@ export default function PageBody() {
                 renderer: createCellRenderer(),
             },
             {
-                title: "Bóng",
+                title: "Chợ Seo",
                 data: "bong",
                 width: 40,
                 className: "htMiddle text-center",
@@ -2538,7 +2538,7 @@ export default function PageBody() {
                     rowHeaders={false}
                     colHeaders={true}
                     copyPaste={true}
-                    hiddenColumns={showTiGiaColumns ? [2,3] : [2, 3, 23, 24, 25, 26]}
+                    hiddenColumns={showTiGiaColumns ? [3] : [ 3, 23, 24, 25, 26]}
                     columnSorting={false}
                     autoColumnSize={false}
                     preventOverflow="horizontal"

@@ -1611,7 +1611,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 }) as RendererFunction,
             },
             {
-                title: "Bóng",
+                title: "Chợ Seo",
                 data: "bong",
                 width: 40,
                 className: "htMiddle text-center",
@@ -2727,7 +2727,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                     data={dataWithSummary}
                     columns={mappedColumns}
                     nestedHeaders={nestedHeaders}
-                    hiddenColumns={userInfo ? [2, 3] : [1, 2]}
+                    hiddenColumns={userInfo ? [3] : [1, 2]}
                     height="auto"
                     width="100%"
                     licenseKey="non-commercial-and-evaluation"
