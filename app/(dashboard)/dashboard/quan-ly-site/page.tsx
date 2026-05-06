@@ -768,7 +768,7 @@ export default function PageBody() {
                 renderer: createCellRenderer(),
             },
             {
-                title: "Chợ Seo",
+                title: "Chợ Seo", 
                 data: "bong",
                 width: 40,
                 className: "htMiddle text-center",
