@@ -260,23 +260,53 @@ async function getAuthClient() {
     }
 
     const authStart = Date.now()
-    const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL
-    const privateKey = process.env.GOOGLE_SHEETS_PRIVATE_KEY
+    const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL?.trim()
+    const privateKeyRaw = process.env.GOOGLE_SHEETS_PRIVATE_KEY
     
-    if (!clientEmail || !privateKey) {
+    if (!clientEmail || !privateKeyRaw) {
         throw new Error("Missing Google Sheets credentials. Please set GOOGLE_SHEETS_CLIENT_EMAIL and GOOGLE_SHEETS_PRIVATE_KEY in .env.local")
     }
+
+    // Normalize common .env formats:
+    // - keys stored with surrounding quotes: "-----BEGIN PRIVATE KEY-----\n..."
+    // - escaped newlines: \n
+    // - Windows CRLF: \r\n
+    let privateKey = privateKeyRaw.trim()
+    if (
+        (privateKey.startsWith('"') && privateKey.endsWith('"')) ||
+        (privateKey.startsWith("'") && privateKey.endsWith("'"))
+    ) {
+        privateKey = privateKey.slice(1, -1)
+    }
+    privateKey = privateKey.replace(/\\n/g, "\n").replace(/\r\n/g, "\n")
     
     const client = new google.auth.JWT({
         email: clientEmail,
-        key: privateKey.replace(/\\n/g, "\n"),
+        key: privateKey,
         scopes: [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive.readonly",
         ],
     })
 
-    await client.authorize()
+    try {
+        await client.authorize()
+    } catch (err: any) {
+        const msg = String(err?.message || err)
+        // Surface a more actionable message for the common service-account misconfig.
+        if (msg.includes("invalid_grant") && msg.toLowerCase().includes("invalid jwt signature")) {
+            throw new Error(
+                [
+                    "Google auth failed: invalid_grant: Invalid JWT Signature.",
+                    "This almost always means your service-account credentials do not match:",
+                    "- GOOGLE_SHEETS_CLIENT_EMAIL must be from the same service account as the private key",
+                    "- GOOGLE_SHEETS_PRIVATE_KEY must be copied exactly from the JSON key (regenerate a new key if unsure)",
+                    "- Ensure the key is not revoked and your machine clock is correct",
+                ].join("\n")
+            )
+        }
+        throw err
+    }
     console.log(`[sheet/get] Auth time: ${Date.now() - authStart}ms`)
 
     cachedAuthClient = client

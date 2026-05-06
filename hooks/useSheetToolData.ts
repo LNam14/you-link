@@ -261,7 +261,8 @@ export function useSheetToolData(
       const buildUrl = (base?: string) => {
         const normalizedBase = base ? base.replace(/\/$/, "") : "";
         const prefix = normalizedBase || "";
-        return `${prefix}/api/sheet/get?${searchParams.toString()}`;
+        const qs = searchParams.toString();
+        return qs ? `${prefix}/api/sheet/get?${qs}` : `${prefix}/api/sheet/get`;
       };
 
       const candidateUrls: string[] = [];
@@ -309,8 +310,17 @@ export function useSheetToolData(
       }
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        const errorText = await response.text().catch(() => "");
+        let message = "";
+        if (errorText) {
+          try {
+            const parsed = JSON.parse(errorText);
+            message = parsed?.message || parsed?.error || "";
+          } catch {
+            message = errorText;
+          }
+        }
+        throw new Error(message || `HTTP error! status: ${response.status}`);
       }
 
       // Update ETag from response

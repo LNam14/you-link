@@ -1,4 +1,4 @@
-import { Home, Users, UserCircle, Calendar, DollarSign, ClipboardList, FileText, Package, LayoutGrid, LucideIcon } from "lucide-react";
+import { Home, Users, UserCircle, Calendar, DollarSign, ClipboardList, FileText, Package, LayoutGrid, Search, LucideIcon } from "lucide-react";
 
 export interface MenuItem {
   href: string;
@@ -48,6 +48,7 @@ export const getMenuGroups = (userRole?: string): MenuGroup[] => {
         { href: "/dashboard/tool-check-site", label: "Tool Check Site", icon: FileText },
         { href: "/dashboard/tool-check-tong-hop", label: "Tool Check Tổng Hợp", icon: Package },
         { href: "/dashboard/quan-ly-site", label: "Quản lý Site", icon: LayoutGrid },
+        { href: "/dashboard/top-google", label: "Top 50 Google", icon: Search },
       ],
     },
   ];
