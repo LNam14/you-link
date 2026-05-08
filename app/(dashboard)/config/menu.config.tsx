@@ -1,4 +1,4 @@
-import { Home, Users, UserCircle, Calendar, DollarSign, ClipboardList, FileText, Package, LayoutGrid, Search, LucideIcon } from "lucide-react";
+import { Home, Users, UserCircle, Calendar, DollarSign, ClipboardList, FileText, Package, LayoutGrid, Search, Dice6, LucideIcon } from "lucide-react";
 
 export interface MenuItem {
   href: string;
@@ -11,13 +11,27 @@ export interface MenuGroup {
   items: MenuItem[];
 }
 
+const isVietnamWeekend = (): boolean => {
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date());
+
+  return weekday === "Sat" || weekday === "Sun";
+};
+
 export const getMenuGroups = (userRole?: string): MenuGroup[] => {
+  const showBauCua = isVietnamWeekend();
+
   if (userRole === "Khách hàng") {
     return [
       {
         title: "Tools",
         items: [
           { href: "/dashboard/tool-check-site", label: "Tool Check Site", icon: FileText },
+          ...(showBauCua
+            ? [{ href: "/dashboard/bau-cua", label: "Bầu cua", icon: Dice6 }]
+            : []),
         ],
       },
     ];
@@ -49,6 +63,9 @@ export const getMenuGroups = (userRole?: string): MenuGroup[] => {
         { href: "/dashboard/tool-check-tong-hop", label: "Tool Check Tổng Hợp", icon: Package },
         { href: "/dashboard/quan-ly-site", label: "Quản lý Site", icon: LayoutGrid },
         { href: "/dashboard/top-google", label: "Top 50 Google", icon: Search },
+        ...(showBauCua
+          ? [{ href: "/dashboard/bau-cua", label: "Bầu cua", icon: Dice6 }]
+          : []),
       ],
     },
   ];

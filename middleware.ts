@@ -17,9 +17,17 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = getAuthTokenOptional(request);
 
-  // Sự kiện đã đóng: chặn mọi truy cập /dashboard/bau-cua
+  // Chỉ mở /dashboard/bau-cua vào Thứ bảy và Chủ nhật (múi giờ Việt Nam)
   if (pathname.startsWith("/dashboard/bau-cua")) {
-    return NextResponse.redirect(new URL(DASHBOARD_URL, request.url));
+    const weekday = new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      timeZone: "Asia/Ho_Chi_Minh",
+    }).format(new Date());
+    const isWeekend = weekday === "Sat" || weekday === "Sun";
+
+    if (!isWeekend) {
+      return NextResponse.redirect(new URL(DASHBOARD_URL, request.url));
+    }
   }
 
   // User chưa đăng nhập chỉ được vào /dashboard, /dashboard/tool-check-site, /dashboard/bau-cua
