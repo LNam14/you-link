@@ -17,7 +17,7 @@ const isVietnamWeekend = (): boolean => {
     timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date());
 
-  return weekday === "Sat" || weekday === "Sun";
+  return weekday === "Sat";
 };
 
 export const getMenuGroups = (userRole?: string): MenuGroup[] => {

@@ -23,7 +23,7 @@ export async function middleware(request: NextRequest) {
       weekday: "short",
       timeZone: "Asia/Ho_Chi_Minh",
     }).format(new Date());
-    const isWeekend = weekday === "Sat" || weekday === "Sun";
+    const isWeekend = weekday === "Sat";
 
     if (!isWeekend) {
       return NextResponse.redirect(new URL(DASHBOARD_URL, request.url));
