@@ -85,6 +85,9 @@ type CurrencyType = "USDT" | "VND"
 type SearchType = "Site" | "NCC"
 type AllType = "F" | "X"
 
+/** Tự động gọi lại API làm mới dữ liệu khi đang mở trang (30 phút). */
+const TOOL_CHECK_SITE_AUTO_REFRESH_MS = 30 * 60 * 1000
+
 // Add type definition for renderer function
 type RendererFunction = (
     instance: Handsontable,
@@ -166,6 +169,8 @@ export default function PageBody() {
     const [selectedPriceType, setSelectedPriceType] = useState<PriceType>("GP")
     const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>("USDT")
     const [exchangeRate, setExchangeRate] = useState<string>("28")
+    /** Chiết khấu % cho cột giá bán: giá hiển thị = giá - giá * CK/100 */
+    const [chietKhauPhanTram, setChietKhauPhanTram] = useState<string>("")
     const [selectedSearchType, setSelectedSearchType] = useState<SearchType>("Site")
     const [selectedAllType, setSelectedAllType] = useState<AllType>("F")
     const [duplicateSites, setDuplicateSites] = useState<{ [key: string]: SiteData[] }>({})
@@ -253,6 +258,21 @@ export default function PageBody() {
             isLoadingDataRef.current = false // Reset flag
         }
     }, [allData, loading, refreshing])
+
+    // Mỗi 30 phút gọi lại API (revalidate) và đồng bộ bảng — chỉ khi đã tải dữ liệu
+    useEffect(() => {
+        if (!dataLoaded) return
+
+        const intervalId = window.setInterval(() => {
+            isLoadingDataRef.current = true
+            void refetch("", selectedSearchType, undefined, true, true).catch((error) => {
+                console.error("Auto refresh sheet data failed:", error)
+                isLoadingDataRef.current = false
+            })
+        }, TOOL_CHECK_SITE_AUTO_REFRESH_MS)
+
+        return () => window.clearInterval(intervalId)
+    }, [dataLoaded, refetch, selectedSearchType])
 
     // Set header với title và custom controls - memoized để tránh re-render không cần thiết
     useEffect(() => {
@@ -886,6 +906,37 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
             return item
         })
 
+        // Chiết khấu % trên giá bán (sau quy đổi VND và tính lại LN kiểu X)
+        const discountPct = Number.parseFloat(String(chietKhauPhanTram).trim().replace(",", "."))
+        const applySellDiscount =
+            hasSearchTerm &&
+            Boolean(getPriceColumnFn) &&
+            !Number.isNaN(discountPct) &&
+            discountPct > 0
+
+        const itemsAfterSellDiscount = applySellDiscount
+            ? itemsWithRecalculatedProfit.map((item) => {
+                const newItem = { ...item }
+                const colFn = getPriceColumnFn!
+                const giaBanColumn = colFn(selectedPriceType, "giaBan")
+                const giaCuoiColumn = colFn(selectedPriceType, "giaCuoi")
+                const loiNhuanColumn = colFn(selectedPriceType, "loiNhuan")
+                const giaBanRaw = newItem[giaBanColumn as keyof SiteData]
+                const giaBanNum = parseNumberWithComma(giaBanRaw)
+                if (giaBanNum === null) return newItem
+
+                const discounted = giaBanNum - (giaBanNum * discountPct) / 100
+                const rounded = Math.round(discounted)
+                ;(newItem as any)[giaBanColumn] = rounded.toString()
+
+                const giaCuoiNum = parseNumberWithComma(newItem[giaCuoiColumn as keyof SiteData])
+                if (giaCuoiNum !== null) {
+                    ;(newItem as any)[loiNhuanColumn] = Math.round(rounded - giaCuoiNum).toString()
+                }
+                return newItem
+            })
+            : itemsWithRecalculatedProfit
+
         // Handle duplicates for Site search type - optimize grouping
         let mainItems: SiteData[] = []
         let newDuplicateSites: { [key: string]: SiteData[] } = {}
@@ -894,7 +945,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
         if (selectedSearchType === "Site" && hasSearchTermForDuplicates) {
             // Group by normalized site để tách duplicates
             const siteGroups = new Map<string, SiteData[]>()
-            itemsWithRecalculatedProfit.forEach((item) => {
+            itemsAfterSellDiscount.forEach((item) => {
                 const normalizedSite = normalizeUrl(item.site)
                 const group = siteGroups.get(normalizedSite) || []
                 group.push(item)
@@ -994,7 +1045,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
             }
         } else {
             // For filter-only or NCC search, show all items
-            mainItems = itemsWithRecalculatedProfit
+            mainItems = itemsAfterSellDiscount
         }
 
         setFilteredData(mainItems)
@@ -1003,7 +1054,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
         setSearchCompleted(true)
         setIsSearching(false)
         setCurrentPage(1) // Reset to first page when new data arrives
-    }, [dataLoaded, localData, searchableData, filters, selectedSearchType, selectedCurrency, selectedPriceType, exchangeRate, selectedAllType])
+    }, [dataLoaded, localData, searchableData, filters, selectedSearchType, selectedCurrency, selectedPriceType, exchangeRate, selectedAllType, chietKhauPhanTram])
 
     // Update ref when applySearchAndFilters changes
     useEffect(() => {
@@ -1178,7 +1229,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedCurrency, selectedPriceType, exchangeRate, selectedAllType])
+    }, [selectedCurrency, selectedPriceType, exchangeRate, selectedAllType, chietKhauPhanTram])
 
     // Handle data update after fetch - separate effect to avoid infinite loop
     useEffect(() => {
@@ -2723,7 +2774,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
             <div className="overflow-x-auto w-full">
                 <HotTableComponent
                     ref={tableRef}
-                    key={`${tableKey}-${selectedCurrency}-${selectedAllType}`}
+                    key={`${tableKey}-${selectedCurrency}-${selectedAllType}-${chietKhauPhanTram}`}
                     data={dataWithSummary}
                     columns={mappedColumns}
                     nestedHeaders={nestedHeaders}
@@ -2755,7 +2806,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 />
             </div>
         )
-    }, [mappedColumns, nestedHeaders, selectedCurrency, selectedAllType, handleBeforeCopy, calculateSummary])
+    }, [mappedColumns, nestedHeaders, selectedCurrency, selectedAllType, chietKhauPhanTram, handleBeforeCopy, calculateSummary])
 
     const hasDuplicates = Object.keys(duplicateSites).length > 0
     const duplicatesCount = Object.values(duplicateSites).flat().length
@@ -2926,6 +2977,24 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                                                 ))}
                                                 </div>
                                             </div>
+
+                                            {searchTerm.trim() !== "" && (
+                                            <div className="flex flex-wrap items-center gap-2 w-full">
+                                                <label htmlFor="chiet-khau-gia-ban" className="text-xs text-gray-600 whitespace-nowrap">
+                                                    Chiết khấu giá bán (%):
+                                                </label>
+                                                <input
+                                                    id="chiet-khau-gia-ban"
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    placeholder="0"
+                                                    autoComplete="off"
+                                                    value={chietKhauPhanTram}
+                                                    onChange={(e) => setChietKhauPhanTram(e.target.value)}
+                                                    className="w-[4.5rem] sm:w-24 px-2 py-1 border border-gray-300 rounded-md text-xs sm:text-sm text-gray-800 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            </div>
+                                            )}
                                         </div>
 
                                         <div className="flex flex-col gap-2 w-full md:w-auto md:min-w-[200px]">

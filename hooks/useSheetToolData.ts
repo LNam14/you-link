@@ -79,7 +79,13 @@ interface UseSheetToolDataReturn {
   data: { gpTextVN: SiteData[] } | null;
   loading: boolean;
   refreshing: boolean;
-  refetch: (search?: string, searchType?: "Site" | "NCC", filters?: FilterParams, forceLoadAll?: boolean) => Promise<void>;
+  refetch: (
+    search?: string,
+    searchType?: "Site" | "NCC",
+    filters?: FilterParams,
+    forceLoadAll?: boolean,
+    forceRevalidate?: boolean,
+  ) => Promise<void>;
   isStale: boolean;
 }
 
@@ -359,11 +365,19 @@ export function useSheetToolData(
     }
   }, []);
 
-  const refetch = useCallback(async (search?: string, searchType?: "Site" | "NCC", filters?: FilterParams, forceLoadAll?: boolean) => {
-    // If forceLoadAll, don't force refresh to use cache and speed up loading
-    // Only force refresh if explicitly needed (not forceLoadAll)
-    await fetchData(!forceLoadAll, search, searchType, filters, forceLoadAll);
-  }, [fetchData]);
+  const refetch = useCallback(
+    async (
+      search?: string,
+      searchType?: "Site" | "NCC",
+      filters?: FilterParams,
+      forceLoadAll?: boolean,
+      forceRevalidate?: boolean,
+    ) => {
+      const isRefresh = forceRevalidate === true ? true : !forceLoadAll;
+      await fetchData(isRefresh, search, searchType, filters, forceLoadAll);
+    },
+    [fetchData],
+  );
 
   useEffect(() => {
     // Only auto-fetch if there's a search term in options
