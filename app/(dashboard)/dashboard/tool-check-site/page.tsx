@@ -111,6 +111,48 @@ const normalizeIdGroup = (value: SiteData["IdGroup"]): string => {
     }
 }
 
+type SummaryRowExtras = { _fileUrls?: string[]; _groupUrls?: string[] }
+
+/** Ô File/Group không có URL — không cho chọn / không coi là ô tương tác */
+function isFileOrGroupCellWithNoData(
+    hot: { getCellMeta: (row: number, col: number) => { prop?: string | number }; getSourceDataAtRow: (row: number) => unknown },
+    row: number,
+    col: number,
+): boolean {
+    const prop = hot.getCellMeta(row, col)?.prop
+    if (prop !== "FileNCC" && prop !== "GroupNCC") return false
+    const rowData = hot.getSourceDataAtRow(row) as (SiteData & SummaryRowExtras) | undefined
+    if (!rowData) return false
+
+    if (prop === "FileNCC") {
+        if (row === 0) {
+            const urls = rowData._fileUrls
+            return !urls || urls.length === 0
+        }
+        const v = rowData.FileNCC
+        if (Array.isArray(v)) return v.length === 0
+        if (typeof v === "string") {
+            const t = v.trim()
+            return t === "" || t === "No"
+        }
+        return !v
+    }
+    if (prop === "GroupNCC") {
+        if (row === 0) {
+            const urls = rowData._groupUrls
+            return !urls || urls.length === 0
+        }
+        const v = rowData.GroupNCC
+        if (Array.isArray(v)) return v.length === 0
+        if (typeof v === "string") {
+            const t = v.trim()
+            return t === "" || t === "No Group" || t === "No"
+        }
+        return !v
+    }
+    return false
+}
+
 // Helper function to parse number with comma or dot as decimal separator
 const parseNumberWithComma = (str: string | number | string[] | null | undefined): number | null => {
     if (str === null || str === undefined) return null
@@ -2094,9 +2136,16 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                             // Set textContent for copying
                             td.textContent = `File (${fileUrls.length})`
                             td.style.color = "#2563EB"
+                            td.style.cursor = "pointer"
+                            td.style.textDecoration = "underline"
+                            td.style.userSelect = "auto"
                         } else {
+                            td.onclick = null
                             td.textContent = "No"
-                            td.style.color = "#2563EB"
+                            td.style.color = "#999"
+                            td.style.cursor = "default"
+                            td.style.textDecoration = "none"
+                            td.style.userSelect = "none"
                         }
                     } else {
                         // For regular rows
@@ -2111,6 +2160,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                             td.style.color = "#2563EB"
                             td.style.textDecoration = "underline"
                             td.style.cursor = "pointer"
+                            td.style.userSelect = "auto"
                             td.textContent = "File"
                         } else if (value && typeof value === "string" && value.trim() !== "" && value !== "No") {
                             // Handle single file
@@ -2121,10 +2171,15 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                             td.style.color = "#2563EB"
                             td.style.textDecoration = "underline"
                             td.style.cursor = "pointer"
+                            td.style.userSelect = "auto"
                             td.textContent = "File"
                         } else {
+                            td.onclick = null
                             td.textContent = "No"
-                            td.style.color = "#2563EB"
+                            td.style.color = "#999"
+                            td.style.cursor = "default"
+                            td.style.textDecoration = "none"
+                            td.style.userSelect = "none"
                         }
                     }
 
@@ -2170,9 +2225,16 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                             }
                             // Set textContent for copying
                             td.textContent = `Group (${groupUrls.length})`
+                            td.style.cursor = "pointer"
+                            td.style.textDecoration = "underline"
+                            td.style.userSelect = "auto"
                         } else {
+                            td.onclick = null
                             td.textContent = "No"
                             td.style.color = "#999"
+                            td.style.cursor = "default"
+                            td.style.textDecoration = "none"
+                            td.style.userSelect = "none"
                         }
                     } else {
                         // For regular rows
@@ -2188,6 +2250,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                             td.style.color = "#2563EB"
                             td.style.textDecoration = "underline"
                             td.style.cursor = "pointer"
+                            td.style.userSelect = "auto"
                             td.textContent = "Group"
                         } else if (value && typeof value === "string" && value.trim() !== "" && value !== "No Group") {
                             // Handle single group
@@ -2199,10 +2262,15 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                             td.style.color = "#2563EB"
                             td.style.textDecoration = "underline"
                             td.style.cursor = "pointer"
+                            td.style.userSelect = "auto"
                             td.textContent = "Group"
                         } else {
+                            td.onclick = null
                             td.textContent = "No"
                             td.style.color = "#999" // Gray color for "No" text
+                            td.style.cursor = "default"
+                            td.style.textDecoration = "none"
+                            td.style.userSelect = "none"
                         }
                     }
 
@@ -2697,8 +2765,10 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
     const onMainTableCellMouseDown = useCallback((event: any, coords: any) => {
         if (!coords) return
         const { row, col } = coords
-        const anchor = selectionAnchorRef.current
         const hot = mainTableRef.current?.hotInstance
+        if (hot && isFileOrGroupCellWithNoData(hot, row, col)) return
+
+        const anchor = selectionAnchorRef.current
         if (!hot) return
 
         // Always update the preview with the clicked cell's value (desktop + mobile)
@@ -2730,8 +2800,10 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
     const onDuplicatesTableCellMouseDown = useCallback((event: any, coords: any) => {
         if (!coords) return
         const { row, col } = coords
-        const anchor = selectionAnchorRef.current
         const hot = duplicatesTableRef.current?.hotInstance
+        if (hot && isFileOrGroupCellWithNoData(hot, row, col)) return
+
+        const anchor = selectionAnchorRef.current
         if (!hot) return
 
         // Always update the preview with the clicked cell's value (desktop + mobile)
@@ -2800,6 +2872,13 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                     fillHandle={true}
                     selectionMode="multiple"
                     beforeCopy={handleBeforeCopy}
+                    beforeOnCellMouseDown={(event: any, coords: any) => {
+                        const hot = tableRef.current?.hotInstance
+                        if (!hot || coords == null) return
+                        const r = coords.row as number
+                        const c = coords.col as number
+                        if (isFileOrGroupCellWithNoData(hot, r, c)) return false
+                    }}
                     afterOnCellMouseDown={onCellMouseDown}
                     readOnly={true}
                     showSummaryRowBorder={true}

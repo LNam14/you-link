@@ -39,6 +39,7 @@ interface HotTableProps {
   nestedHeaders?: any;
   beforeCopy?: (data: string[][], coords: any[], copiedHeadersCount?: any) => boolean | void;
   beforePaste?: (data: string[][], coords: any[]) => boolean | void;
+  beforeOnCellMouseDown?: (event: any, coords: any, td: HTMLTableCellElement) => boolean | void;
   afterOnCellMouseDown?: (event: any, coords: any) => void;
   height?: string | number;
   width?: string | number;
@@ -102,6 +103,7 @@ const HotTableComponent = forwardRef<HotTableRef, HotTableProps>(({
   nestedHeaders,
   beforeCopy,
   beforePaste,
+  beforeOnCellMouseDown,
   afterOnCellMouseDown,
   height = "auto",
   width = "100%",
@@ -548,6 +550,7 @@ const HotTableComponent = forwardRef<HotTableRef, HotTableProps>(({
         nestedHeaders={nestedHeaders}
         beforeCopy={beforeCopy}
         beforePaste={beforePaste}
+        beforeOnCellMouseDown={beforeOnCellMouseDown}
         afterOnCellMouseDown={wrappedAfterOnCellMouseDown}
         autoColumnSize={autoColumnSize}
         preventOverflow={preventOverflow as any}
