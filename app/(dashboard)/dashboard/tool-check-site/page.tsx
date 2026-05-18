@@ -111,46 +111,33 @@ const normalizeIdGroup = (value: SiteData["IdGroup"]): string => {
     }
 }
 
-type SummaryRowExtras = { _fileUrls?: string[]; _groupUrls?: string[] }
+const isNccNoValue = (value: string): boolean => {
+    const normalized = value.trim().toLowerCase()
+    return normalized === "" || normalized === "no" || normalized === "no group"
+}
 
-/** Ô File/Group không có URL — không cho chọn / không coi là ô tương tác */
-function isFileOrGroupCellWithNoData(
-    hot: { getCellMeta: (row: number, col: number) => { prop?: string | number }; getSourceDataAtRow: (row: number) => unknown },
-    row: number,
-    col: number,
-): boolean {
-    const prop = hot.getCellMeta(row, col)?.prop
-    if (prop !== "FileNCC" && prop !== "GroupNCC") return false
-    const rowData = hot.getSourceDataAtRow(row) as (SiteData & SummaryRowExtras) | undefined
-    if (!rowData) return false
+const isNccLinkUrl = (value: string): boolean => /^https?:\/\//i.test(value.trim())
 
-    if (prop === "FileNCC") {
-        if (row === 0) {
-            const urls = rowData._fileUrls
-            return !urls || urls.length === 0
-        }
-        const v = rowData.FileNCC
-        if (Array.isArray(v)) return v.length === 0
-        if (typeof v === "string") {
-            const t = v.trim()
-            return t === "" || t === "No"
-        }
-        return !v
+const getNccLinkUrls = (value: SiteData["FileNCC"] | SiteData["GroupNCC"]): string[] => {
+    if (value === undefined || value === null) return []
+    if (Array.isArray(value)) {
+        return value
+            .filter((item): item is string => typeof item === "string")
+            .map((item) => item.trim())
+            .filter((item) => !isNccNoValue(item) && isNccLinkUrl(item))
     }
-    if (prop === "GroupNCC") {
-        if (row === 0) {
-            const urls = rowData._groupUrls
-            return !urls || urls.length === 0
-        }
-        const v = rowData.GroupNCC
-        if (Array.isArray(v)) return v.length === 0
-        if (typeof v === "string") {
-            const t = v.trim()
-            return t === "" || t === "No Group" || t === "No"
-        }
-        return !v
+    if (typeof value === "string") {
+        const trimmed = value.trim()
+        if (isNccNoValue(trimmed) || !isNccLinkUrl(trimmed)) return []
+        return [trimmed]
     }
-    return false
+    return []
+}
+
+const resetNccCellClick = (td: HTMLTableCellElement) => {
+    td.onclick = null
+    td.style.cursor = "default"
+    td.style.textDecoration = "none"
 }
 
 // Helper function to parse number with comma or dot as decimal separator
@@ -2119,67 +2106,49 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
                     td.style.textAlign = "center"
+                    resetNccCellClick(td)
 
                     // Check if this is the summary row (first row)
                     const isSummaryRow = row === 0
 
                     if (isSummaryRow) {
-                        // If there are file URLs in the summary row, make them clickable
-                        const fileUrls = (cellProperties?.instance?.getSourceDataAtRow(row) as any)?._fileUrls
-                        if (fileUrls && fileUrls.length > 0) {
+                        const rawFileUrls = (cellProperties?.instance?.getSourceDataAtRow(row) as any)?._fileUrls
+                        const fileUrls = Array.isArray(rawFileUrls)
+                            ? rawFileUrls.filter((url: string) => typeof url === "string" && isNccLinkUrl(url))
+                            : []
+                        if (fileUrls.length > 0) {
                             td.onclick = (e: MouseEvent) => {
                                 e.preventDefault()
+                                e.stopPropagation()
                                 fileUrls.forEach((url: string) => {
                                     window.open(url, "_blank")
                                 })
                             }
-                            // Set textContent for copying
                             td.textContent = `File (${fileUrls.length})`
                             td.style.color = "#2563EB"
-                            td.style.cursor = "pointer"
                             td.style.textDecoration = "underline"
-                            td.style.userSelect = "auto"
+                            td.style.cursor = "pointer"
                         } else {
-                            td.onclick = null
                             td.textContent = "No"
-                            td.style.color = "#999"
-                            td.style.cursor = "default"
-                            td.style.textDecoration = "none"
-                            td.style.userSelect = "none"
+                            td.style.color = "#2563EB"
                         }
                     } else {
-                        // For regular rows
-                        if (Array.isArray(value) && value.length > 0) {
-                            // Handle array of files
+                        const fileUrls = getNccLinkUrls(value)
+                        if (fileUrls.length > 0) {
                             td.onclick = (e: MouseEvent) => {
                                 e.preventDefault()
-                                value.forEach((url: string) => {
+                                e.stopPropagation()
+                                fileUrls.forEach((url: string) => {
                                     window.open(url, "_blank")
                                 })
                             }
                             td.style.color = "#2563EB"
                             td.style.textDecoration = "underline"
                             td.style.cursor = "pointer"
-                            td.style.userSelect = "auto"
-                            td.textContent = "File"
-                        } else if (value && typeof value === "string" && value.trim() !== "" && value !== "No") {
-                            // Handle single file
-                            td.onclick = (e: MouseEvent) => {
-                                e.preventDefault()
-                                window.open(value, "_blank")
-                            }
-                            td.style.color = "#2563EB"
-                            td.style.textDecoration = "underline"
-                            td.style.cursor = "pointer"
-                            td.style.userSelect = "auto"
-                            td.textContent = "File"
+                            td.textContent = fileUrls.length > 1 ? `File (${fileUrls.length})` : "File"
                         } else {
-                            td.onclick = null
                             td.textContent = "No"
-                            td.style.color = "#999"
-                            td.style.cursor = "default"
-                            td.style.textDecoration = "none"
-                            td.style.userSelect = "none"
+                            td.style.color = "#2563EB"
                         }
                     }
 
@@ -2206,71 +2175,49 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                     td.style.overflow = "hidden"
                     td.style.textOverflow = "ellipsis"
                     td.style.textAlign = "center"
+                    resetNccCellClick(td)
 
                     // Check if this is the summary row (first row)
                     const isSummaryRow = row === 0
 
                     if (isSummaryRow) {
-                        // For summary row, make text red and 500
-                        td.style.color = "red"
-
-                        // If there are group URLs in the summary row, make them clickable
-                        const groupUrls = (cellProperties?.instance?.getSourceDataAtRow(row) as any)?._groupUrls
-                        if (groupUrls && groupUrls.length > 0) {
+                        const rawGroupUrls = (cellProperties?.instance?.getSourceDataAtRow(row) as any)?._groupUrls
+                        const groupUrls = Array.isArray(rawGroupUrls)
+                            ? rawGroupUrls.filter((url: string) => typeof url === "string" && isNccLinkUrl(url))
+                            : []
+                        if (groupUrls.length > 0) {
                             td.onclick = (e: MouseEvent) => {
                                 e.preventDefault()
+                                e.stopPropagation()
                                 groupUrls.forEach((url: string) => {
                                     window.open(url, "_blank")
                                 })
                             }
-                            // Set textContent for copying
                             td.textContent = `Group (${groupUrls.length})`
-                            td.style.cursor = "pointer"
+                            td.style.color = "red"
                             td.style.textDecoration = "underline"
-                            td.style.userSelect = "auto"
+                            td.style.cursor = "pointer"
                         } else {
-                            td.onclick = null
                             td.textContent = "No"
                             td.style.color = "#999"
-                            td.style.cursor = "default"
-                            td.style.textDecoration = "none"
-                            td.style.userSelect = "none"
                         }
                     } else {
-                        // For regular rows
-                        if (Array.isArray(value) && value.length > 0) {
-                            // Handle array of groups
+                        const groupUrls = getNccLinkUrls(value)
+                        if (groupUrls.length > 0) {
                             td.onclick = (e: MouseEvent) => {
                                 e.preventDefault()
-                                value.forEach((url: string) => {
+                                e.stopPropagation()
+                                groupUrls.forEach((url: string) => {
                                     window.open(url, "_blank")
                                 })
                             }
-                            // Set textContent for copying
                             td.style.color = "#2563EB"
                             td.style.textDecoration = "underline"
                             td.style.cursor = "pointer"
-                            td.style.userSelect = "auto"
-                            td.textContent = "Group"
-                        } else if (value && typeof value === "string" && value.trim() !== "" && value !== "No Group") {
-                            // Handle single group
-                            td.onclick = (e: MouseEvent) => {
-                                e.preventDefault()
-                                window.open(value, "_blank")
-                            }
-                            // Set textContent for copying
-                            td.style.color = "#2563EB"
-                            td.style.textDecoration = "underline"
-                            td.style.cursor = "pointer"
-                            td.style.userSelect = "auto"
-                            td.textContent = "Group"
+                            td.textContent = groupUrls.length > 1 ? `Group (${groupUrls.length})` : "Group"
                         } else {
-                            td.onclick = null
                             td.textContent = "No"
-                            td.style.color = "#999" // Gray color for "No" text
-                            td.style.cursor = "default"
-                            td.style.textDecoration = "none"
-                            td.style.userSelect = "none"
+                            td.style.color = "#999"
                         }
                     }
 
@@ -2434,22 +2381,16 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 (parseNumberWithComma(summary[loiNhuanColumn as keyof SiteData]) || 0) + loiNhuanValue
             ).toString()
 
-            // Collect file URLs
-            if (Array.isArray(item.FileNCC)) {
-                totalFiles += item.FileNCC.length
-                fileUrls = [...fileUrls, ...item.FileNCC]
-            } else if (item.FileNCC && item.FileNCC !== "No") {
-                totalFiles += 1
-                fileUrls.push(item.FileNCC as string)
+            const itemFileUrls = getNccLinkUrls(item.FileNCC)
+            if (itemFileUrls.length > 0) {
+                totalFiles += itemFileUrls.length
+                fileUrls = [...fileUrls, ...itemFileUrls]
             }
 
-            // Collect group URLs
-            if (Array.isArray(item.GroupNCC)) {
-                totalGroups += item.GroupNCC.length
-                groupUrls = [...groupUrls, ...item.GroupNCC]
-            } else if (item.GroupNCC && item.GroupNCC !== "No Group") {
-                totalGroups += 1
-                groupUrls.push(item.GroupNCC as string)
+            const itemGroupUrls = getNccLinkUrls(item.GroupNCC)
+            if (itemGroupUrls.length > 0) {
+                totalGroups += itemGroupUrls.length
+                groupUrls = [...groupUrls, ...itemGroupUrls]
             }
         })
 
@@ -2765,10 +2706,8 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
     const onMainTableCellMouseDown = useCallback((event: any, coords: any) => {
         if (!coords) return
         const { row, col } = coords
-        const hot = mainTableRef.current?.hotInstance
-        if (hot && isFileOrGroupCellWithNoData(hot, row, col)) return
-
         const anchor = selectionAnchorRef.current
+        const hot = mainTableRef.current?.hotInstance
         if (!hot) return
 
         // Always update the preview with the clicked cell's value (desktop + mobile)
@@ -2800,10 +2739,8 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
     const onDuplicatesTableCellMouseDown = useCallback((event: any, coords: any) => {
         if (!coords) return
         const { row, col } = coords
-        const hot = duplicatesTableRef.current?.hotInstance
-        if (hot && isFileOrGroupCellWithNoData(hot, row, col)) return
-
         const anchor = selectionAnchorRef.current
+        const hot = duplicatesTableRef.current?.hotInstance
         if (!hot) return
 
         // Always update the preview with the clicked cell's value (desktop + mobile)
@@ -2872,13 +2809,6 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                     fillHandle={true}
                     selectionMode="multiple"
                     beforeCopy={handleBeforeCopy}
-                    beforeOnCellMouseDown={(event: any, coords: any) => {
-                        const hot = tableRef.current?.hotInstance
-                        if (!hot || coords == null) return
-                        const r = coords.row as number
-                        const c = coords.col as number
-                        if (isFileOrGroupCellWithNoData(hot, r, c)) return false
-                    }}
                     afterOnCellMouseDown={onCellMouseDown}
                     readOnly={true}
                     showSummaryRowBorder={true}
