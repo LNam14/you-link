@@ -80,6 +80,7 @@ interface SiteData {
     IdGroup?: string | number | null
 }
 
+
 type PriceType = "GP" | "Text" | "TextHome" | "TextHeader"
 type CurrencyType = "USDT" | "VND"
 type SearchType = "Site" | "NCC"
