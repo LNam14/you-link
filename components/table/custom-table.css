@@ -39,6 +39,15 @@
     border-radius: 4px;
 }
 
+.custom-table td[data-ncc-clickable="false"] {
+  cursor: default !important;
+  pointer-events: auto;
+}
+
+.custom-table td[data-ncc-clickable="true"].ncc-link-cell {
+  cursor: pointer !important;
+}
+
 .custom-table .ht_master .wtHolder::-webkit-scrollbar-thumb:hover {
     background: #555;
 }

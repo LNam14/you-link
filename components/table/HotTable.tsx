@@ -40,6 +40,7 @@ interface HotTableProps {
   beforeCopy?: (data: string[][], coords: any[], copiedHeadersCount?: any) => boolean | void;
   beforePaste?: (data: string[][], coords: any[]) => boolean | void;
   afterOnCellMouseDown?: (event: any, coords: any) => void;
+  afterOnCellMouseUp?: (event: any, coords: any, instance?: Handsontable) => void;
   height?: string | number;
   width?: string | number;
   licenseKey?: string;
@@ -103,6 +104,7 @@ const HotTableComponent = forwardRef<HotTableRef, HotTableProps>(({
   beforeCopy,
   beforePaste,
   afterOnCellMouseDown,
+  afterOnCellMouseUp,
   height = "auto",
   width = "100%",
   licenseKey = "non-commercial-and-evaluation",
@@ -182,6 +184,17 @@ const HotTableComponent = forwardRef<HotTableRef, HotTableProps>(({
       }
     }
   }, [afterOnCellMouseDown]);
+
+  const wrappedAfterOnCellMouseUp = useCallback((event: any, coords: any) => {
+    if (afterOnCellMouseUp) {
+      const instance = hotTableRef.current?.hotInstance;
+      if (instance) {
+        afterOnCellMouseUp(event, coords, instance);
+      } else {
+        afterOnCellMouseUp(event, coords);
+      }
+    }
+  }, [afterOnCellMouseUp]);
 
   // Style all headers with fontSize 11px, fontWeight 600, and center alignment if applyCommonStyles is true
   useEffect(() => {
@@ -549,6 +562,7 @@ const HotTableComponent = forwardRef<HotTableRef, HotTableProps>(({
         beforeCopy={beforeCopy}
         beforePaste={beforePaste}
         afterOnCellMouseDown={wrappedAfterOnCellMouseDown}
+        afterOnCellMouseUp={wrappedAfterOnCellMouseUp}
         autoColumnSize={autoColumnSize}
         preventOverflow={preventOverflow as any}
         renderAllRows={renderAllRows}

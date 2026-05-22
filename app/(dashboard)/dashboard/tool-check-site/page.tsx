@@ -136,8 +136,69 @@ const getNccLinkUrls = (value: SiteData["FileNCC"] | SiteData["GroupNCC"]): stri
 
 const resetNccCellClick = (td: HTMLTableCellElement) => {
     td.onclick = null
+    td.onmousedown = null
+    td.onmouseup = null
+    td.removeAttribute("onclick")
+    td.removeAttribute("onmousedown")
+    td.removeAttribute("onmouseup")
+    td.removeAttribute("role")
+    td.removeAttribute("href")
+    td.dataset.nccClickable = "false"
+    td.classList.remove("ncc-link-cell")
     td.style.cursor = "default"
     td.style.textDecoration = "none"
+}
+
+type NccLinkProp = "FileNCC" | "GroupNCC"
+
+const getHotColumnProp = (hot: Handsontable, col: number): string | number | undefined => {
+    const columns = hot.getSettings().columns
+    if (!Array.isArray(columns) || col < 0 || col >= columns.length) return undefined
+    const colDef = columns[col] as { data?: string | number }
+    return colDef?.data
+}
+
+const getNccUrlsFromTableRow = (
+    hot: Handsontable,
+    row: number,
+    prop: NccLinkProp,
+): string[] => {
+    const sourceRow = hot.getSourceDataAtRow(row) as (SiteData & {
+        _fileUrls?: string[]
+        _groupUrls?: string[]
+        ghiChu?: string
+    }) | null
+    if (!sourceRow) return []
+
+    const isSummaryRow = row === 0 && sourceRow.ghiChu === "Tổng"
+    if (isSummaryRow) {
+        const raw = prop === "FileNCC" ? sourceRow._fileUrls : sourceRow._groupUrls
+        return Array.isArray(raw)
+            ? raw.filter((url): url is string => typeof url === "string" && isNccLinkUrl(url))
+            : []
+    }
+
+    return getNccLinkUrls(sourceRow[prop])
+}
+
+const tryOpenNccCellLinks = (hot: Handsontable | null | undefined, row: number, col: number): boolean => {
+    if (!hot || row < 0 || col < 0) return false
+    const prop = getHotColumnProp(hot, col)
+    if (prop !== "FileNCC" && prop !== "GroupNCC") return false
+
+    const urls = getNccUrlsFromTableRow(hot, row, prop)
+    if (urls.length === 0) return false
+
+    urls.forEach((url) => window.open(url, "_blank", "noopener,noreferrer"))
+    return true
+}
+
+const styleNccLinkCell = (td: HTMLTableCellElement, color: string) => {
+    td.dataset.nccClickable = "true"
+    td.classList.add("ncc-link-cell")
+    td.style.color = color
+    td.style.textDecoration = "underline"
+    td.style.cursor = "pointer"
 }
 
 // Helper function to parse number with comma or dot as decimal separator
@@ -2117,17 +2178,8 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                             ? rawFileUrls.filter((url: string) => typeof url === "string" && isNccLinkUrl(url))
                             : []
                         if (fileUrls.length > 0) {
-                            td.onclick = (e: MouseEvent) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                fileUrls.forEach((url: string) => {
-                                    window.open(url, "_blank")
-                                })
-                            }
                             td.textContent = `File (${fileUrls.length})`
-                            td.style.color = "#2563EB"
-                            td.style.textDecoration = "underline"
-                            td.style.cursor = "pointer"
+                            styleNccLinkCell(td, "#2563EB")
                         } else {
                             td.textContent = "No"
                             td.style.color = "#2563EB"
@@ -2135,16 +2187,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                     } else {
                         const fileUrls = getNccLinkUrls(value)
                         if (fileUrls.length > 0) {
-                            td.onclick = (e: MouseEvent) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                fileUrls.forEach((url: string) => {
-                                    window.open(url, "_blank")
-                                })
-                            }
-                            td.style.color = "#2563EB"
-                            td.style.textDecoration = "underline"
-                            td.style.cursor = "pointer"
+                            styleNccLinkCell(td, "#2563EB")
                             td.textContent = fileUrls.length > 1 ? `File (${fileUrls.length})` : "File"
                         } else {
                             td.textContent = "No"
@@ -2186,17 +2229,8 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                             ? rawGroupUrls.filter((url: string) => typeof url === "string" && isNccLinkUrl(url))
                             : []
                         if (groupUrls.length > 0) {
-                            td.onclick = (e: MouseEvent) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                groupUrls.forEach((url: string) => {
-                                    window.open(url, "_blank")
-                                })
-                            }
                             td.textContent = `Group (${groupUrls.length})`
-                            td.style.color = "red"
-                            td.style.textDecoration = "underline"
-                            td.style.cursor = "pointer"
+                            styleNccLinkCell(td, "red")
                         } else {
                             td.textContent = "No"
                             td.style.color = "#999"
@@ -2204,16 +2238,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                     } else {
                         const groupUrls = getNccLinkUrls(value)
                         if (groupUrls.length > 0) {
-                            td.onclick = (e: MouseEvent) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                groupUrls.forEach((url: string) => {
-                                    window.open(url, "_blank")
-                                })
-                            }
-                            td.style.color = "#2563EB"
-                            td.style.textDecoration = "underline"
-                            td.style.cursor = "pointer"
+                            styleNccLinkCell(td, "#2563EB")
                             td.textContent = groupUrls.length > 1 ? `Group (${groupUrls.length})` : "Group"
                         } else {
                             td.textContent = "No"
@@ -2736,6 +2761,12 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
         }
     }, [])
 
+    const onNccCellMouseUp = useCallback((event: any, coords: any, instance?: Handsontable) => {
+        if (!coords || event?.button !== 0) return
+        const { row, col } = coords
+        tryOpenNccCellLinks(instance, row, col)
+    }, [])
+
     const onDuplicatesTableCellMouseDown = useCallback((event: any, coords: any) => {
         if (!coords) return
         const { row, col } = coords
@@ -2810,12 +2841,13 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                     selectionMode="multiple"
                     beforeCopy={handleBeforeCopy}
                     afterOnCellMouseDown={onCellMouseDown}
+                    afterOnCellMouseUp={onNccCellMouseUp}
                     readOnly={true}
                     showSummaryRowBorder={true}
                 />
             </div>
         )
-    }, [mappedColumns, nestedHeaders, selectedCurrency, selectedAllType, chietKhauPhanTram, handleBeforeCopy, calculateSummary])
+    }, [mappedColumns, nestedHeaders, selectedCurrency, selectedAllType, chietKhauPhanTram, handleBeforeCopy, calculateSummary, onNccCellMouseUp])
 
     const hasDuplicates = Object.keys(duplicateSites).length > 0
     const duplicatesCount = Object.values(duplicateSites).flat().length
