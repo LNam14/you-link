@@ -40,15 +40,11 @@ interface SiteData {
     cs: string
     tinhTrang: string
     site: string
-    
-   
     chuDe: string
-    ngay: string
     linkOut: string
     DR: string
     trafficTool: string
     noteKH: string
-   
     giaBanGP: string
     giaBanText: string
     giaBanTextHome: string
@@ -72,7 +68,6 @@ interface SiteData {
     FileNCC: string[] | string
     GroupNCC: string[] | string
     timeText: string
-    
 }
 
 type PriceType = "GP" | "Text" | "TextHome" | "TextHeader"
@@ -588,14 +583,11 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
     cs: "",
     tinhTrang: "",
     site: siteTerm,
-   
     chuDe: "",
-    ngay: "",
     linkOut: "",
     DR: "",
     trafficTool: "",
     noteKH: "",
-   
     giaBanGP: "",
     giaBanText: "",
     giaBanTextHome: "",
@@ -619,7 +611,6 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
     FileNCC: "",
     GroupNCC: "",
     timeText: "",
-   
 })
 
     // Debounce function to prevent too many searches while typing
