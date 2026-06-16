@@ -14,41 +14,28 @@ export interface FormattedRow {
   sheetName: string;
   cs: any;
   site: any;
-  bong: any;
-  bet: any;
   chuDe: any;
-  nuoc: any;
-  ngay: any;
   linkOut: any;
   DR: any;
   keywords: any;
   trafficTool: any;
   noteKH: any;
-  noteNB: any;
-  noteNCC: any;
   tinhTrang: any;
   giaBanGP: any;
   giaBanText: any;
   timeText: number;
   giaBanTextHome: any;
   giaBanTextHeader: any;
-  giaBanGPX: any;
-  giaBanTextX: any;
-  giaBanTextHomeX: any;
-  giaBanTextHeaderX: any;
   giaMuaGP: any;
   giaMuaText: any;
   hoaHongGP: number;
   hoaHongText: number;
-  KeGP: any;
-  KeText: any;
   giaMuaTextHome: any;
   giaMuaTextHeader: any;
   NCC: any;
   MaNCC: any;
   FileNCC: string;
   GroupNCC: string;
-  IdGroup: string;
   giaCuoiGP: number;
   giaCuoiText: number;
   giaCuoiTextHome: number;
@@ -57,10 +44,7 @@ export interface FormattedRow {
   loiNhuanText: string | null;
   loiNhuanTextHome: string | null;
   loiNhuanTextHeader: string | null;
-  tiGiaXGP?: any;
-  tiGiaXFooter?: any;
-  tiGiaHome?: any;
-  tiGiaHeader?: any;
+  keThem: string | null
 }
 
 export interface NCCData {
@@ -349,25 +333,16 @@ export class GoogleSheetsService {
       return num;
     };
 
-    const giaBanGP = roundIfNumber(row[13]);
-    const giaBanText = roundIfNumber(row[14]);
-    const giaBanTextHome = roundIfNumber(row[15]);
-    const giaBanTextHeader = roundIfNumber(row[16]);
-    const giaBanGPX = roundIfNumber(row[17]);
-    const giaBanTextX = roundIfNumber(row[18]);
-    const giaBanTextHomeX = roundIfNumber(row[19]);
-    const giaBanTextHeaderX = roundIfNumber(row[20]);
-    const giaMuaGP = roundIfNumber(row[18]);
-    const giaMuaText = roundIfNumber(row[19]);
-    const giaMuaTextHome = roundIfNumber(row[20]);
-    const giaMuaTextHeader = roundIfNumber(row[21]);
-    const hoaHongGP = parseNumber(row[22]) || 0;
-    const hoaHongText = parseNumber(row[23]) || 0;
-
-    const giaCuoiGP = roundIfNumber(row[31]);
-    const giaCuoiText = roundIfNumber(row[32]);
-    const giaCuoiTextHome = roundIfNumber(row[33]);
-    const giaCuoiTextHeader = roundIfNumber(row[34]);
+    const giaBanGP = roundIfNumber(row[9]);
+    const giaBanText = roundIfNumber(row[10]);
+    const giaBanTextHome = roundIfNumber(row[11]);
+    const giaBanTextHeader = roundIfNumber(row[12]);
+    const giaMuaGP = roundIfNumber(row[15]);
+    const giaMuaText = roundIfNumber(row[16]);
+    const giaMuaTextHome = roundIfNumber(row[17]);
+    const giaMuaTextHeader = roundIfNumber(row[18]);
+    const hoaHongGP = parseNumber(row[20]) || 0;
+    const hoaHongText = parseNumber(row[21]) || 0;
 
     const maNCC = row[27];
     let fileNCC = "";
@@ -394,29 +369,20 @@ export class GoogleSheetsService {
       sheetName: sheetName,
       cs: row[0],
       site: row[1],
-      bong: row[2],
-      bet: row[3],
-      chuDe: row[4],
-      nuoc: row[5],
-      ngay: row[6],
-      linkOut: row[7],
-      DR: row[8],
-      keywords: row[9],
-      trafficTool: row[10],
-      noteKH: row[11],
-      noteNB: row[12],
-      noteNCC: row[13],
-      tinhTrang: row[14],
+      chuDe: row[2],
+      linkOut: row[3],
+      DR: row[4],
+      keywords: row[5],
+      trafficTool: row[6],
+      noteKH: row[7],
+      tinhTrang: row[8],
       timeText: 1,
       hoaHongGP: hoaHongGP || 0,
       hoaHongText: hoaHongText || 0,
-      KeGP: roundIfNumber(row[24]),
-      KeText: roundIfNumber(row[25]),
-      NCC: row[26],
+      NCC: row[13],
       MaNCC: maNCC,
       FileNCC: fileNCC,
       GroupNCC: groupNCC,
-      IdGroup: idGroup,
       giaBanGP,
       giaBanText,
       giaBanTextHome,
@@ -425,18 +391,15 @@ export class GoogleSheetsService {
       giaMuaText,
       giaMuaTextHome,
       giaMuaTextHeader,
-      giaBanGPX,
-      giaBanTextX,
-      giaBanTextHomeX,
-      giaBanTextHeaderX,
-      giaCuoiGP: giaCuoiGP || 0,
-      giaCuoiText: giaCuoiText || 0,
-      giaCuoiTextHome: giaCuoiTextHome || 0,
-      giaCuoiTextHeader: giaCuoiTextHeader || 0,
-      loiNhuanGP: safeSubtract(parseNumber(giaBanGP), parseNumber(giaCuoiGP)),
-      loiNhuanText: safeSubtract(parseNumber(giaBanText), parseNumber(giaCuoiText)),
-      loiNhuanTextHome: safeSubtract(parseNumber(giaBanTextHome), parseNumber(giaCuoiTextHome)),
-      loiNhuanTextHeader: safeSubtract(parseNumber(giaBanTextHeader), parseNumber(giaCuoiTextHeader)),
+      giaCuoiGP: giaMuaGP- giaMuaGP * (100 - hoaHongGP),
+      giaCuoiText: giaMuaText- giaMuaText * (100 - hoaHongText),
+      giaCuoiTextHome: giaMuaTextHome- giaMuaTextHome * (100 - hoaHongText),
+      giaCuoiTextHeader: giaMuaTextHeader- giaMuaTextHeader * (100 - hoaHongGP),
+      loiNhuanGP: safeSubtract(parseNumber(giaBanGP), parseNumber(giaMuaGP- giaMuaGP * (100 - hoaHongGP))),
+      loiNhuanText: safeSubtract(parseNumber(giaBanText), parseNumber(giaMuaText- giaMuaText * (100 - hoaHongText))),
+      loiNhuanTextHome: safeSubtract(parseNumber(giaBanTextHome), parseNumber(giaMuaTextHome- giaMuaTextHome * (100 - hoaHongText))),
+      loiNhuanTextHeader: safeSubtract(parseNumber(giaBanTextHeader), parseNumber(giaMuaTextHeader- giaMuaTextHeader * (100 - hoaHongGP))),
+      keThem: row[19]
     };
   }
 }

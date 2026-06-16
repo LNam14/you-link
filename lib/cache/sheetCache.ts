@@ -1,7 +1,7 @@
 // Shared cache module for sheet data
 // Allows multiple API routes to share and invalidate cache
 
-const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
+const SPREADSHEET_ID = "19grUhpM5EhCMj7wXPnzZlShsy3qbljUIA5XWsFSBjuY"
 export const CACHE_DURATION = 10 * 60 * 1000 // 10 phút (tăng cache để giảm số lần fetch)
 
 export const sheetCache = new Map<string, { data: any; expiry: number }>()

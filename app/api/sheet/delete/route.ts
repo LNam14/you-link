@@ -6,9 +6,9 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
-const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
+const SPREADSHEET_ID = "19grUhpM5EhCMj7wXPnzZlShsy3qbljUIA5XWsFSBjuY"
 
-let cachedAuthClient: any = null
+let cachedAuthClient: any = null    
 let authClientExpiry = 0
 const AUTH_CLIENT_TTL = 50 * 60 * 1000 // 50 phút
 
@@ -45,9 +45,9 @@ export async function POST(req: NextRequest) {
         const body = await req.json()
         const { sheetName, rowIndex } = body || {}
 
-        if (!sheetName || !["1", "2", "4", "5"].includes(String(sheetName))) {
+        if (!sheetName || String(sheetName) !== "VN") {
             return NextResponse.json(
-                { error: true, message: "sheetName không hợp lệ. Chỉ hỗ trợ 1, 2, 4, 5" },
+                { error: true, message: "sheetName không hợp lệ. Chỉ hỗ trợ VN" },
                 { status: 400 },
             )
         }
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         const client = await getAuthClient()
         const gsapi = google.sheets({ version: "v4", auth: client })
 
-        const range = `${sheetName}!A${numericRowIndex}:BE${numericRowIndex}`
+        const range = `${sheetName}!A${numericRowIndex}:V${numericRowIndex}`
         await gsapi.spreadsheets.values.clear({
             spreadsheetId: SPREADSHEET_ID,
             range,

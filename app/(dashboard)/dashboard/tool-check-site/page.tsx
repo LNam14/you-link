@@ -40,24 +40,19 @@ interface SiteData {
     cs: string
     tinhTrang: string
     site: string
-    bong: string
-    bet: string
+    
+   
     chuDe: string
     ngay: string
     linkOut: string
     DR: string
     trafficTool: string
     noteKH: string
-    noteNB: string
-    noteNCC: string
+   
     giaBanGP: string
     giaBanText: string
     giaBanTextHome: string
     giaBanTextHeader: string
-    giaBanGPX?: string
-    giaBanTextX?: string
-    giaBanTextHomeX?: string
-    giaBanTextHeaderX?: string
     giaMuaGP: string
     giaMuaText: string
     giaMuaTextHome: string
@@ -77,7 +72,7 @@ interface SiteData {
     FileNCC: string[] | string
     GroupNCC: string[] | string
     timeText: string
-    IdGroup?: string | number | null
+    
 }
 
 type PriceType = "GP" | "Text" | "TextHome" | "TextHeader"
@@ -98,18 +93,6 @@ type RendererFunction = (
     value: any,
     cellProperties?: Handsontable.CellMeta,
     ) => HTMLTableCellElement
-
-const normalizeIdGroup = (value: SiteData["IdGroup"]): string => {
-    if (value === undefined || value === null) return ""
-    if (typeof value === "string") return value.trim()
-    if (typeof value === "number") return value.toString().trim()
-
-    try {
-        return String(value).trim()
-    } catch {
-        return ""
-    }
-}
 
 const isNccNoValue = (value: string): boolean => {
     const normalized = value.trim().toLowerCase()
@@ -605,16 +588,14 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
     cs: "",
     tinhTrang: "",
     site: siteTerm,
-    bong: "",
-    bet: "",
+   
     chuDe: "",
     ngay: "",
     linkOut: "",
     DR: "",
     trafficTool: "",
     noteKH: "",
-    noteNB: "",
-    noteNCC: "",
+   
     giaBanGP: "",
     giaBanText: "",
     giaBanTextHome: "",
@@ -638,7 +619,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
     FileNCC: "",
     GroupNCC: "",
     timeText: "",
-    IdGroup: null,
+   
 })
 
     // Debounce function to prevent too many searches while typing
@@ -1399,30 +1380,6 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
 
     // Helper function to check if item matches filters
     const itemMatchesFilters = useCallback((item: SiteData): boolean => {
-        // Đi Bóng filter
-        if (filters["Đi Bóng"]) {
-            const diBongValue = filters["Đi Bóng"]
-            const itemBong = (item.bong || "").toLowerCase().trim()
-            if (diBongValue === "có" && itemBong !== "có" && itemBong !== "yes" && itemBong !== "1") {
-                return false
-            }
-            if (diBongValue === "ko" && (itemBong === "có" || itemBong === "yes" || itemBong === "1")) {
-                return false
-            }
-        }
-
-        // Đi Game filter
-        if (filters["Đi Game"]) {
-            const diBETValue = filters["Đi Game"]
-            const itemBet = (item.bet || "").toLowerCase().trim()
-            if (diBETValue === "có" && itemBet !== "có" && itemBet !== "yes" && itemBet !== "1") {
-                return false
-            }
-            if (diBETValue === "ko" && (itemBet === "có" || itemBet === "yes" || itemBet === "1")) {
-                return false
-            }
-        }
-
         // Site extension filter (multiple extensions, case-insensitive)
         if (filters["Site"]) {
             const siteValue = filters["Site"]
@@ -1751,52 +1708,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                     return td
                 }) as RendererFunction,
             },
-            {
-                title: "Chợ Seo",
-                data: "bong",
-                width: 40,
-                className: "htMiddle text-center",
-                renderer: ((
-                    instance: Handsontable,
-                    td: HTMLTableCellElement,
-                    row: number,
-                    col: number,
-                    prop: string | number,
-                    value: any,
-                ): HTMLTableCellElement => {
-                    td.innerHTML = ""
-                    td.style.whiteSpace = "nowrap"
-                    td.style.overflow = "hidden"
-                    td.style.textOverflow = "ellipsis"
-                    td.style.textAlign = "center"
-                    td.title = value || ""
-                    td.textContent = value || ""
-                    return td
-                }) as RendererFunction,
-            },
-            {
-                title: "Game",
-                data: "bet",
-                width: 40,
-                className: "htMiddle text-center",
-                renderer: ((
-                    instance: Handsontable,
-                    td: HTMLTableCellElement,
-                    row: number,
-                    col: number,
-                    prop: string | number,
-                    value: any,
-                ): HTMLTableCellElement => {
-                    td.innerHTML = ""
-                    td.style.whiteSpace = "nowrap"
-                    td.style.overflow = "hidden"
-                    td.style.textOverflow = "ellipsis"
-                    td.style.textAlign = "center"
-                    td.title = value || ""
-                    td.textContent = value || ""
-                    return td
-                }) as RendererFunction,
-            },
+            
             {
                 title: "Site",
                 data: "site",
@@ -1824,29 +1736,6 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 title: "Chủ đề",
                 data: "chuDe",
                 width: 70,
-                className: "htMiddle text-center",
-                renderer: ((
-                    instance: Handsontable,
-                    td: HTMLTableCellElement,
-                    row: number,
-                    col: number,
-                    prop: string | number,
-                    value: any,
-                ): HTMLTableCellElement => {
-                    td.innerHTML = ""
-                    td.style.whiteSpace = "nowrap"
-                    td.style.overflow = "hidden"
-                    td.style.textOverflow = "ellipsis"
-                    td.style.textAlign = "center"
-                    td.title = value || ""
-                    td.textContent = value || ""
-                    return td
-                }) as RendererFunction,
-            },
-            {
-                title: "Ngày",
-                data: "ngay",
-                width: 40,
                 className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
@@ -1912,6 +1801,29 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                 title: "DR",
                 data: "DR",
                 width: 40,
+                className: "htMiddle text-center",
+                renderer: ((
+                    instance: Handsontable,
+                    td: HTMLTableCellElement,
+                    row: number,
+                    col: number,
+                    prop: string | number,
+                    value: any,
+                ): HTMLTableCellElement => {
+                    td.innerHTML = ""
+                    td.style.whiteSpace = "nowrap"
+                    td.style.overflow = "hidden"
+                    td.style.textOverflow = "ellipsis"
+                    td.style.textAlign = "center"
+                    td.title = value || ""
+                    td.textContent = value || ""
+                    return td
+                }) as RendererFunction,
+            },
+            {
+                title: "Keywords",
+                data: "keywords",
+                width: 70,
                 className: "htMiddle text-center",
                 renderer: ((
                     instance: Handsontable,
@@ -2252,90 +2164,8 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
             },
         ]
 
-        // Add note columns
-        const noteColumns = []
-        
-        // Khách hàng chỉ hiện note KH
-        const isRestrictedUserForNotes = !userInfo || (userInfo.role !== "Admin" && userInfo.role !== "Nhân viên")
-        
-        if (isRestrictedUserForNotes) {
-            // Chỉ hiện note KH cho khách hàng
-            noteColumns.push({
-                title: "Khách Hàng",
-                data: "noteKH",
-                width: 100,
-                className: "htMiddle text-center",
-                renderer: ((
-                    instance: Handsontable,
-                    td: HTMLTableCellElement,
-                    row: number,
-                    col: number,
-                    prop: string | number,
-                    value: any,
-                ): HTMLTableCellElement => {
-                    td.innerHTML = ""
-                    td.style.whiteSpace = "nowrap"
-                    td.style.overflow = "hidden"
-                    td.style.textOverflow = "ellipsis"
-                    td.style.textAlign = "center"
-                    td.title = value || ""
-                    td.textContent = value || ""
-                    return td
-                }) as RendererFunction,
-            })
-        } else {
-            // Admin và Nhân viên hiện cả 3 cột note
-            noteColumns.push(
-                {
-                    title: "Nội Bộ",
-                    data: "noteNB",
-                    width: 60,
-                    className: "htMiddle text-center",
-                    renderer: ((
-                        instance: Handsontable,
-                        td: HTMLTableCellElement,
-                        row: number,
-                        col: number,
-                        prop: string | number,
-                        value: any,
-                    ): HTMLTableCellElement => {
-                        td.innerHTML = ""
-                        td.style.whiteSpace = "nowrap"
-                        td.style.overflow = "hidden"
-                        td.style.textOverflow = "ellipsis"
-                        td.style.textAlign = "center"
-                        td.title = value || ""
-                        td.textContent = value || ""
-                        return td
-                    }) as RendererFunction,
-                },
-                {
-                    title: "NCC",
-                    data: "noteNCC",
-                    width: 60,
-                    className: "htMiddle text-center",
-                    renderer: ((
-                        instance: Handsontable,
-                        td: HTMLTableCellElement,
-                        row: number,
-                        col: number,
-                        prop: string | number,
-                        value: any,
-                    ): HTMLTableCellElement => {
-                        td.innerHTML = ""
-                        td.style.whiteSpace = "nowrap"
-                        td.style.overflow = "hidden"
-                        td.style.textOverflow = "ellipsis"
-                        td.style.textAlign = "center"
-                        td.title = value || ""
-                        td.textContent = value || ""
-                        return td
-                    }) as RendererFunction,
-                }
-            )
-        }
 
-        return [...baseColumns, ...additionalColumns, ...noteColumns]
+        return [...baseColumns, ...additionalColumns,]
     }, [selectedPriceType, selectedAllType, userInfo?.role, getPriceColumnData, createPriceRenderer])
 
     // Add a function to calculate summary data - memoized
@@ -2437,10 +2267,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
         return summary as SiteData & { _fileUrls?: string[]; _groupUrls?: string[] }
     }, [selectedPriceType, selectedAllType, getPriceColumnData])
 
-    // Count NCCs with usable IdGroup (handles non-string values safely)
-    const getValidNCCsCount = useCallback((data: SiteData[]) => {
-        return data.filter((item) => normalizeIdGroup(item.IdGroup) !== "").length
-    }, [])
+  
 
     // Add the beforeCopy handler function using useCallback
     const handleBeforeCopy = useCallback(
@@ -2818,7 +2645,6 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                     data={dataWithSummary}
                     columns={mappedColumns}
                     nestedHeaders={nestedHeaders}
-                    hiddenColumns={userInfo ? [3] : [1, 2]}
                     height="auto"
                     width="100%"
                     licenseKey="non-commercial-and-evaluation"
@@ -3037,23 +2863,7 @@ const createEmptySiteEntry = (siteTerm: string): SiteData => ({
                                             </div>
                                             )}
                                         </div>
-
-                                        <div className="flex flex-col gap-2 w-full md:w-auto md:min-w-[200px]">
-                                            <div className="flex items-center justify-start md:justify-end">
-                                                <div className="text-left md:text-right">
-                                                    <p className="text-xs text-gray-500 break-words">
-                                                        {getValidNCCsCount(filteredData) > 0
-                                                            ? `Bạn có thể nhắn tin cho ${getValidNCCsCount(filteredData)} NCC có IdGroup`
-                                                            : "Không có NCC nào có IdGroup để gửi tin nhắn"}
-                                                    </p>
-                                                    <p className="text-xs text-gray-500 break-words mt-1">
-                                                        {getValidNCCsCount(filteredData) > 0
-                                                            ? "Chọn 1 trong các lựa chọn dưới đây"
-                                                            : "Chỉ NCC có IdGroup mới có thể nhận tin nhắn"}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
+                                    
                                     </div>
                                 </div>
                             </div>

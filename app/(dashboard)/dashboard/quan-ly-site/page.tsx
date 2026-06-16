@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import type React from "react"
 import { useSheetToolData } from "@/hooks/useSheetToolData"
@@ -14,14 +14,14 @@ import {
     Inbox,
     Copy,
     RefreshCw,
-    Plus,
-    X,
     Save,
     Eye,
     EyeOff,
     Globe,
 } from "lucide-react"
 import { toast } from "sonner"
+
+const SHEET_NAME = "VN"
 
 type SearchType = "Site" | "NCC"
 type CurrencyType = "USDT" | "VND"
@@ -32,33 +32,21 @@ interface SiteData {
     sheetName: string
     cs: string
     site: string
-    bong: string
-    bet: string
     chuDe: string
-    nuoc?: string
-    ngay?: string
     linkOut: string
     DR: string
     keywords?: string
     trafficTool: string
     noteKH: string
-    noteNB: string
     giaMuaGP: string
     giaMuaText: string
     giaMuaTextHome: string
     giaMuaTextHeader: string
     hoaHongGP: string
     hoaHongText: string
-    KeGP: string
-    KeText: string
-    loiNhuanGP: string
-    loiNhuanText: string
+    keThem: string
     NCC: string
     MaNCC: string
-    tiGiaXGP?: string
-    tiGiaXFooter?: string
-    tiGiaHome?: string
-    tiGiaHeader?: string
 }
 
 type RendererFunction = (
@@ -71,23 +59,15 @@ type RendererFunction = (
     cellProperties?: Handsontable.CellMeta,
 ) => HTMLTableCellElement
 
-type PendingChange =
-    | {
-        type: "update"
-        key: string
-        site: string
-        sheetName: string
-        rowIndex: number
-        maNCC?: string
-        updates: Partial<SiteData>
-    }
-    | {
-        type: "add"
-        key: string
-        sheetName: string
-        rowIndex: number
-        rowData: SiteData
-    }
+type PendingChange = {
+    type: "update"
+    key: string
+    site: string
+    sheetName: string
+    rowIndex: number
+    maNCC?: string
+    updates: Partial<SiteData>
+}
 
 export default function PageBody() {
     const [filteredData, setFilteredData] = useState<SiteData[]>([])
@@ -103,19 +83,12 @@ export default function PageBody() {
     const [hasSearched, setHasSearched] = useState(false)
     const [isSearching, setIsSearching] = useState(false) // State để track khi đang tìm kiếm
     const [isSaving, setIsSaving] = useState(false)
-    const [isDeleting, setIsDeleting] = useState(false)
     const [selectedSearchType, setSelectedSearchType] = useState<SearchType>("Site")
     const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>("USDT")
     const [exchangeRate, setExchangeRate] = useState<string>("28")
     const [isUpdating, setIsUpdating] = useState(false)
     const [pendingChanges, setPendingChanges] = useState<Map<string, PendingChange>>(new Map())
     
-    // Modal state
-    const [isModalOpen, setIsModalOpen] = useState(false)
-    const [numberOfRows, setNumberOfRows] = useState<number>(1)
-    const [regionType, setRegionType] = useState<"VN" | "NN">("VN")
-    // Track new rows and their sheet (row index in newRows array -> sheet name)
-    const [newRowsSheetMap, setNewRowsSheetMap] = useState<Map<number, string>>(new Map())
     const [showTiGiaColumns, setShowTiGiaColumns] = useState<boolean>(false) // State để ẩn/hiện cột tiGia
     const mainTableRef = useRef<HotTableRef>(null)
     const duplicateTableRef = useRef<HotTableRef>(null) // Ref riêng cho duplicate table
@@ -275,33 +248,21 @@ export default function PageBody() {
             sheetName: "",
             cs: "",
             site: siteValue,
-            bong: "",
-            bet: "",
             chuDe: "",
-            nuoc: "",
-            ngay: "",
             linkOut: "",
             DR: "",
             keywords: "",
             trafficTool: "",
             noteKH: "",
-            noteNB: "",
             giaMuaGP: "",
             giaMuaText: "",
             giaMuaTextHome: "",
             giaMuaTextHeader: "",
             hoaHongGP: "",
             hoaHongText: "",
-            KeGP: "",
-            KeText: "",
-            loiNhuanGP: "",
-            loiNhuanText: "",
+            keThem:"",
             NCC: "",
             MaNCC: "",
-            tiGiaXGP: "",
-            tiGiaXFooter: "",
-            tiGiaHome: "",
-            tiGiaHeader: "",
         }
     }, [])
 
@@ -360,7 +321,7 @@ export default function PageBody() {
 
             if (rawTerms.length === 0) return []
 
-            const mergedSourceData = localAddedRows.length > 0
+            const mergedSourceData:any = localAddedRows.length > 0
                 ? [...allData, ...localAddedRows]
                 : allData
             const sourceData = applyLocalUpdates(mergedSourceData, overrideUpdatedRows)
@@ -524,9 +485,7 @@ export default function PageBody() {
                 setFilteredData([])
                 setDuplicateSites({})
                 setHasSearched(false)
-                // Xóa newRows khi search rỗng (reset)
                 setNewRows([])
-                setNewRowsSheetMap(new Map())
                 return
             }
 
@@ -535,9 +494,7 @@ export default function PageBody() {
                 setFilteredData([])
                 setDuplicateSites({})
                 setHasSearched(false)
-                // Xóa newRows khi search rỗng (reset)
                 setNewRows([])
-                setNewRowsSheetMap(new Map())
                 return
             }
 
@@ -768,36 +725,8 @@ export default function PageBody() {
                 renderer: createCellRenderer(),
             },
             {
-                title: "Chợ Seo", 
-                data: "bong",
-                width: 40,
-                className: "htMiddle text-center",
-                renderer: createCellRenderer(),
-            },
-            {
-                title: "Game",
-                data: "bet",
-                width: 40,
-                className: "htMiddle text-center",
-                renderer: createCellRenderer(),
-            },
-            {
                 title: "Chủ đề",
                 data: "chuDe",
-                width: 70,
-                className: "htMiddle text-center",
-                renderer: createCellRenderer(),
-            },
-            {
-                title: "Nước",
-                data: "nuoc",
-                width: 60,
-                className: "htMiddle text-center",
-                renderer: createCellRenderer(),
-            },
-            {
-                title: "Ngày",
-                data: "ngay",
                 width: 60,
                 className: "htMiddle text-center",
                 renderer: createCellRenderer(),
@@ -871,13 +800,6 @@ export default function PageBody() {
                 className: "htMiddle text-center",
                 renderer: createCellRenderer(),
             },
-            {
-                title: "Nội bộ",
-                data: "noteNB",
-                width: 60,
-                className: "htMiddle text-center",
-                renderer: createCellRenderer(),
-            },
             // Giá group
             {
                 title: "GP",
@@ -922,21 +844,8 @@ export default function PageBody() {
                 className: "htMiddle",
                 renderer: createPriceRenderer("hoaHongText"),
             },
-            // Kê thêm group
-            {
-                title: "GP",
-                data: "KeGP",
-                width: 50,
-                className: "htMiddle",
-                renderer: createPriceRenderer("keGP"),
-            },
-            {
-                title: "Text",
-                data: "KeText",
-                width: 50,
-                className: "htMiddle",
-                renderer: createPriceRenderer("KeText"),
-            },
+          
+          
             // NCC group
             {
                 title: "Tên",
@@ -952,34 +861,12 @@ export default function PageBody() {
                 className: "htMiddle",
                 renderer: createCellRenderer(),
             },
-            // Chênh lệch giá group
             {
-                title: "GP",
-                data: "tiGiaXGP",
-                width: 60,
+                title: "Kê thêm",
+                data: "keThem",
+                width: 50,
                 className: "htMiddle",
-                renderer: createPriceRenderer("tiGiaXGP"),
-            },
-            {
-                title: "Footer",
-                data: "tiGiaXFooter",
-                width: 70,
-                className: "htMiddle",
-                renderer: createPriceRenderer("tiGiaXFooter"),
-            },
-            {
-                title: "Home",
-                data: "tiGiaHome",
-                width: 60,
-                className: "htMiddle",
-                renderer: createPriceRenderer("tiGiaHome"),
-            },
-            {
-                title: "Header",
-                data: "tiGiaHeader",
-                width: 60,
-                className: "htMiddle",
-                renderer: createPriceRenderer("tiGiaHeader"),
+                renderer: createPriceRenderer("KeText"),
             },
         ]
 
@@ -991,35 +878,30 @@ export default function PageBody() {
         const firstRow: Array<{ label: string; colspan: number }> = []
         const secondRow: string[] = []
 
-        const infoCols = columns.slice(0, 11)
-        const noteCols = columns.slice(11, 13)
-        const giaCols = columns.slice(13, 17)
-        const hoaHongCols = columns.slice(17, 19)
-        const keThemCols = columns.slice(19, 21)
-        const nccCols = columns.slice(21, 23)
-        const tiGiaCols = columns.slice(23, 27)
+        const infoCols = columns.slice(0, 8)
+        const giaCols = columns.slice(8, 12)
+        const hoaHongCols = columns.slice(12, 14)
+        
+        const nccCol = columns.slice(15,17)
+        const keThemCols = columns.slice(16)
 
         firstRow.push({ label: "INFO", colspan: infoCols.length })
         infoCols.forEach((col) => secondRow.push(col.title))
 
-        firstRow.push({ label: "Note", colspan: noteCols.length })
-        noteCols.forEach((col) => secondRow.push(col.title))
 
         firstRow.push({ label: "Giá", colspan: giaCols.length })
         giaCols.forEach((col) => secondRow.push(col.title))
 
+        firstRow.push({ label: "NCC", colspan: nccCol.length })
+        nccCol.forEach((col) => secondRow.push(col.title))
+
         firstRow.push({ label: "Hoa hồng", colspan: hoaHongCols.length })
         hoaHongCols.forEach((col) => secondRow.push(col.title))
 
-        firstRow.push({ label: "Kê thêm", colspan: keThemCols.length })
+        firstRow.push({ label: "", colspan: keThemCols.length })
         keThemCols.forEach((col) => secondRow.push(col.title))
 
-        firstRow.push({ label: "NCC", colspan: nccCols.length })
-        nccCols.forEach((col) => secondRow.push(col.title))
-
-        firstRow.push({ label: "Giá chênh lệch", colspan: tiGiaCols.length })
-        tiGiaCols.forEach((col) => secondRow.push(col.title))
-
+        
         return [firstRow, secondRow]
     }, [])
 
@@ -1169,8 +1051,7 @@ export default function PageBody() {
     }, [filteredData])
 
     /**
-     * Cập nhật dữ liệu site trong Google Sheets
-     * Tự động tìm sheet chứa site này trong các sheet 1, 2, 4, 5
+     * Cập nhật dữ liệu site trong Google Sheets (sheet VN)
      */
     const updateSiteData = useCallback(async (
         site: string,
@@ -1181,96 +1062,63 @@ export default function PageBody() {
     ) => {
         setIsUpdating(true)
         try {
-            // Lấy thông tin user để gửi kèm trong request (format: username-fullname)
             const username = userInfo?.username || ""
             const fullname = userInfo?.fullname || ""
             const userDisplayName = `${username}-${fullname}`
+            const targetSheet = sheetName || SHEET_NAME
 
-            // Nếu có rowIndex và sheetName, sử dụng trực tiếp (nhanh nhất - không cần tìm kiếm)
-            if (rowIndex !== undefined && rowIndex !== null && sheetName) {
-                console.log(`[updateSiteData] Using rowIndex ${rowIndex} directly in sheet ${sheetName}`)
-                try {
-                    const response = await fetch("/api/sheet/update", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "x-skip-telegram": "true", // Telegram sẽ gửi dạng batch sau
-                        },
-                        body: JSON.stringify({
-                            sheetName, // Chỉ cần sheetName và rowIndex
-                            updates,
-                            rowIndex,  // Sử dụng rowIndex trực tiếp
-                            site,      // Optional, chỉ để logging
-                            maNCC,     // Optional
-                            username: userDisplayName, // Gửi username-fullname
-                        }),
-                    })
+            if (rowIndex !== undefined && rowIndex !== null) {
+                console.log(`[updateSiteData] Using rowIndex ${rowIndex} directly in sheet ${targetSheet}`)
+                const response = await fetch("/api/sheet/update", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "x-skip-telegram": "true",
+                    },
+                    body: JSON.stringify({
+                        sheetName: targetSheet,
+                        updates,
+                        rowIndex,
+                        site,
+                        maNCC,
+                        username: userDisplayName,
+                    }),
+                })
 
-                    const result = await response.json()
+                const result = await response.json()
 
-                    if (response.ok) {
-                        return result
-                    } else {
-                        throw new Error(result.message || "Failed to update")
-                    }
-                } catch (error: any) {
-                    console.error("Update error:", error)
-                    toast.error(`Lỗi cập nhật: ${error.message || "Không thể cập nhật dữ liệu"}`)
-                    throw error
+                if (response.ok) {
+                    return result
                 }
-            } else {
-                // Fallback: Tìm trong tất cả các sheet có thể (chỉ khi không có rowIndex/sheetName)
-                console.warn(`[updateSiteData] Fallback: Missing rowIndex or sheetName. Searching for site "${site}" in all sheets (slow path - update by site search)`)
-                
-                // Lấy thông tin user để gửi kèm trong request
-                const username = userInfo?.username || ""
-                const fullname = userInfo?.fullname || ""
-                const userDisplayName = fullname ? `${username}-${fullname}` : username
-
-                // Fallback: Tìm trong tất cả các sheet có thể
-                const possibleSheets: Array<"1" | "2" | "4" | "5"> = ["1", "2", "4", "5"]
-                let updateSuccess = false
-                let lastError: Error | null = null
-
-                for (const sheet of possibleSheets) {
-                    try {
-                        const response = await fetch("/api/sheet/update", {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                "x-skip-telegram": "true", // Telegram sẽ gửi dạng batch sau
-                            },
-                            body: JSON.stringify({
-                                site,
-                                sheetName: sheet,
-                                updates,
-                                rowIndex,
-                                maNCC,
-                                username: userDisplayName, // Gửi username-fullname
-                            }),
-                        })
-
-                        const result = await response.json()
-
-                        if (response.ok) {
-                            updateSuccess = true
-                            return result
-                        } else if (result.message?.includes("not found")) {
-                            // Site không có trong sheet này, thử sheet tiếp theo
-                            continue
-                        } else {
-                            lastError = new Error(result.message || "Failed to update")
-                        }
-                    } catch (error: any) {
-                        lastError = error
-                        continue
-                    }
-                }
-
-                if (!updateSuccess) {
-                    throw lastError || new Error("Site not found in any sheet")
-                }
+                throw new Error(result.message || "Failed to update")
             }
+
+            if (!site) {
+                throw new Error("Thiếu thông tin site hoặc rowIndex để cập nhật")
+            }
+
+            console.warn(`[updateSiteData] Fallback: searching for site "${site}" in sheet ${targetSheet}`)
+            const response = await fetch("/api/sheet/update", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-skip-telegram": "true",
+                },
+                body: JSON.stringify({
+                    site,
+                    sheetName: targetSheet,
+                    updates,
+                    maNCC,
+                    username: userDisplayName,
+                }),
+            })
+
+            const result = await response.json()
+
+            if (response.ok) {
+                return result
+            }
+            throw new Error(result.message || "Failed to update")
         } catch (error: any) {
             console.error("Update error:", error)
             toast.error(`Lỗi cập nhật: ${error.message || "Không thể cập nhật dữ liệu"}`)
@@ -1280,14 +1128,11 @@ export default function PageBody() {
         }
     }, [userInfo])
 
-    // Handle cell changes in table - chỉ lưu vào danh sách chờ, cần bấm "Lưu dữ liệu" để đẩy lên server
     const handleAfterChange = useCallback((changes: any[] | null, source: string) => {
         if (source === "loadData") return
         if (!Array.isArray(changes) || changes.length === 0) return
 
         const mergedData = [...filteredData, ...newRows]
-        let newRowsChanged = false
-        const updatedNewRows = [...newRows]
 
         setPendingChanges((prev) => {
             const updated = new Map(prev)
@@ -1297,7 +1142,6 @@ export default function PageBody() {
                 const normalizedNew = newValue === null || newValue === undefined ? "" : String(newValue).trim()
                 if (normalizedOld === normalizedNew) continue
 
-                // Determine property name
                 let columnProp: string | undefined
                 if (typeof col === "string") {
                     columnProp = col
@@ -1309,17 +1153,34 @@ export default function PageBody() {
                 const rowData = mergedData[row]
                 if (!rowData) continue
 
-                const newRowIndex = row - filteredData.length
-                const isNewRow = newRowIndex >= 0 && newRowIndex < newRows.length
-
-                // Chỉ cho phép chỉnh sửa trong phạm vi kết quả tìm kiếm (filteredData) hoặc newRows
-                // Duplicate sites được xử lý bởi handleDuplicateAfterChange riêng
-                if (!isNewRow && row >= mergedData.length) {
+                if (row >= filteredData.length) {
                     console.warn(`[handleAfterChange] Chỉnh sửa ngoài phạm vi kết quả tìm kiếm bị bỏ qua (row ${row})`)
                     continue
                 }
 
-                const sheetNameForNewRow = isNewRow ? newRowsSheetMap.get(newRowIndex) : undefined
+                const siteToFind = columnProp === "site" ? (oldValue || rowData.site) : rowData.site
+                if (!siteToFind || siteToFind.trim() === "") continue
+
+                let rowIndex = rowData.rowIndex
+                let sheetName = rowData.sheetName || SHEET_NAME
+                const maNCC = rowData.MaNCC || undefined
+
+                if ((!rowIndex || rowIndex < 3) && allData && allData.length > 0) {
+                    const normalizedSiteToFind = normalizeUrl(siteToFind)
+                    const originalRow = allData.find((item: any) => {
+                        const normalizedSite = normalizeUrl(item.site)
+                        return normalizedSite === normalizedSiteToFind
+                    })
+                    if (originalRow) {
+                        rowIndex = originalRow.rowIndex || rowIndex
+                        sheetName = originalRow.sheetName || SHEET_NAME
+                    }
+                }
+
+                if (!rowIndex || rowIndex < 3) {
+                    console.warn(`[handleAfterChange] Missing valid rowIndex for site "${siteToFind}". Skipping queueing update.`)
+                    continue
+                }
 
                 const updates: Partial<SiteData> = {
                     [columnProp]: newValue,
@@ -1341,82 +1202,26 @@ export default function PageBody() {
                     }
                 }
 
-                if (isNewRow) {
-                    if (!sheetNameForNewRow) {
-                        console.warn(`[handleAfterChange] Missing sheetName for new row index ${newRowIndex}, skip save queue`)
-                        continue
-                    }
+                const key = `update-${sheetName}-${rowIndex}`
+                const existingChange = updated.get(key)
+                const mergedUpdates = existingChange
+                    ? { ...existingChange.updates, ...processedUpdates }
+                    : processedUpdates
 
-                    // UI: giữ đúng giá người dùng nhập (VND). Lưu: dùng giá đã quy đổi (USDT).
-                    const uiRowData = { ...rowData, ...updates }
-                    const key = `add-${sheetNameForNewRow}-${newRowIndex}`
-                    const existingChange = updated.get(key)
-                    const baseSavedRowData =
-                        existingChange && existingChange.type === "add"
-                            ? existingChange.rowData
-                            : rowData
-                    const savedRowData = { ...baseSavedRowData, ...processedUpdates }
-                    updatedNewRows[newRowIndex] = uiRowData
-                    newRowsChanged = true
-
-                    updated.set(key, {
-                        type: "add",
-                        key,
-                        sheetName: sheetNameForNewRow,
-                        rowIndex: savedRowData.rowIndex,
-                        rowData: savedRowData,
-                    })
-                } else {
-                    // Xử lý cập nhật cho các dòng trong filteredData
-                    const siteToFind = columnProp === "site" ? (oldValue || rowData.site) : rowData.site
-                    if (!siteToFind || siteToFind.trim() === "") continue
-
-                    let rowIndex = rowData.rowIndex
-                    let sheetName = rowData.sheetName
-                    const maNCC = rowData.MaNCC || undefined
-
-                    if ((!rowIndex || !sheetName) && allData && allData.length > 0) {
-                        const normalizedSiteToFind = normalizeUrl(siteToFind)
-                        const originalRow = allData.find((item: SiteData) => {
-                            const normalizedSite = normalizeUrl(item.site)
-                            return normalizedSite === normalizedSiteToFind
-                        })
-                        if (originalRow) {
-                            rowIndex = (originalRow as any).rowIndex || rowIndex
-                            sheetName = (originalRow as any).sheetName || sheetName
-                        }
-                    }
-
-                    if (!rowIndex || rowIndex < 3 || !sheetName) {
-                        console.warn(`[handleAfterChange] Missing valid rowIndex or sheetName for site "${siteToFind}". Skipping queueing update.`)
-                        continue
-                    }
-
-                    const key = `update-${sheetName}-${rowIndex}`
-                    const existingChange = updated.get(key)
-                    const mergedUpdates = existingChange && existingChange.type === "update"
-                        ? { ...existingChange.updates, ...processedUpdates }
-                        : processedUpdates
-
-                    updated.set(key, {
-                        type: "update",
-                        key,
-                        site: siteToFind as string,
-                        sheetName,
-                        rowIndex,
-                        maNCC,
-                        updates: mergedUpdates,
-                    })
-                }
+                updated.set(key, {
+                    type: "update",
+                    key,
+                    site: siteToFind as string,
+                    sheetName,
+                    rowIndex,
+                    maNCC,
+                    updates: mergedUpdates,
+                })
             }
 
-                        return updated
-                    })
-
-        if (newRowsChanged) {
-            setNewRows(updatedNewRows)
-        }
-    }, [filteredData, newRows, mappedColumns, selectedCurrency, exchangeRate, newRowsSheetMap, allData, normalizeUrl])
+            return updated
+        })
+    }, [filteredData, newRows, mappedColumns, selectedCurrency, exchangeRate, allData, normalizeUrl, currencyConvertibleFields, parsePureNumericInput])
 
     // Handler riêng cho duplicate table - chỉ xử lý các dòng trong duplicateSites
     const handleDuplicateAfterChange = useCallback((changes: any[] | null, source: string) => {
@@ -1456,12 +1261,11 @@ export default function PageBody() {
 
                 // Sử dụng rowIndex và sheetName trực tiếp từ duplicateSites
                 const rowIndex = rowData.rowIndex
-                const sheetName = rowData.sheetName
+                const sheetName = rowData.sheetName || SHEET_NAME
                     const maNCC = rowData.MaNCC || undefined
 
-                // Validation: đảm bảo có đủ thông tin để cập nhật
-                if (!rowIndex || rowIndex < 3 || !sheetName) {
-                    console.warn(`[handleDuplicateAfterChange] Missing valid rowIndex or sheetName for duplicate site "${siteToFind}". Skipping queueing update.`)
+                if (!rowIndex || rowIndex < 3) {
+                    console.warn(`[handleDuplicateAfterChange] Missing valid rowIndex for duplicate site "${siteToFind}". Skipping queueing update.`)
                     continue
                 }
 
@@ -1487,7 +1291,7 @@ export default function PageBody() {
 
                     const key = `update-${sheetName}-${rowIndex}`
                     const existingChange = updated.get(key)
-                    const mergedUpdates = existingChange && existingChange.type === "update"
+                    const mergedUpdates = existingChange
                         ? { ...existingChange.updates, ...processedUpdates }
                         : processedUpdates
 
@@ -1526,19 +1330,13 @@ export default function PageBody() {
 
     // Save all queued changes to server
     const handleSaveChanges = useCallback(async () => {
-        if (pendingChanges.size === 0) {
+        const updateChanges = Array.from(pendingChanges.values())
+        if (updateChanges.length === 0) {
             toast.warning("Không có thay đổi nào cần lưu")
             return
         }
 
-        // Hỏi xác nhận trước khi cập nhật
-        const updateCount = Array.from(pendingChanges.values()).filter(change => change.type === "update").length
-        const addCount = Array.from(pendingChanges.values()).filter(change => change.type === "add").length
-
-        const confirmMessage = `Bạn có chắc chắn muốn lưu ${pendingChanges.size} thay đổi?` +
-            (addCount > 0 ? `\n- Thêm ${addCount} dòng mới` : '') +
-            (updateCount > 0 ? `\n- Cập nhật ${updateCount} dòng hiện có` : '') +
-            `\n\nHành động này không thể hoàn tác!`
+        const confirmMessage = `Bạn có chắc chắn muốn lưu ${updateChanges.length} thay đổi?\n\nHành động này không thể hoàn tác!`
 
         const confirmed = window.confirm(confirmMessage)
         if (!confirmed) {
@@ -1548,9 +1346,7 @@ export default function PageBody() {
 
         setIsSaving(true)
         try {
-            const addedRowsRaw: SiteData[] = []
             const updatedRowsRaw: SiteData[] = []
-            const newRowIndicesToRemove: number[] = []
             const updateDetailLines: string[] = []
 
             const toRawMoneyFieldsIfVnd = (row: SiteData): SiteData => {
@@ -1571,7 +1367,7 @@ export default function PageBody() {
                 sheetName?: string,
                 rowIndex?: number,
                 site?: string,
-            ): SiteData | null => {
+            ): any | null => {
                 const key = getRowKey(sheetName, rowIndex, site)
                 if (key) {
                     const localOverride = localUpdatedRows.get(key)
@@ -1616,46 +1412,9 @@ export default function PageBody() {
                 return matchAll || null
             }
 
-            for (const change of pendingChanges.values()) {
-                if (change.type === "add") {
-                    const { rowData, sheetName } = change
-
-                    if (!sheetName) {
-                        console.warn(`[handleSaveChanges] Thiếu sheetName cho dòng mới, bỏ qua`)
-                        continue
-                    }
-                  
-
-                    const response = await fetch("/api/sheet/add", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "x-skip-telegram": "true", // Gửi gộp sau qua summary
-                        },
-                        body: JSON.stringify({
-                            sheetName,
-                            rowData,
-                        }),
-                    })
-                    const result = await response.json()
-                    if (!response.ok) {
-                        throw new Error(result.message || "Failed to add row")
-                    }
-
-                    const parsedIndex = Number.parseInt(change.key.split("-").pop() || "", 10)
-                    if (!Number.isNaN(parsedIndex)) {
-                        newRowIndicesToRemove.push(parsedIndex)
-                    }
-
-                    const savedRow: SiteData = {
-                        ...rowData,
-                        sheetName,
-                        rowIndex: result?.rowIndex ?? rowData.rowIndex ?? 0,
-                    }
-                    addedRowsRaw.push(savedRow)
-                } else if (change.type === "update") {
-                    const { site, updates, rowIndex, maNCC, sheetName } = change
-                    const result = await updateSiteData(site, updates, rowIndex, maNCC, sheetName)
+            for (const change of updateChanges) {
+                const { site, updates, rowIndex, maNCC, sheetName } = change
+                const result = await updateSiteData(site, updates, rowIndex, maNCC, sheetName || SHEET_NAME)
 
                     if (result?.site && Array.isArray(result?.changes) && result.changes.length > 0) {
                         updateDetailLines.push(`🌐 ${result.site}`)
@@ -1675,33 +1434,21 @@ export default function PageBody() {
                             rowIndex: rowIndex ?? 0,
                             cs: "",
                             site: site || "",
-                            bong: "",
-                            bet: "",
                             chuDe: "",
-                            nuoc: "",
-                            ngay: "",
                             linkOut: "",
                             DR: "",
                             keywords: "",
                             trafficTool: "",
                             noteKH: "",
-                            noteNB: "",
                             giaMuaGP: "",
                             giaMuaText: "",
                             giaMuaTextHome: "",
                             giaMuaTextHeader: "",
                             hoaHongGP: "",
                             hoaHongText: "",
-                            KeGP: "",
-                            KeText: "",
-                            loiNhuanGP: "",
-                            loiNhuanText: "",
                             NCC: "",
                             MaNCC: maNCC || "",
-                            tiGiaXGP: "",
-                            tiGiaXFooter: "",
-                            tiGiaHome: "",
-                            tiGiaHeader: "",
+                            keThem: ""
                         } as SiteData)
 
                     const mergedRow: SiteData = {
@@ -1723,27 +1470,8 @@ export default function PageBody() {
                             updatedRowsRaw.push(mergedRow)
                         }
                     }
-                }
             }
 
-            // Dọn dẹp dòng tạm sau khi lưu (sẽ tải lại dữ liệu thay vì trộn local)
-            setNewRows([])
-            setNewRowsSheetMap(new Map())
-            
-            // Cập nhật state local với dữ liệu mới đã lưu thành công để hiển thị ngay
-            if (addedRowsRaw.length > 0) {
-                setLocalAddedRows(prev => [...prev, ...addedRowsRaw])
-                // Thêm vào filteredData để hiển thị ngay lập tức
-                setFilteredData(prev => {
-                    // Tránh duplicate nếu đã có
-                    const existingKeys = new Set(prev.map(r => getRowKey(r.sheetName, r.rowIndex, r.site)))
-                    const uniqueNewRaw = addedRowsRaw.filter(r => !existingKeys.has(getRowKey(r.sheetName, r.rowIndex, r.site)))
-                    const uniqueNewUi = applyCurrencyConversion(uniqueNewRaw)
-                    return [...prev, ...uniqueNewUi]
-                })
-                setHasSearched(true)
-            }
-            
             if (updatedRowsRaw.length > 0) {
                 setLocalUpdatedRows(prev => {
                     const next = new Map(prev)
@@ -1757,34 +1485,12 @@ export default function PageBody() {
             
             setPendingChanges(new Map())
 
-            // Gửi Telegram summary một lần cho cả thêm và cập nhật
             try {
-                const addLines =
-                    addedRowsRaw.length > 0
-                        ? addedRowsRaw.map((row) => {
-                            const site = row.site?.toString().trim() || "(trống)"
-                            const traffic = row.trafficTool?.toString().trim()
-                            return traffic ? `${site} - Traffic ${traffic}` : site
-                        })
-                        : []
-
-                const updateLines = updateDetailLines
-
-                if (addLines.length > 0 || updateLines.length > 0) {
+                if (updateDetailLines.length > 0) {
                     const token = localStorage.getItem("auth-token")
                     const headers: Record<string, string> = { "Content-Type": "application/json" }
                     if (token) headers.Authorization = `Bearer ${token}`
 
-                    await fetch("/api/telegram/summary", {
-                        method: "POST",
-                        headers,
-                        credentials: "include",
-                        body: JSON.stringify({
-                            addLines,
-                            updateLines,
-                            username: userInfo ? `${userInfo.username}-${userInfo.fullname}` : undefined,
-                        }),
-                    })
                 }
             } catch (telegramError) {
                 console.error("Telegram summary error:", telegramError)
@@ -1820,475 +1526,9 @@ export default function PageBody() {
         exchangeRate,
         currencyConvertibleFields,
         parsePureNumericInput,
+        userInfo,
     ])
 
-    const getRowsFromSelection = useCallback((selection: any, totalRows: number): Set<number> => {
-        const rows = new Set<number>()
-        if (!selection) return rows
-
-        const normalized: Array<any> = Array.isArray(selection) ? selection : [selection]
-
-        normalized.forEach((item) => {
-            if (Array.isArray(item)) {
-                const [startRow, , endRow] = item
-                if (typeof startRow === "number") {
-                    const from = Math.max(0, Math.min(startRow, (typeof endRow === "number" ? endRow : startRow)))
-                    const to = Math.min(totalRows - 1, Math.max(startRow, (typeof endRow === "number" ? endRow : startRow)))
-                    for (let r = from; r <= to; r++) rows.add(r)
-                }
-            } else if (item && typeof item === "object") {
-                // Handsontable selection may be { start: {row, col}, end: {row, col} }
-                const startRow = (item as any).startRow ?? (item as any).start?.row
-                const endRowRaw = (item as any).endRow ?? (item as any).end?.row
-                const endRow = typeof endRowRaw === "number" ? endRowRaw : startRow
-
-                if (typeof startRow === "number") {
-                    const from = Math.max(0, Math.min(startRow, endRow))
-                    const to = Math.min(totalRows - 1, Math.max(startRow, endRow))
-                    for (let r = from; r <= to; r++) rows.add(r)
-                }
-            }
-        })
-
-        return rows
-    }, [])
-
-    const handleDeleteRows = useCallback(async (selectionOverride?: any[]) => {
-        const hotInstance = mainTableRef.current?.hotInstance
-        const mergedData = [...filteredData, ...newRows]
-
-        if (!hotInstance || mergedData.length === 0) {
-            toast.warning("Không có dữ liệu để xóa")
-            return
-        }
-
-        const selection = selectionOverride || hotInstance.getSelected()
-        if (!selection || selection.length === 0) {
-            toast.warning("Vui lòng chọn ít nhất một dòng để xóa")
-            return
-        }
-
-        const rowsToDelete = getRowsFromSelection(selection, mergedData.length)
-        console.log("[delete] raw selection:", selection)
-        console.log("[delete] rowsToDelete:", Array.from(rowsToDelete))
-
-        if (!rowsToDelete.size) {
-            toast.warning("Không tìm thấy dòng hợp lệ để xóa")
-            return
-        }
-
-        const existingRows: SiteData[] = []
-        const newRowIndexes: number[] = []
-        const invalidRows: number[] = []
-
-        rowsToDelete.forEach((rowIdx) => {
-            if (rowIdx < filteredData.length) {
-                // Xóa các dòng trong kết quả tìm kiếm (filteredData)
-                const rowData = filteredData[rowIdx]
-                if (rowData?.sheetName && rowData?.rowIndex && rowData.rowIndex >= 3) {
-                    existingRows.push(rowData)
-                }
-            } else if (rowIdx < mergedData.length) {
-                // Xóa newRows (chưa lưu)
-                const newRowIdx = rowIdx - filteredData.length
-                if (newRowIdx >= 0 && newRowIdx < newRows.length) {
-                    newRowIndexes.push(newRowIdx)
-                } else {
-                    invalidRows.push(rowIdx)
-                }
-            } else {
-                // Dòng này nằm ngoài phạm vi dữ liệu (duplicate sites được xử lý bởi handleDeleteDuplicateRows)
-                invalidRows.push(rowIdx)
-            }
-        })
-
-        if (invalidRows.length > 0) {
-            console.warn(`[delete] Bỏ qua ${invalidRows.length} dòng nằm ngoài phạm vi kết quả tìm kiếm:`, invalidRows)
-        }
-
-        if (!existingRows.length && !newRowIndexes.length) {
-            toast.warning("Không có dòng hợp lệ để xóa. Chỉ có thể xóa các dòng trong kết quả tìm kiếm và site trùng lặp.")
-            return
-        }
-
-        setIsDeleting(true)
-        setIsSearching(true)
-        try {
-            if (newRowIndexes.length) {
-                console.log("[delete] removing new rows (unsaved):", newRowIndexes)
-                const removeSet = new Set(newRowIndexes)
-                setNewRows((prev) => prev.filter((_, idx) => !removeSet.has(idx)))
-                setNewRowsSheetMap((prev) => {
-                    const remaining = Array.from(prev.entries())
-                        .filter(([idx]) => !removeSet.has(idx))
-                        .sort((a, b) => a[0] - b[0])
-                    const remapped = new Map<number, string>()
-                    remaining.forEach(([, sheet], idx) => {
-                        remapped.set(idx, sheet)
-                    })
-                    return remapped
-                })
-                setPendingChanges((prev) => {
-                    const updated = new Map(prev)
-                    removeSet.forEach((idx) => {
-                        const sheetName = newRowsSheetMap.get(idx)
-                        if (sheetName) {
-                            updated.delete(`add-${sheetName}-${idx}`)
-                        }
-                    })
-                    return updated
-                })
-            }
-
-            if (existingRows.length) {
-                console.log("[delete] deleting existing rows:", existingRows.map((r) => ({ sheetName: r.sheetName, rowIndex: r.rowIndex, site: r.site })))
-                await Promise.all(
-                    existingRows.map(async (row) => {
-                        const response = await fetch("/api/sheet/delete", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                sheetName: row.sheetName,
-                                rowIndex: row.rowIndex,
-                            }),
-                        })
-
-                        const result = await response.json().catch(() => ({}))
-                        console.log("[delete] api response:", { sheetName: row.sheetName, rowIndex: row.rowIndex, ok: response.ok, result })
-                        if (!response.ok) {
-                            throw new Error(result.message || "Xóa thất bại")
-                        }
-                    }),
-                )
-
-                setPendingChanges((prev) => {
-                    const updated = new Map(prev)
-                    existingRows.forEach((row) => {
-                        updated.delete(`update-${row.sheetName}-${row.rowIndex}`)
-                    })
-                    return updated
-                })
-
-                // Gửi thông báo Telegram về việc xóa site (tương tự như khi chỉnh sửa)
-                try {
-                    const deleteLines = existingRows.map((row) => {
-                        const site = row.site?.toString().trim() || "(trống)"
-                        const traffic = row.trafficTool?.toString().trim()
-                        const sheetInfo = row.sheetName ? ` (Sheet ${row.sheetName})` : ""
-                        return traffic ? `${site} - Traffic ${traffic}${sheetInfo}` : `${site}${sheetInfo}`
-                    })
-
-                    if (deleteLines.length > 0) {
-                        const token = localStorage.getItem("auth-token")
-                        const headers: Record<string, string> = { "Content-Type": "application/json" }
-                        if (token) headers.Authorization = `Bearer ${token}`
-
-                        await fetch("/api/telegram/summary", {
-                            method: "POST",
-                            headers,
-                            credentials: "include",
-                            body: JSON.stringify({
-                                deleteLines,
-                                username: userInfo ? `${userInfo.username}-${userInfo.fullname}` : undefined,
-                            }),
-                        })
-                    }
-                } catch (telegramError) {
-                    console.error("Telegram delete notification error:", telegramError)
-                    // Không throw error để không ảnh hưởng đến quá trình xóa
-                }
-            }
-
-            const removedKeys = new Set<string>()
-            existingRows.forEach((row) => {
-                const key = getRowKey(row.sheetName, row.rowIndex, row.site)
-                if (key) removedKeys.add(key)
-            })
-
-            if (removedKeys.size) {
-                setLocalRemovedKeys((prev) => {
-                    const next = new Set(prev)
-                    removedKeys.forEach((k) => next.add(k))
-                    return next
-                })
-                setFilteredData((prev) => prev.filter((item) => {
-                    const key = getRowKey(item.sheetName, item.rowIndex, item.site)
-                    if (!key) return true
-                    return !removedKeys.has(key)
-                }))
-
-                // Cập nhật duplicateSites: loại bỏ các site đã xóa
-                setDuplicateSites((prev) => {
-                    const updated = { ...prev }
-                    Object.keys(updated).forEach((domain) => {
-                        updated[domain] = updated[domain].filter((item) => {
-                            const key = getRowKey(item.sheetName, item.rowIndex, item.site)
-                            return key && !removedKeys.has(key)
-                        })
-                        // Nếu không còn site trùng nào, xóa domain khỏi duplicateSites
-                        if (updated[domain].length === 0) {
-                            delete updated[domain]
-                        }
-                    })
-                    return updated
-                })
-            }
-
-            // Reload lại dữ liệu ở background (không await)
-            if (hasSearched && searchTerm.trim() !== "") {
-                refetch("", selectedSearchType, undefined, true)
-                    .catch((refreshError: any) => {
-                        console.error("Background refresh after delete failed:", refreshError)
-                    })
-            } else {
-                refetch()
-                    .catch((refreshError: any) => {
-                        console.error("Background refresh after delete failed:", refreshError)
-                    })
-            }
-
-            toast.success("Đã xóa dòng thành công")
-        } catch (error: any) {
-            console.error("Delete rows error:", error)
-            toast.error(`Xóa dữ liệu thất bại: ${error?.message || "Không thể xóa"}`)
-        } finally {
-            setIsDeleting(false)
-            setIsSearching(false)
-        }
-    }, [filteredData, newRows, newRowsSheetMap, selectedSearchType, getRowsFromSelection, getRowKey, hasSearched, searchTerm, refetch])
-
-    // Handler xóa riêng cho duplicate table
-    const handleDeleteDuplicateRows = useCallback(async (selectionOverride?: any[]) => {
-        const hotInstance = duplicateTableRef.current?.hotInstance
-        const allDuplicates = Object.values(duplicateSites).flat()
-
-        if (!hotInstance || allDuplicates.length === 0) {
-            toast.warning("Không có dữ liệu để xóa")
-            return
-        }
-
-        const selection = selectionOverride || hotInstance.getSelected()
-        if (!selection || selection.length === 0) {
-            toast.warning("Vui lòng chọn ít nhất một dòng để xóa")
-            return
-        }
-
-        const rowsToDelete = getRowsFromSelection(selection, allDuplicates.length)
-        console.log("[delete duplicate] raw selection:", selection)
-        console.log("[delete duplicate] rowsToDelete:", Array.from(rowsToDelete))
-
-        if (!rowsToDelete.size) {
-            toast.warning("Không tìm thấy dòng hợp lệ để xóa")
-            return
-        }
-
-        const existingRows: SiteData[] = []
-        const invalidRows: number[] = []
-
-        rowsToDelete.forEach((rowIdx) => {
-            if (rowIdx >= 0 && rowIdx < allDuplicates.length) {
-                const rowData = allDuplicates[rowIdx]
-                if (rowData?.sheetName && rowData?.rowIndex && rowData.rowIndex >= 3) {
-                    existingRows.push(rowData)
-                } else {
-                    invalidRows.push(rowIdx)
-                }
-            } else {
-                invalidRows.push(rowIdx)
-            }
-        })
-
-        if (invalidRows.length > 0) {
-            console.warn(`[delete duplicate] Bỏ qua ${invalidRows.length} dòng không hợp lệ:`, invalidRows)
-        }
-
-        if (!existingRows.length) {
-            toast.warning("Không có dòng hợp lệ để xóa")
-            return
-        }
-
-        setIsDeleting(true)
-        setIsSearching(true)
-        try {
-            console.log("[delete duplicate] deleting duplicate rows:", existingRows.map((r) => ({ sheetName: r.sheetName, rowIndex: r.rowIndex, site: r.site })))
-            await Promise.all(
-                existingRows.map(async (row) => {
-                    const response = await fetch("/api/sheet/delete", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            sheetName: row.sheetName,
-                            rowIndex: row.rowIndex,
-                        }),
-                    })
-
-                    const result = await response.json().catch(() => ({}))
-                    console.log("[delete duplicate] api response:", { sheetName: row.sheetName, rowIndex: row.rowIndex, ok: response.ok, result })
-                    if (!response.ok) {
-                        throw new Error(result.message || "Xóa thất bại")
-                    }
-                }),
-            )
-
-            setPendingChanges((prev) => {
-                const updated = new Map(prev)
-                existingRows.forEach((row) => {
-                    updated.delete(`update-${row.sheetName}-${row.rowIndex}`)
-                })
-                return updated
-            })
-
-            // Gửi thông báo Telegram về việc xóa site (tương tự như khi chỉnh sửa)
-            try {
-                const deleteLines = existingRows.map((row) => {
-                    const site = row.site?.toString().trim() || "(trống)"
-                    const traffic = row.trafficTool?.toString().trim()
-                    const sheetInfo = row.sheetName ? ` (Sheet ${row.sheetName})` : ""
-                    return traffic ? `${site} - Traffic ${traffic}${sheetInfo}` : `${site}${sheetInfo}`
-                })
-
-                if (deleteLines.length > 0) {
-                    const token = localStorage.getItem("auth-token")
-                    const headers: Record<string, string> = { "Content-Type": "application/json" }
-                    if (token) headers.Authorization = `Bearer ${token}`
-
-                    await fetch("/api/telegram/summary", {
-                        method: "POST",
-                        headers,
-                        credentials: "include",
-                        body: JSON.stringify({
-                            deleteLines,
-                            username: userInfo ? `${userInfo.username}-${userInfo.fullname}` : undefined,
-                        }),
-                    })
-                }
-            } catch (telegramError) {
-                console.error("Telegram delete notification error:", telegramError)
-                // Không throw error để không ảnh hưởng đến quá trình xóa
-            }
-
-            const removedKeys = new Set<string>()
-            existingRows.forEach((row) => {
-                const key = getRowKey(row.sheetName, row.rowIndex, row.site)
-                if (key) removedKeys.add(key)
-            })
-
-            if (removedKeys.size) {
-                // Cập nhật duplicateSites: loại bỏ các site đã xóa
-                setDuplicateSites((prev) => {
-                    const updated = { ...prev }
-                    Object.keys(updated).forEach((domain) => {
-                        updated[domain] = updated[domain].filter((item) => {
-                            const key = getRowKey(item.sheetName, item.rowIndex, item.site)
-                            return key && !removedKeys.has(key)
-                        })
-                        // Nếu không còn site trùng nào, xóa domain khỏi duplicateSites
-                        if (updated[domain].length === 0) {
-                            delete updated[domain]
-                        }
-                    })
-                    return updated
-                })
-            }
-
-            // Reload lại dữ liệu ở background (không await)
-            if (hasSearched && searchTerm.trim() !== "") {
-                refetch("", selectedSearchType, undefined, true)
-                    .catch((refreshError: any) => {
-                        console.error("Background refresh after delete duplicate failed:", refreshError)
-                    })
-            } else {
-                refetch()
-                    .catch((refreshError: any) => {
-                        console.error("Background refresh after delete duplicate failed:", refreshError)
-                    })
-            }
-
-            toast.success("Đã xóa dòng thành công")
-        } catch (error: any) {
-            console.error("Delete duplicate rows error:", error)
-            toast.error(`Xóa dữ liệu thất bại: ${error?.message || "Không thể xóa"}`)
-        } finally {
-            setIsDeleting(false)
-            setIsSearching(false)
-        }
-    }, [duplicateSites, getRowsFromSelection, getRowKey, hasSearched, searchTerm, refetch, selectedSearchType])
-
-    // Modal handlers
-    const handleOpenModal = useCallback(() => {
-        setIsModalOpen(true)
-        setNumberOfRows(1)
-        setRegionType("VN")
-    }, [])
-
-    const handleCloseModal = useCallback(() => {
-        setIsModalOpen(false)
-        setNumberOfRows(1)
-        setRegionType("VN")
-    }, [])
-
-    const handleAddRows = useCallback(() => {
-        if (numberOfRows < 1 || numberOfRows > 100) {
-            toast.warning("Số lượng dòng phải từ 1 đến 100")
-            return
-        }
-        
-        const sheetName = regionType === "VN" ? "4" : "5"
-        
-       
-        const newRows: SiteData[] = Array.from({ length: numberOfRows }, () => ({
-            rowIndex: 0,
-            sheetName: "",
-            cs: "",
-            site: "",
-            bong: "",
-            bet: "",
-            chuDe: "",
-            nuoc: "",
-            ngay: "",
-            linkOut: "",
-            DR: "",
-            keywords: "",
-            trafficTool: "",
-            noteKH: "",
-            noteNB: "",
-            giaMuaGP: "",
-            giaMuaText: "",
-            giaMuaTextHome: "",
-            giaMuaTextHeader: "",
-            hoaHongGP: "",
-            hoaHongText: "",
-            KeGP: "",
-            KeText: "",
-            loiNhuanGP: "",
-            loiNhuanText: "",
-            NCC: "",
-            MaNCC: "",
-            tiGiaXGP: "",
-            tiGiaXFooter: "",
-            tiGiaHome: "",
-            tiGiaHeader: "",
-        }))
-        
-        // Thêm vào newRows (riêng biệt, luôn hiển thị) và track new rows
-        setNewRows((prev) => {
-            const newData = [...prev, ...newRows]
-            // Track new rows with their sheet (index trong newRows array)
-            const newMap = new Map(newRowsSheetMap)
-            const startIndex = prev.length
-            for (let i = 0; i < newRows.length; i++) {
-                newMap.set(startIndex + i, sheetName)
-            }
-            setNewRowsSheetMap(newMap)
-            return newData
-        })
-        
-        // Đánh dấu đã search để hiển thị bảng
-        setHasSearched(true)
-        
-        // Đóng modal
-        handleCloseModal()
-    }, [numberOfRows, regionType, handleCloseModal, newRowsSheetMap])
 
     // Sync header and body scroll
     useEffect(() => {
@@ -2411,114 +1651,16 @@ export default function PageBody() {
     }, [filteredData, newRows])
 
     // Render table
-    const contextMenuCustomItems = useMemo(() => {
-        return {
-            delete_selected_rows: {
-                name(this: any, selection: any[]) {
-                    const mergedData = [...filteredData, ...newRows]
-                    const rows = getRowsFromSelection(selection || this?.getSelected?.(), mergedData.length)
-
-                    // Đếm số dòng hợp lệ để xóa (chỉ trong filteredData hoặc newRows)
-                    let validCount = 0
-                    rows.forEach((rowIdx) => {
-                        if (rowIdx < filteredData.length) {
-                            // Dòng trong filteredData - hợp lệ
-                            validCount++
-                        } else if (rowIdx < mergedData.length) {
-                            // Dòng trong newRows - hợp lệ
-                            const newRowIdx = rowIdx - filteredData.length
-                            if (newRowIdx >= 0 && newRowIdx < newRows.length) {
-                                validCount++
-                            }
-                        }
-                        // Dòng ngoài phạm vi - không hợp lệ
-                    })
-
-                    if (validCount === 0) {
-                        return "Không thể xóa (ngoài phạm vi tìm kiếm)"
-                    }
-
-                    return `Xóa ${validCount} dòng`
-                },
-                callback: (_key: string, selection: any[]) => {
-                    handleDeleteRows(selection)
-                },
-                disabled: function(this: any, selection: any[]) {
-                    const mergedData = [...filteredData, ...newRows]
-                    const rows = getRowsFromSelection(selection || this?.getSelected?.(), mergedData.length)
-
-                    // Kiểm tra xem có ít nhất một dòng hợp lệ để xóa không
-                    for (const rowIdx of rows) {
-                        if (rowIdx < filteredData.length) {
-                            // Dòng trong filteredData - hợp lệ
-                            return false
-                        } else if (rowIdx < mergedData.length) {
-                            // Dòng trong newRows - hợp lệ
-                            const newRowIdx = rowIdx - filteredData.length
-                            if (newRowIdx >= 0 && newRowIdx < newRows.length) {
-                                return false
-                            }
-                        }
-                    }
-                    return true // Tất cả dòng đều không hợp lệ
-                }
-            },
-        }
-    }, [filteredData, newRows, getRowsFromSelection, handleDeleteRows])
-
-    // Context menu riêng cho duplicate table
-    const duplicateContextMenuCustomItems = useMemo(() => {
-        return {
-            delete_selected_rows: {
-                name(this: any, selection: any[]) {
-                    const allDuplicates = Object.values(duplicateSites).flat()
-                    const rows = getRowsFromSelection(selection || this?.getSelected?.(), allDuplicates.length)
-
-                    // Đếm số dòng hợp lệ để xóa
-                    let validCount = 0
-                    rows.forEach((rowIdx) => {
-                        if (rowIdx >= 0 && rowIdx < allDuplicates.length) {
-                            validCount++
-                        }
-                    })
-
-                    if (validCount === 0) {
-                        return "Không thể xóa"
-                    }
-
-                    return `Xóa ${validCount} dòng`
-                },
-                callback: (_key: string, selection: any[]) => {
-                    handleDeleteDuplicateRows(selection)
-                },
-                disabled: function(this: any, selection: any[]) {
-                    const allDuplicates = Object.values(duplicateSites).flat()
-                    const rows = getRowsFromSelection(selection || this?.getSelected?.(), allDuplicates.length)
-
-                    // Kiểm tra xem có ít nhất một dòng hợp lệ để xóa không
-                    for (const rowIdx of rows) {
-                        if (rowIdx >= 0 && rowIdx < allDuplicates.length) {
-                            return false
-                        }
-                    }
-                    return true // Tất cả dòng đều không hợp lệ
-                }
-            },
-        }
-    }, [duplicateSites, getRowsFromSelection, handleDeleteDuplicateRows])
-
     const renderHotTable = useCallback((data: SiteData[], options?: { 
         ref?: React.RefObject<HotTableRef | null>, 
         onAfterChange?: (changes: any[] | null, source: string) => void,
         key?: string,
-        contextMenuCustomItems?: Record<string, any>
     }) => {
         if (!data || data.length === 0) return null
 
         const tableRef = options?.ref || mainTableRef
         const onAfterChangeHandler = options?.onAfterChange || handleAfterChange
         const tableKey = options?.key || "quan-ly-site"
-        const customContextMenu = options?.contextMenuCustomItems || contextMenuCustomItems
 
         return (
             <div className="w-full">
@@ -2529,7 +1671,6 @@ export default function PageBody() {
                     columns={mappedColumns}
                     nestedHeaders={nestedHeaders}
                     contextMenuOptions={{ showAddRow: false, showRemoveRow: false }}
-                    contextMenuCustomItems={customContextMenu}
                     height="auto"
                     width="100%"
                     licenseKey="non-commercial-and-evaluation"
@@ -2566,7 +1707,7 @@ export default function PageBody() {
                 />
             </div>
         )
-    }, [mappedColumns, nestedHeaders, handleAfterChange, handleBeforeCopy, handleBeforePaste, contextMenuCustomItems, showTiGiaColumns])
+    }, [mappedColumns, nestedHeaders, handleAfterChange, handleBeforeCopy, handleBeforePaste, showTiGiaColumns])
 
     // Show loading spinner when searching, loading, or refreshing
     const showLoading = isSearching || loading || refreshing
@@ -2593,15 +1734,6 @@ export default function PageBody() {
                                 className="text-sm sm:text-base w-full px-4 py-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-48 text-gray-700 placeholder-gray-400 bg-white shadow-sm resize-none overflow-y-auto"
                             />
                             <div className="absolute right-3 top-3 flex items-center gap-2">
-                                <button
-                                    onClick={handleOpenModal}
-                                    className="cursor-pointer flex items-center gap-2 px-3 py-2 sm:px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium text-sm"
-                                    aria-label="Thêm dữ liệu"
-                                    title="Thêm dữ liệu"
-                                >
-                                    <Plus className="h-4 w-4" />
-                                    <span className="hidden sm:inline">Thêm dữ liệu</span>
-                                </button>
                                 <button
                                     onClick={handleSaveChanges}
                                     disabled={isSaving || pendingChanges.size === 0 || loading || refreshing}
@@ -2631,24 +1763,7 @@ export default function PageBody() {
                                         </>
                                     )}
                                 </button>
-                                <button
-                                    onClick={() => setShowTiGiaColumns(!showTiGiaColumns)}
-                                    className="cursor-pointer flex items-center gap-2 px-3 py-2 sm:px-4 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-sm font-medium text-sm"
-                                    title={showTiGiaColumns ? "Ẩn cột chênh lệch giá" : "Hiện cột chênh lệch giá"}
-                                    aria-label={showTiGiaColumns ? "Ẩn cột chênh lệch giá" : "Hiện cột chênh lệch giá"}
-                                >
-                                    {showTiGiaColumns ? (
-                                        <>
-                                            <EyeOff className="h-4 w-4" />
-                                            <span className="hidden sm:inline">Ẩn chênh lệch</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Eye className="h-4 w-4" />
-                                            <span className="hidden sm:inline">Hiện chênh lệch</span>
-                                        </>
-                                    )}
-                                </button>
+                              
                                 <button
                                     onClick={handleSearchClick}
                                     disabled={loading || refreshing || isSearching}
@@ -2792,7 +1907,6 @@ export default function PageBody() {
                                             ref: duplicateTableRef,
                                             onAfterChange: handleDuplicateAfterChange,
                                             key: "duplicate-sites-table",
-                                            contextMenuCustomItems: duplicateContextMenuCustomItems
                                         })}
                                     </div>
                                 </div>
@@ -2838,82 +1952,6 @@ export default function PageBody() {
             >
                 <Copy className="h-6 w-6" />
             </button>
-
-            {/* Add Data Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col">
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                            <h2 className="text-2xl font-semibold text-gray-800">Thêm dữ liệu mới</h2>
-                            <button
-                                onClick={handleCloseModal}
-                                className="cursor-pointer p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                                aria-label="Đóng"
-                            >
-                                <X className="h-5 w-5 text-gray-500" />
-                            </button>
-                        </div>
-
-                        {/* Modal Body */}
-                        <div className="flex-1 overflow-y-auto p-6">
-                            {/* Form để nhập số lượng dòng và chọn khu vực */}
-                            <div className="space-y-6 max-w-md mx-auto">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Số lượng dòng cần thêm
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="100"
-                                        value={numberOfRows}
-                                        onChange={(e) => setNumberOfRows(Number.parseInt(e.target.value) || 1)}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Khu vực
-                                    </label>
-                                    <div className="flex gap-4">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="region"
-                                                value="VN"
-                                                checked={regionType === "VN"}
-                                                onChange={(e) => setRegionType(e.target.value as "VN" | "NN")}
-                                                className="w-4 h-4 text-blue-600"
-                                            />
-                                            <span className="text-gray-700">Việt Nam (Sheet 4)</span>
-                                        </label>
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="region"
-                                                value="NN"
-                                                checked={regionType === "NN"}
-                                                onChange={(e) => setRegionType(e.target.value as "VN" | "NN")}
-                                                className="w-4 h-4 text-blue-600"
-                                            />
-                                            <span className="text-gray-700">Nước Ngoài (Sheet 5)</span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <button
-                                    onClick={handleAddRows}
-                                    className="cursor-pointer w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                                >
-                                    Thêm
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     )
 }

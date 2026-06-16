@@ -2,14 +2,12 @@ import { google } from "googleapis"
 import { NextResponse, NextRequest } from "next/server"
 import { invalidateAllCache } from "@/lib/cache/sheetCache"
 import { verifyAuthToken } from "@/lib/utils/auth"
-import { TelegramService } from "@/lib/services/telegram.service"
-import { RewardRepository } from "@/lib/repositories/reward.repository"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
-const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
+const SPREADSHEET_ID = "19grUhpM5EhCMj7wXPnzZlShsy3qbljUIA5XWsFSBjuY"
 
 // Cache auth client để tránh tạo lại mỗi lần
 let cachedAuthClient: any = null
@@ -45,46 +43,36 @@ async function getAuthClient() {
 }
 
 // Map field names to column indices (0-based, matching the formatter)
+// Cột sheet VN (A3:V) — khớp formatter trong sheet/get
 const FIELD_TO_COLUMN: Record<string, number> = {
-    cs: 0,             
-    site: 1,           
-    bong: 2,           
-    bet: 3,            
-    chuDe: 4,          
-    nuoc: 5,
-    ngay: 6,
-    linkOut: 7,        
-    DR: 8,             
-    keywords: 9,       
-    trafficTool: 10,   
-    noteKH: 11,        
-    noteNB:12,   
-    giaBanGP: 31,      
-    giaBanText: 32,    
-    giaBanTextHome: 33,
-    giaBanTextHeader: 34,
-    giaMuaGP: 16,      
-    giaMuaText: 17,    
-    giaMuaTextHome: 18,
-    giaMuaTextHeader: 19,
-    hoaHongGP: 20,     
-    hoaHongText: 21,   
-    KeGP: 22,          
-    KeText: 23,        
-    NCC: 24,            
-    MaNCC: 25,
-    tiGiaXGP: 36,
-    tiGiaXFooter: 37,
-    tiGiaHome: 38,
-    tiGiaHeader: 39,
+    cs: 0,
+    site: 1,
+    chuDe: 2,
+    linkOut: 3,
+    DR: 4,
+    keywords: 5,
+    trafficTool: 6,
+    noteKH: 7,
+    tinhTrang: 8,
+    giaBanGP: 9,
+    giaBanText: 10,
+    giaBanTextHome: 11,
+    giaBanTextHeader: 12,
+    MaNCC: 13,
+    NCC: 14,
+    giaMuaGP: 15,
+    giaMuaText: 16,
+    giaMuaTextHome: 17,
+    giaMuaTextHeader: 18,
+    keThem:19,
+    hoaHongGP: 20,
+    hoaHongText: 21,
 }
 
 // Map field names to display names
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
     cs: "CS",
     site: "Site",
-    bong: "Bóng",
-    bet: "Bet",
     chuDe: "Chủ đề",
     nuoc: "Nước",   
     ngay: "Ngày",
@@ -93,25 +81,21 @@ const FIELD_DISPLAY_NAMES: Record<string, string> = {
     keywords: "Keywords",
     trafficTool: "Traffic Tool",
     noteKH: "Khách hàng",
-    noteNB: "Nội bộ",
     giaBanGP: "Giá bán GP",
     giaBanText: "Giá bán Text",
     giaBanTextHome: "Giá bán Text Home",
     giaBanTextHeader: "Giá bán Text Header",
+    keThem: "Kê thêm",
+    NCC: "NCC",
+    MaNCC: "Mã NCC",
     giaMuaGP: "Giá mua GP",
     giaMuaText: "Text Footer ($)",
     giaMuaTextHome: "Text Home ($)",
     giaMuaTextHeader: "Text Header ($)",
+    tinhTrang: "Tình trạng",
     hoaHongGP: "Hoa hồng GP",
     hoaHongText: "Hoa hồng Text",
-    KeGP: "Kê GP",
-    KeText: "Kê Text",
-    NCC: "NCC",
-    MaNCC: "Mã NCC",
-    tiGiaXGP: "Chênh lệch giá GP",
-    tiGiaXFooter: "Chênh lệch giá Footer",
-    tiGiaHome: "Chênh lệch giá Home",
-    tiGiaHeader: "Chênh lệch giá Header",
+    
 }
 
 // Convert column index to A1 notation (0 -> A, 1 -> B, ..., 25 -> Z, 26 -> AA)
@@ -173,8 +157,8 @@ async function findRowBySite(gsapi: any, sheetName: string, siteUrl: string, maN
     const normalizedMaNCC = maNCC ? String(maNCC).toUpperCase().trim() : null
     
     try {
-        // Read column B (site) and column AB (MaNCC) from the sheet starting from row 3
-        const range = `${sheetName}!B3:AB`
+        // Read column B (site) và N (MaNCC) từ sheet VN
+        const range = `${sheetName}!B3:N`
         const { data } = await gsapi.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
             range: range,
@@ -195,7 +179,7 @@ async function findRowBySite(gsapi: any, sheetName: string, siteUrl: string, maN
                 if (normalizedCell === normalizedSearch) {
                     // If MaNCC is provided, also check if it matches
                     if (normalizedMaNCC) {
-                        const cellMaNCC = row[25] // Column AB (index 26, which is MaNCC column - B is 0, so AB is 26)
+                        const cellMaNCC = row[12] // Cột N (MaNCC), offset từ B
                         const normalizedCellMaNCC = cellMaNCC ? String(cellMaNCC).toUpperCase().trim() : ""
                         
                         // Only return if both site and MaNCC match
@@ -246,9 +230,9 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        if (!sheetName || !["1", "2", "4", "5"].includes(String(sheetName))) {
+        if (!sheetName || !["VN"].includes(String(sheetName))) {
             return NextResponse.json(
-                { error: true, message: "Invalid sheetName. Must be '1', '2', '4', or '5'" },
+                { error: true, message: "Invalid sheetName. Must be 'VN'" },
                 { status: 400 }
             )
         }
@@ -377,67 +361,6 @@ export async function POST(req: NextRequest) {
                 ...c,
                 displayName: FIELD_DISPLAY_NAMES[c.field] || c.field,
             }))
-        }
-
-        // Process Telegram notification and reward (only if username is available and there are actual changes)
-        if (!skipTelegram && username && changes.length > 0) {
-            try {
-                // Group changes by site (in case multiple sites are updated in one request)
-                const siteChanges = new Map<string, typeof changes>()
-                siteChanges.set(siteName, changes)
-
-                // Send Telegram notification for each site
-                for (const [currentSite, siteChangeList] of siteChanges) {
-                    // Build Telegram message
-                    let message = `🔄 CẬP NHẬT SITE 🔄\n\n`
-                    message += `👤 Người thực hiện: ${username || "Unknown"}\n\n`
-                    message += `📝 Chi tiết cập nhật:\n\n`
-                    message += `🌐 ${currentSite}\n`
-                    
-                    for (const change of siteChangeList) {
-                        const displayName = FIELD_DISPLAY_NAMES[change.field] || change.field
-                        const oldVal = change.oldValue === "" ? "(trống)" : String(change.oldValue)
-                        const newVal = change.newValue === "" ? "(trống)" : String(change.newValue)
-                        message += `  • ${displayName}: ${oldVal} → ${newVal}\n`
-                    }
-
-                    // Send Telegram message
-                    const telegramService = new TelegramService()
-                    try {
-                        await telegramService.sendMessage({
-                            chatId: "-1003124919874_1033",
-                            message: message,
-                        })
-                    } catch (telegramError) {
-                        console.error("Error sending Telegram notification:", telegramError)
-                        // Don't fail the update if Telegram fails
-                    }
-
-                    // Create reward (1.000 VND per site updated)
-                    const rewardRepository = new RewardRepository()
-                    const now = new Date()
-                    const year = now.getFullYear()
-                    const month = now.getMonth() + 1
-                    
-                    try {
-                        await rewardRepository.create({
-                            username,
-                            year,
-                            month,
-                            amount: 1000, // 1.000 VND
-                            site: currentSite,
-                            reason: "Cập nhật site",
-                            createdAt: now.toISOString(),
-                        })
-                    } catch (rewardError) {
-                        console.error("Error creating reward:", rewardError)
-                        // Don't fail the update if reward creation fails
-                    }
-                }
-            } catch (notificationError) {
-                console.error("Error processing notification/reward:", notificationError)
-                // Don't fail the update if notification/reward processing fails
-            }
         }
 
         return NextResponse.json({

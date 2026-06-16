@@ -9,34 +9,22 @@ interface SiteData {
   cs: string;
   tinhTrang: string;
   site: string;
-  bong: string;
-  bet: string;
   chuDe: string;
-  nuoc: string;
-  ngay: string;
   linkOut: string;
   DR: string;
   keywords: string;
   trafficTool: string;
   noteKH: string;
-  noteNB: string;
-  noteNCC: string;
   giaBanGP: string;
   giaBanText: string;
   giaBanTextHome: string;
   giaBanTextHeader: string;
-  giaBanGPX: string;
-  giaBanTextX: string;
-  giaBanTextHomeX: string;
-  giaBanTextHeaderX: string;
   giaMuaGP: string;
   giaMuaText: string;
   giaMuaTextHome: string;
   giaMuaTextHeader: string;
   hoaHongGP: string;
   hoaHongText: string;
-  KeGP: string;
-  KeText: string;
   giaCuoiGP: string;
   giaCuoiText: string;
   giaCuoiTextHome: string;
@@ -50,11 +38,7 @@ interface SiteData {
   FileNCC: string[] | string;
   GroupNCC: string[] | string;
   timeText: string;
-  IdGroup?: string | number | null;
-  tiGiaXGP?: string;
-  tiGiaXFooter?: string;
-  tiGiaHome?: string;
-  tiGiaHeader?: string;
+  keThem:string;
 }
 
 interface FilterParams {
@@ -120,34 +104,22 @@ function convertToSiteData(row: FormattedRow): SiteData {
     cs: convertValue(row.cs),
     tinhTrang: convertValue(row.tinhTrang),
     site: convertValue(row.site),
-    bong: convertValue(row.bong),
-    bet: convertValue(row.bet),
     chuDe: convertValue(row.chuDe),
-    nuoc: convertValue(row.nuoc),
-    ngay: convertValue(row.ngay),
     linkOut: convertValue(row.linkOut),
     DR: convertValue(row.DR),
     keywords: convertValue(row.keywords),
     trafficTool: convertValue(row.trafficTool),
     noteKH: convertValue((row as any).noteKH),
-    noteNB: convertValue((row as any).noteNB),
-    noteNCC: convertValue((row as any).noteNCC),
     giaBanGP: convertValue(row.giaBanGP),
     giaBanText: convertValue(row.giaBanText),
     giaBanTextHome: convertValue(row.giaBanTextHome),
     giaBanTextHeader: convertValue(row.giaBanTextHeader),
-    giaBanGPX: convertValue(row.giaBanGPX),
-    giaBanTextX: convertValue(row.giaBanTextX),
-    giaBanTextHomeX: convertValue(row.giaBanTextHomeX),
-    giaBanTextHeaderX: convertValue(row.giaBanTextHeaderX),
     giaMuaGP: convertValue(row.giaMuaGP),
     giaMuaText: convertValue(row.giaMuaText),
     giaMuaTextHome: convertValue(row.giaMuaTextHome),
     giaMuaTextHeader: convertValue(row.giaMuaTextHeader),
     hoaHongGP: convertValue(row.hoaHongGP),
     hoaHongText: convertValue(row.hoaHongText),
-    KeGP: convertValue(row.KeGP),
-    KeText: convertValue(row.KeText),
     giaCuoiGP: convertValue(row.giaCuoiGP),
     giaCuoiText: convertValue(row.giaCuoiText),
     giaCuoiTextHome: convertValue(row.giaCuoiTextHome),
@@ -161,11 +133,7 @@ function convertToSiteData(row: FormattedRow): SiteData {
     FileNCC: convertFileNCC(row.FileNCC),
     GroupNCC: convertFileNCC(row.GroupNCC),
     timeText: convertValue(row.timeText),
-    IdGroup: row.IdGroup,
-    tiGiaXGP: (row as any).tiGiaXGP ? convertValue((row as any).tiGiaXGP) : undefined,
-    tiGiaXFooter: (row as any).tiGiaXFooter ? convertValue((row as any).tiGiaXFooter) : undefined,
-    tiGiaHome: (row as any).tiGiaHome ? convertValue((row as any).tiGiaHome) : undefined,
-    tiGiaHeader: (row as any).tiGiaHeader ? convertValue((row as any).tiGiaHeader) : undefined,
+    keThem: convertValue(row.keThem)
   };
 }
 

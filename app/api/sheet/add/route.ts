@@ -9,7 +9,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
-const SPREADSHEET_ID = "10GTx3pu_xGGMgeskiflaKla8ACHBn-bNzUvEEtGHyDU"
+const SPREADSHEET_ID = "19grUhpM5EhCMj7wXPnzZlShsy3qbljUIA5XWsFSBjuY"
 
 // Cache auth client để tránh tạo lại mỗi lần
 let cachedAuthClient: any = null
@@ -45,38 +45,29 @@ async function getAuthClient() {
 }
 
 // Map field names to column indices (0-based, matching the formatter)
+// Cột sheet VN (A3:V) — khớp formatter trong sheet/get
 const FIELD_TO_COLUMN: Record<string, number> = {
-    cs: 0,             
-    site: 1,           
-    bong: 2,           
-    bet: 3,            
-    chuDe: 4,          
-    nuoc: 5,
-    ngay: 6,
-    linkOut: 7,        
-    DR: 8,             
-    keywords: 9,       
-    trafficTool: 10,   
-    noteKH: 11,        
-    noteNB:12,  
-    giaBanGP: 31,      
-    giaBanText: 32,    
-    giaBanTextHome: 33,
-    giaBanTextHeader: 34,
-    giaMuaGP: 16,      
-    giaMuaText: 17,    
-    giaMuaTextHome: 18,
-    giaMuaTextHeader: 19,
-    hoaHongGP: 20,     
-    hoaHongText: 21,   
-    KeGP: 22,          
-    KeText: 23,        
-    NCC: 24,            
-    MaNCC: 25,
-    tiGiaXGP: 36,
-    tiGiaXFooter: 37,
-    tiGiaHome: 38,
-    tiGiaHeader: 39,
+    cs: 0,
+    site: 1,
+    chuDe: 2,
+    linkOut: 3,
+    DR: 4,
+    keywords: 5,
+    trafficTool: 6,
+    noteKH: 7,
+    tinhTrang: 8,
+    giaBanGP: 9,
+    giaBanText: 10,
+    giaBanTextHome: 11,
+    giaBanTextHeader: 12,
+    MaNCC: 13,
+    NCC: 14,
+    giaMuaGP: 15,
+    giaMuaText: 16,
+    giaMuaTextHome: 17,
+    giaMuaTextHeader: 18,
+    hoaHongGP: 20,
+    hoaHongText: 21,
 }
 
 // Convert column index to A1 notation (0 -> A, 1 -> B, ..., 25 -> Z, 26 -> AA)
@@ -139,9 +130,9 @@ export async function POST(req: NextRequest) {
         const skipTelegram = req.headers.get("x-skip-telegram") === "true"
 
         // Validate required fields
-        if (!sheetName || !["4", "5"].includes(String(sheetName))) {
+        if (!sheetName || String(sheetName) !== "VN") {
             return NextResponse.json(
-                { error: true, message: "Invalid sheetName. Must be '4' (Việt Nam) or '5' (Nước Ngoài)" },
+                { error: true, message: "Invalid sheetName. Must be 'VN'" },
                 { status: 400 }
             )
         }
