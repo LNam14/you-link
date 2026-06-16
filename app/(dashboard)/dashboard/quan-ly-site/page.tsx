@@ -882,7 +882,7 @@ export default function PageBody() {
         const giaCols = columns.slice(8, 12)
         const hoaHongCols = columns.slice(12, 14)
         
-        const nccCol = columns.slice(15,17)
+        const nccCol = columns.slice(14,16)
         const keThemCols = columns.slice(16)
 
         firstRow.push({ label: "INFO", colspan: infoCols.length })
@@ -892,11 +892,12 @@ export default function PageBody() {
         firstRow.push({ label: "Giá", colspan: giaCols.length })
         giaCols.forEach((col) => secondRow.push(col.title))
 
-        firstRow.push({ label: "NCC", colspan: nccCol.length })
-        nccCol.forEach((col) => secondRow.push(col.title))
 
         firstRow.push({ label: "Hoa hồng", colspan: hoaHongCols.length })
         hoaHongCols.forEach((col) => secondRow.push(col.title))
+        
+        firstRow.push({ label: "NCC", colspan: nccCol.length })
+        nccCol.forEach((col) => secondRow.push(col.title))
 
         firstRow.push({ label: "", colspan: keThemCols.length })
         keThemCols.forEach((col) => secondRow.push(col.title))
