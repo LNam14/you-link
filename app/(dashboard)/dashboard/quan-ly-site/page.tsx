@@ -24,6 +24,12 @@ import { toast } from "sonner"
 const SHEET_NAME_NN = "NN"
 const SHEET_NAME_VN = "VN"
 
+const isValidSheetName = (sheetName?: string): sheetName is string =>
+    sheetName === SHEET_NAME_VN || sheetName === SHEET_NAME_NN
+
+const resolveSheetName = (sheetName?: string): string | null =>
+    isValidSheetName(sheetName) ? sheetName : null
+
 type SearchType = "Site" | "NCC"
 type CurrencyType = "USDT" | "VND"
 
@@ -1053,7 +1059,7 @@ export default function PageBody() {
     }, [filteredData])
 
     /**
-     * Cập nhật dữ liệu site trong Google Sheets (sheet VN)
+     * Cập nhật dữ liệu site trong Google Sheets theo sheetName (VN hoặc NN)
      */
     const updateSiteData = useCallback(async (
         site: string,
@@ -1067,9 +1073,13 @@ export default function PageBody() {
             const username = userInfo?.username || ""
             const fullname = userInfo?.fullname || ""
             const userDisplayName = `${username}-${fullname}`
-            const targetSheet = sheetName || SHEET_NAME_VN || SHEET_NAME_NN
+            const targetSheet = resolveSheetName(sheetName)
 
             if (rowIndex !== undefined && rowIndex !== null) {
+                if (!targetSheet) {
+                    throw new Error("Thiếu sheetName hợp lệ (VN hoặc NN) để xác định sheet cần cập nhật")
+                }
+
                 console.log(`[updateSiteData] Using rowIndex ${rowIndex} directly in sheet ${targetSheet}`)
                 const response = await fetch("/api/sheet/update", {
                     method: "POST",
@@ -1099,7 +1109,8 @@ export default function PageBody() {
                 throw new Error("Thiếu thông tin site hoặc rowIndex để cập nhật")
             }
 
-            console.warn(`[updateSiteData] Fallback: searching for site "${site}" in sheet ${targetSheet}`)
+            const fallbackSheet = targetSheet ?? SHEET_NAME_VN
+            console.warn(`[updateSiteData] Fallback: searching for site "${site}" in sheet ${fallbackSheet}`)
             const response = await fetch("/api/sheet/update", {
                 method: "POST",
                 headers: {
@@ -1108,7 +1119,7 @@ export default function PageBody() {
                 },
                 body: JSON.stringify({
                     site,
-                    sheetName: targetSheet,
+                    sheetName: fallbackSheet,
                     updates,
                     maNCC,
                     username: userDisplayName,
@@ -1164,19 +1175,26 @@ export default function PageBody() {
                 if (!siteToFind || siteToFind.trim() === "") continue
 
                 let rowIndex = rowData.rowIndex
-                let sheetName = rowData.sheetName || SHEET_NAME_VN || SHEET_NAME_NN
+                let sheetName = resolveSheetName(rowData.sheetName)
                 const maNCC = rowData.MaNCC || undefined
 
                 if ((!rowIndex || rowIndex < 3) && allData && allData.length > 0) {
                     const normalizedSiteToFind = normalizeUrl(siteToFind)
                     const originalRow = allData.find((item: any) => {
                         const normalizedSite = normalizeUrl(item.site)
-                        return normalizedSite === normalizedSiteToFind
+                        if (normalizedSite !== normalizedSiteToFind) return false
+                        if (sheetName) return item.sheetName === sheetName
+                        return true
                     })
                     if (originalRow) {
                         rowIndex = originalRow.rowIndex || rowIndex
-                        sheetName = originalRow.sheetName || SHEET_NAME_VN || SHEET_NAME_NN
+                        sheetName = resolveSheetName(originalRow.sheetName) ?? sheetName
                     }
+                }
+
+                if (!sheetName) {
+                    console.warn(`[handleAfterChange] Missing valid sheetName for site "${siteToFind}". Skipping queueing update.`)
+                    continue
                 }
 
                 if (!rowIndex || rowIndex < 3) {
@@ -1263,8 +1281,13 @@ export default function PageBody() {
 
                 // Sử dụng rowIndex và sheetName trực tiếp từ duplicateSites
                 const rowIndex = rowData.rowIndex
-                const sheetName = rowData.sheetName || SHEET_NAME_VN || SHEET_NAME_NN   
-                    const maNCC = rowData.MaNCC || undefined
+                const sheetName = resolveSheetName(rowData.sheetName)
+                const maNCC = rowData.MaNCC || undefined
+
+                if (!sheetName) {
+                    console.warn(`[handleDuplicateAfterChange] Missing valid sheetName for duplicate site "${siteToFind}". Skipping queueing update.`)
+                    continue
+                }
 
                 if (!rowIndex || rowIndex < 3) {
                     console.warn(`[handleDuplicateAfterChange] Missing valid rowIndex for duplicate site "${siteToFind}". Skipping queueing update.`)
@@ -1377,46 +1400,43 @@ export default function PageBody() {
                 }
 
                 const normalizedSite = normalizeUrl(site || "")
+                const resolvedSheetName = resolveSheetName(sheetName)
 
-                const matchLocalAdded = localAddedRows.find((item) => {
+                const matchesRow = (item: SiteData) => {
                     const itemKey = getRowKey(item.sheetName, item.rowIndex, item.site)
                     if (key && itemKey === key) return true
-                    return normalizedSite && normalizeUrl(item.site || "") === normalizedSite
-                })
+                    if (!normalizedSite || normalizeUrl(item.site || "") !== normalizedSite) return false
+                    if (resolvedSheetName) return item.sheetName === resolvedSheetName
+                    return true
+                }
+
+                const matchLocalAdded = localAddedRows.find(matchesRow)
                 if (matchLocalAdded) return matchLocalAdded
 
                 // Khi đang hiển thị VND, `filteredData` đã bị convert để hiển thị.
                 // Ưu tiên lấy dữ liệu gốc (USDT) từ `allData` để tránh nhân tỉ giá lại khi merge/cache.
                 if (selectedCurrency === "VND") {
-                    const matchAll = allData.find((item) => {
-                        const itemKey = getRowKey(item.sheetName, item.rowIndex, item.site)
-                        if (key && itemKey === key) return true
-                        return normalizedSite && normalizeUrl(item.site || "") === normalizedSite
-                    })
+                    const matchAll = allData.find(matchesRow)
                     if (matchAll) return matchAll
                 }
 
-                const matchFiltered = filteredData.find((item) => {
-                    const itemKey = getRowKey(item.sheetName, item.rowIndex, item.site)
-                    if (key && itemKey === key) return true
-                    return normalizedSite && normalizeUrl(item.site || "") === normalizedSite
-                })
+                const matchFiltered = filteredData.find(matchesRow)
                 if (matchFiltered) {
                     // `filteredData` là dữ liệu UI (có thể đã convert sang VND). Trước khi merge, đảm bảo dùng giá gốc USDT.
                     return toRawMoneyFieldsIfVnd(matchFiltered)
                 }
 
-                const matchAll = allData.find((item) => {
-                    const itemKey = getRowKey(item.sheetName, item.rowIndex, item.site)
-                    if (key && itemKey === key) return true
-                    return normalizedSite && normalizeUrl(item.site || "") === normalizedSite
-                })
+                const matchAll = allData.find(matchesRow)
                 return matchAll || null
             }
 
             for (const change of updateChanges) {
                 const { site, updates, rowIndex, maNCC, sheetName } = change
-                const result = await updateSiteData(site, updates, rowIndex, maNCC, sheetName || SHEET_NAME_VN || SHEET_NAME_NN)
+                const resolvedSheetName = resolveSheetName(sheetName)
+                if (!resolvedSheetName) {
+                    throw new Error(`Thiếu sheetName hợp lệ cho site "${site}"`)
+                }
+                const result = await updateSiteData(site, updates, rowIndex, maNCC, resolvedSheetName)
 
                     if (result?.site && Array.isArray(result?.changes) && result.changes.length > 0) {
                         updateDetailLines.push(`🌐 ${result.site}`)
@@ -1430,9 +1450,9 @@ export default function PageBody() {
                     }
 
                     const baseRow =
-                        findExistingRow(sheetName, rowIndex, site) ||
+                        findExistingRow(resolvedSheetName, rowIndex, site) ||
                         ({
-                            sheetName: sheetName || "",
+                            sheetName: resolvedSheetName,
                             rowIndex: rowIndex ?? 0,
                             cs: "",
                             site: site || "",
@@ -1456,7 +1476,7 @@ export default function PageBody() {
                     const mergedRow: SiteData = {
                         ...baseRow,
                         ...updates,
-                        sheetName: sheetName || baseRow.sheetName,
+                        sheetName: resolvedSheetName,
                         rowIndex: rowIndex ?? baseRow.rowIndex,
                         MaNCC: (updates as any)?.MaNCC ?? baseRow.MaNCC ?? maNCC,
                     }

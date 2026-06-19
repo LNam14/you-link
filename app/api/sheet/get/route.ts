@@ -163,7 +163,7 @@ const sheetConfigs: Record<string, SheetConfig> = {
                 keThem: row[19],
                 FileNCC: fileNCC,
                 GroupNCC: groupNCC,
-                sheetName: (row as any)._sheetName || "VN" || "NN",
+                sheetName: (row as any)._sheetName ?? "VN",
                 rowIndex: index,
             }
         },
@@ -340,7 +340,7 @@ export async function GET(req: Request) {
                 for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
                     const chunk = rows.slice(i, i + CHUNK_SIZE)
                     const chunkResult = chunk.map((row: any) => {
-                        const sheetName = row._sheetName || "VN" || "NN"
+                        const sheetName = row._sheetName ?? "VN"
                         const startRow = row._startRow || 3
 
                         if (!sheetRowCounters.has(sheetName)) sheetRowCounters.set(sheetName, 0)

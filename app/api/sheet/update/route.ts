@@ -157,7 +157,7 @@ async function findRowBySite(gsapi: any, sheetName: string, siteUrl: string, maN
     const normalizedMaNCC = maNCC ? String(maNCC).toUpperCase().trim() : null
     
     try {
-        // Read column B (site) và N (MaNCC) từ sheet VN
+        // Read column B (site) và N (MaNCC) từ sheet chỉ định
         const range = `${sheetName}!B3:N`
         const { data } = await gsapi.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
@@ -230,9 +230,10 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        if (!sheetName || !["VN", "NN"].includes(String(sheetName))) {
+        const normalizedSheetName = String(sheetName || "").trim()
+        if (!normalizedSheetName || !["VN", "NN"].includes(normalizedSheetName)) {
             return NextResponse.json(
-                { error: true, message: "Invalid sheetName. Must be 'VN'" },
+                { error: true, message: "Invalid sheetName. Must be 'VN' or 'NN'" },
                 { status: 400 }
             )
         }
@@ -261,15 +262,15 @@ export async function POST(req: NextRequest) {
                 )
             }
             // Skip site search when rowIndex is provided - sử dụng trực tiếp
-            console.log(`[sheet/update] Using rowIndex ${targetRowIndex} directly in sheet ${sheetName} (skipping search)`)
+            console.log(`[sheet/update] Using rowIndex ${targetRowIndex} directly in sheet ${normalizedSheetName} (skipping search)`)
         } else if (site) {
             // Fallback: Find row by site URL and optionally MaNCC (chỉ khi không có rowIndex)
-            console.log(`[sheet/update] Searching for site "${site}" in sheet ${sheetName}${maNCC ? ` with MaNCC "${maNCC}"` : ""}`)
-            targetRowIndex = await findRowBySite(gsapi, String(sheetName), site, maNCC)
+            console.log(`[sheet/update] Searching for site "${site}" in sheet ${normalizedSheetName}${maNCC ? ` with MaNCC "${maNCC}"` : ""}`)
+            targetRowIndex = await findRowBySite(gsapi, normalizedSheetName, site, maNCC)
             if (!targetRowIndex) {
                 const errorMsg = maNCC 
-                    ? `Site "${site}" with MaNCC "${maNCC}" not found in sheet ${sheetName}`
-                    : `Site "${site}" not found in sheet ${sheetName}`
+                    ? `Site "${site}" with MaNCC "${maNCC}" not found in sheet ${normalizedSheetName}`
+                    : `Site "${site}" not found in sheet ${normalizedSheetName}`
                 return NextResponse.json(
                     { error: true, message: errorMsg },
                     { status: 404 }
@@ -293,7 +294,7 @@ export async function POST(req: NextRequest) {
             }
 
             const columnLetter = columnIndexToLetter(columnIndex)
-            const range = `${sheetName}!${columnLetter}${targetRowIndex}`
+            const range = `${normalizedSheetName}!${columnLetter}${targetRowIndex}`
             
             // Convert value to appropriate format
             let formattedValue: any = value
@@ -320,7 +321,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Read old data before update to compare changes
-        const oldData = await readRowData(gsapi, String(sheetName), targetRowIndex)
+        const oldData = await readRowData(gsapi, normalizedSheetName, targetRowIndex)
         const siteName = oldData.site || site || "Unknown"
 
         // Perform batch update
@@ -365,7 +366,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            message: `Updated ${updateData.length} field(s) in sheet ${sheetName}, row ${targetRowIndex}`,
+            message: `Updated ${updateData.length} field(s) in sheet ${normalizedSheetName}, row ${targetRowIndex}`,
             updatedCells: data.totalUpdatedCells,
             updatedRows: data.totalUpdatedRows,
             updatedColumns: data.totalUpdatedColumns,
