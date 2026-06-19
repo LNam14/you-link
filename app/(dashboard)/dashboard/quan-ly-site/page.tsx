@@ -21,7 +21,8 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-const SHEET_NAME = "VN"
+const SHEET_NAME_NN = "NN"
+const SHEET_NAME_VN = "VN"
 
 type SearchType = "Site" | "NCC"
 type CurrencyType = "USDT" | "VND"
@@ -1066,7 +1067,7 @@ export default function PageBody() {
             const username = userInfo?.username || ""
             const fullname = userInfo?.fullname || ""
             const userDisplayName = `${username}-${fullname}`
-            const targetSheet = sheetName || SHEET_NAME
+            const targetSheet = sheetName || SHEET_NAME_VN || SHEET_NAME_NN
 
             if (rowIndex !== undefined && rowIndex !== null) {
                 console.log(`[updateSiteData] Using rowIndex ${rowIndex} directly in sheet ${targetSheet}`)
@@ -1163,7 +1164,7 @@ export default function PageBody() {
                 if (!siteToFind || siteToFind.trim() === "") continue
 
                 let rowIndex = rowData.rowIndex
-                let sheetName = rowData.sheetName || SHEET_NAME
+                let sheetName = rowData.sheetName || SHEET_NAME_VN || SHEET_NAME_NN
                 const maNCC = rowData.MaNCC || undefined
 
                 if ((!rowIndex || rowIndex < 3) && allData && allData.length > 0) {
@@ -1174,7 +1175,7 @@ export default function PageBody() {
                     })
                     if (originalRow) {
                         rowIndex = originalRow.rowIndex || rowIndex
-                        sheetName = originalRow.sheetName || SHEET_NAME
+                        sheetName = originalRow.sheetName || SHEET_NAME_VN || SHEET_NAME_NN
                     }
                 }
 
@@ -1262,7 +1263,7 @@ export default function PageBody() {
 
                 // Sử dụng rowIndex và sheetName trực tiếp từ duplicateSites
                 const rowIndex = rowData.rowIndex
-                const sheetName = rowData.sheetName || SHEET_NAME
+                const sheetName = rowData.sheetName || SHEET_NAME_VN || SHEET_NAME_NN   
                     const maNCC = rowData.MaNCC || undefined
 
                 if (!rowIndex || rowIndex < 3) {
@@ -1415,7 +1416,7 @@ export default function PageBody() {
 
             for (const change of updateChanges) {
                 const { site, updates, rowIndex, maNCC, sheetName } = change
-                const result = await updateSiteData(site, updates, rowIndex, maNCC, sheetName || SHEET_NAME)
+                const result = await updateSiteData(site, updates, rowIndex, maNCC, sheetName || SHEET_NAME_VN || SHEET_NAME_NN)
 
                     if (result?.site && Array.isArray(result?.changes) && result.changes.length > 0) {
                         updateDetailLines.push(`🌐 ${result.site}`)

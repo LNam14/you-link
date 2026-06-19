@@ -230,7 +230,7 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        if (!sheetName || !["VN"].includes(String(sheetName))) {
+        if (!sheetName || !["VN", "NN"].includes(String(sheetName))) {
             return NextResponse.json(
                 { error: true, message: "Invalid sheetName. Must be 'VN'" },
                 { status: 400 }
