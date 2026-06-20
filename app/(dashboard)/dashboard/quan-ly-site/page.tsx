@@ -96,7 +96,6 @@ export default function PageBody() {
     const [isUpdating, setIsUpdating] = useState(false)
     const [pendingChanges, setPendingChanges] = useState<Map<string, PendingChange>>(new Map())
     
-    const [showTiGiaColumns, setShowTiGiaColumns] = useState<boolean>(false) // State để ẩn/hiện cột tiGia
     const mainTableRef = useRef<HotTableRef>(null)
     const duplicateTableRef = useRef<HotTableRef>(null) // Ref riêng cho duplicate table
     const selectionAnchorRef = useRef<{ row: number; col: number } | null>(null)
@@ -836,23 +835,6 @@ export default function PageBody() {
                 className: "htMiddle",
                 renderer: createPriceRenderer("giaMuaTextHeader"),
             },
-            // Hoa hồng group
-            {
-                title: "GP",
-                data: "hoaHongGP",
-                width: 50,
-                className: "htMiddle",
-                renderer: createPriceRenderer("hoaHongGP"),
-            },
-            {
-                title: "Text",
-                data: "hoaHongText",
-                width:50,
-                className: "htMiddle",
-                renderer: createPriceRenderer("hoaHongText"),
-            },
-          
-          
             // NCC group
             {
                 title: "Tên",
@@ -868,13 +850,6 @@ export default function PageBody() {
                 className: "htMiddle",
                 renderer: createCellRenderer(),
             },
-            {
-                title: "Kê thêm",
-                data: "keThem",
-                width: 50,
-                className: "htMiddle",
-                renderer: createPriceRenderer("KeText"),
-            },
         ]
 
         return columns
@@ -887,27 +862,16 @@ export default function PageBody() {
 
         const infoCols = columns.slice(0, 8)
         const giaCols = columns.slice(8, 12)
-        const hoaHongCols = columns.slice(12, 14)
-        
-        const nccCol = columns.slice(14,16)
-        const keThemCols = columns.slice(16)
+        const nccCol = columns.slice(12, 14)
 
         firstRow.push({ label: "INFO", colspan: infoCols.length })
         infoCols.forEach((col) => secondRow.push(col.title))
 
-
         firstRow.push({ label: "Giá", colspan: giaCols.length })
         giaCols.forEach((col) => secondRow.push(col.title))
 
-
-        firstRow.push({ label: "Hoa hồng", colspan: hoaHongCols.length })
-        hoaHongCols.forEach((col) => secondRow.push(col.title))
-        
         firstRow.push({ label: "NCC", colspan: nccCol.length })
         nccCol.forEach((col) => secondRow.push(col.title))
-
-        firstRow.push({ label: "", colspan: keThemCols.length })
-        keThemCols.forEach((col) => secondRow.push(col.title))
 
         
         return [firstRow, secondRow]
@@ -1701,7 +1665,7 @@ export default function PageBody() {
                     rowHeaders={false}
                     colHeaders={true}
                     copyPaste={true}
-                    hiddenColumns={showTiGiaColumns ? [3] : [ 3, 23, 24, 25, 26]}
+                    hiddenColumns={[3]}
                     columnSorting={false}
                     autoColumnSize={false}
                     preventOverflow="horizontal"
@@ -1729,7 +1693,7 @@ export default function PageBody() {
                 />
             </div>
         )
-    }, [mappedColumns, nestedHeaders, handleAfterChange, handleBeforeCopy, handleBeforePaste, showTiGiaColumns])
+    }, [mappedColumns, nestedHeaders, handleAfterChange, handleBeforeCopy, handleBeforePaste])
 
     // Show loading spinner when searching, loading, or refreshing
     const showLoading = isSearching || loading || refreshing
