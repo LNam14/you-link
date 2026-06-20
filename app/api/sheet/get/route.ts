@@ -30,7 +30,7 @@ interface SheetConfig {
 
 const sheetConfigs: Record<string, SheetConfig> = {
     gpTextVN: {
-        range: "VN!A3:V, NN!A3:V",
+        range: "VN!A3:W, NN!A3:W",
         formatter: (row, allData, index) => {
             const parseNumber = (value: any) => {
                 if (value === null || value === undefined || value === "") return null
