@@ -6,7 +6,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
-const SPREADSHEET_ID = "1Shgrwu5O2XfGbgzUAxnksm0c0fUJsNl-tqGA1qoUvUc"
+const SPREADSHEET_ID = "1Shgrwu5O2XfGbgzUAxnksm0c0fUJsNl-tqGA1qoUvUc" 
 
 // Cache auth client để tránh tạo lại mỗi lần (giữ lại vì không ảnh hưởng dữ liệu)
 let cachedAuthClient: any = null
